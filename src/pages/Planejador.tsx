@@ -400,10 +400,16 @@ const Planejador = () => {
         [dateKey]: { ...currentDay, scheduledTasks: updatedScheduledTasks },
       };
     });
-    toast.info(`Tarefa "${taskToDelete.content}" removida da agenda.`);
-    // Re-fetch backlog to potentially show the task again if it was a Todoist task
-    fetchBacklogTasks();
-  }, [selectedDate, fetchBacklogTasks]);
+    
+    // Set the deleted task as selected for re-scheduling
+    if (taskToDelete.originalTask) {
+      handleSelectBacklogTask(taskToDelete.originalTask);
+      toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e pronta para ser reagendada.`);
+    } else {
+      toast.info(`Tarefa "${taskToDelete.content}" removida da agenda.`);
+    }
+    fetchBacklogTasks(); // Refresh backlog to potentially show the task again if it was a Todoist task
+  }, [selectedDate, fetchBacklogTasks, handleSelectBacklogTask]);
 
   const handleSelectSlot = useCallback(async (time: string, type: TimeBlockType) => { // Tornar assíncrono
     if (!selectedTaskToSchedule) {
