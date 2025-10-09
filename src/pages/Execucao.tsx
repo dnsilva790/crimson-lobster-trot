@@ -214,13 +214,7 @@ const Execucao = () => {
       const sortedTasks = sortTasksForFocus(latestTasks);
       setFocusTasks(sortedTasks);
       setOriginalTasksCount(sortedTasks.length); // Update original count based on latest fetch
-      if (currentTaskIndex < sortedTasks.length) {
-        // If current index is still valid for the new list, stay
-        // Otherwise, reset to 0 or move to the next valid index
-        setCurrentTaskIndex(currentTaskIndex);
-      } else {
-        setCurrentTaskIndex(0); // Reset to first task if current one is no longer valid
-      }
+      setCurrentTaskIndex(0); // Always reset to the first task in the new, sorted list
       setExecucaoState("focusing");
     } else {
       setFocusTasks([]);
@@ -228,7 +222,7 @@ const Execucao = () => {
       setExecucaoState("finished");
       toast.success("Modo Foco Total concluído!");
     }
-  }, [fetchTasks, filterInput, sortTasksForFocus, currentTaskIndex]);
+  }, [fetchTasks, filterInput, sortTasksForFocus]);
 
 
   const handleComplete = useCallback(async (taskId: string) => {
@@ -347,7 +341,7 @@ const Execucao = () => {
       const initialDueDate = currentTask.due?.date ? parseISO(currentTask.due.date) : undefined;
       const initialDueTime = currentTask.due?.datetime ? format(parseISO(currentTask.due.datetime), "HH:mm") : "";
       setSelectedDueDate(initialDueDate);
-      setSelectedDueTime(initialDueTime);
+      setSelectedDueTime(initialDueDueTime);
       setSelectedPriority(currentTask.priority);
     }
   }, [currentTask]);
@@ -373,8 +367,8 @@ const Execucao = () => {
                 Filtro de Tarefas (ex: "hoje", "p1", "#trabalho")
               </Label>
               <Input
-                type="text"
                 id="task-filter"
+                type="text"
                 placeholder="Opcional: insira um filtro do Todoist..."
                 value={filterInput}
                 onChange={(e) => setFilterInput(e.target.value)}
