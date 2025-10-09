@@ -13,7 +13,7 @@ interface TodoistContextType {
   apiKey: string | null;
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
-  fetchTasks: (filter?: string) => Promise<TodoistTask[]>;
+  fetchTasks: (filter?: string, includeSubtasksAndRecurring?: boolean) => Promise<TodoistTask[]>;
   closeTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   updateTask: (taskId: string, data: {
@@ -79,26 +79,32 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const fetchTasks = useCallback(
-    async (filter?: string) => {
+    async (filter?: string, includeSubtasksAndRecurring: boolean = false) => {
       const allTasks = (await makeApiCall(todoistService.fetchTasks, filter)) || [];
       
-      // Filtra subtarefas e tarefas recorrentes, e calcula estimatedDurationMinutes
-      const processedTasks = allTasks
-        .filter(task => task.parent_id === null && task.due?.is_recurring !== true)
-        .map(task => {
-          let estimatedDurationMinutes = 15; // Padrão de 15 minutos
-          if (task.duration) {
-            if (task.duration.unit === "minute") {
-              estimatedDurationMinutes = task.duration.amount;
-            } else if (task.duration.unit === "day") {
-              // Assumindo 8 horas de trabalho por dia para converter dias em minutos
-              estimatedDurationMinutes = task.duration.amount * 8 * 60;
-            }
+      // Calcula estimatedDurationMinutes para todas as tarefas
+      const tasksWithDuration = allTasks.map(task => {
+        let estimatedDurationMinutes = 15; // Padrão de 15 minutos
+        if (task.duration) {
+          if (task.duration.unit === "minute") {
+            estimatedDurationMinutes = task.duration.amount;
+          } else if (task.duration.unit === "day") {
+            // Assumindo 8 horas de trabalho por dia para converter dias em minutos
+            estimatedDurationMinutes = task.duration.amount * 8 * 60;
           }
-          return { ...task, estimatedDurationMinutes };
-        });
-      
-      return processedTasks;
+        }
+        return { ...task, estimatedDurationMinutes };
+      });
+
+      if (includeSubtasksAndRecurring) {
+        return tasksWithDuration;
+      } else {
+        // Filtra subtarefas e tarefas recorrentes, se não for para incluir
+        const processedTasks = tasksWithDuration
+          .filter(task => task.parent_id === null && task.due?.is_recurring !== true);
+        
+        return processedTasks;
+      }
     },
     [makeApiCall],
   );

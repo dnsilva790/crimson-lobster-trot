@@ -63,7 +63,8 @@ const Planejador = () => {
   const fetchBacklogTasks = useCallback(async () => {
     setIsLoadingBacklog(true);
     try {
-      const todoistTasks = await fetchTasks(filterInput.trim() || undefined); // Usar o filtro aqui
+      // Passar `true` para includeSubtasksAndRecurring para o Planejador
+      const todoistTasks = await fetchTasks(filterInput.trim() || undefined, true); 
       const internalTasks = getInternalTasks();
 
       const combinedBacklog = [
@@ -308,8 +309,8 @@ const Planejador = () => {
             // Slot is fully within a block
             if ((block.type === "work" && taskCategory === "profissional") ||
                 (block.type === "personal" && taskCategory === "pessoal") ||
-                (block.type === "break" && taskCategory === undefined) ||
-                (block.type === "work" && taskCategory === undefined) ||
+                (block.type === "break" && taskCategory === undefined) || // Breaks can be for anything
+                (block.type === "work" && taskCategory === undefined) || // If no category, can go in work
                 (block.type === "personal" && taskCategory === undefined)) {
               fitsInAppropriateBlock = true;
               currentSlotScore += 10; // High score for fitting in appropriate block

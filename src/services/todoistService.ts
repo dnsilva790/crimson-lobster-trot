@@ -29,7 +29,10 @@ async function todoistApiCall<T>(
     body: body ? JSON.stringify(body) : undefined,
   };
 
-  const response = await fetch(`${TODOIST_API_BASE_URL}${endpoint}`, config);
+  const url = `${TODOIST_API_BASE_URL}${endpoint}`;
+  console.log("Todoist API Request URL:", url); // Log da URL para depuração
+
+  const response = await fetch(url, config);
 
   if (!response.ok) {
     const errorData: TodoistError = {
