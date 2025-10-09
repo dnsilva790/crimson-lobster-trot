@@ -27,6 +27,12 @@ interface TodoistContextType {
   isLoading: boolean;
 }
 
+// Definindo o tipo para makeApiCall separadamente para melhor tipagem genérica com useCallback
+type MakeApiCallFn = <T>(
+  apiFunction: (key: string, ...args: any[]) => Promise<T>,
+  ...args: any[]
+) => Promise<T | undefined>;
+
 const TodoistContext = createContext<TodoistContextType | undefined>(undefined);
 
 export const TodoistProvider = ({ children }: { children: ReactNode }) => {
@@ -41,11 +47,8 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
     setApiKeyInternal(null);
   }, []);
 
-  const makeApiCall = useCallback(
-    async <T>(
-      apiFunction: (key: string, ...args: any[]) => Promise<T>,
-      ...args: any[]
-    ): Promise<T | undefined> => {
+  const makeApiCall: MakeApiCallFn = useCallback( // Aplicando o tipo aqui
+    async (apiFunction, ...args) => { // Removido <T> daqui, pois já está no tipo MakeApiCallFn
       if (!apiKey) {
         toast.error("API key não configurada.");
         return undefined;

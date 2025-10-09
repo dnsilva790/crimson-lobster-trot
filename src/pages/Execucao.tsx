@@ -19,6 +19,7 @@ import { ptBR } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import AIAssistant from "@/components/AIAssistant";
 import PromptEditor from "@/components/PromptEditor";
+import TaskOwnerSelector from "@/components/TaskOwnerSelector"; // Novo import
 
 type ExecucaoState = "initial" | "focusing" | "finished";
 
@@ -293,6 +294,21 @@ const Execucao = () => {
     }
   }, [currentTask, selectedDueDate, selectedDueTime, selectedPriority, updateTask, handleNextTask]);
 
+  const handleUpdateTaskContent = useCallback(async (taskId: string, newContent: string) => {
+    const updated = await updateTask(taskId, { content: newContent });
+    if (updated) {
+      // Atualiza o estado local de focusTasks para refletir a mudança imediatamente
+      setFocusTasks(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, content: newContent } : task
+        )
+      );
+      toast.success("Nome da tarefa atualizado com sucesso!");
+    } else {
+      toast.error("Falha ao atualizar o nome da tarefa.");
+    }
+  }, [updateTask]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -378,6 +394,15 @@ const Execucao = () => {
         {!isLoading && execucaoState === "focusing" && currentTask && (
           <div className="mt-8">
             <FocusTaskCard task={currentTask} />
+
+            <div className="mt-6 p-4 border rounded-lg bg-gray-50"> {/* Novo container para o seletor de responsável */}
+              <TaskOwnerSelector
+                taskId={currentTask.id}
+                currentContent={currentTask.content}
+                onUpdateTaskContent={handleUpdateTaskContent}
+                isLoading={isLoading}
+              />
+            </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-8">
               <Button
