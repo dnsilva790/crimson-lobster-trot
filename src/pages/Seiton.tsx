@@ -28,7 +28,7 @@ interface SeitonStateSnapshot {
 const LOCAL_STORAGE_KEY = "seitonTournamentState";
 
 const Seiton = () => {
-  const { fetchTasks, closeTask, isLoading } = useTodoist(); // Obter closeTask do contexto
+  const { fetchTasks, closeTask, updateTask, isLoading } = useTodoist(); // Obter closeTask e updateTask do contexto
   const [tournamentState, setTournamentState] = useState<TournamentState>("initial");
   const [tasksToProcess, setTasksToProcess] = useState<TodoistTask[]>([]);
   const [rankedTasks, setRankedTasks] = useState<TodoistTask[]>([]);
@@ -307,6 +307,33 @@ const Seiton = () => {
     }
   }, [closeTask, currentTaskToPlace, comparisonCandidate, rankedTasks, tasksToProcess]);
 
+  const handleUpdatePriority = useCallback(async (taskId: string, newPriority: 1 | 2 | 3 | 4) => {
+    const updated = await updateTask(taskId, { priority: newPriority });
+    if (updated) {
+      toast.success(`Prioridade da tarefa atualizada para P${newPriority}!`);
+
+      // Update local state for tasksToProcess
+      setTasksToProcess(prev => prev.map(task =>
+        task.id === taskId ? { ...task, priority: newPriority } : task
+      ));
+
+      // Update local state for rankedTasks
+      setRankedTasks(prev => prev.map(task =>
+        task.id === taskId ? { ...task, priority: newPriority } : task
+      ));
+
+      // If the task being compared or the candidate is updated, reflect it
+      if (currentTaskToPlace?.id === taskId) {
+        setCurrentTaskToPlace(prev => prev ? { ...prev, priority: newPriority } : null);
+      }
+      if (comparisonCandidate?.id === taskId) {
+        setComparisonCandidate(prev => prev ? { ...prev, priority: newPriority } : null);
+      }
+    } else {
+      toast.error("Falha ao atualizar a prioridade da tarefa.");
+    }
+  }, [updateTask, currentTaskToPlace, comparisonCandidate]);
+
   const renderTaskDates = (task: TodoistTask) => {
     const dateElements: JSX.Element[] = [];
 
@@ -374,19 +401,39 @@ const Seiton = () => {
         </div>
         {showActions && (
           <div className="mt-4 space-y-2">
+            {/* Existing buttons */}
             <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
               <Button variant="outline" className="w-full py-2 text-sm flex items-center justify-center">
                 <ExternalLink className="mr-2 h-4 w-4" /> Abrir no Todoist
               </Button>
             </a>
             <Button
-              onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} // Stop propagation to prevent card selection
+              onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }}
               disabled={isLoading}
               variant="secondary"
               className="w-full py-2 text-sm flex items-center justify-center bg-green-500 hover:bg-green-600 text-white"
             >
               <Check className="mr-2 h-4 w-4" /> Concluir
             </Button>
+
+            {/* New Priority Buttons */}
+            <div className="flex flex-wrap gap-2 justify-center mt-2">
+              {[4, 3, 2, 1].map((p) => (
+                <Button
+                  key={p}
+                  variant={task.priority === p ? "default" : "outline"}
+                  size="sm"
+                  onClick={(e) => { e.stopPropagation(); handleUpdatePriority(task.id, p as 1 | 2 | 3 | 4); }}
+                  disabled={isLoading}
+                  className={cn(
+                    "h-8 w-16",
+                    task.priority === p ? PRIORITY_COLORS[p as 1 | 2 | 3 | 4] : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                  )}
+                >
+                  P{p}
+                </Button>
+              ))}
+            </div>
           </div>
         )}
       </Card>
