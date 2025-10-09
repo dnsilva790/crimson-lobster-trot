@@ -7,14 +7,20 @@ import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import TaskReviewCard from "@/components/TaskReviewCard";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ReviewState = "initial" | "reviewing" | "finished";
+type TaskTypeFilter = "all" | "pessoal" | "profissional";
 
 const Seiri = () => {
   const { fetchTasks, closeTask, deleteTask, isLoading } = useTodoist();
   const [tasksToReview, setTasksToReview] = useState<TodoistTask[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [reviewState, setReviewState] = useState<ReviewState>("initial");
+  const [filterInput, setFilterInput] = useState<string>("");
+  const [taskTypeFilter, setTaskTypeFilter] = useState<TaskTypeFilter>("all");
 
   // Função para ordenar as tarefas com base nos critérios combinados, priorizando deadline
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
@@ -53,7 +59,15 @@ const Seiri = () => {
   const loadTasks = useCallback(async () => {
     setReviewState("initial");
     setCurrentTaskIndex(0);
-    const fetchedTasks = await fetchTasks();
+
+    let todoistFilter = filterInput.trim();
+    if (taskTypeFilter === "pessoal") {
+      todoistFilter = todoistFilter ? `${todoistFilter} & #pessoal` : "#pessoal";
+    } else if (taskTypeFilter === "profissional") {
+      todoistFilter = todoistFilter ? `${todoistFilter} & #profissional` : "#profissional";
+    }
+
+    const fetchedTasks = await fetchTasks(todoistFilter || undefined);
     if (fetchedTasks && fetchedTasks.length > 0) {
       const sortedTasks = sortTasks(fetchedTasks); // Aplicar ordenação combinada
       setTasksToReview(sortedTasks);
@@ -64,7 +78,7 @@ const Seiri = () => {
       setReviewState("finished");
       toast.info("Nenhuma tarefa encontrada para revisar. Bom trabalho!");
     }
-  }, [fetchTasks, sortTasks]);
+  }, [fetchTasks, sortTasks, filterInput, taskTypeFilter]);
 
   useEffect(() => {
     // Load tasks only when the component mounts or when explicitly triggered
@@ -116,6 +130,39 @@ const Seiri = () => {
 
       {!isLoading && reviewState === "initial" && (
         <div className="text-center mt-10">
+          <div className="grid w-full items-center gap-1.5 mb-4 max-w-md mx-auto">
+            <Label htmlFor="task-filter" className="text-left text-gray-600 font-medium">
+              Filtro de Tarefas (ex: "hoje", "p1", "#projeto")
+            </Label>
+            <Input
+              type="text"
+              id="task-filter"
+              placeholder="Opcional: insira um filtro do Todoist..."
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
+              className="mt-1"
+              disabled={isLoading}
+            />
+          </div>
+          <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">
+            <Label htmlFor="task-type-filter" className="text-left text-gray-600 font-medium">
+              Tipo de Tarefa
+            </Label>
+            <Select
+              value={taskTypeFilter}
+              onValueChange={(value: TaskTypeFilter) => setTaskTypeFilter(value)}
+              disabled={isLoading}
+            >
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Filtrar por tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="pessoal">Pessoal</SelectItem>
+                <SelectItem value="profissional">Profissional</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button
             onClick={loadTasks}
             className="px-8 py-4 text-xl bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-200"
