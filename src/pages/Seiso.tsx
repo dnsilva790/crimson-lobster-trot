@@ -2,15 +2,11 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Check, Trash2, RotateCcw } from "lucide-react";
+import TaskReviewCard from "@/components/TaskReviewCard"; // Importando o TaskReviewCard
 
 type SeisoState = "initial" | "reviewing" | "finished";
 
@@ -19,20 +15,6 @@ const Seiso = () => {
   const [tasksToReview, setTasksToReview] = useState<TodoistTask[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [seisoState, setSeisoState] = useState<SeisoState>("initial");
-
-  const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
-    4: "bg-red-500", // P1 - Urgente
-    3: "bg-orange-500", // P2 - Alto
-    2: "bg-yellow-500", // P3 - Médio
-    1: "bg-gray-400", // P4 - Baixo
-  };
-
-  const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
-    4: "P1 - Urgente",
-    3: "P2 - Alto",
-    2: "P3 - Médio",
-    1: "P4 - Baixo",
-  };
 
   // Função para ordenar as tarefas com foco em revisão (ex: mais antigas, sem prazo), priorizando deadline
   const sortTasksForSeiso = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
@@ -73,6 +55,11 @@ const Seiso = () => {
     }
   }, [fetchTasks, sortTasksForSeiso]);
 
+  useEffect(() => {
+    // Load tasks only when the component mounts or when explicitly triggered
+    // The initial state will show the "Iniciar Limpeza e Revisão" button
+  }, []);
+
   const handleNextTask = useCallback(() => {
     if (currentTaskIndex < tasksToReview.length - 1) {
       setCurrentTaskIndex((prev) => prev + 1);
@@ -82,7 +69,7 @@ const Seiso = () => {
     }
   }, [currentTaskIndex, tasksToReview.length]);
 
-  const handleKeep = useCallback(() => {
+  const handleKeep = useCallback((taskId: string) => { // Ajustado para aceitar taskId
     toast.info("Tarefa mantida. Revise-a mais tarde.");
     handleNextTask();
   }, [handleNextTask]);
@@ -130,61 +117,18 @@ const Seiso = () => {
       )}
 
       {!isLoading && seisoState === "reviewing" && currentTask && (
-        <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto mt-8">
+        <div className="mt-8">
           <p className="text-center text-xl font-medium mb-6 text-gray-700">
             Revisando tarefa {currentTaskIndex + 1} de {tasksToReview.length}
           </p>
-          <div className="flex-grow">
-            <h3 className="text-2xl font-bold mb-3 text-gray-800">{currentTask.content}</h3>
-            {currentTask.description && (
-              <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{currentTask.description}</p>
-            )}
-          </div>
-          <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
-            {currentTask.deadline?.date ? (
-              <span className="font-semibold text-red-600">
-                Prazo Final: {format(new Date(currentTask.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
-              </span>
-            ) : currentTask.due?.datetime ? (
-              <span>Vencimento: {format(new Date(currentTask.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
-            ) : currentTask.due?.date ? (
-              <span>Vencimento: {format(new Date(currentTask.due.date), "dd/MM/yyyy", { locale: ptBR })}</span>
-            ) : (
-              <span>Sem prazo</span>
-            )}
-            <span
-              className={cn(
-                "px-2 py-1 rounded-full text-white text-xs font-medium",
-                PRIORITY_COLORS[currentTask.priority],
-              )}
-            >
-              {PRIORITY_LABELS[currentTask.priority]}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <Button
-              onClick={handleKeep}
-              disabled={isLoading}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 text-md flex items-center justify-center"
-            >
-              <RotateCcw className="mr-2 h-5 w-5" /> Manter
-            </Button>
-            <Button
-              onClick={() => handleComplete(currentTask.id)}
-              disabled={isLoading}
-              className="bg-green-500 hover:bg-green-600 text-white py-3 text-md flex items-center justify-center"
-            >
-              <Check className="mr-2 h-5 w-5" /> Concluir
-            </Button>
-            <Button
-              onClick={() => handleDelete(currentTask.id)}
-              disabled={isLoading}
-              className="bg-red-500 hover:bg-red-600 text-white py-3 text-md flex items-center justify-center"
-            >
-              <Trash2 className="mr-2 h-5 w-5" /> Excluir
-            </Button>
-          </div>
-        </Card>
+          <TaskReviewCard
+            task={currentTask}
+            onKeep={handleKeep}
+            onComplete={handleComplete}
+            onDelete={handleDelete}
+            isLoading={isLoading}
+          />
+        </div>
       )}
 
       {!isLoading && seisoState === "finished" && tasksToReview.length === 0 && (
