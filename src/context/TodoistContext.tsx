@@ -68,7 +68,9 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchTasks = useCallback(
     async (filter?: string) => {
-      return (await makeApiCall(todoistService.fetchTasks, filter)) || [];
+      const allTasks = (await makeApiCall(todoistService.fetchTasks, filter)) || [];
+      // Filtra as subtarefas (aquelas com parent_id não nulo)
+      return allTasks.filter(task => task.parent_id === null);
     },
     [makeApiCall],
   );
