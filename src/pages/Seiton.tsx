@@ -43,8 +43,8 @@ const Seiton = () => {
     setComparisonIndex(0);
 
     // Buscar tarefas relevantes (ex: hoje, atrasadas, ou sem prioridade definida)
-    // Adicionando o filtro !subtasks diretamente aqui
-    const allTasks = await fetchTasks("today | overdue | no priority & !subtasks");
+    // O filtro !subtasks será tratado no TodoistContext
+    const allTasks = await fetchTasks("today | overdue | no priority");
     if (allTasks && allTasks.length > 0) {
       // Embaralhar e pegar até 50 tarefas para o torneio, permitindo um ranking de até 24
       const shuffledTasks = allTasks.sort(() => 0.5 - Math.random()).slice(0, 50);
