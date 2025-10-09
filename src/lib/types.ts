@@ -17,6 +17,9 @@ export interface TodoistTask {
     datetime: string | null;
     timezone: string | null;
   } | null;
+  deadline: { // Novo campo deadline
+    date: string;
+  } | null;
   url: string;
   comment_count: number;
   created_at: string;

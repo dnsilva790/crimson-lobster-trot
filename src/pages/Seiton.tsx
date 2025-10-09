@@ -45,7 +45,7 @@ const Seiton = () => {
     1: "P4 - Baixo",
   };
 
-  // Função para ordenar as tarefas com base nos critérios combinados
+  // Função para ordenar as tarefas com base nos critérios combinados, priorizando deadline
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
       // 1. Tarefas iniciadas com "*" primeiro
@@ -59,19 +59,20 @@ const Seiton = () => {
         return b.priority - a.priority;
       }
 
-      // 3. Depois, por prazo (mais próximo primeiro)
-      const dateA = a.due?.datetime || a.due?.date;
-      const dateB = b.due?.datetime || b.due?.date;
+      // 3. Depois, por prazo (deadline > due date/time > due date)
+      const getTaskDate = (task: TodoistTask) => {
+        if (task.deadline?.date) return new Date(task.deadline.date).getTime();
+        if (task.due?.datetime) return new Date(task.due.datetime).getTime();
+        if (task.due?.date) return new Date(task.due.date).getTime();
+        return Infinity; // Tarefas sem prazo vão para o final
+      };
 
-      if (dateA && dateB) {
-        const timeA = new Date(dateA).getTime();
-        const timeB = new Date(dateB).getTime();
-        if (timeA !== timeB) {
-          return timeA - timeB;
-        }
+      const dateA = getTaskDate(a);
+      const dateB = getTaskDate(b);
+
+      if (dateA !== dateB) {
+        return dateA - dateB; // Mais próximo primeiro
       }
-      if (dateA && !dateB) return -1; // A tem prazo, B não
-      if (!dateA && dateB) return 1; // B tem prazo, A não
 
       // 4. Desempate final: por data de criação (mais antiga primeiro)
       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -225,7 +226,11 @@ const Seiton = () => {
         )}
       </div>
       <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2">
-        {task.due?.datetime ? (
+        {task.deadline?.date ? (
+          <span className="font-semibold text-red-600">
+            Prazo Final: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        ) : task.due?.datetime ? (
           <span>Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
         ) : task.due?.date ? (
           <span>Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}</span>

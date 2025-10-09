@@ -38,6 +38,29 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onDelete,
   isLoading,
 }) => {
+  const renderDueDate = () => {
+    if (task.deadline?.date) {
+      return (
+        <span className="font-semibold text-red-600">
+          Prazo Final: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
+        </span>
+      );
+    } else if (task.due?.datetime) {
+      return (
+        <span>
+          Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+        </span>
+      );
+    } else if (task.due?.date) {
+      return (
+        <span>
+          Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
+        </span>
+      );
+    }
+    return <span>Sem prazo</span>;
+  };
+
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
       <div className="flex-grow">
@@ -47,13 +70,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         )}
       </div>
       <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
-        {task.due?.datetime ? (
-          <span>Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
-        ) : task.due?.date ? (
-          <span>Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}</span>
-        ) : (
-          <span>Sem prazo</span>
-        )}
+        {renderDueDate()}
         <span
           className={cn(
             "px-2 py-1 rounded-full text-white text-xs font-medium",

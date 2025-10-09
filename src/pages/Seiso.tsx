@@ -34,26 +34,25 @@ const Seiso = () => {
     1: "P4 - Baixo",
   };
 
-  // Função para ordenar as tarefas com foco em revisão (ex: mais antigas, sem prazo)
+  // Função para ordenar as tarefas com foco em revisão (ex: mais antigas, sem prazo), priorizando deadline
   const sortTasksForSeiso = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
-      // Priorizar tarefas sem prazo ou com prazo muito distante (indicando que podem estar 'paradas')
-      const hasDueA = !!(a.due?.datetime || a.due?.date);
-      const hasDueB = !!(b.due?.datetime || b.due?.date);
+      // Priorizar tarefas com deadline mais próximo
+      const getTaskDate = (task: TodoistTask) => {
+        if (task.deadline?.date) return new Date(task.deadline.date).getTime();
+        if (task.due?.datetime) return new Date(task.due.datetime).getTime();
+        if (task.due?.date) return new Date(task.due.date).getTime();
+        return Infinity; // Tarefas sem prazo vão para o final
+      };
 
-      if (!hasDueA && hasDueB) return -1; // A sem prazo, B com prazo -> A vem primeiro
-      if (hasDueA && !hasDueB) return 1; // B sem prazo, A com prazo -> B vem primeiro
+      const dateA = getTaskDate(a);
+      const dateB = getTaskDate(b);
 
-      // Se ambos têm prazo, priorizar as mais antigas
-      if (hasDueA && hasDueB) {
-        const dateA = new Date(a.due?.datetime || a.due?.date!).getTime();
-        const dateB = new Date(b.due?.datetime || b.due?.date!).getTime();
-        if (dateA !== dateB) {
-          return dateA - dateB; // Mais antigas primeiro
-        }
+      if (dateA !== dateB) {
+        return dateA - dateB; // Mais próximo primeiro
       }
 
-      // Se ambos sem prazo ou com prazo igual, priorizar as mais antigas por data de criação
+      // Se os prazos forem iguais ou inexistentes, priorizar as mais antigas por data de criação
       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
   }, []);
@@ -142,7 +141,11 @@ const Seiso = () => {
             )}
           </div>
           <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
-            {currentTask.due?.datetime ? (
+            {currentTask.deadline?.date ? (
+              <span className="font-semibold text-red-600">
+                Prazo Final: {format(new Date(currentTask.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
+              </span>
+            ) : currentTask.due?.datetime ? (
               <span>Vencimento: {format(new Date(currentTask.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
             ) : currentTask.due?.date ? (
               <span>Vencimento: {format(new Date(currentTask.due.date), "dd/MM/yyyy", { locale: ptBR })}</span>
