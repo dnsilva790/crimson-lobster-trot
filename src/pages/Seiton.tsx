@@ -11,6 +11,16 @@ import { ptBR } from "date-fns/locale";
 
 type TournamentState = "initial" | "comparing" | "finished";
 
+// Define a interface para o estado que será salvo no histórico
+interface SeitonStateSnapshot {
+  tasksToProcess: TodoistTask[];
+  rankedTasks: TodoistTask[];
+  currentTaskToPlace: TodoistTask | null;
+  comparisonCandidate: TodoistTask | null;
+  comparisonIndex: number;
+  tournamentState: TournamentState;
+}
+
 const Seiton = () => {
   const { fetchTasks, isLoading } = useTodoist();
   const [tournamentState, setTournamentState] = useState<TournamentState>("initial");
@@ -19,6 +29,7 @@ const Seiton = () => {
   const [currentTaskToPlace, setCurrentTaskToPlace] = useState<TodoistTask | null>(null); // A tarefa que está sendo inserida no ranking
   const [comparisonCandidate, setComparisonCandidate] = useState<TodoistTask | null>(null); // A tarefa do rankedTasks com a qual currentTaskToPlace está sendo comparada
   const [comparisonIndex, setComparisonIndex] = useState<number>(0); // Índice em rankedTasks para a comparação
+  const [history, setHistory] = useState<SeitonStateSnapshot[]>([]); // Histórico de estados para a função desfazer
 
   const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
     4: "bg-red-500", // P1 - Urgente
@@ -34,6 +45,38 @@ const Seiton = () => {
     1: "P4 - Baixo",
   };
 
+  // Salva o estado atual no histórico
+  const saveStateToHistory = useCallback(() => {
+    setHistory((prev) => [
+      ...prev,
+      {
+        tasksToProcess,
+        rankedTasks,
+        currentTaskToPlace,
+        comparisonCandidate,
+        comparisonIndex,
+        tournamentState,
+      },
+    ]);
+  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState]);
+
+  // Desfaz a última ação
+  const undoLastAction = useCallback(() => {
+    if (history.length > 0) {
+      const lastState = history[history.length - 1];
+      setTasksToProcess(lastState.tasksToProcess);
+      setRankedTasks(lastState.rankedTasks);
+      setCurrentTaskToPlace(lastState.currentTaskToPlace);
+      setComparisonCandidate(lastState.comparisonCandidate);
+      setComparisonIndex(lastState.comparisonIndex);
+      setTournamentState(lastState.tournamentState); // Restaurar o estado do torneio
+      setHistory((prev) => prev.slice(0, prev.length - 1)); // Remove o último estado do histórico
+      toast.info("Última ação desfeita.");
+    } else {
+      toast.info("Não há ações para desfazer.");
+    }
+  }, [history]);
+
   const startTournament = useCallback(async () => {
     setTournamentState("initial"); // Resetar estado
     setTasksToProcess([]);
@@ -41,17 +84,16 @@ const Seiton = () => {
     setCurrentTaskToPlace(null);
     setComparisonCandidate(null);
     setComparisonIndex(0);
+    setHistory([]); // Limpar histórico ao iniciar novo torneio
 
-    // Buscar TODAS as tarefas principais (o filtro de subtarefas é feito no TodoistContext)
-    const allTasks = await fetchTasks(); // Chamada sem filtro específico
+    const allTasks = await fetchTasks();
     if (allTasks && allTasks.length > 0) {
-      // Embaralhar todas as tarefas para o torneio
       const shuffledTasks = allTasks.sort(() => 0.5 - Math.random());
       setTasksToProcess(shuffledTasks);
       setTournamentState("comparing");
     } else {
       toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
-      setTournamentState("finished"); // Sem tarefas, o torneio já está "finalizado"
+      setTournamentState("finished");
     }
   }, [fetchTasks]);
 
@@ -63,26 +105,25 @@ const Seiton = () => {
       return;
     }
 
+    saveStateToHistory(); // Salvar estado antes de iniciar o próximo posicionamento
+
     const nextTask = tasksToProcess[0];
     setCurrentTaskToPlace(nextTask);
-    setTasksToProcess((prev) => prev.slice(1)); // Remover da lista de tarefas a processar
+    setTasksToProcess((prev) => prev.slice(1));
 
     if (rankedTasks.length === 0) {
-      // Primeira tarefa, apenas adicioná-la ao rankedTasks
       setRankedTasks([nextTask]);
-      setCurrentTaskToPlace(null); // Limpar tarefa atual para acionar o próximo posicionamento
+      setCurrentTaskToPlace(null);
       setComparisonCandidate(null);
       setComparisonIndex(0);
     } else {
-      // Iniciar comparação com a primeira tarefa já classificada
       setComparisonIndex(0);
       setComparisonCandidate(rankedTasks[0]);
     }
-  }, [tasksToProcess, rankedTasks]);
+  }, [tasksToProcess, rankedTasks, saveStateToHistory]);
 
   useEffect(() => {
     if (tournamentState === "comparing" && !currentTaskToPlace) {
-      // Este efeito lida com o posicionamento inicial ou quando uma tarefa acabou de ser posicionada
       startNextPlacement();
     }
   }, [tournamentState, currentTaskToPlace, startNextPlacement]);
@@ -91,55 +132,44 @@ const Seiton = () => {
     (winner: TodoistTask) => {
       if (!currentTaskToPlace || !comparisonCandidate) return;
 
+      saveStateToHistory(); // Salvar estado antes de fazer a seleção
+
       const isCurrentTaskToPlaceWinner = winner.id === currentTaskToPlace.id;
 
       if (isCurrentTaskToPlaceWinner) {
-        // currentTaskToPlace é mais importante que comparisonCandidate
         const nextComparisonIndex = comparisonIndex + 1;
         if (nextComparisonIndex >= rankedTasks.length) {
-          // currentTaskToPlace é mais importante que todas as tarefas em rankedTasks até agora
-          // ou rankedTasks está vazio.
           if (rankedTasks.length < 24) {
             setRankedTasks((prev) => [...prev, currentTaskToPlace]);
           } else {
-            // rankedTasks já tem 24 tarefas. currentTaskToPlace é mais importante que todas as 24.
-            // Ela deve ser inserida no topo, e a última tarefa é removida.
             setRankedTasks((prev) => [currentTaskToPlace, ...prev.slice(0, 23)]);
           }
-          setCurrentTaskToPlace(null); // Acionar próximo posicionamento
+          setCurrentTaskToPlace(null);
           setComparisonCandidate(null);
           setComparisonIndex(0);
         } else {
-          // Continuar comparando currentTaskToPlace com a próxima tarefa classificada
           setComparisonIndex(nextComparisonIndex);
           setComparisonCandidate(rankedTasks[nextComparisonIndex]);
         }
       } else {
-        // comparisonCandidate é mais importante que currentTaskToPlace
-        // currentTaskToPlace deve ser inserida antes de comparisonCandidate, SE houver espaço
-        // ou se ela for mais importante que a tarefa menos importante atual no ranking (a 24ª)
         if (rankedTasks.length < 24 || comparisonIndex < 24) {
           setRankedTasks((prev) => {
             const newRanked = [...prev];
             newRanked.splice(comparisonIndex, 0, currentTaskToPlace);
-            // Se o ranking exceder 24 tarefas após a inserção, remove a última
             if (newRanked.length > 24) {
               newRanked.pop();
             }
             return newRanked;
           });
         } else {
-          // rankedTasks já tem 24 tarefas e currentTaskToPlace é menos importante
-          // ou igual à 24ª tarefa atual (comparisonCandidate é rankedTasks[23] ou anterior).
-          // currentTaskToPlace é descartada.
           toast.info(`Tarefa "${currentTaskToPlace.content}" descartada pois o ranking já está cheio e ela não é mais prioritária.`);
         }
-        setCurrentTaskToPlace(null); // Acionar próximo posicionamento
+        setCurrentTaskToPlace(null);
         setComparisonCandidate(null);
         setComparisonIndex(0);
       }
     },
-    [currentTaskToPlace, comparisonCandidate, comparisonIndex, rankedTasks],
+    [currentTaskToPlace, comparisonCandidate, comparisonIndex, rankedTasks, saveStateToHistory],
   );
 
   const renderTaskCard = (task: TodoistTask, isClickable: boolean = false) => (
@@ -167,7 +197,7 @@ const Seiton = () => {
         ) : task.due?.date ? (
           <span>Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}</span>
         ) : (
-          <span>Sem prazo</span> // Adicionado para tarefas sem prazo
+          <span>Sem prazo</span>
         )}
         <span
           className={cn(
@@ -228,6 +258,21 @@ const Seiton = () => {
               Escolher Direita
             </Button>
           </div>
+          <div className="flex justify-center gap-4 mt-6">
+            <Button
+              onClick={undoLastAction}
+              disabled={history.length === 0}
+              className="bg-gray-400 hover:bg-gray-500 text-white px-6 py-3 text-lg"
+            >
+              Desfazer
+            </Button>
+            <Button
+              onClick={startTournament}
+              className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 text-lg"
+            >
+              Resetar Ranking
+            </Button>
+          </div>
         </div>
       )}
 
@@ -279,6 +324,13 @@ const Seiton = () => {
               className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 text-lg"
             >
               Refazer Torneio
+            </Button>
+            <Button
+              onClick={undoLastAction}
+              disabled={history.length === 0}
+              className="bg-gray-400 hover:bg-gray-500 text-white px-6 py-3 text-lg"
+            >
+              Desfazer Última Ação
             </Button>
             {/* O botão "Aplicar ao Todoist" está comentado pois requer a implementação de um endpoint de atualização de tarefa na API do Todoist, que não está disponível no serviço atual. */}
             {/* <Button
