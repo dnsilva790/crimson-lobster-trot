@@ -30,7 +30,7 @@ const Planejador = () => {
   const [newBlockEnd, setNewBlockEnd] = useState("17:00");
   const [newBlockType, setNewBlockType] = useState<TimeBlockType>("work");
   const [newBlockLabel, setNewBlockLabel] = useState("");
-  const [newBlockRecurrence, setNewBlockRecurrence] = useState<"daily" | "dayOfWeek">("daily"); // New state for recurrence type
+  const [newBlockRecurrence, setNewBlockRecurrence] = useState<"daily" | "dayOfWeek" | "weekdays" | "weekend">("daily"); // New state for recurrence type
   const [newBlockDayOfWeek, setNewBlockDayOfWeek] = useState<DayOfWeek>("1"); // Default to Monday (1)
   const [backlogTasks, setBacklogTasks] = useState<(TodoistTask | InternalTask)[]>([]);
   const [selectedTaskToSchedule, setSelectedTaskToSchedule] = useState<(TodoistTask | InternalTask) | null>(null);
@@ -153,13 +153,17 @@ const Planejador = () => {
       return;
     }
 
+    const baseBlock = {
+      start: newBlockStart,
+      end: newBlockEnd,
+      type: newBlockType,
+      label: newBlockLabel.trim() || undefined,
+    };
+
     if (newBlockRecurrence === "daily") {
       const newBlock: TimeBlock = {
         id: Date.now().toString(),
-        start: newBlockStart,
-        end: newBlockEnd,
-        type: newBlockType,
-        label: newBlockLabel.trim() || undefined,
+        ...baseBlock,
       };
 
       setSchedules((prevSchedules) => {
@@ -172,17 +176,32 @@ const Planejador = () => {
         };
       });
       toast.success("Bloco de tempo diário adicionado!");
-    } else { // dayOfWeek
+    } else if (newBlockRecurrence === "dayOfWeek") {
       const newRecurringBlock: RecurringTimeBlock = {
         id: Date.now().toString(),
-        start: newBlockStart,
-        end: newBlockEnd,
-        type: newBlockType,
-        label: newBlockLabel.trim() || undefined,
+        ...baseBlock,
         dayOfWeek: newBlockDayOfWeek,
       };
       setRecurringBlocks((prev) => [...prev, newRecurringBlock].sort((a, b) => a.dayOfWeek.localeCompare(b.dayOfWeek) || a.start.localeCompare(b.start)));
-      toast.success(`Bloco de tempo recorrente para ${format(setDay(new Date(), parseInt(newBlockDayOfWeek)), "EEEE", { locale: ptBR })} adicionado!`);
+      toast.success(`Bloco de tempo recorrente para ${DayOfWeekNames[newBlockDayOfWeek]} adicionado!`);
+    } else if (newBlockRecurrence === "weekdays") {
+      const weekdays: DayOfWeek[] = ["1", "2", "3", "4", "5"]; // Monday to Friday
+      const newBlocks = weekdays.map(day => ({
+        id: `${Date.now()}-${day}`, // Unique ID for each block
+        ...baseBlock,
+        dayOfWeek: day,
+      }));
+      setRecurringBlocks((prev) => [...prev, ...newBlocks].sort((a, b) => a.dayOfWeek.localeCompare(b.dayOfWeek) || a.start.localeCompare(b.start)));
+      toast.success("Blocos de tempo adicionados para todos os dias de semana!");
+    } else if (newBlockRecurrence === "weekend") {
+      const weekendDays: DayOfWeek[] = ["0", "6"]; // Sunday and Saturday
+      const newBlocks = weekendDays.map(day => ({
+        id: `${Date.now()}-${day}`, // Unique ID for each block
+        ...baseBlock,
+        dayOfWeek: day,
+      }));
+      setRecurringBlocks((prev) => [...prev, ...newBlocks].sort((a, b) => a.dayOfWeek.localeCompare(b.dayOfWeek) || a.start.localeCompare(b.start)));
+      toast.success("Blocos de tempo adicionados para o fim de semana!");
     }
 
     setNewBlockStart("09:00");
@@ -451,6 +470,51 @@ const Planejador = () => {
     return addDays(date, diff);
   };
 
+  // Group recurring blocks for display
+  const groupedRecurringBlocks = recurringBlocks.reduce((acc, block) => {
+    const key = `${block.start}-${block.end}-${block.type}-${block.label || ''}`;
+    if (!acc[key]) {
+      acc[key] = { ...block, days: [] };
+    }
+    acc[key].days.push(block.dayOfWeek);
+    return acc;
+  }, {} as Record<string, RecurringTimeBlock & { days: DayOfWeek[] }>);
+
+  const renderRecurringBlockDisplay = (block: RecurringTimeBlock & { days: DayOfWeek[] }) => {
+    const sortedDays = block.days.sort((a, b) => parseInt(a) - parseInt(b));
+    let dayDisplay = "";
+
+    const isWeekdays = sortedDays.length === 5 && sortedDays.every((day, i) => day === String(i + 1));
+    const isWeekend = sortedDays.length === 2 && sortedDays.includes("0") && sortedDays.includes("6");
+
+    if (isWeekdays) {
+      dayDisplay = "Todo(a) dia de semana";
+    } else if (isWeekend) {
+      dayDisplay = "Todo(a) fim de semana";
+    } else if (sortedDays.length === 1) {
+      dayDisplay = `Todo(a) ${DayOfWeekNames[sortedDays[0]]}`;
+    } else {
+      dayDisplay = sortedDays.map(day => DayOfWeekNames[day]).join(", ");
+    }
+
+    return (
+      <div key={block.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md border">
+        <span className="text-sm">
+          {block.start} - {block.end} |{" "}
+          {block.type === "work" && <Briefcase className="inline-block h-4 w-4 mr-1 text-green-600" />}
+          {block.type === "personal" && <Home className="inline-block h-4 w-4 mr-1 text-blue-600" />}
+          {block.type === "break" && <Clock className="inline-block h-4 w-4 mr-1 text-yellow-600" />}
+          {block.label || (block.type === "work" ? "Trabalho" : block.type === "personal" ? "Pessoal" : "Pausa")}
+          <span className="ml-2 text-gray-400">({dayDisplay})</span>
+        </span>
+        <Button variant="ghost" size="icon" onClick={() => handleDeleteBlock(block.id, true)}>
+          <Trash2 className="h-4 w-4 text-red-500" />
+        </Button>
+      </div>
+    );
+  };
+
+
   return (
     <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2">
@@ -536,13 +600,15 @@ const Planejador = () => {
             </div>
             <div className="md:col-span-2">
               <Label htmlFor="block-recurrence">Recorrência</Label>
-              <Select value={newBlockRecurrence} onValueChange={(value: "daily" | "dayOfWeek") => setNewBlockRecurrence(value)}>
+              <Select value={newBlockRecurrence} onValueChange={(value: "daily" | "dayOfWeek" | "weekdays" | "weekend") => setNewBlockRecurrence(value)}>
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder="Recorrência" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="daily">Apenas nesta data</SelectItem>
                   <SelectItem value="dayOfWeek">Todo(a) ...</SelectItem>
+                  <SelectItem value="weekdays">Todos os dias de semana</SelectItem>
+                  <SelectItem value="weekend">Todos os fins de semana</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -585,22 +651,8 @@ const Planejador = () => {
                   </Button>
                 </div>
               ))}
-              {/* Display recurring blocks */}
-              {recurringBlocks.map((block) => (
-                <div key={block.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md border">
-                  <span className="text-sm">
-                    {block.start} - {block.end} |{" "}
-                    {block.type === "work" && <Briefcase className="inline-block h-4 w-4 mr-1 text-green-600" />}
-                    {block.type === "personal" && <Home className="inline-block h-4 w-4 mr-1 text-blue-600" />}
-                    {block.type === "break" && <Clock className="inline-block h-4 w-4 mr-1 text-yellow-600" />}
-                    {block.label || (block.type === "work" ? "Trabalho" : block.type === "personal" ? "Pessoal" : "Pausa")}
-                    <span className="ml-2 text-gray-400">(Todo(a) {DayOfWeekNames[block.dayOfWeek]})</span>
-                  </span>
-                  <Button variant="ghost" size="icon" onClick={() => handleDeleteBlock(block.id, true)}>
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              ))}
+              {/* Display grouped recurring blocks */}
+              {Object.values(groupedRecurringBlocks).map(renderRecurringBlockDisplay)}
             </div>
           )}
         </Card>
