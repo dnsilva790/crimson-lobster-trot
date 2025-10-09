@@ -39,13 +39,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   isLoading,
 }) => {
   const renderDueDate = () => {
-    if (task.deadline?.date) {
-      return (
-        <span className="font-semibold text-red-600">
-          Prazo Final: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
-        </span>
-      );
-    } else if (task.due?.datetime) {
+    if (task.due?.datetime) {
       return (
         <span>
           Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}

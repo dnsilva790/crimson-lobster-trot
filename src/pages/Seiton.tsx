@@ -21,6 +21,8 @@ interface SeitonStateSnapshot {
   tournamentState: TournamentState;
 }
 
+const LOCAL_STORAGE_KEY = "seitonTournamentState";
+
 const Seiton = () => {
   const { fetchTasks, isLoading } = useTodoist();
   const [tournamentState, setTournamentState] = useState<TournamentState>("initial");
@@ -30,6 +32,7 @@ const Seiton = () => {
   const [comparisonCandidate, setComparisonCandidate] = useState<TodoistTask | null>(null); // A tarefa do rankedTasks com a qual currentTaskToPlace está sendo comparada
   const [comparisonIndex, setComparisonIndex] = useState<number>(0); // Índice em rankedTasks para a comparação
   const [history, setHistory] = useState<SeitonStateSnapshot[]>([]); // Histórico de estados para a função desfazer
+  const [hasSavedState, setHasSavedState] = useState<boolean>(false);
 
   const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
     4: "bg-red-500", // P1 - Urgente
@@ -45,7 +48,7 @@ const Seiton = () => {
     1: "P4 - Baixo",
   };
 
-  // Função para ordenar as tarefas com base nos critérios combinados, priorizando deadline
+  // Função para ordenar as tarefas com base nos critérios combinados, priorizando due date
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
       // 1. Tarefas iniciadas com "*" primeiro
@@ -59,9 +62,8 @@ const Seiton = () => {
         return b.priority - a.priority;
       }
 
-      // 3. Depois, por prazo (deadline > due date/time > due date)
+      // 3. Depois, por prazo (due date/time > due date)
       const getTaskDate = (task: TodoistTask) => {
-        if (task.deadline?.date) return new Date(task.deadline.date).getTime();
         if (task.due?.datetime) return new Date(task.due.datetime).getTime();
         if (task.due?.date) return new Date(task.due.date).getTime();
         return Infinity; // Tarefas sem prazo vão para o final
@@ -111,25 +113,33 @@ const Seiton = () => {
     }
   }, [history]);
 
-  const startTournament = useCallback(async () => {
-    setTournamentState("initial");
-    setTasksToProcess([]);
-    setRankedTasks([]);
-    setCurrentTaskToPlace(null);
-    setComparisonCandidate(null);
-    setComparisonIndex(0);
-    setHistory([]); // Limpar histórico ao iniciar novo torneio
-
-    const allTasks = await fetchTasks();
-    if (allTasks && allTasks.length > 0) {
-      const sortedTasks = sortTasks(allTasks); // Aplicar ordenação combinada
-      setTasksToProcess(sortedTasks);
-      setTournamentState("comparing");
-    } else {
-      toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
-      setTournamentState("finished");
+  const startTournament = useCallback(async (continueSaved: boolean = false) => {
+    if (!continueSaved) {
+      setTournamentState("initial");
+      setTasksToProcess([]);
+      setRankedTasks([]);
+      setCurrentTaskToPlace(null);
+      setComparisonCandidate(null);
+      setComparisonIndex(0);
+      setHistory([]); // Limpar histórico ao iniciar novo torneio
+      localStorage.removeItem(LOCAL_STORAGE_KEY); // Limpar estado salvo
+      setHasSavedState(false);
     }
-  }, [fetchTasks, sortTasks]);
+
+    if (!continueSaved || tasksToProcess.length === 0) { // Only fetch if starting fresh or no tasks in saved state
+      const allTasks = await fetchTasks();
+      if (allTasks && allTasks.length > 0) {
+        const sortedTasks = sortTasks(allTasks); // Aplicar ordenação combinada
+        setTasksToProcess(sortedTasks);
+        setTournamentState("comparing");
+      } else {
+        toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
+        setTournamentState("finished");
+      }
+    } else {
+      setTournamentState("comparing"); // Continue with existing tasksToProcess
+    }
+  }, [fetchTasks, sortTasks, tasksToProcess.length]);
 
   const startNextPlacement = useCallback(() => {
     if (tasksToProcess.length === 0) {
@@ -155,6 +165,44 @@ const Seiton = () => {
       setComparisonCandidate(rankedTasks[0]);
     }
   }, [tasksToProcess, rankedTasks, saveStateToHistory]);
+
+  useEffect(() => {
+    // Load state from localStorage on mount
+    const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (savedState) {
+      try {
+        const parsedState: SeitonStateSnapshot = JSON.parse(savedState);
+        setTasksToProcess(parsedState.tasksToProcess);
+        setRankedTasks(parsedState.rankedTasks);
+        setCurrentTaskToPlace(parsedState.currentTaskToPlace);
+        setComparisonCandidate(parsedState.comparisonCandidate);
+        setComparisonIndex(parsedState.comparisonIndex);
+        setTournamentState(parsedState.tournamentState);
+        setHasSavedState(true);
+        toast.info("Estado do torneio carregado. Clique em 'Continuar Torneio' para prosseguir.");
+      } catch (e) {
+        console.error("Failed to parse saved state from localStorage", e);
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    // Save state to localStorage whenever relevant state changes
+    if (tournamentState !== "initial") { // Don't save initial empty state
+      const stateToSave: SeitonStateSnapshot = {
+        tasksToProcess,
+        rankedTasks,
+        currentTaskToPlace,
+        comparisonCandidate,
+        comparisonIndex,
+        tournamentState,
+      };
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+      setHasSavedState(true);
+    }
+  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState]);
+
 
   useEffect(() => {
     if (tournamentState === "comparing" && !currentTaskToPlace) {
@@ -226,11 +274,7 @@ const Seiton = () => {
         )}
       </div>
       <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2">
-        {task.deadline?.date ? (
-          <span className="font-semibold text-red-600">
-            Prazo Final: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
-          </span>
-        ) : task.due?.datetime ? (
+        {task.due?.datetime ? (
           <span>Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
         ) : task.due?.date ? (
           <span>Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}</span>
@@ -264,11 +308,19 @@ const Seiton = () => {
 
       {!isLoading && tournamentState === "initial" && (
         <div className="text-center mt-10">
+          {hasSavedState && (
+            <Button
+              onClick={() => startTournament(true)}
+              className="px-8 py-4 text-xl bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 mb-4 mr-4"
+            >
+              Continuar Torneio
+            </Button>
+          )}
           <Button
-            onClick={startTournament}
+            onClick={() => startTournament(false)}
             className="px-8 py-4 text-xl bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-200"
           >
-            Iniciar Torneio
+            Iniciar Novo Torneio
           </Button>
         </div>
       )}
@@ -305,7 +357,7 @@ const Seiton = () => {
               Desfazer
             </Button>
             <Button
-              onClick={startTournament}
+              onClick={() => startTournament(false)}
               className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 text-lg"
             >
               Resetar Ranking
@@ -399,7 +451,7 @@ const Seiton = () => {
           )}
           <div className="flex justify-center gap-4 mt-8">
             <Button
-              onClick={startTournament}
+              onClick={() => startTournament(false)}
               className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 text-lg"
             >
               Refazer Torneio

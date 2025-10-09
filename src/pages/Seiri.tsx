@@ -16,7 +16,7 @@ const Seiri = () => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [reviewState, setReviewState] = useState<ReviewState>("initial");
 
-  // Função para ordenar as tarefas com base nos critérios combinados, priorizando deadline
+  // Função para ordenar as tarefas com base nos critérios combinados, priorizando due date
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
       // 1. Tarefas iniciadas com "*" primeiro
@@ -30,9 +30,8 @@ const Seiri = () => {
         return b.priority - a.priority;
       }
 
-      // 3. Depois, por prazo (deadline > due date/time > due date)
+      // 3. Depois, por prazo (due date/time > due date)
       const getTaskDate = (task: TodoistTask) => {
-        if (task.deadline?.date) return new Date(task.deadline.date).getTime();
         if (task.due?.datetime) return new Date(task.due.datetime).getTime();
         if (task.due?.date) return new Date(task.due.date).getTime();
         return Infinity; // Tarefas sem prazo vão para o final
