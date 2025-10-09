@@ -7,13 +7,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getTaskType(task: TodoistTask): "Pessoal" | "Profissional" | undefined {
-  const content = task.content.toLowerCase();
-  const description = task.description?.toLowerCase() || "";
+  const labels = task.labels.map(label => label.toLowerCase());
 
-  if (content.includes("[profissional]") || description.includes("[profissional]")) {
+  if (labels.includes("profissional")) {
     return "Profissional";
   }
-  if (content.includes("[pessoal]") || description.includes("[pessoal]")) {
+  if (labels.includes("pessoal")) {
     return "Pessoal";
   }
   return undefined;
