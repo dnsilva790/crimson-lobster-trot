@@ -16,13 +16,13 @@ import TimeSlotPlanner from "@/components/TimeSlotPlanner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
 import { useTodoist } from "@/context/TodoistContext";
-import { getInternalTasks } from "@/utils/internalTaskStorage";
+import { getInternalTasks, updateInternalTask } from "@/utils/internalTaskStorage"; // Importar updateInternalTask
 import LoadingSpinner from "@/components/ui/loading-spinner";
 
 const PLANNER_STORAGE_KEY = "planner_schedules_v2"; // Updated storage key for new structure
 
 const Planejador = () => {
-  const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
+  const { fetchTasks, updateTask, isLoading: isLoadingTodoist } = useTodoist(); // Adicionar updateTask
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [schedules, setSchedules] = useState<Record<string, DaySchedule>>({}); // Key: YYYY-MM-DD for date-specific blocks and scheduled tasks
   const [recurringBlocks, setRecurringBlocks] = useState<RecurringTimeBlock[]>([]); // New state for recurring blocks
@@ -97,7 +97,8 @@ const Planejador = () => {
   const fetchBacklogTasks = useCallback(async () => {
     setIsLoadingBacklog(true);
     try {
-      const todoistTasks = await fetchTasks(filterInput.trim() || undefined, true);
+      // Fetch Todoist tasks, explicitly filtering out recurring tasks
+      const todoistTasks = await fetchTasks(filterInput.trim() || undefined, false); // Changed to false
       const internalTasks = getInternalTasks();
 
       const combinedBacklog = [
@@ -271,10 +272,49 @@ const Planejador = () => {
     toast.info("Seleção de tarefa cancelada.");
   }, []);
 
-  const scheduleTask = useCallback((task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date) => {
+  const scheduleTask = useCallback(async (task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date) => {
     const dateKey = format(targetDate, "yyyy-MM-dd");
     const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
     
+    const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
+
+    // --- Atualizar a tarefa original no Todoist ou no armazenamento interno ---
+    if ('project_id' in task) { // É uma TodoistTask
+      const newLabels: string[] = task.labels.filter(
+        label => label !== "pessoal" && label !== "profissional"
+      );
+      if (tempSelectedCategory === "pessoal") {
+        newLabels.push("pessoal");
+      } else if (tempSelectedCategory === "profissional") {
+        newLabels.push("profissional");
+      }
+
+      const updatedTodoistTask = await updateTask(task.id, {
+        priority: tempSelectedPriority,
+        labels: newLabels,
+        duration: durationMinutes,
+        duration_unit: "minute",
+      });
+
+      if (!updatedTodoistTask) {
+        toast.error("Falha ao atualizar a tarefa no Todoist.");
+        return;
+      }
+      // Atualizar a tarefa no backlog local para refletir as mudanças
+      setBacklogTasks(prev => prev.map(t => t.id === updatedTodoistTask.id ? updatedTodoistTask : t));
+
+    } else { // É uma InternalTask
+      const updatedInternalTask: InternalTask = {
+        ...task,
+        category: tempSelectedCategory === "none" ? task.category : tempSelectedCategory,
+        estimatedDurationMinutes: durationMinutes,
+      };
+      updateInternalTask(updatedInternalTask);
+      // Atualizar a tarefa no backlog local para refletir as mudanças
+      setBacklogTasks(prev => prev.map(t => t.id === updatedInternalTask.id ? updatedInternalTask : t));
+    }
+    // --- Fim da atualização da tarefa original ---
+
     const newScheduledTask: ScheduledTask = {
       id: `${task.id}-${Date.now()}`,
       taskId: task.id,
@@ -282,9 +322,9 @@ const Planejador = () => {
       description: task.description,
       start: start,
       end: end,
-      priority: tempSelectedPriority, // Usar a prioridade temporária
-      category: tempSelectedCategory === "none" ? (getTaskCategory(task) || "pessoal") : tempSelectedCategory, // Usar a categoria temporária
-      estimatedDurationMinutes: parseInt(tempEstimatedDuration, 10) || 15, // Usar a duração temporária
+      priority: tempSelectedPriority,
+      category: tempSelectedCategory === "none" ? (getTaskCategory(task) || "pessoal") : tempSelectedCategory,
+      estimatedDurationMinutes: durationMinutes,
       originalTask: task,
     };
 
@@ -296,13 +336,13 @@ const Planejador = () => {
       };
     });
 
-    toast.success(`Tarefa "${task.content}" agendada para ${start}-${end} em ${format(targetDate, "dd/MM", { locale: ptBR })}!`);
+    toast.success(`Tarefa "${task.content}" agendada para ${start}-${end} em ${format(targetDate, "dd/MM", { locale: ptBR })} e atualizada!`);
     setSelectedTaskToSchedule(null);
     setSuggestedSlot(null);
     setTempEstimatedDuration("15");
     setTempSelectedCategory("none");
     setTempSelectedPriority(1);
-  }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority]);
+  }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask]); // Adicionar updateTask e updateInternalTask
 
   const handleDeleteScheduledTask = useCallback((taskToDelete: ScheduledTask) => {
     setSchedules((prevSchedules) => {
@@ -321,7 +361,7 @@ const Planejador = () => {
     toast.info(`Tarefa "${taskToDelete.content}" removida da agenda.`);
   }, [selectedDate]);
 
-  const handleSelectSlot = useCallback((time: string, type: TimeBlockType) => {
+  const handleSelectSlot = useCallback(async (time: string, type: TimeBlockType) => { // Tornar assíncrono
     if (!selectedTaskToSchedule) {
       toast.info("Selecione uma tarefa do backlog primeiro para agendar.");
       return;
@@ -374,10 +414,10 @@ const Planejador = () => {
       fitsInAppropriateBlock = true;
     }
 
-    scheduleTask(selectedTaskToSchedule, time, slotEndStr, selectedDate);
+    await scheduleTask(selectedTaskToSchedule, time, slotEndStr, selectedDate); // Chamar scheduleTask assincronamente
   }, [selectedTaskToSchedule, tempEstimatedDuration, tempSelectedCategory, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate]);
 
-  const suggestTimeSlot = useCallback(() => {
+  const suggestTimeSlot = useCallback(async () => { // Tornar assíncrono
     if (!selectedTaskToSchedule) {
       toast.error("Selecione uma tarefa do backlog para sugerir um slot.");
       return;
