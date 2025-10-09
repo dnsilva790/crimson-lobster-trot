@@ -8,7 +8,7 @@ export interface TodoistTask {
   labels: string[];
   parent_id: string | null;
   order: number;
-  priority: 1 | 2 | 3 | 4; // 1: P4 (Baixa), 2: P3 (Média), 3: P2 (Alta), 4: P1 (Urgente)
+  priority: 1 | 2 | 3 | 4; // 1: P4 (Baixa), 2: P3 (Média), 3: P2 (Alta), 3: P1 (Urgente)
   due: {
     date: string;
     string: string;
@@ -35,4 +35,14 @@ export interface TodoistProject {
   is_favorite: boolean;
   sync_id: number;
   url: string;
+}
+
+// Interface para o estado salvo do Seiton
+export interface SeitonStateSnapshot {
+  tasksToProcess: TodoistTask[];
+  rankedTasks: TodoistTask[];
+  currentTaskToPlace: TodoistTask | null;
+  comparisonCandidate: TodoistTask | null;
+  comparisonIndex: number;
+  tournamentState: "initial" | "comparing" | "finished";
 }
