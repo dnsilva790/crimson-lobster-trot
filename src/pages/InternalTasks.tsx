@@ -8,10 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getInternalTasks, addInternalTask, updateInternalTask, deleteInternalTask } from "@/utils/internalTaskStorage";
+import { getInternalTasks, addInternalTask, updateInternalTask, deleteInternalTask, saveInternalTasks } from "@/utils/internalTaskStorage";
 import { InternalTask } from "@/lib/types";
 import { toast } from "sonner";
-import { PlusCircle, Trash2, Edit, Save, XCircle } from "lucide-react";
+import { PlusCircle, Trash2, Edit, Save, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const InternalTasks = () => {
@@ -19,10 +19,12 @@ const InternalTasks = () => {
   const [newTaskContent, setNewTaskContent] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [newTaskCategory, setNewTaskCategory] = useState<"pessoal" | "profissional">("pessoal");
+  const [newTaskEstimatedDuration, setNewTaskEstimatedDuration] = useState<string>("15"); // Default to 15 minutes
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
   const [editedCategory, setEditedCategory] = useState<"pessoal" | "profissional">("pessoal");
+  const [editedEstimatedDuration, setEditedEstimatedDuration] = useState<string>("15");
 
   useEffect(() => {
     setTasks(getInternalTasks());
@@ -33,6 +35,11 @@ const InternalTasks = () => {
       toast.error("O conteúdo da tarefa não pode ser vazio.");
       return;
     }
+    const duration = parseInt(newTaskEstimatedDuration, 10);
+    if (isNaN(duration) || duration <= 0) {
+      toast.error("A duração estimada deve ser um número positivo.");
+      return;
+    }
 
     const newTask: InternalTask = {
       id: Date.now().toString(), // Simple unique ID
@@ -41,6 +48,7 @@ const InternalTasks = () => {
       category: newTaskCategory,
       isCompleted: false,
       createdAt: new Date().toISOString(),
+      estimatedDurationMinutes: duration,
     };
 
     const updatedTasks = addInternalTask(newTask);
@@ -48,8 +56,9 @@ const InternalTasks = () => {
     setNewTaskContent("");
     setNewTaskDescription("");
     setNewTaskCategory("pessoal");
+    setNewTaskEstimatedDuration("15"); // Reset to default
     toast.success("Tarefa interna adicionada!");
-  }, [newTaskContent, newTaskDescription, newTaskCategory]);
+  }, [newTaskContent, newTaskDescription, newTaskCategory, newTaskEstimatedDuration]);
 
   const handleToggleComplete = useCallback((taskId: string) => {
     setTasks((prevTasks) => {
@@ -73,6 +82,7 @@ const InternalTasks = () => {
     setEditedContent(task.content);
     setEditedDescription(task.description || "");
     setEditedCategory(task.category);
+    setEditedEstimatedDuration(String(task.estimatedDurationMinutes || 15));
   }, []);
 
   const handleCancelEditing = useCallback(() => {
@@ -80,11 +90,17 @@ const InternalTasks = () => {
     setEditedContent("");
     setEditedDescription("");
     setEditedCategory("pessoal");
+    setEditedEstimatedDuration("15");
   }, []);
 
   const handleSaveEdit = useCallback(() => {
     if (!editingTaskId || !editedContent.trim()) {
       toast.error("O conteúdo da tarefa não pode ser vazio.");
+      return;
+    }
+    const duration = parseInt(editedEstimatedDuration, 10);
+    if (isNaN(duration) || duration <= 0) {
+      toast.error("A duração estimada deve ser um número positivo.");
       return;
     }
 
@@ -95,6 +111,7 @@ const InternalTasks = () => {
       category: editedCategory,
       isCompleted: tasks.find(t => t.id === editingTaskId)?.isCompleted || false,
       createdAt: tasks.find(t => t.id === editingTaskId)?.createdAt || new Date().toISOString(),
+      estimatedDurationMinutes: duration,
     };
 
     const updatedTasks = updateInternalTask(updatedTask);
@@ -103,8 +120,9 @@ const InternalTasks = () => {
     setEditedContent("");
     setEditedDescription("");
     setEditedCategory("pessoal");
+    setEditedEstimatedDuration("15");
     toast.success("Tarefa interna atualizada!");
-  }, [editingTaskId, editedContent, editedDescription, editedCategory, tasks]);
+  }, [editingTaskId, editedContent, editedDescription, editedCategory, editedEstimatedDuration, tasks]);
 
   const personalTasks = tasks.filter(task => task.category === "pessoal");
   const professionalTasks = tasks.filter(task => task.category === "profissional");
@@ -138,6 +156,17 @@ const InternalTasks = () => {
               <SelectItem value="profissional">Profissional</SelectItem>
             </SelectContent>
           </Select>
+          <div>
+            <Label htmlFor="edited-duration">Duração Estimada (minutos)</Label>
+            <Input
+              id="edited-duration"
+              type="number"
+              value={editedEstimatedDuration}
+              onChange={(e) => setEditedEstimatedDuration(e.target.value)}
+              min="1"
+              className="mt-1"
+            />
+          </div>
           <div className="flex gap-2 mt-2">
             <Button onClick={handleSaveEdit} size="sm" className="flex-1">
               <Save className="h-4 w-4 mr-2" /> Salvar
@@ -170,9 +199,19 @@ const InternalTasks = () => {
             </div>
           </div>
           {task.description && <p className="text-sm text-gray-600 ml-6">{task.description}</p>}
-          <span className="text-xs text-gray-400 ml-6">
-            Criado em: {new Date(task.createdAt).toLocaleDateString()} - Categoria: {task.category === "pessoal" ? "Pessoal" : "Profissional"}
-          </span>
+          <div className="flex items-center text-xs text-gray-400 ml-6">
+            <span>Criado em: {new Date(task.createdAt).toLocaleDateString()}</span>
+            <span className="mx-2">|</span>
+            <span>Categoria: {task.category === "pessoal" ? "Pessoal" : "Profissional"}</span>
+            {task.estimatedDurationMinutes && (
+              <>
+                <span className="mx-2">|</span>
+                <span className="flex items-center">
+                  <Clock className="h-3 w-3 mr-1" /> {task.estimatedDurationMinutes} min
+                </span>
+              </>
+            )}
+          </div>
         </>
       )}
     </Card>
@@ -222,6 +261,18 @@ const InternalTasks = () => {
                 <SelectItem value="profissional">Profissional</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label htmlFor="new-task-duration">Duração Estimada (minutos)</Label>
+            <Input
+              id="new-task-duration"
+              type="number"
+              value={newTaskEstimatedDuration}
+              onChange={(e) => setNewTaskEstimatedDuration(e.target.value)}
+              min="1"
+              placeholder="Ex: 30"
+              className="mt-1"
+            />
           </div>
           <Button onClick={handleAddTask} className="w-full mt-2">
             Adicionar Tarefa
