@@ -12,7 +12,7 @@ import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCi
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject } from "@/lib/types";
-import TimeSlotPlanner from "@/components/TimeSlotPlanner";
+import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
 import { useTodoist } from "@/context/TodoistContext";
@@ -476,11 +476,17 @@ const Planejador = () => {
         const blockEnd = parse(block.end, "HH:mm", selectedDate);
 
         if (slotStart >= blockStart && slotEnd <= blockEnd) {
-          if ((block.type === "work" && taskCategory === "profissional") ||
-              (block.type === "personal" && taskCategory === "pessoal") ||
-              (block.type === "break" && taskCategory === undefined) ||
-              (block.type === "work" && taskCategory === undefined) ||
-              (block.type === "personal" && taskCategory === undefined)) {
+          let isCategoryMatch = false;
+          if (taskCategory === "profissional" && block.type === "work") {
+            isCategoryMatch = true;
+          } else if (taskCategory === "pessoal" && block.type === "personal") {
+            isCategoryMatch = true;
+          } else if (taskCategory === undefined && (block.type === "work" || block.type === "personal" || block.type === "break")) {
+            // Uncategorized tasks can go into work, personal, or break blocks
+            isCategoryMatch = true;
+          }
+
+          if (isCategoryMatch) {
             fitsInAppropriateBlock = true;
             break;
           }
@@ -568,14 +574,21 @@ const Planejador = () => {
             const blockEnd = parse(block.end, "HH:mm", currentDayDate);
 
             if (slotStart >= blockStart && slotEnd <= blockEnd) {
-              if ((block.type === "work" && taskCategory === "profissional") ||
-                  (block.type === "personal" && taskCategory === "pessoal") ||
-                  (block.type === "break" && taskCategory === undefined) ||
-                  (block.type === "work" && taskCategory === undefined) ||
-                  (block.type === "personal" && taskCategory === undefined)) {
-                fitsInAppropriateBlock = true;
-                currentSlotScore += 10;
+              let isCategoryMatch = false;
+              if (taskCategory === "profissional" && block.type === "work") {
+                isCategoryMatch = true;
+              } else if (taskCategory === "pessoal" && block.type === "personal") {
+                isCategoryMatch = true;
+              } else if (taskCategory === undefined && (block.type === "work" || block.type === "personal" || block.type === "break")) {
+                // Uncategorized tasks can go into work, personal, or break blocks
+                isCategoryMatch = true;
+              }
 
+              if (isCategoryMatch) {
+                fitsInAppropriateBlock = true;
+                currentSlotScore += 10; // Base score for fitting
+
+                // Add bonus for peak productivity hours for professional tasks in work blocks
                 if (block.type === "work" && taskCategory === "profissional" &&
                     slotStart.getHours() >= 6 && slotStart.getHours() < 10) {
                   currentSlotScore += 5;
@@ -586,9 +599,9 @@ const Planejador = () => {
           }
 
           if (!fitsInAppropriateBlock && combinedBlocksForSuggestion.length > 0) {
-            currentSlotScore -= 5;
+            currentSlotScore -= 5; // Penalize if it doesn't fit a specific block type
           } else if (combinedBlocksForSuggestion.length === 0) {
-            currentSlotScore += 5;
+            currentSlotScore += 5; // Small bonus if no blocks are defined, so any slot is fine
           }
 
           currentSlotScore += taskPriority * 2;
