@@ -44,13 +44,14 @@ export const useExecucaoTasks = (filterInput: string) => {
     let fetchedTasks: TodoistTask[] = [];
 
     if (useFilter && filterInput.trim()) {
-      fetchedTasks = await fetchTasks(filterInput.trim());
+      // Alterado para incluir tarefas recorrentes e subtarefas
+      fetchedTasks = await fetchTasks(filterInput.trim(), true); 
       if (fetchedTasks.length === 0) {
         toast.info("Nenhuma tarefa encontrada com o filtro. Tentando carregar do ranking do Seiton...");
         const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
         if (savedSeitonState) {
           try {
-            const parsedState: SeitonStateSnapshot = JSON.parse(savedSeitonState);
+            const parsedState: SeitonStateSnapshot = JSON.parse(savedState);
             if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
               fetchedTasks = parsedState.rankedTasks;
               toast.info(`Carregadas ${fetchedTasks.length} tarefas do ranking do Seiton.`);
@@ -64,7 +65,8 @@ export const useExecucaoTasks = (filterInput: string) => {
     }
 
     if (fetchedTasks.length === 0) {
-      fetchedTasks = await fetchTasks();
+      // Alterado para incluir tarefas recorrentes e subtarefas
+      fetchedTasks = await fetchTasks(undefined, true);
     }
 
     if (fetchedTasks && fetchedTasks.length > 0) {
