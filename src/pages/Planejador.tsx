@@ -317,7 +317,6 @@ const Planejador = () => {
 
     const newScheduledTask: ScheduledTask = {
       id: `${task.id}-${Date.now()}`,
-      taskId: task.id,
       content: task.content,
       description: task.description,
       start: start,
@@ -364,6 +363,15 @@ const Planejador = () => {
   const handleSelectSlot = useCallback(async (time: string, type: TimeBlockType) => { // Tornar assíncrono
     if (!selectedTaskToSchedule) {
       toast.info("Selecione uma tarefa do backlog primeiro para agendar.");
+      return;
+    }
+
+    const now = new Date();
+    const slotStartDateTime = parse(time, "HH:mm", selectedDate);
+
+    // Prevenir agendamento no passado
+    if (slotStartDateTime < now) {
+      toast.error("Não é possível agendar tarefas para um horário ou dia que já passou.");
       return;
     }
 
@@ -431,20 +439,45 @@ const Planejador = () => {
     let bestScore = -Infinity;
 
     const NUM_DAYS_TO_LOOK_AHEAD = 7;
+    const now = new Date();
+    const startOfToday = startOfDay(now);
 
     for (let dayOffset = 0; dayOffset < NUM_DAYS_TO_LOOK_AHEAD; dayOffset++) {
       const currentDayDate = addDays(selectedDate, dayOffset);
+      const startOfCurrentDay = startOfDay(currentDayDate);
+
+      // Pular dias que já passaram
+      if (startOfCurrentDay < startOfToday) {
+        continue;
+      }
+
       const currentDayDateKey = format(currentDayDate, "yyyy-MM-dd");
       
       const combinedBlocksForSuggestion = getCombinedTimeBlocksForDate(currentDayDate);
       const scheduledTasksForSuggestion = schedules[currentDayDateKey]?.scheduledTasks || [];
 
-      for (let hour = 0; hour < 24; hour++) {
-        for (let minute = 0; minute < 60; minute += 15) {
+      let startHour = 0;
+      let startMinute = 0;
+
+      // Se for o dia atual, começar a partir do próximo intervalo de 15 minutos
+      if (format(currentDayDate, "yyyy-MM-dd") === format(now, "yyyy-MM-dd")) {
+        const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+        const next15MinInterval = Math.ceil(currentTotalMinutes / 15) * 15;
+        startHour = Math.floor(next15MinInterval / 60);
+        startMinute = next15MinInterval % 60;
+      }
+
+      for (let hour = startHour; hour < 24; hour++) {
+        for (let minute = (hour === startHour ? startMinute : 0); minute < 60; minute += 15) {
           const slotStart = setMinutes(setHours(currentDayDate, hour), minute);
           const slotEnd = addMinutes(slotStart, durationMinutes);
           const slotStartStr = format(slotStart, "HH:mm");
           const slotEndStr = format(slotEnd, "HH:mm");
+
+          // Pular slots que já passaram (redundante para dias passados, mas útil para o dia atual)
+          if (slotStart < now) {
+            continue;
+          }
 
           const hasConflict = scheduledTasksForSuggestion.some(st => {
             const stStart = parse(st.start, "HH:mm", currentDayDate);
