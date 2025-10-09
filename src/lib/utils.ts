@@ -1,19 +1,22 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-// Removido: import { TodoistTask } from "@/lib/types";
+import { TodoistTask, InternalTask } from "@/lib/types"; // Importar tipos necessários
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Removido: export function getTaskType(task: TodoistTask): "Pessoal" | "Profissional" | undefined {
-// Removido:   const labels = task.labels.map(label => label.toLowerCase());
-// Removido:
-// Removido:   if (labels.includes("profissional")) {
-// Removido:     return "Profissional";
-// Removido:   }
-// Removido:   if (labels.includes("pessoal")) {
-// Removido:     return "Pessoal";
-// Removido:   }
-// Removido:   return undefined;
-// Removido: }
+export function getTaskCategory(task: TodoistTask | InternalTask): "pessoal" | "profissional" | undefined {
+  if ('labels' in task) { // É uma TodoistTask
+    const labels = task.labels.map(label => label.toLowerCase());
+    if (labels.includes("profissional")) {
+      return "profissional";
+    }
+    if (labels.includes("pessoal")) {
+      return "pessoal";
+    }
+  } else if ('category' in task) { // É uma InternalTask
+    return task.category;
+  }
+  return undefined;
+}
