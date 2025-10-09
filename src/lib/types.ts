@@ -66,6 +66,7 @@ export interface InternalTask {
 
 // Novas interfaces para o Planejador
 export type TimeBlockType = "work" | "personal" | "break";
+export type DayOfWeek = "0" | "1" | "2" | "3" | "4" | "5" | "6"; // 0 = Sunday, 6 = Saturday
 
 export interface TimeBlock {
   id: string;
@@ -73,6 +74,10 @@ export interface TimeBlock {
   end: string;   // HH:mm
   type: TimeBlockType;
   label?: string; // e.g., "Almoço", "Foco Profissional"
+}
+
+export interface RecurringTimeBlock extends TimeBlock {
+  dayOfWeek: DayOfWeek; // Day of the week this block applies to
 }
 
 export interface ScheduledTask {
@@ -90,6 +95,6 @@ export interface ScheduledTask {
 
 export interface DaySchedule {
   date: string; // YYYY-MM-DD
-  timeBlocks: TimeBlock[];
+  timeBlocks: TimeBlock[]; // Specific blocks for this date
   scheduledTasks: ScheduledTask[];
 }

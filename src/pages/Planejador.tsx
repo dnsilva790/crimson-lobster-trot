@@ -9,9 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter } from "lucide-react";
-import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays } from "date-fns";
+import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask } from "@/lib/types";
+import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek } from "@/lib/types";
 import TimeSlotPlanner from "@/components/TimeSlotPlanner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
@@ -19,28 +19,30 @@ import { useTodoist } from "@/context/TodoistContext";
 import { getInternalTasks } from "@/utils/internalTaskStorage";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 
-const PLANNER_STORAGE_KEY = "planner_schedules";
+const PLANNER_STORAGE_KEY = "planner_schedules_v2"; // Updated storage key for new structure
 
 const Planejador = () => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
-  const [schedules, setSchedules] = useState<Record<string, DaySchedule>>({}); // Key: YYYY-MM-DD
+  const [schedules, setSchedules] = useState<Record<string, DaySchedule>>({}); // Key: YYYY-MM-DD for date-specific blocks and scheduled tasks
+  const [recurringBlocks, setRecurringBlocks] = useState<RecurringTimeBlock[]>([]); // New state for recurring blocks
   const [newBlockStart, setNewBlockStart] = useState("09:00");
   const [newBlockEnd, setNewBlockEnd] = useState("17:00");
   const [newBlockType, setNewBlockType] = useState<TimeBlockType>("work");
   const [newBlockLabel, setNewBlockLabel] = useState("");
+  const [newBlockRecurrence, setNewBlockRecurrence] = useState<"daily" | "dayOfWeek">("daily"); // New state for recurrence type
+  const [newBlockDayOfWeek, setNewBlockDayOfWeek] = useState<DayOfWeek>("1"); // Default to Monday (1)
   const [backlogTasks, setBacklogTasks] = useState<(TodoistTask | InternalTask)[]>([]);
   const [selectedTaskToSchedule, setSelectedTaskToSchedule] = useState<(TodoistTask | InternalTask) | null>(null);
   const [isLoadingBacklog, setIsLoadingBacklog] = useState(false);
-  const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string; date: string } | null>(null); // UPDATED: now stores date
-  const [tempEstimatedDuration, setTempEstimatedDuration] = useState<string>("15"); // Para ajustar a duração da tarefa selecionada
+  const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string; date: string } | null>(null);
+  const [tempEstimatedDuration, setTempEstimatedDuration] = useState<string>("15");
   const [filterInput, setFilterInput] = useState<string>(() => {
-    // Load initial filter from localStorage
     if (typeof window !== 'undefined') {
       return localStorage.getItem('planejador_filter_input') || "";
     }
     return "";
-  }); // Novo estado para o filtro
+  });
 
   // Save filter to localStorage whenever it changes
   useEffect(() => {
@@ -49,18 +51,14 @@ const Planejador = () => {
     }
   }, [filterInput]);
 
-  const currentDaySchedule = schedules[format(selectedDate, "yyyy-MM-dd")] || {
-    date: format(selectedDate, "yyyy-MM-dd"),
-    timeBlocks: [],
-    scheduledTasks: [],
-  };
-
+  // Load schedules and recurring blocks from localStorage
   useEffect(() => {
-    // Load schedules from localStorage
     try {
-      const storedSchedules = localStorage.getItem(PLANNER_STORAGE_KEY);
-      if (storedSchedules) {
-        setSchedules(JSON.parse(storedSchedules));
+      const storedData = localStorage.getItem(PLANNER_STORAGE_KEY);
+      if (storedData) {
+        const parsedData = JSON.parse(storedData);
+        setSchedules(parsedData.schedules || {});
+        setRecurringBlocks(parsedData.recurringBlocks || []);
       }
     } catch (error) {
       console.error("Failed to load planner schedules from localStorage", error);
@@ -68,32 +66,72 @@ const Planejador = () => {
     }
   }, []);
 
+  // Save schedules and recurring blocks to localStorage whenever they change
   useEffect(() => {
-    // Save schedules to localStorage whenever they change
-    localStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify(schedules));
-  }, [schedules]);
+    localStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify({ schedules, recurringBlocks }));
+  }, [schedules, recurringBlocks]);
+
+  const getCombinedTimeBlocksForDate = useCallback((date: Date): TimeBlock[] => {
+    const dateKey = format(date, "yyyy-MM-dd");
+    const dayOfWeek = getDay(date).toString() as DayOfWeek; // 0 for Sunday, 1 for Monday, etc.
+
+    const dateSpecificBlocks = schedules[dateKey]?.timeBlocks || [];
+    const recurringBlocksForDay = recurringBlocks.filter(block => block.dayOfWeek === dayOfWeek);
+
+    // Combine and sort, giving priority to date-specific blocks if they overlap
+    const combined = [...dateSpecificBlocks, ...recurringBlocksForDay];
+    return combined.sort((a, b) => a.start.localeCompare(b.start));
+  }, [schedules, recurringBlocks]);
+
+  const currentDaySchedule: DaySchedule = {
+    date: format(selectedDate, "yyyy-MM-dd"),
+    timeBlocks: getCombinedTimeBlocksForDate(selectedDate),
+    scheduledTasks: schedules[format(selectedDate, "yyyy-MM-dd")]?.scheduledTasks || [],
+  };
 
   const fetchBacklogTasks = useCallback(async () => {
     setIsLoadingBacklog(true);
     try {
-      // Passar `true` para includeSubtasksAndRecurring para o Planejador
-      const todoistTasks = await fetchTasks(filterInput.trim() || undefined, true); 
+      const todoistTasks = await fetchTasks(filterInput.trim() || undefined, true);
       const internalTasks = getInternalTasks();
 
       const combinedBacklog = [
         ...(todoistTasks || []),
-        ...internalTasks.filter(task => !task.isCompleted) // Apenas tarefas internas não concluídas
+        ...internalTasks.filter(task => !task.isCompleted)
       ];
 
-      // Ordenar o backlog (ex: por prioridade, depois por data de vencimento)
+      // Nova lógica de ordenação
       const sortedBacklog = combinedBacklog.sort((a, b) => {
+        // 1. Tarefas iniciadas com "*" primeiro
+        const isAStarred = a.content.startsWith("*");
+        const isBStarred = b.content.startsWith("*");
+        if (isAStarred && !isBStarred) return -1;
+        if (!isAStarred && isBStarred) return 1;
+
+        // 2. Em seguida, por prioridade (P1 > P4)
         const priorityA = 'priority' in a ? a.priority : 1; // Internal tasks default to P4
         const priorityB = 'priority' in b ? b.priority : 1;
-        if (priorityA !== priorityB) return priorityB - priorityA; // Higher priority first
+        if (priorityA !== priorityB) return priorityB - priorityA;
 
-        const dateA = 'due' in a && a.due?.datetime ? parseISO(a.due.datetime).getTime() : Infinity;
-        const dateB = 'due' in b && b.due?.datetime ? parseISO(b.due.datetime).getTime() : Infinity;
-        return dateA - dateB; // Earlier due date first
+        // 3. Depois, por prazo (deadline > due date/time > due date)
+        const getTaskDateValue = (task: TodoistTask | InternalTask) => {
+          if ('deadline' in task && task.deadline?.date) return parseISO(task.deadline.date).getTime();
+          if ('due' in task && task.due?.datetime) return parseISO(task.due.datetime).getTime();
+          if ('due' in task && task.due?.date) return parseISO(task.due.date).getTime();
+          return Infinity; // Tarefas sem prazo vão para o final
+        };
+
+        const dateA = getTaskDateValue(a);
+        const dateB = getTaskDateValue(b);
+
+        if (dateA !== dateB) {
+          return dateA - dateB; // Mais próximo primeiro
+        }
+
+        // 4. Desempate final: por data de criação (mais antiga primeiro)
+        const createdAtA = 'createdAt' in a ? parseISO(a.createdAt).getTime() : ('created_at' in a ? parseISO(a.created_at).getTime() : Infinity);
+        const createdAtB = 'createdAt' in b ? parseISO(b.createdAt).getTime() : ('created_at' in b ? parseISO(b.created_at).getTime() : Infinity);
+        return createdAtA - createdAtB;
       });
 
       setBacklogTasks(sortedBacklog);
@@ -103,7 +141,7 @@ const Planejador = () => {
     } finally {
       setIsLoadingBacklog(false);
     }
-  }, [fetchTasks, filterInput]); // Adicionar filterInput como dependência
+  }, [fetchTasks, filterInput]);
 
   useEffect(() => {
     fetchBacklogTasks();
@@ -115,57 +153,75 @@ const Planejador = () => {
       return;
     }
 
-    const newBlock: TimeBlock = {
-      id: Date.now().toString(),
-      start: newBlockStart,
-      end: newBlockEnd,
-      type: newBlockType,
-      label: newBlockLabel.trim() || undefined,
-    };
-
-    setSchedules((prevSchedules) => {
-      const dateKey = format(selectedDate, "yyyy-MM-dd");
-      const currentDay = prevSchedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
-      const updatedBlocks = [...currentDay.timeBlocks, newBlock].sort((a, b) => a.start.localeCompare(b.start));
-      return {
-        ...prevSchedules,
-        [dateKey]: { ...currentDay, timeBlocks: updatedBlocks },
+    if (newBlockRecurrence === "daily") {
+      const newBlock: TimeBlock = {
+        id: Date.now().toString(),
+        start: newBlockStart,
+        end: newBlockEnd,
+        type: newBlockType,
+        label: newBlockLabel.trim() || undefined,
       };
-    });
 
-    setNewBlockStart("09:00"); // Reset to default
-    setNewBlockEnd("17:00");   // Reset to default
+      setSchedules((prevSchedules) => {
+        const dateKey = format(selectedDate, "yyyy-MM-dd");
+        const currentDay = prevSchedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
+        const updatedBlocks = [...currentDay.timeBlocks, newBlock].sort((a, b) => a.start.localeCompare(b.start));
+        return {
+          ...prevSchedules,
+          [dateKey]: { ...currentDay, timeBlocks: updatedBlocks },
+        };
+      });
+      toast.success("Bloco de tempo diário adicionado!");
+    } else { // dayOfWeek
+      const newRecurringBlock: RecurringTimeBlock = {
+        id: Date.now().toString(),
+        start: newBlockStart,
+        end: newBlockEnd,
+        type: newBlockType,
+        label: newBlockLabel.trim() || undefined,
+        dayOfWeek: newBlockDayOfWeek,
+      };
+      setRecurringBlocks((prev) => [...prev, newRecurringBlock].sort((a, b) => a.dayOfWeek.localeCompare(b.dayOfWeek) || a.start.localeCompare(b.start)));
+      toast.success(`Bloco de tempo recorrente para ${format(setDay(new Date(), parseInt(newBlockDayOfWeek)), "EEEE", { locale: ptBR })} adicionado!`);
+    }
+
+    setNewBlockStart("09:00");
+    setNewBlockEnd("17:00");
     setNewBlockLabel("");
-    toast.success("Bloco de tempo adicionado!");
-  }, [selectedDate, newBlockStart, newBlockEnd, newBlockType, newBlockLabel, schedules]);
+  }, [selectedDate, newBlockStart, newBlockEnd, newBlockType, newBlockLabel, newBlockRecurrence, newBlockDayOfWeek, schedules]);
 
-  const handleDeleteBlock = useCallback((blockId: string) => {
-    setSchedules((prevSchedules) => {
-      const dateKey = format(selectedDate, "yyyy-MM-dd");
-      const currentDay = prevSchedules[dateKey];
-      if (!currentDay) return prevSchedules;
+  const handleDeleteBlock = useCallback((blockId: string, isRecurring: boolean) => {
+    if (isRecurring) {
+      setRecurringBlocks((prev) => prev.filter((block) => block.id !== blockId));
+      toast.info("Bloco de tempo recorrente removido.");
+    } else {
+      setSchedules((prevSchedules) => {
+        const dateKey = format(selectedDate, "yyyy-MM-dd");
+        const currentDay = prevSchedules[dateKey];
+        if (!currentDay) return prevSchedules;
 
-      const updatedBlocks = currentDay.timeBlocks.filter((block) => block.id !== blockId);
-      return {
-        ...prevSchedules,
-        [dateKey]: { ...currentDay, timeBlocks: updatedBlocks },
-      };
-    });
-    toast.info("Bloco de tempo removido.");
+        const updatedBlocks = currentDay.timeBlocks.filter((block) => block.id !== blockId);
+        return {
+          ...prevSchedules,
+          [dateKey]: { ...currentDay, timeBlocks: updatedBlocks },
+        };
+      });
+      toast.info("Bloco de tempo diário removido.");
+    }
   }, [selectedDate]);
 
   const handleDateChange = (date: Date | undefined) => {
     if (date) {
       setSelectedDate(startOfDay(date));
-      setSelectedTaskToSchedule(null); // Clear selected task when date changes
-      setSuggestedSlot(null); // Clear suggested slot
+      setSelectedTaskToSchedule(null);
+      setSuggestedSlot(null);
     }
   };
 
   const handleSelectBacklogTask = useCallback((task: TodoistTask | InternalTask) => {
     setSelectedTaskToSchedule(task);
-    setTempEstimatedDuration(String(task.estimatedDurationMinutes || 15)); // Set duration for editing
-    setSuggestedSlot(null); // Clear any previous suggestion
+    setTempEstimatedDuration(String(task.estimatedDurationMinutes || 15));
+    setSuggestedSlot(null);
     toast.info(`Tarefa "${task.content}" selecionada para agendamento.`);
   }, []);
 
@@ -181,14 +237,14 @@ const Planejador = () => {
     const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
     
     const newScheduledTask: ScheduledTask = {
-      id: `${task.id}-${Date.now()}`, // Unique ID for scheduled instance
+      id: `${task.id}-${Date.now()}`,
       taskId: task.id,
       content: task.content,
       description: task.description,
       start: start,
       end: end,
       priority: 'priority' in task ? task.priority : 1,
-      category: getTaskCategory(task) || "pessoal", // Default to pessoal if not found
+      category: getTaskCategory(task) || "pessoal",
       estimatedDurationMinutes: parseInt(tempEstimatedDuration, 10) || 15,
       originalTask: task,
     };
@@ -202,14 +258,14 @@ const Planejador = () => {
     });
 
     toast.success(`Tarefa "${task.content}" agendada para ${start}-${end} em ${format(targetDate, "dd/MM", { locale: ptBR })}!`);
-    setSelectedTaskToSchedule(null); // Clear selection after scheduling
-    setSuggestedSlot(null); // Clear suggestion
+    setSelectedTaskToSchedule(null);
+    setSuggestedSlot(null);
     setTempEstimatedDuration("15");
   }, [schedules, tempEstimatedDuration]);
 
   const handleDeleteScheduledTask = useCallback((taskToDelete: ScheduledTask) => {
     setSchedules((prevSchedules) => {
-      const dateKey = format(selectedDate, "yyyy-MM-dd"); // Assume it's for the currently selected date
+      const dateKey = format(selectedDate, "yyyy-MM-dd");
       const currentDay = prevSchedules[dateKey];
       if (!currentDay) return prevSchedules;
 
@@ -235,7 +291,6 @@ const Planejador = () => {
     const slotEnd = addMinutes(slotStart, durationMinutes);
     const slotEndStr = format(slotEnd, "HH:mm");
 
-    // Check for conflicts with existing scheduled tasks for the selected date
     const dateKey = format(selectedDate, "yyyy-MM-dd");
     const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
     const hasConflict = currentDay.scheduledTasks.some(st => {
@@ -251,21 +306,21 @@ const Planejador = () => {
       return;
     }
 
-    // Check if the selected slot is within a defined time block of the appropriate type
     let fitsInAppropriateBlock = false;
     const taskCategory = getTaskCategory(selectedTaskToSchedule);
+    const combinedBlocks = getCombinedTimeBlocksForDate(selectedDate);
 
-    if (currentDay.timeBlocks.length > 0) {
-      for (const block of currentDay.timeBlocks) {
+    if (combinedBlocks.length > 0) {
+      for (const block of combinedBlocks) {
         const blockStart = parse(block.start, "HH:mm", selectedDate);
         const blockEnd = parse(block.end, "HH:mm", selectedDate);
 
         if (slotStart >= blockStart && slotEnd <= blockEnd) {
           if ((block.type === "work" && taskCategory === "profissional") ||
               (block.type === "personal" && taskCategory === "pessoal") ||
-              (block.type === "break" && taskCategory === undefined) || // Allow any task in break if no category
-              (block.type === "work" && taskCategory === undefined) || // Allow any task in work if no category
-              (block.type === "personal" && taskCategory === undefined)) { // Allow any task in personal if no category
+              (block.type === "break" && taskCategory === undefined) ||
+              (block.type === "work" && taskCategory === undefined) ||
+              (block.type === "personal" && taskCategory === undefined)) {
             fitsInAppropriateBlock = true;
             break;
           }
@@ -273,16 +328,13 @@ const Planejador = () => {
       }
       if (!fitsInAppropriateBlock) {
         toast.warning("O slot selecionado não está dentro de um bloco de tempo adequado para a categoria da tarefa.");
-        // We can still allow scheduling, but warn the user. Or we can block it. For now, let's warn.
       }
     } else {
-      // If no time blocks are defined, any slot is considered "appropriate"
       fitsInAppropriateBlock = true;
     }
 
-
     scheduleTask(selectedTaskToSchedule, time, slotEndStr, selectedDate);
-  }, [selectedTaskToSchedule, tempEstimatedDuration, selectedDate, scheduleTask, schedules]);
+  }, [selectedTaskToSchedule, tempEstimatedDuration, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate]);
 
   const suggestTimeSlot = useCallback(() => {
     if (!selectedTaskToSchedule) {
@@ -292,7 +344,7 @@ const Planejador = () => {
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
     const taskCategory = getTaskCategory(selectedTaskToSchedule);
-    const taskPriority = 'priority' in selectedTaskToSchedule ? selectedTaskToSchedule.priority : 1; // P4 default for internal
+    const taskPriority = 'priority' in selectedTaskToSchedule ? selectedTaskToSchedule.priority : 1;
 
     let bestSlot: { start: string; end: string; date: string } | null = null;
     let bestScore = -Infinity;
@@ -302,7 +354,9 @@ const Planejador = () => {
     for (let dayOffset = 0; dayOffset < NUM_DAYS_TO_LOOK_AHEAD; dayOffset++) {
       const currentDayDate = addDays(selectedDate, dayOffset);
       const currentDayDateKey = format(currentDayDate, "yyyy-MM-dd");
-      const currentDayScheduleForSuggestion = schedules[currentDayDateKey] || { date: currentDayDateKey, timeBlocks: [], scheduledTasks: [] };
+      
+      const combinedBlocksForSuggestion = getCombinedTimeBlocksForDate(currentDayDate);
+      const scheduledTasksForSuggestion = schedules[currentDayDateKey]?.scheduledTasks || [];
 
       for (let hour = 0; hour < 24; hour++) {
         for (let minute = 0; minute < 60; minute += 15) {
@@ -311,7 +365,7 @@ const Planejador = () => {
           const slotStartStr = format(slotStart, "HH:mm");
           const slotEndStr = format(slotEnd, "HH:mm");
 
-          const hasConflict = currentDayScheduleForSuggestion.scheduledTasks.some(st => {
+          const hasConflict = scheduledTasksForSuggestion.some(st => {
             const stStart = parse(st.start, "HH:mm", currentDayDate);
             const stEnd = parse(st.end, "HH:mm", currentDayDate);
             return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
@@ -323,7 +377,7 @@ const Planejador = () => {
           let currentSlotScore = 0;
           let fitsInAppropriateBlock = false;
 
-          for (const block of currentDayScheduleForSuggestion.timeBlocks) {
+          for (const block of combinedBlocksForSuggestion) {
             const blockStart = parse(block.start, "HH:mm", currentDayDate);
             const blockEnd = parse(block.end, "HH:mm", currentDayDate);
 
@@ -345,9 +399,9 @@ const Planejador = () => {
             }
           }
 
-          if (!fitsInAppropriateBlock && currentDayScheduleForSuggestion.timeBlocks.length > 0) {
+          if (!fitsInAppropriateBlock && combinedBlocksForSuggestion.length > 0) {
             currentSlotScore -= 5;
-          } else if (currentDayScheduleForSuggestion.timeBlocks.length === 0) {
+          } else if (combinedBlocksForSuggestion.length === 0) {
             currentSlotScore += 5;
           }
 
@@ -370,7 +424,7 @@ const Planejador = () => {
       setSuggestedSlot(null);
       toast.error("Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias.");
     }
-  }, [selectedTaskToSchedule, selectedDate, schedules, tempEstimatedDuration]);
+  }, [selectedTaskToSchedule, selectedDate, schedules, tempEstimatedDuration, getCombinedTimeBlocksForDate]);
 
   useEffect(() => {
     if (selectedTaskToSchedule) {
@@ -379,6 +433,23 @@ const Planejador = () => {
   }, [selectedTaskToSchedule]);
 
   const isLoading = isLoadingTodoist || isLoadingBacklog;
+
+  const DayOfWeekNames: Record<DayOfWeek, string> = {
+    "0": "Domingo",
+    "1": "Segunda-feira",
+    "2": "Terça-feira",
+    "3": "Quarta-feira",
+    "4": "Quinta-feira",
+    "5": "Sexta-feira",
+    "6": "Sábado",
+  };
+
+  // Helper to set day of week for date-fns
+  const setDay = (date: Date, day: number) => {
+    const currentDay = date.getDay();
+    const diff = day - currentDay;
+    return addDays(date, diff);
+  };
 
   return (
     <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -463,15 +534,43 @@ const Planejador = () => {
                 className="mt-1"
               />
             </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="block-recurrence">Recorrência</Label>
+              <Select value={newBlockRecurrence} onValueChange={(value: "daily" | "dayOfWeek") => setNewBlockRecurrence(value)}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Recorrência" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Apenas nesta data</SelectItem>
+                  <SelectItem value="dayOfWeek">Todo(a) ...</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {newBlockRecurrence === "dayOfWeek" && (
+              <div className="md:col-span-2">
+                <Label htmlFor="block-day-of-week">Dia da Semana</Label>
+                <Select value={newBlockDayOfWeek} onValueChange={(value: DayOfWeek) => setNewBlockDayOfWeek(value)}>
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Dia da Semana" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(DayOfWeekNames).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <Button onClick={handleAddBlock} className="md:col-span-4 mt-2">
               <PlusCircle className="h-4 w-4 mr-2" /> Adicionar Bloco
             </Button>
           </div>
 
-          {currentDaySchedule.timeBlocks.length > 0 && (
+          {(currentDaySchedule.timeBlocks.length > 0 || recurringBlocks.length > 0) && (
             <div className="mt-6 space-y-2">
               <h3 className="text-lg font-semibold">Blocos Definidos:</h3>
-              {currentDaySchedule.timeBlocks.map((block) => (
+              {/* Display date-specific blocks */}
+              {schedules[format(selectedDate, "yyyy-MM-dd")]?.timeBlocks.map((block) => (
                 <div key={block.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md border">
                   <span className="text-sm">
                     {block.start} - {block.end} |{" "}
@@ -479,8 +578,25 @@ const Planejador = () => {
                     {block.type === "personal" && <Home className="inline-block h-4 w-4 mr-1 text-blue-600" />}
                     {block.type === "break" && <Clock className="inline-block h-4 w-4 mr-1 text-yellow-600" />}
                     {block.label || (block.type === "work" ? "Trabalho" : block.type === "personal" ? "Pessoal" : "Pausa")}
+                    <span className="ml-2 text-gray-400">(Nesta data)</span>
                   </span>
-                  <Button variant="ghost" size="icon" onClick={() => handleDeleteBlock(block.id)}>
+                  <Button variant="ghost" size="icon" onClick={() => handleDeleteBlock(block.id, false)}>
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              ))}
+              {/* Display recurring blocks */}
+              {recurringBlocks.map((block) => (
+                <div key={block.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md border">
+                  <span className="text-sm">
+                    {block.start} - {block.end} |{" "}
+                    {block.type === "work" && <Briefcase className="inline-block h-4 w-4 mr-1 text-green-600" />}
+                    {block.type === "personal" && <Home className="inline-block h-4 w-4 mr-1 text-blue-600" />}
+                    {block.type === "break" && <Clock className="inline-block h-4 w-4 mr-1 text-yellow-600" />}
+                    {block.label || (block.type === "work" ? "Trabalho" : block.type === "personal" ? "Pessoal" : "Pausa")}
+                    <span className="ml-2 text-gray-400">(Todo(a) {DayOfWeekNames[block.dayOfWeek]})</span>
+                  </span>
+                  <Button variant="ghost" size="icon" onClick={() => handleDeleteBlock(block.id, true)}>
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
                 </div>
@@ -517,7 +633,7 @@ const Planejador = () => {
                   onChange={(e) => setFilterInput(e.target.value)}
                   onKeyPress={(e) => {
                     if (e.key === "Enter") {
-                      fetchBacklogTasks(); // Recarregar tarefas ao pressionar Enter
+                      fetchBacklogTasks();
                     }
                   }}
                   className="pr-10"
