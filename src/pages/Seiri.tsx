@@ -147,6 +147,20 @@ const Seiri = () => {
     }
   }, [tasksToReview, updateTask]);
 
+  const handleUpdatePriority = useCallback(async (taskId: string, newPriority: 1 | 2 | 3 | 4) => {
+    const updated = await updateTask(taskId, { priority: newPriority });
+    if (updated) {
+      setTasksToReview(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, priority: newPriority } : task
+        )
+      );
+      toast.success(`Prioridade da tarefa atualizada para P${newPriority}!`);
+    } else {
+      toast.error("Falha ao atualizar a prioridade da tarefa.");
+    }
+  }, [tasksToReview, updateTask]);
+
   const currentTask = tasksToReview[currentTaskIndex];
 
   return (
@@ -195,7 +209,8 @@ const Seiri = () => {
             onKeep={handleKeep}
             onComplete={handleComplete}
             onDelete={handleDelete}
-            onUpdateCategory={handleUpdateCategory} // Passando a nova função
+            onUpdateCategory={handleUpdateCategory}
+            onUpdatePriority={handleUpdatePriority} // Passando a nova função
             isLoading={isLoading}
           />
         </div>

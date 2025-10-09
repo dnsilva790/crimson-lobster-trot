@@ -15,6 +15,7 @@ interface TaskReviewCardProps {
   onComplete: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onUpdateCategory: (taskId: string, newCategory: "pessoal" | "profissional" | "none") => void;
+  onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void; // Nova prop
   isLoading: boolean;
 }
 
@@ -38,6 +39,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onComplete,
   onDelete,
   onUpdateCategory,
+  onUpdatePriority, // Nova prop
   isLoading,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
@@ -147,6 +149,26 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           >
             <MinusCircle className="mr-2 h-4 w-4" /> Manter Categoria
           </Button>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <p className="text-gray-700 mb-2">Definir Prioridade:</p>
+        <div className="grid grid-cols-4 gap-2">
+          {[4, 3, 2, 1].map((p) => (
+            <Button
+              key={p}
+              onClick={() => onUpdatePriority(task.id, p as 1 | 2 | 3 | 4)}
+              disabled={isLoading}
+              variant={task.priority === p ? "default" : "outline"}
+              className={cn(
+                "flex items-center justify-center",
+                task.priority === p ? PRIORITY_COLORS[p as 1 | 2 | 3 | 4] : "border-gray-300 text-gray-700 hover:bg-gray-100"
+              )}
+            >
+              P{p}
+            </Button>
+          ))}
         </div>
       </div>
 
