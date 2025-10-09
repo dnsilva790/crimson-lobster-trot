@@ -7,16 +7,14 @@ import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight, ExternalLink } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle } from "lucide-react"; // Adicionado MinusCircle
 
 interface TaskReviewCardProps {
   task: TodoistTask;
   onKeep: (taskId: string) => void;
   onComplete: (taskId: string) => void;
   onDelete: (taskId: string) => void;
-  onUpdateCategory: (taskId: string, newCategory: "pessoal" | "profissional" | "none") => void; // Nova prop
+  onUpdateCategory: (taskId: string, newCategory: "pessoal" | "profissional" | "none") => void;
   isLoading: boolean;
 }
 
@@ -39,7 +37,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onKeep,
   onComplete,
   onDelete,
-  onUpdateCategory, // Usando a nova prop
+  onUpdateCategory,
   isLoading,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
@@ -54,8 +52,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     }
   }, [task.labels]);
 
-  const handleCategoryChange = (value: string) => {
-    const newCategory = value as "pessoal" | "profissional" | "none";
+  const handleCategoryChange = (newCategory: "pessoal" | "profissional" | "none") => {
     setSelectedCategory(newCategory);
     onUpdateCategory(task.id, newCategory);
   };
@@ -115,21 +112,42 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       </div>
 
       <div className="mt-6">
-        <Label htmlFor="task-category" className="text-gray-700">Categoria</Label>
-        <Select
-          value={selectedCategory}
-          onValueChange={handleCategoryChange}
-          disabled={isLoading}
-        >
-          <SelectTrigger className="w-full mt-1">
-            <SelectValue placeholder="Selecione a categoria" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Nenhum</SelectItem>
-            <SelectItem value="pessoal">Pessoal</SelectItem>
-            <SelectItem value="profissional">Profissional</SelectItem>
-          </SelectContent>
-        </Select>
+        <p className="text-gray-700 mb-2">Definir Categoria:</p>
+        <div className="grid grid-cols-3 gap-2">
+          <Button
+            onClick={() => handleCategoryChange("pessoal")}
+            disabled={isLoading}
+            variant={selectedCategory === "pessoal" ? "default" : "outline"}
+            className={cn(
+              "flex items-center justify-center",
+              selectedCategory === "pessoal" ? "bg-blue-600 hover:bg-blue-700 text-white" : "text-blue-600 border-blue-600 hover:bg-blue-50"
+            )}
+          >
+            <Home className="mr-2 h-4 w-4" /> Pessoal
+          </Button>
+          <Button
+            onClick={() => handleCategoryChange("profissional")}
+            disabled={isLoading}
+            variant={selectedCategory === "profissional" ? "default" : "outline"}
+            className={cn(
+              "flex items-center justify-center",
+              selectedCategory === "profissional" ? "bg-green-600 hover:bg-green-700 text-white" : "text-green-600 border-green-600 hover:bg-green-50"
+            )}
+          >
+            <Briefcase className="mr-2 h-4 w-4" /> Profissional
+          </Button>
+          <Button
+            onClick={() => handleCategoryChange("none")}
+            disabled={isLoading}
+            variant={selectedCategory === "none" ? "default" : "outline"}
+            className={cn(
+              "flex items-center justify-center",
+              selectedCategory === "none" ? "bg-gray-600 hover:bg-gray-700 text-white" : "text-gray-600 border-gray-600 hover:bg-gray-50"
+            )}
+          >
+            <MinusCircle className="mr-2 h-4 w-4" /> Manter Categoria
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
