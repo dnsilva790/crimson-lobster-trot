@@ -20,10 +20,16 @@ export interface TodoistTask {
   deadline: { // Reintroduzindo o campo deadline
     date: string;
   } | null;
+  duration: { // Adicionado o campo duration conforme a API do Todoist
+    amount: number;
+    unit: "minute" | "day";
+  } | null;
   url: string;
   comment_count: number;
   created_at: string;
   creator_id: string;
+  // Propriedade adicionada no front-end para facilitar o planejamento
+  estimatedDurationMinutes?: number;
 }
 
 export interface TodoistProject {
@@ -55,6 +61,7 @@ export interface InternalTask {
   category: "pessoal" | "profissional";
   isCompleted: boolean;
   createdAt: string;
+  estimatedDurationMinutes?: number; // Adicionado para tarefas internas
 }
 
 // Novas interfaces para o Planejador
@@ -77,6 +84,7 @@ export interface ScheduledTask {
   end: string;   // HH:mm
   priority: 1 | 2 | 3 | 4;
   category: "pessoal" | "profissional";
+  estimatedDurationMinutes: number; // Duração da tarefa agendada
   originalTask?: TodoistTask | InternalTask; // Referência à tarefa original
 }
 

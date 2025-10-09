@@ -16,19 +16,19 @@ interface TodoistContextType {
   fetchTasks: (filter?: string) => Promise<TodoistTask[]>;
   closeTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
-  // Atualizando a assinatura de updateTask para refletir o que a API aceita
   updateTask: (taskId: string, data: {
     content?: string;
     description?: string;
     priority?: 1 | 2 | 3 | 4;
     due_date?: string | null;
     due_datetime?: string | null;
-    labels?: string[]; // Adicionado labels aqui
+    labels?: string[];
+    duration?: number; // Adicionado para a API do Todoist
+    duration_unit?: "minute" | "day"; // Adicionado para a API do Todoist
   }) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
 
-// Definindo o tipo para makeApiCall separadamente para melhor tipagem genérica com useCallback
 type MakeApiCallFn = <T>(
   apiFunction: (key: string, ...args: any[]) => Promise<T>,
   ...args: any[]
@@ -48,8 +48,8 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
     setApiKeyInternal(null);
   }, []);
 
-  const makeApiCall: MakeApiCallFn = useCallback( // Aplicando o tipo aqui
-    async (apiFunction, ...args) => { // Removido <T> daqui, pois já está no tipo MakeApiCallFn
+  const makeApiCall: MakeApiCallFn = useCallback(
+    async (apiFunction, ...args) => {
       if (!apiKey) {
         toast.error("API key não configurada.");
         return undefined;
@@ -81,8 +81,24 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   const fetchTasks = useCallback(
     async (filter?: string) => {
       const allTasks = (await makeApiCall(todoistService.fetchTasks, filter)) || [];
-      // Filtra as subtarefas (aquelas com parent_id não nulo)
-      return allTasks.filter(task => task.parent_id === null);
+      
+      // Filtra subtarefas e tarefas recorrentes, e calcula estimatedDurationMinutes
+      const processedTasks = allTasks
+        .filter(task => task.parent_id === null && task.due?.is_recurring !== true)
+        .map(task => {
+          let estimatedDurationMinutes = 15; // Padrão de 15 minutos
+          if (task.duration) {
+            if (task.duration.unit === "minute") {
+              estimatedDurationMinutes = task.duration.amount;
+            } else if (task.duration.unit === "day") {
+              // Assumindo 8 horas de trabalho por dia para converter dias em minutos
+              estimatedDurationMinutes = task.duration.amount * 8 * 60;
+            }
+          }
+          return { ...task, estimatedDurationMinutes };
+        });
+      
+      return processedTasks;
     },
     [makeApiCall],
   );
@@ -101,7 +117,6 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
     [makeApiCall],
   );
 
-  // Atualizando a chamada para updateTask
   const updateTask = useCallback(
     async (taskId: string, data: {
       content?: string;
@@ -109,7 +124,9 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       priority?: 1 | 2 | 3 | 4;
       due_date?: string | null;
       due_datetime?: string | null;
-      labels?: string[]; // Adicionado labels aqui
+      labels?: string[];
+      duration?: number;
+      duration_unit?: "minute" | "day";
     }) => {
       return await makeApiCall(todoistService.updateTask, taskId, data);
     },

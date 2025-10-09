@@ -55,15 +55,15 @@ export const todoistService = {
     return todoistApiCall<void>(`/tasks/${taskId}`, apiKey, "DELETE");
   },
 
-  // A API do Todoist espera due_date, due_datetime e priority como campos de nível superior
   updateTask: async (apiKey: string, taskId: string, data: {
     content?: string;
     description?: string;
     priority?: 1 | 2 | 3 | 4;
     due_date?: string | null; // YYYY-MM-DD
     due_datetime?: string | null; // YYYY-MM-DDTHH:MM:SS
-    labels?: string[]; // Adicionado labels aqui
-    // deadline não pode ser atualizado via API REST v2
+    labels?: string[];
+    duration?: number; // Adicionado para a API do Todoist
+    duration_unit?: "minute" | "day"; // Adicionado para a API do Todoist
   }): Promise<TodoistTask> => {
     return todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", data);
   },
