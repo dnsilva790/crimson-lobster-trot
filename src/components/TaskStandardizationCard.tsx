@@ -7,7 +7,7 @@ import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, ChevronDownIcon } from "lucide-react";
+import { CalendarIcon, ExternalLink } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,8 +40,11 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
   onSkip,
   isLoading,
 }) => {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(
     task.due?.date ? new Date(task.due.date) : undefined
+  );
+  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(
+    task.deadline?.date ? new Date(task.deadline.date) : undefined
   );
   const [selectedPriority, setSelectedPriority] = useState<1 | 2 | 3 | 4>(task.priority);
 
@@ -49,21 +52,34 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
     const updateData: Partial<TodoistTask> = {};
     let changed = false;
 
-    if (selectedDate && (!task.due?.date || format(selectedDate, "yyyy-MM-dd") !== task.due.date)) {
+    // Handle Due Date
+    if (selectedDueDate && (!task.due?.date || format(selectedDueDate, "yyyy-MM-dd") !== task.due.date)) {
       updateData.due = {
-        date: format(selectedDate, "yyyy-MM-dd"),
-        string: format(selectedDate, "dd/MM/yyyy", { locale: ptBR }),
+        date: format(selectedDueDate, "yyyy-MM-dd"),
+        string: format(selectedDueDate, "dd/MM/yyyy", { locale: ptBR }),
         lang: "pt",
         is_recurring: false,
         datetime: null,
         timezone: null,
       };
       changed = true;
-    } else if (!selectedDate && task.due?.date) { // If date was removed
+    } else if (!selectedDueDate && task.due?.date) { // If due date was removed
       updateData.due = null;
       changed = true;
     }
 
+    // Handle Deadline Date
+    if (selectedDeadlineDate && (!task.deadline?.date || format(selectedDeadlineDate, "yyyy-MM-dd") !== task.deadline.date)) {
+      updateData.deadline = {
+        date: format(selectedDeadlineDate, "yyyy-MM-dd"),
+      };
+      changed = true;
+    } else if (!selectedDeadlineDate && task.deadline?.date) { // If deadline was removed
+      updateData.deadline = null;
+      changed = true;
+    }
+
+    // Handle Priority
     if (selectedPriority !== task.priority) {
       updateData.priority = selectedPriority;
       changed = true;
@@ -76,7 +92,7 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
     }
   };
 
-  const renderDueDate = () => {
+  const renderCurrentDates = () => {
     if (task.deadline?.date) {
       return (
         <span className="font-semibold text-red-600">
@@ -109,7 +125,7 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
       </div>
 
       <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
-        {renderDueDate()}
+        {renderCurrentDates()}
         <span
           className={cn(
             "px-2 py-1 rounded-full text-white text-xs font-medium",
@@ -122,26 +138,54 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
 
       <div className="mt-6 space-y-4">
         <div>
-          <Label htmlFor="due-date" className="text-gray-700">Definir Data de Vencimento</Label>
+          <Label htmlFor="due-date" className="text-gray-700">Definir Data de Vencimento (Due Date)</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant={"outline"}
                 className={cn(
                   "w-full justify-start text-left font-normal mt-1",
-                  !selectedDate && "text-muted-foreground"
+                  !selectedDueDate && "text-muted-foreground"
                 )}
                 disabled={isLoading}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                {selectedDueDate ? format(selectedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
               <Calendar
                 mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
+                selected={selectedDueDate}
+                onSelect={setSelectedDueDate}
+                initialFocus
+                locale={ptBR}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div>
+          <Label htmlFor="deadline-date" className="text-gray-700">Definir Prazo Final (Deadline)</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full justify-start text-left font-normal mt-1",
+                  !selectedDeadlineDate && "text-muted-foreground"
+                )}
+                disabled={isLoading}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selectedDeadlineDate ? format(selectedDeadlineDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={selectedDeadlineDate}
+                onSelect={setSelectedDeadlineDate}
                 initialFocus
                 locale={ptBR}
               />
@@ -184,6 +228,13 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
         >
           Salvar e Próximo
         </Button>
+      </div>
+      <div className="mt-4">
+        <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
+          <Button variant="outline" className="w-full py-3 text-md flex items-center justify-center">
+            <ExternalLink className="mr-2 h-4 w-4" /> Abrir no Todoist
+          </Button>
+        </a>
       </div>
     </Card>
   );

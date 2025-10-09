@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ExternalLink } from "lucide-react";
 
 type TournamentState = "initial" | "comparing" | "finished";
 
@@ -295,6 +296,13 @@ const Seiton = () => {
           {PRIORITY_LABELS[task.priority]}
         </span>
       </div>
+      <div className="mt-4">
+        <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
+          <Button variant="outline" className="w-full py-2 text-sm flex items-center justify-center">
+            <ExternalLink className="mr-2 h-4 w-4" /> Abrir no Todoist
+          </Button>
+        </a>
+      </div>
     </Card>
   );
 
@@ -446,6 +454,11 @@ const Seiton = () => {
                       {index === 2 && "🥉"}
                     </span>
                   )}
+                  <a href={task.url} target="_blank" rel="noopener noreferrer" className="ml-auto">
+                    <Button variant="outline" size="icon">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </a>
                 </Card>
               ))}
             </div>

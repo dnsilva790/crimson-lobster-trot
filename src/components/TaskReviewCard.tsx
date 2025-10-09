@@ -7,7 +7,7 @@ import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight } from "lucide-react";
+import { Check, Trash2, ArrowRight, ExternalLink } from "lucide-react";
 
 interface TaskReviewCardProps {
   task: TodoistTask;
@@ -102,6 +102,13 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         >
           <Trash2 className="mr-2 h-5 w-5" /> Excluir
         </Button>
+      </div>
+      <div className="mt-4">
+        <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
+          <Button variant="outline" className="w-full py-3 text-md flex items-center justify-center">
+            <ExternalLink className="mr-2 h-4 w-4" /> Abrir no Todoist
+          </Button>
+        </a>
       </div>
     </Card>
   );
