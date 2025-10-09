@@ -1,0 +1,93 @@
+"use client";
+
+import React from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { TodoistTask } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Check, Trash2, ArrowRight } from "lucide-react";
+
+interface TaskReviewCardProps {
+  task: TodoistTask;
+  onKeep: (taskId: string) => void;
+  onComplete: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
+  isLoading: boolean;
+}
+
+const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
+  4: "bg-red-500", // P1 - Urgente
+  3: "bg-orange-500", // P2 - Alto
+  2: "bg-yellow-500", // P3 - Médio
+  1: "bg-gray-400", // P4 - Baixo
+};
+
+const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
+  4: "P1 - Urgente",
+  3: "P2 - Alto",
+  2: "P3 - Médio",
+  1: "P4 - Baixo",
+};
+
+const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
+  task,
+  onKeep,
+  onComplete,
+  onDelete,
+  isLoading,
+}) => {
+  return (
+    <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
+      <div className="flex-grow">
+        <h3 className="text-2xl font-bold mb-3 text-gray-800">{task.content}</h3>
+        {task.description && (
+          <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>
+        )}
+      </div>
+      <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
+        {task.due?.datetime ? (
+          <span>Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
+        ) : task.due?.date ? (
+          <span>Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}</span>
+        ) : (
+          <span>Sem prazo</span>
+        )}
+        <span
+          className={cn(
+            "px-2 py-1 rounded-full text-white text-xs font-medium",
+            PRIORITY_COLORS[task.priority],
+          )}
+        >
+          {PRIORITY_LABELS[task.priority]}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        <Button
+          onClick={() => onKeep(task.id)}
+          disabled={isLoading}
+          className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 text-md flex items-center justify-center"
+        >
+          <ArrowRight className="mr-2 h-5 w-5" /> Manter
+        </Button>
+        <Button
+          onClick={() => onComplete(task.id)}
+          disabled={isLoading}
+          className="bg-green-500 hover:bg-green-600 text-white py-3 text-md flex items-center justify-center"
+        >
+          <Check className="mr-2 h-5 w-5" /> Concluir
+        </Button>
+        <Button
+          onClick={() => onDelete(task.id)}
+          disabled={isLoading}
+          className="bg-red-500 hover:bg-red-600 text-white py-3 text-md flex items-center justify-center"
+        >
+          <Trash2 className="mr-2 h-5 w-5" /> Excluir
+        </Button>
+      </div>
+    </Card>
+  );
+};
+
+export default TaskReviewCard;
