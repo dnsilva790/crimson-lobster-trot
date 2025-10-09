@@ -30,26 +30,35 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
   task,
 }) => {
   const renderDueDate = () => {
+    const dateElements: JSX.Element[] = [];
+
     if (task.deadline?.date) {
-      return (
-        <span className="font-semibold text-red-600">
+      dateElements.push(
+        <span key="deadline" className="font-semibold text-red-600 block">
           Data Limite: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
         </span>
       );
-    } else if (task.due?.datetime) {
-      return (
-        <span>
+    }
+
+    if (task.due?.datetime) {
+      dateElements.push(
+        <span key="due-datetime" className="block">
           Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
         </span>
       );
-    } else if (task.due?.date) {
-      return (
-        <span>
+    } else if (task.due?.date) { // Only show due.date if due.datetime is not present
+      dateElements.push(
+        <span key="due-date" className="block">
           Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
         </span>
       );
     }
-    return <span>Sem prazo</span>;
+
+    if (dateElements.length === 0) {
+      return <span>Sem prazo</span>;
+    }
+
+    return <div className="space-y-1">{dateElements}</div>;
   };
 
   return (
