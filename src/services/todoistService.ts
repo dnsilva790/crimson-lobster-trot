@@ -1,7 +1,7 @@
 import { TodoistTask } from "@/lib/types";
 
 const TODOIST_API_BASE_URL = "https://api.todoist.com/rest/v2";
-const TODOIST_API_V1_BASE_URL = "https://todoist.com/api/v8"; // API v1 (ou v8, que é a mesma base para deadlines)
+// const TODOIST_API_V1_BASE_URL = "https://todoist.com/api/v8"; // API v1 (ou v8, que é a mesma base para deadlines) - Removido
 
 interface TodoistError {
   status: number;
@@ -79,25 +79,25 @@ export const todoistService = {
   },
 
   // --- Funções para testar a API v1 de Deadlines ---
-  setDeadlineV1: async (apiKey: string, taskId: string, dateString: string): Promise<void> => {
-    // A API v1 de deadlines espera 'item_id' e 'date'
-    return todoistApiCall<void>(
-      "/deadlines/set",
-      apiKey,
-      "POST",
-      { item_id: taskId, date: dateString },
-      TODOIST_API_V1_BASE_URL // Usar a URL base da API v1
-    );
-  },
+  // setDeadlineV1: async (apiKey: string, taskId: string, dateString: string): Promise<void> => { // Removido
+  //   // A API v1 de deadlines espera 'item_id' e 'date'
+  //   return todoistApiCall<void>(
+  //     "/deadlines/set",
+  //     apiKey,
+  //     "POST",
+  //     { item_id: taskId, date: dateString },
+  //     TODOIST_API_V1_BASE_URL // Usar a URL base da API v1
+  //   );
+  // },
 
-  clearDeadlineV1: async (apiKey: string, taskId: string): Promise<void> => {
-    // A API v1 de deadlines espera 'item_id'
-    return todoistApiCall<void>(
-      "/deadlines/clear",
-      apiKey,
-      "POST",
-      { item_id: taskId },
-      TODOIST_API_V1_BASE_URL // Usar a URL base da API v1
-    );
-  },
+  // clearDeadlineV1: async (apiKey: string, taskId: string): Promise<void> => { // Removido
+  //   // A API v1 de deadlines espera 'item_id'
+  //   return todoistApiCall<void>(
+  //     "/deadlines/clear",
+  //     apiKey,
+  //     "POST",
+  //     { item_id: taskId },
+  //     TODOIST_API_V1_BASE_URL // Usar a URL base da API v1
+  //   );
+  // },
 };

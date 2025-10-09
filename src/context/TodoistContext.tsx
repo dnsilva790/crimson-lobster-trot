@@ -26,8 +26,8 @@ interface TodoistContextType {
     duration?: number; // Adicionado para a API do Todoist
     duration_unit?: "minute" | "day"; // Adicionado para a API do Todoist
   }) => Promise<TodoistTask | undefined>;
-  setDeadlineV1: (taskId: string, dateString: string) => Promise<void>; // Nova função v1
-  clearDeadlineV1: (taskId: string) => Promise<void>; // Nova função v1
+  // setDeadlineV1: (taskId: string, dateString: string) => Promise<void>; // Nova função v1 - Removido
+  // clearDeadlineV1: (taskId: string) => Promise<void>; // Nova função v1 - Removido
   isLoading: boolean;
 }
 
@@ -146,19 +146,19 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
     [makeApiCall],
   );
 
-  const setDeadlineV1 = useCallback(
-    async (taskId: string, dateString: string) => {
-      return await makeApiCall(todoistService.setDeadlineV1, taskId, dateString);
-    },
-    [makeApiCall],
-  );
+  // const setDeadlineV1 = useCallback( // Removido
+  //   async (taskId: string, dateString: string) => {
+  //     return await makeApiCall(todoistService.setDeadlineV1, taskId, dateString);
+  //   },
+  //   [makeApiCall],
+  // );
 
-  const clearDeadlineV1 = useCallback(
-    async (taskId: string) => {
-      return await makeApiCall(todoistService.clearDeadlineV1, taskId);
-    },
-    [makeApiCall],
-  );
+  // const clearDeadlineV1 = useCallback( // Removido
+  //   async (taskId: string) => {
+  //     return await makeApiCall(todoistService.clearDeadlineV1, taskId);
+  //   },
+  //   [makeApiCall],
+  // );
 
   return (
     <TodoistContext.Provider
@@ -170,8 +170,8 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
         closeTask,
         deleteTask,
         updateTask,
-        setDeadlineV1, // Expondo a nova função
-        clearDeadlineV1, // Expondo a nova função
+        // setDeadlineV1, // Expondo a nova função - Removido
+        // clearDeadlineV1, // Expondo a nova função - Removido
         isLoading,
       }}
     >

@@ -46,12 +46,12 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onUpdatePriority,
   isLoading,
 }) => {
-  const { setDeadlineV1, clearDeadlineV1 } = useTodoist(); // Usar as novas funções
+  // const { setDeadlineV1, clearDeadlineV1 } = useTodoist(); // Usar as novas funções - Removido
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
-  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(
-    task.deadline?.date ? new Date(task.deadline.date) : undefined
-  );
-  const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
+  // const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>( // Removido
+  //   task.deadline?.date ? new Date(task.deadline.date) : undefined
+  // );
+  // const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false); // Removido
 
   useEffect(() => {
     if (task.labels.includes("pessoal")) {
@@ -61,7 +61,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     } else {
       setSelectedCategory("none");
     }
-    setSelectedDeadlineDate(task.deadline?.date ? new Date(task.deadline.date) : undefined);
+    // setSelectedDeadlineDate(task.deadline?.date ? new Date(task.deadline.date) : undefined); // Removido
   }, [task.labels, task.deadline?.date]);
 
   const handleCategoryChange = (newCategory: "pessoal" | "profissional" | "none") => {
@@ -69,33 +69,33 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     onUpdateCategory(task.id, newCategory);
   };
 
-  const handleSetDeadlineV1 = async () => {
-    if (!selectedDeadlineDate) {
-      toast.error("Por favor, selecione uma data para o deadline.");
-      return;
-    }
-    const dateString = format(selectedDeadlineDate, "yyyy-MM-dd");
-    try {
-      await setDeadlineV1(task.id, dateString);
-      toast.success(`Deadline (v1) definido para ${dateString}!`);
-      setIsDeadlinePopoverOpen(false);
-    } catch (error) {
-      console.error("Erro ao definir deadline (v1):", error);
-      toast.error("Falha ao definir deadline (v1). Verifique o console.");
-    }
-  };
+  // const handleSetDeadlineV1 = async () => { // Removido
+  //   if (!selectedDeadlineDate) {
+  //     toast.error("Por favor, selecione uma data para o deadline.");
+  //     return;
+  //   }
+  //   const dateString = format(selectedDeadlineDate, "yyyy-MM-dd");
+  //   try {
+  //     await setDeadlineV1(task.id, dateString);
+  //     toast.success(`Deadline (v1) definido para ${dateString}!`);
+  //     setIsDeadlinePopoverOpen(false);
+  //   } catch (error) {
+  //     console.error("Erro ao definir deadline (v1):", error);
+  //     toast.error("Falha ao definir deadline (v1). Verifique o console.");
+  //   }
+  // };
 
-  const handleClearDeadlineV1 = async () => {
-    try {
-      await clearDeadlineV1(task.id);
-      toast.success("Deadline (v1) removido!");
-      setSelectedDeadlineDate(undefined);
-      setIsDeadlinePopoverOpen(false);
-    } catch (error) {
-      console.error("Erro ao remover deadline (v1):", error);
-      toast.error("Falha ao remover deadline (v1). Verifique o console.");
-    }
-  };
+  // const handleClearDeadlineV1 = async () => { // Removido
+  //   try {
+  //     await clearDeadlineV1(task.id);
+  //     toast.success("Deadline (v1) removido!");
+  //     setSelectedDeadlineDate(undefined);
+  //     setIsDeadlinePopoverOpen(false);
+  //   } catch (error) {
+  //     console.error("Erro ao remover deadline (v1):", error);
+  //     toast.error("Falha ao remover deadline (v1). Verifique o console.");
+  //   }
+  // };
 
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
@@ -233,7 +233,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           <Trash2 className="mr-2 h-5 w-5" /> Excluir
         </Button>
       </div>
-      <div className="mt-4">
+      {/* <div className="mt-4"> // Removido o popover de deadline da v1
         <Popover open={isDeadlinePopoverOpen} onOpenChange={setIsDeadlinePopoverOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -264,7 +264,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
             </div>
           </PopoverContent>
         </Popover>
-      </div>
+      </div> */}
       <div className="mt-4">
         <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
           <Button variant="outline" className="w-full py-3 text-md flex items-center justify-center">
