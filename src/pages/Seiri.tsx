@@ -6,28 +6,73 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import TaskReviewCard from "@/components/TaskReviewCard"; // Importar o novo componente
+import TaskReviewCard from "@/components/TaskReviewCard";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type ReviewState = "initial" | "reviewing" | "finished";
+type SortCriteria = "random" | "priority" | "deadline" | "starred";
 
 const Seiri = () => {
   const { fetchTasks, closeTask, deleteTask, isLoading } = useTodoist();
   const [tasksToReview, setTasksToReview] = useState<TodoistTask[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
-  const [reviewState, setReviewState] = useState<"initial" | "reviewing" | "finished">("initial");
+  const [reviewState, setReviewState] = useState<ReviewState>("initial");
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria>("random"); // Novo estado para o critério de ordenação
+
+  // Função para ordenar as tarefas com base no critério selecionado
+  const sortTasks = useCallback((tasks: TodoistTask[], criteria: SortCriteria): TodoistTask[] => {
+    switch (criteria) {
+      case "priority":
+        // P1 (4) > P2 (3) > P3 (2) > P4 (1)
+        return [...tasks].sort((a, b) => b.priority - a.priority);
+      case "deadline":
+        return [...tasks].sort((a, b) => {
+          const dateA = a.due?.datetime || a.due?.date;
+          const dateB = b.due?.datetime || b.due?.date;
+
+          if (dateA && dateB) {
+            return new Date(dateA).getTime() - new Date(dateB).getTime();
+          }
+          if (dateA) return -1; // A tem prazo, B não
+          if (dateB) return 1; // B tem prazo, A não
+          return 0; // Ambos sem prazo
+        });
+      case "starred":
+        return [...tasks].sort((a, b) => {
+          const isAStarred = a.content.startsWith("*");
+          const isBStarred = b.content.startsWith("*");
+
+          if (isAStarred && !isBStarred) return -1;
+          if (!isAStarred && isBStarred) return 1;
+          return 0;
+        });
+      case "random":
+      default:
+        return [...tasks].sort(() => 0.5 - Math.random());
+    }
+  }, []);
 
   const loadTasks = useCallback(async () => {
     setReviewState("initial");
     setCurrentTaskIndex(0);
     const fetchedTasks = await fetchTasks();
     if (fetchedTasks && fetchedTasks.length > 0) {
-      setTasksToReview(fetchedTasks);
+      const sortedTasks = sortTasks(fetchedTasks, sortCriteria); // Aplicar ordenação
+      setTasksToReview(sortedTasks);
       setReviewState("reviewing");
-      toast.info(`Encontradas ${fetchedTasks.length} tarefas para revisar.`);
+      toast.info(`Encontradas ${sortedTasks.length} tarefas para revisar.`);
     } else {
       setTasksToReview([]);
       setReviewState("finished");
       toast.info("Nenhuma tarefa encontrada para revisar. Bom trabalho!");
     }
-  }, [fetchTasks]);
+  }, [fetchTasks, sortTasks, sortCriteria]);
 
   useEffect(() => {
     // Load tasks only when the component mounts or when explicitly triggered
@@ -50,7 +95,7 @@ const Seiri = () => {
 
   const handleComplete = useCallback(async (taskId: string) => {
     const success = await closeTask(taskId);
-    if (success !== undefined) { // closeTask returns void, so check if it didn't throw an error
+    if (success !== undefined) {
       toast.success("Tarefa concluída com sucesso!");
       handleNextTask();
     }
@@ -58,7 +103,7 @@ const Seiri = () => {
 
   const handleDelete = useCallback(async (taskId: string) => {
     const success = await deleteTask(taskId);
-    if (success !== undefined) { // deleteTask returns void, so check if it didn't throw an error
+    if (success !== undefined) {
       toast.success("Tarefa excluída com sucesso!");
       handleNextTask();
     }
@@ -79,6 +124,25 @@ const Seiri = () => {
 
       {!isLoading && reviewState === "initial" && (
         <div className="text-center mt-10">
+          <div className="mb-6 flex flex-col items-center gap-4">
+            <label htmlFor="sort-criteria" className="text-lg font-medium text-gray-700">
+              Ordenar tarefas por:
+            </label>
+            <Select
+              value={sortCriteria}
+              onValueChange={(value: SortCriteria) => setSortCriteria(value)}
+            >
+              <SelectTrigger id="sort-criteria" className="w-[200px]">
+                <SelectValue placeholder="Selecione a ordenação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="random">Aleatório</SelectItem>
+                <SelectItem value="priority">Prioridade (P1-P4)</SelectItem>
+                <SelectItem value="deadline">Prazo (Mais Próximo)</SelectItem>
+                <SelectItem value="starred">Iniciadas com "*"</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button
             onClick={loadTasks}
             className="px-8 py-4 text-xl bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-200"
