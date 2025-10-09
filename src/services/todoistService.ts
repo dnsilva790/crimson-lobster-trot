@@ -13,8 +13,13 @@ async function todoistApiCall<T>(
   method: string = "GET",
   body?: object,
 ): Promise<T> {
+  // Sanitize the API key to ensure it only contains valid printable ASCII characters (0x20-0x7E).
+  // This helps prevent "String contains non ISO-8859-1 code point" errors
+  // if the API key was copied with invisible or non-standard characters.
+  const sanitizedApiKey = apiKey.replace(/[^\x20-\x7E]/g, '');
+
   const headers: HeadersInit = {
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${sanitizedApiKey}`,
     "Content-Type": "application/json",
   };
 
