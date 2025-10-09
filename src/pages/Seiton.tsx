@@ -5,10 +5,11 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, getTaskType } from "@/lib/utils"; // Importar getTaskType
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ExternalLink } from "lucide-react";
+import { Badge } from "@/components/ui/badge"; // Importar Badge
 
 type TournamentState = "initial" | "comparing" | "finished";
 
@@ -256,55 +257,92 @@ const Seiton = () => {
     [currentTaskToPlace, comparisonCandidate, comparisonIndex, rankedTasks, saveStateToHistory],
   );
 
-  const renderTaskCard = (task: TodoistTask, isClickable: boolean = false) => (
-    <Card
-      key={task.id}
-      className={cn(
-        "p-4 rounded-lg shadow-md flex flex-col justify-between h-full",
-        isClickable && "cursor-pointer hover:shadow-lg hover:scale-[1.01] transition-all duration-200",
-        task.priority === 4 && "border-l-4 border-red-500",
-        task.priority === 3 && "border-l-4 border-orange-500",
-        task.priority === 2 && "border-l-4 border-yellow-500",
-        task.priority === 1 && "border-l-4 border-gray-400",
-      )}
-      onClick={isClickable ? () => handleSelection(task) : undefined}
-    >
-      <div>
-        <h3 className="text-xl font-semibold mb-2 text-gray-800">{task.content}</h3>
-        {task.description && (
-          <p className="text-sm text-gray-600 mb-2 line-clamp-3">{task.description}</p>
-        )}
-      </div>
-      <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2">
-        {task.deadline?.date ? (
-          <span className="font-semibold text-red-600">
-            Prazo Final: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
-          </span>
-        ) : task.due?.datetime ? (
-          <span>Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
-        ) : task.due?.date ? (
-          <span>Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}</span>
-        ) : (
-          <span>Sem prazo</span>
-        )}
-        <span
-          className={cn(
-            "px-2 py-1 rounded-full text-white text-xs font-medium",
-            PRIORITY_COLORS[task.priority],
-          )}
-        >
-          {PRIORITY_LABELS[task.priority]}
+  const renderTaskDates = (task: TodoistTask) => {
+    const dateElements: JSX.Element[] = [];
+
+    if (task.deadline?.date) {
+      dateElements.push(
+        <span key="deadline" className="font-semibold text-red-600 block">
+          Data Limite: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
         </span>
-      </div>
-      <div className="mt-4">
-        <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
-          <Button variant="outline" className="w-full py-2 text-sm flex items-center justify-center">
-            <ExternalLink className="mr-2 h-4 w-4" /> Abrir no Todoist
-          </Button>
-        </a>
-      </div>
-    </Card>
-  );
+      );
+    }
+
+    if (task.due?.datetime) {
+      dateElements.push(
+        <span key="due-datetime" className="block">
+          Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+        </span>
+      );
+    } else if (task.due?.date) { // Only show due.date if due.datetime is not present
+      dateElements.push(
+        <span key="due-date" className="block">
+          Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
+        </span>
+      );
+    }
+
+    if (dateElements.length === 0) {
+      return <span>Sem prazo</span>;
+    }
+
+    return <div className="space-y-1">{dateElements}</div>;
+  };
+
+  const renderTaskCard = (task: TodoistTask, isClickable: boolean = false) => {
+    const taskType = getTaskType(task);
+    return (
+      <Card
+        key={task.id}
+        className={cn(
+          "p-4 rounded-lg shadow-md flex flex-col justify-between h-full",
+          isClickable && "cursor-pointer hover:shadow-lg hover:scale-[1.01] transition-all duration-200",
+          task.priority === 4 && "border-l-4 border-red-500",
+          task.priority === 3 && "border-l-4 border-orange-500",
+          task.priority === 2 && "border-l-4 border-yellow-500",
+          task.priority === 1 && "border-l-4 border-gray-400",
+        )}
+        onClick={isClickable ? () => handleSelection(task) : undefined}
+      >
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-xl font-semibold text-gray-800">{task.content}</h3>
+            {taskType && (
+              <Badge
+                className={cn(
+                  "text-xs font-medium",
+                  taskType === "Pessoal" ? "bg-blue-100 text-blue-800" : "bg-indigo-100 text-indigo-800"
+                )}
+              >
+                {taskType}
+              </Badge>
+            )}
+          </div>
+          {task.description && (
+            <p className="text-sm text-gray-600 mb-2 line-clamp-3">{task.description}</p>
+          )}
+        </div>
+        <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2">
+          {renderTaskDates(task)}
+          <span
+            className={cn(
+              "px-2 py-1 rounded-full text-white text-xs font-medium",
+              PRIORITY_COLORS[task.priority],
+            )}
+          >
+            {PRIORITY_LABELS[task.priority]}
+          </span>
+        </div>
+        <div className="mt-4">
+          <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
+            <Button variant="outline" className="w-full py-2 text-sm flex items-center justify-center">
+              <ExternalLink className="mr-2 h-4 w-4" /> Abrir no Todoist
+            </Button>
+          </a>
+        </div>
+      </Card>
+    );
+  };
 
   return (
     <div className="p-4">
@@ -384,31 +422,49 @@ const Seiton = () => {
                 Top 5 do Ranking Atual
               </h3>
               <div className="space-y-3">
-                {rankedTasks.slice(0, 5).map((task, index) => (
-                  <Card
-                    key={task.id}
-                    className={cn(
-                      "p-3 rounded-lg flex items-center gap-3 border",
-                      index === 0 && "bg-yellow-50 border-yellow-400",
-                      index === 1 && "bg-gray-50 border-gray-300",
-                      index === 2 && "bg-amber-50 border-amber-300",
-                    )}
-                  >
-                    <span className="text-xl font-bold text-gray-600 w-6 text-center">
-                      {index + 1}º
-                    </span>
-                    <div className="flex-1">
-                      <h4 className="text-md font-semibold text-gray-700">{task.content}</h4>
-                    </div>
-                    {index < 3 && (
-                      <span className="ml-auto text-2xl">
-                        {index === 0 && "🥇"}
-                        {index === 1 && "🥈"}
-                        {index === 2 && "🥉"}
+                {rankedTasks.slice(0, 5).map((task, index) => {
+                  const taskType = getTaskType(task);
+                  return (
+                    <Card
+                      key={task.id}
+                      className={cn(
+                        "p-3 rounded-lg flex items-center gap-3 border",
+                        index === 0 && "bg-yellow-50 border-yellow-400",
+                        index === 1 && "bg-gray-50 border-gray-300",
+                        index === 2 && "bg-amber-50 border-amber-300",
+                      )}
+                    >
+                      <span className="text-xl font-bold text-gray-600 w-6 text-center">
+                        {index + 1}º
                       </span>
-                    )}
-                  </Card>
-                ))}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-md font-semibold text-gray-700">{task.content}</h4>
+                          {taskType && (
+                            <Badge
+                              className={cn(
+                                "text-xs font-medium",
+                                taskType === "Pessoal" ? "bg-blue-100 text-blue-800" : "bg-indigo-100 text-indigo-800"
+                              )}
+                            >
+                              {taskType}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {renderTaskDates(task)}
+                        </div>
+                      </div>
+                      {index < 3 && (
+                        <span className="ml-auto text-2xl">
+                          {index === 0 && "🥇"}
+                          {index === 1 && "🥈"}
+                          {index === 2 && "🥉"}
+                        </span>
+                      )}
+                    </Card>
+                  );
+                })}
               </div>
               {rankedTasks.length > 5 && (
                 <p className="text-center text-sm text-gray-500 mt-4">
@@ -427,40 +483,58 @@ const Seiton = () => {
           </h3>
           {rankedTasks.length > 0 ? (
             <div className="space-y-4">
-              {rankedTasks.map((task, index) => (
-                <Card
-                  key={task.id}
-                  className={cn(
-                    "p-4 rounded-lg shadow-md flex items-center gap-4",
-                    index === 0 && "bg-gradient-to-r from-yellow-100 to-yellow-200 border-yellow-500",
-                    index === 1 && "bg-gradient-to-r from-gray-100 to-gray-200 border-gray-400",
-                    index === 2 && "bg-gradient-to-r from-amber-100 to-amber-200 border-amber-500",
-                    "border-l-4",
-                  )}
-                >
-                  <span className="text-2xl font-bold text-gray-700 w-8 text-center">
-                    {index + 1}º
-                  </span>
-                  <div className="flex-1">
-                    <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
-                    {task.description && (
-                      <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
+              {rankedTasks.map((task, index) => {
+                const taskType = getTaskType(task);
+                return (
+                  <Card
+                    key={task.id}
+                    className={cn(
+                      "p-4 rounded-lg shadow-md flex items-center gap-4",
+                      index === 0 && "bg-gradient-to-r from-yellow-100 to-yellow-200 border-yellow-500",
+                      index === 1 && "bg-gradient-to-r from-gray-100 to-gray-200 border-gray-400",
+                      index === 2 && "bg-gradient-to-r from-amber-100 to-amber-200 border-amber-500",
+                      "border-l-4",
                     )}
-                  </div>
-                  {index < 3 && (
-                    <span className="ml-auto text-3xl">
-                      {index === 0 && "🥇"}
-                      {index === 1 && "🥈"}
-                      {index === 2 && "🥉"}
+                  >
+                    <span className="text-2xl font-bold text-gray-700 w-8 text-center">
+                      {index + 1}º
                     </span>
-                  )}
-                  <a href={task.url} target="_blank" rel="noopener noreferrer" className="ml-auto">
-                    <Button variant="outline" size="icon">
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </a>
-                </Card>
-              ))}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
+                        {taskType && (
+                          <Badge
+                            className={cn(
+                              "text-xs font-medium",
+                              taskType === "Pessoal" ? "bg-blue-100 text-blue-800" : "bg-indigo-100 text-indigo-800"
+                            )}
+                          >
+                            {taskType}
+                          </Badge>
+                        )}
+                      </div>
+                      {task.description && (
+                        <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
+                      )}
+                      <div className="text-xs text-gray-500 mt-1">
+                        {renderTaskDates(task)}
+                      </div>
+                    </div>
+                    {index < 3 && (
+                      <span className="ml-auto text-3xl">
+                        {index === 0 && "🥇"}
+                        {index === 1 && "🥈"}
+                        {index === 2 && "🥉"}
+                      </span>
+                    )}
+                    <a href={task.url} target="_blank" rel="noopener noreferrer" className="ml-auto">
+                      <Button variant="outline" size="icon">
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </a>
+                  </Card>
+                );
+              })}
             </div>
           ) : (
             <p className="text-center text-gray-600 text-lg">

@@ -4,10 +4,11 @@ import React from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, getTaskType } from "@/lib/utils"; // Importar getTaskType
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Check, Trash2, ArrowRight, ExternalLink } from "lucide-react";
+import { Badge } from "@/components/ui/badge"; // Importar Badge
 
 interface TaskReviewCardProps {
   task: TodoistTask;
@@ -39,32 +40,55 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   isLoading,
 }) => {
   const renderDueDate = () => {
+    const dateElements: JSX.Element[] = [];
+
     if (task.deadline?.date) {
-      return (
-        <span className="font-semibold text-red-600">
-          Prazo Final: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
+      dateElements.push(
+        <span key="deadline" className="font-semibold text-red-600 block">
+          Data Limite: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
         </span>
       );
-    } else if (task.due?.datetime) {
-      return (
-        <span>
+    }
+
+    if (task.due?.datetime) {
+      dateElements.push(
+        <span key="due-datetime" className="block">
           Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
         </span>
       );
-    } else if (task.due?.date) {
-      return (
-        <span>
+    } else if (task.due?.date) { // Only show due.date if due.datetime is not present
+      dateElements.push(
+        <span key="due-date" className="block">
           Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
         </span>
       );
     }
-    return <span>Sem prazo</span>;
+
+    if (dateElements.length === 0) {
+      return <span>Sem prazo</span>;
+    }
+
+    return <div className="space-y-1">{dateElements}</div>;
   };
+
+  const taskType = getTaskType(task);
 
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
       <div className="flex-grow">
-        <h3 className="text-2xl font-bold mb-3 text-gray-800">{task.content}</h3>
+        <div className="flex items-center gap-2 mb-3">
+          <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+          {taskType && (
+            <Badge
+              className={cn(
+                "text-xs font-medium",
+                taskType === "Pessoal" ? "bg-blue-100 text-blue-800" : "bg-indigo-100 text-indigo-800"
+              )}
+            >
+              {taskType}
+            </Badge>
+          )}
+        </div>
         {task.description && (
           <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>
         )}
