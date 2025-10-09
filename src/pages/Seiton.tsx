@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
-import { toast } from "sonner";
+import { toast } => "sonner";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -42,9 +42,8 @@ const Seiton = () => {
     setComparisonCandidate(null);
     setComparisonIndex(0);
 
-    // Buscar tarefas relevantes (ex: hoje, atrasadas, ou sem prioridade definida)
-    // O filtro !subtasks será tratado no TodoistContext
-    const allTasks = await fetchTasks("today | overdue | no priority");
+    // Buscar TODAS as tarefas principais (o filtro de subtarefas é feito no TodoistContext)
+    const allTasks = await fetchTasks(); // Chamada sem filtro específico
     if (allTasks && allTasks.length > 0) {
       // Embaralhar e pegar até 50 tarefas para o torneio, permitindo um ranking de até 24
       const shuffledTasks = allTasks.sort(() => 0.5 - Math.random()).slice(0, 50);
