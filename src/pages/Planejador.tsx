@@ -37,7 +37,7 @@ const Planejador = () => {
   const [filterInput, setFilterInput] = useState<string>(""); // Novo estado para o filtro
 
   const currentDaySchedule = schedules[format(selectedDate, "yyyy-MM-dd")] || {
-    date: format(selectedDate, "yyyy-MM-DD"),
+    date: format(selectedDate, "yyyy-MM-dd"),
     timeBlocks: [],
     scheduledTasks: [],
   };
@@ -110,7 +110,7 @@ const Planejador = () => {
     };
 
     setSchedules((prevSchedules) => {
-      const dateKey = format(selectedDate, "yyyy-MM-DD");
+      const dateKey = format(selectedDate, "yyyy-MM-dd");
       const currentDay = prevSchedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
       const updatedBlocks = [...currentDay.timeBlocks, newBlock].sort((a, b) => a.start.localeCompare(b.start));
       return {
@@ -127,7 +127,7 @@ const Planejador = () => {
 
   const handleDeleteBlock = useCallback((blockId: string) => {
     setSchedules((prevSchedules) => {
-      const dateKey = format(selectedDate, "yyyy-MM-DD");
+      const dateKey = format(selectedDate, "yyyy-MM-dd");
       const currentDay = prevSchedules[dateKey];
       if (!currentDay) return prevSchedules;
 
@@ -163,7 +163,7 @@ const Planejador = () => {
   }, []);
 
   const scheduleTask = useCallback((task: TodoistTask | InternalTask, start: string, end: string) => {
-    const dateKey = format(selectedDate, "yyyy-MM-DD");
+    const dateKey = format(selectedDate, "yyyy-MM-dd");
     const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
     
     const newScheduledTask: ScheduledTask = {
@@ -200,7 +200,7 @@ const Planejador = () => {
     }
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
-    const dateKey = format(selectedDate, "yyyy-MM-DD");
+    const dateKey = format(selectedDate, "yyyy-MM-dd");
     const today = parseISO(dateKey);
 
     const startSlot = parse(slotTimeStr, "HH:mm", today);
@@ -246,7 +246,7 @@ const Planejador = () => {
 
   const handleDeleteScheduledTask = useCallback((taskToDelete: ScheduledTask) => {
     setSchedules((prevSchedules) => {
-      const dateKey = format(selectedDate, "yyyy-MM-DD");
+      const dateKey = format(selectedDate, "yyyy-MM-dd");
       const currentDay = prevSchedules[dateKey];
       if (!currentDay) return prevSchedules;
 
@@ -266,7 +266,7 @@ const Planejador = () => {
     }
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
-    const dateKey = format(selectedDate, "yyyy-MM-DD");
+    const dateKey = format(selectedDate, "yyyy-MM-dd");
     const today = parseISO(dateKey);
     const taskCategory = getTaskCategory(selectedTaskToSchedule);
     const taskPriority = 'priority' in selectedTaskToSchedule ? selectedTaskToSchedule.priority : 1; // P4 default for internal
