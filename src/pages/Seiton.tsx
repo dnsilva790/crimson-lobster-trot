@@ -5,11 +5,11 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils"; // Removido getTaskType
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink } from "lucide-react";
-import { Badge } from "@/components/ui/badge"; // Importar Badge
+import { ExternalLink, Check } from "lucide-react"; // Importar Check para o ícone de concluir
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -28,14 +28,14 @@ interface SeitonStateSnapshot {
 const LOCAL_STORAGE_KEY = "seitonTournamentState";
 
 const Seiton = () => {
-  const { fetchTasks, isLoading } = useTodoist();
+  const { fetchTasks, closeTask, isLoading } = useTodoist(); // Obter closeTask do contexto
   const [tournamentState, setTournamentState] = useState<TournamentState>("initial");
-  const [tasksToProcess, setTasksToProcess] = useState<TodoistTask[]>([]); // Tarefas aguardando para serem classificadas
-  const [rankedTasks, setRankedTasks] = useState<TodoistTask[]>([]); // Tarefas já classificadas (mais importantes primeiro)
-  const [currentTaskToPlace, setCurrentTaskToPlace] = useState<TodoistTask | null>(null); // A tarefa que está sendo inserida no ranking
-  const [comparisonCandidate, setComparisonCandidate] = useState<TodoistTask | null>(null); // A tarefa do rankedTasks com a qual currentTaskToPlace está sendo comparada
-  const [comparisonIndex, setComparisonIndex] = useState<number>(0); // Índice em rankedTasks para a comparação
-  const [history, setHistory] = useState<SeitonStateSnapshot[]>([]); // Histórico de estados para a função desfazer
+  const [tasksToProcess, setTasksToProcess] = useState<TodoistTask[]>([]);
+  const [rankedTasks, setRankedTasks] = useState<TodoistTask[]>([]);
+  const [currentTaskToPlace, setCurrentTaskToPlace] = useState<TodoistTask | null>(null);
+  const [comparisonCandidate, setComparisonCandidate] = useState<TodoistTask | null>(null);
+  const [comparisonIndex, setComparisonIndex] = useState<number>(0);
+  const [history, setHistory] = useState<SeitonStateSnapshot[]>([]);
   const [hasSavedState, setHasSavedState] = useState<boolean>(false);
   const [filterInput, setFilterInput] = useState<string>("");
 
@@ -262,6 +262,15 @@ const Seiton = () => {
     [currentTaskToPlace, comparisonCandidate, comparisonIndex, rankedTasks, saveStateToHistory],
   );
 
+  const handleCompleteTask = useCallback(async (taskId: string) => {
+    const success = await closeTask(taskId);
+    if (success !== undefined) {
+      toast.success("Tarefa concluída com sucesso!");
+      // Re-fetch tasks and restart the tournament to update the lists
+      await startTournament(false); 
+    }
+  }, [closeTask, startTournament]);
+
   const renderTaskDates = (task: TodoistTask) => {
     const dateElements: JSX.Element[] = [];
 
@@ -294,8 +303,7 @@ const Seiton = () => {
     return <div className="space-y-1">{dateElements}</div>;
   };
 
-  const renderTaskCard = (task: TodoistTask, isClickable: boolean = false) => {
-    // Removido: const taskType = getTaskType(task);
+  const renderTaskCard = (task: TodoistTask, isClickable: boolean = false, showActions: boolean = false) => {
     return (
       <Card
         key={task.id}
@@ -312,7 +320,6 @@ const Seiton = () => {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <h3 className="text-xl font-semibold text-gray-800">{task.content}</h3>
-            {/* Removido: {taskType && ( ... )} */}
           </div>
           {task.description && (
             <p className="text-sm text-gray-600 mb-2 line-clamp-3">{task.description}</p>
@@ -329,13 +336,23 @@ const Seiton = () => {
             {PRIORITY_LABELS[task.priority]}
           </span>
         </div>
-        <div className="mt-4">
-          <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
-            <Button variant="outline" className="w-full py-2 text-sm flex items-center justify-center">
-              <ExternalLink className="mr-2 h-4 w-4" /> Abrir no Todoist
+        {showActions && (
+          <div className="mt-4 space-y-2">
+            <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
+              <Button variant="outline" className="w-full py-2 text-sm flex items-center justify-center">
+                <ExternalLink className="mr-2 h-4 w-4" /> Abrir no Todoist
+              </Button>
+            </a>
+            <Button
+              onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} // Stop propagation to prevent card selection
+              disabled={isLoading}
+              variant="secondary"
+              className="w-full py-2 text-sm flex items-center justify-center bg-green-500 hover:bg-green-600 text-white"
+            >
+              <Check className="mr-2 h-4 w-4" /> Concluir
             </Button>
-          </a>
-        </div>
+          </div>
+        )}
       </Card>
     );
   };
@@ -392,8 +409,8 @@ const Seiton = () => {
             Tarefas restantes para classificar: {tasksToProcess.length + 1}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {renderTaskCard(currentTaskToPlace, true)}
-            {renderTaskCard(comparisonCandidate, true)}
+            {renderTaskCard(currentTaskToPlace, true, true)}
+            {renderTaskCard(comparisonCandidate, true, true)}
           </div>
           <div className="flex justify-center gap-4 mt-6">
             <Button
@@ -433,7 +450,6 @@ const Seiton = () => {
               </h3>
               <div className="space-y-3">
                 {rankedTasks.slice(0, 5).map((task, index) => {
-                  // Removido: const taskType = getTaskType(task);
                   return (
                     <Card
                       key={task.id}
@@ -450,7 +466,6 @@ const Seiton = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <h4 className="text-md font-semibold text-gray-700">{task.content}</h4>
-                          {/* Removido: {taskType && ( ... )} */}
                         </div>
                         <div className="text-xs text-gray-500">
                           {renderTaskDates(task)}
@@ -485,7 +500,6 @@ const Seiton = () => {
           {rankedTasks.length > 0 ? (
             <div className="space-y-4">
               {rankedTasks.map((task, index) => {
-                // Removido: const taskType = getTaskType(task);
                 return (
                   <Card
                     key={task.id}
@@ -503,7 +517,6 @@ const Seiton = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
-                        {/* Removido: {taskType && ( ... )} */}
                       </div>
                       {task.description && (
                         <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
