@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Bot, User } from "lucide-react";
+import { Send, Bot, User, FileText } from "lucide-react"; // Adicionado FileText para o novo botão
 import { TodoistTask } from "@/lib/types";
 import { useTodoist } from "@/context/TodoistContext";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils"; // Importando a função cn
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface AIAssistantProps {
   aiPrompt: string;
@@ -42,6 +44,32 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const [inputMessage, setInputMessage] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { isLoading } = useTodoist();
+
+  const getTaskHistoryKey = (taskId: string) => `ai_chat_history_${taskId}`;
+
+  // Load messages for the current task
+  useEffect(() => {
+    if (currentTask) {
+      const savedHistory = localStorage.getItem(getTaskHistoryKey(currentTask.id));
+      if (savedHistory) {
+        setMessages(JSON.parse(savedHistory));
+      } else {
+        setMessages([]);
+        // Add initial welcome message only if no history exists for the task
+        addMessage("ai", "Olá! Sou o Tutor IA SEISO. Estou aqui para te ajudar a otimizar sua execução e produtividade. Qual tarefa você gostaria de focar hoje?");
+      }
+    } else {
+      setMessages([]); // Clear messages if no task is in focus
+      addMessage("ai", "Olá! Sou o Tutor IA SEISO. Por favor, inicie o Modo Foco para que eu possa te ajudar com uma tarefa específica.");
+    }
+  }, [currentTask]); // Depend on currentTask to load history
+
+  // Save messages whenever they change
+  useEffect(() => {
+    if (currentTask && messages.length > 0) {
+      localStorage.setItem(getTaskHistoryKey(currentTask.id), JSON.stringify(messages));
+    }
+  }, [messages, currentTask]);
 
   const addMessage = useCallback((sender: "user" | "ai", text: string) => {
     setMessages((prev) => [...prev, { id: Date.now().toString(), sender, text }]);
@@ -138,12 +166,40 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     }, 1000);
   };
 
-  // Initial welcome message
-  useEffect(() => {
-    if (messages.length === 0) {
-      addMessage("ai", "Olá! Sou o Tutor IA SEISO. Estou aqui para te ajudar a otimizar sua execução e produtividade. Qual tarefa você gostaria de focar hoje?");
+  const handleGenerateSummaryAndUpdate = useCallback(async () => {
+    if (!currentTask) {
+      toast.error("Nenhuma tarefa em foco para gerar resumo.");
+      return;
     }
-  }, [messages.length, addMessage]);
+
+    const now = new Date();
+    const timestamp = format(now, "dd/MM/yyyy HH:mm", { locale: ptBR });
+
+    // Simple summary for now. In a real AI, this would be more sophisticated.
+    const conversationSummary = messages
+      .filter(msg => msg.sender === "ai")
+      .slice(-3) // Take last 3 AI messages as a simple summary
+      .map(msg => msg.text.replace(/(\*\*|__)/g, '').replace(/```[\s\S]*?```/g, '').trim()) // Remove markdown bold/italic and code blocks
+      .join("\n- ");
+
+    const summaryText = `\n\n--- Resumo da Sessão (${timestamp}) ---\n` +
+                       `[PROGRESSO]: ${conversationSummary || "Nenhum progresso significativo registrado na conversa."}\n` +
+                       `[PRÓXIMO PASSO]: _(Defina aqui o próximo passo manual ou peça ao Tutor IA para sugerir)_`;
+
+    const newDescription = (currentTask.description || "") + summaryText;
+
+    const updated = await updateTask(currentTask.id, { description: newDescription });
+
+    if (updated) {
+      toast.success("Resumo adicionado à descrição da tarefa no Todoist!");
+      // Optionally clear chat history for this task after summarizing
+      // localStorage.removeItem(getTaskHistoryKey(currentTask.id));
+      // setMessages([]);
+    } else {
+      toast.error("Falha ao atualizar a descrição da tarefa.");
+    }
+  }, [currentTask, messages, updateTask]);
+
 
   return (
     <Card className="h-[600px] flex flex-col">
@@ -177,22 +233,31 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
             ))}
           </div>
         </ScrollArea>
-        <div className="p-4 border-t flex items-center gap-2">
-          <Input
-            placeholder="Converse com o Tutor IA..."
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === "Enter") {
-                handleSendMessage();
-              }
-            }}
-            disabled={isLoading}
-            className="flex-grow"
-          />
-          <Button onClick={handleSendMessage} disabled={isLoading}>
-            <Send className="h-4 w-4" />
+        <div className="p-4 border-t flex flex-col gap-2">
+          <Button
+            onClick={handleGenerateSummaryAndUpdate}
+            disabled={isLoading || !currentTask}
+            className="w-full bg-indigo-500 hover:bg-indigo-600 text-white flex items-center justify-center"
+          >
+            <FileText className="mr-2 h-4 w-4" /> Gerar Resumo e Atualizar Todoist
           </Button>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Converse com o Tutor IA..."
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  handleSendMessage();
+                }
+              }}
+              disabled={isLoading}
+              className="flex-grow"
+            />
+            <Button onClick={handleSendMessage} disabled={isLoading}>
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

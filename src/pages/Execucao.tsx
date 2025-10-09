@@ -9,8 +9,7 @@ import { TodoistTask, SeitonStateSnapshot } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import FocusTaskCard from "@/components/FocusTaskCard";
-import TaskTimer from "@/components/TaskTimer";
-import { CalendarIcon, Clock, Star, Zap, Check, ArrowRight, CalendarDays, ListTodo, Settings } from "lucide-react";
+import { CalendarIcon, Clock, Star, Zap, Check, ArrowRight, CalendarDays, Settings } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -66,7 +65,7 @@ Para considerar o nível de energia disponível para execução de tarefas, cons
 
 **CRITÉRIOS DE DELEGAÇÃO**
 **DELEGAR PARA:**
-* **Ingrid:** Negociações >R$500k, stakeholders alto escalão, análises complexas
+* **Ingrid:** Negociações >R$500k, stakeholders de alto escalão, análises complexas
 * **João:** Médio/grande porte, follow-ups críticos, requer seriedade
 * **Samara:** Médio porte, análises equilibradas, está em desenvolvimento
 * **Francisco:** Tarefas relacionais, follow-ups diversos, suporte geral
@@ -171,7 +170,7 @@ const Execucao = () => {
         const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
         if (savedSeitonState) {
           try {
-            const parsedState: SeitonStateSnapshot = JSON.parse(savedSeitonState);
+            const parsedState: SeitonStateSnapshot = JSON.parse(savedState);
             if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
               fetchedTasks = parsedState.rankedTasks;
               toast.info(`Carregadas ${fetchedTasks.length} tarefas do ranking do Seiton.`);
@@ -294,10 +293,6 @@ const Execucao = () => {
     }
   }, [currentTask, selectedDueDate, selectedDueTime, selectedPriority, updateTask, handleNextTask]);
 
-  const handleGuideMe = useCallback(() => {
-    toast.info("Funcionalidade 'Guiar-me (TDAH)' em desenvolvimento. Em breve, sugestões e quebras de tarefa!");
-  }, []);
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -319,9 +314,6 @@ const Execucao = () => {
           // Open deadline popover
           setIsDeadlinePopoverOpen(true);
           break;
-        case "g":
-          handleGuideMe();
-          break;
         default:
           break;
       }
@@ -331,7 +323,7 @@ const Execucao = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [execucaoState, isLoading, currentTask, handleComplete, handleSkip, handleGuideMe]);
+  }, [execucaoState, isLoading, currentTask, handleComplete, handleSkip]);
 
   // Initialize popover states when a new task is loaded
   useEffect(() => {
@@ -387,11 +379,7 @@ const Execucao = () => {
           <div className="mt-8">
             <FocusTaskCard task={currentTask} />
 
-            <div className="mt-8">
-              <TaskTimer />
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-8">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-8">
               <Button
                 onClick={() => handleComplete(currentTask.id)}
                 disabled={isLoading}
@@ -498,14 +486,6 @@ const Execucao = () => {
                   </div>
                 </PopoverContent>
               </Popover>
-
-              <Button
-                onClick={handleGuideMe}
-                disabled={isLoading}
-                className="bg-indigo-500 hover:bg-indigo-600 text-white py-3 text-md flex items-center justify-center"
-              >
-                <ListTodo className="mr-2 h-5 w-5" /> Guiar-me (TDAH) (G)
-              </Button>
             </div>
 
             <div className="mt-8 text-center">
