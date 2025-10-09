@@ -36,7 +36,7 @@ type MakeApiCallFn = <T>(
 
 const TodoistContext = createContext<TodoistContextType | undefined>(undefined);
 
-export const TodoistProvider = ({ children }: { children: ReactNode }) => {
+export const TodoistProvider = ({ children }: { ReactNode }) => {
   const [apiKey, setApiKeyInternal] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -79,7 +79,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const fetchTasks = useCallback(
-    async (filter?: string, includeSubtasksAndRecurring: boolean = false) => {
+    async (filter?: string, includeSubtasksAndRecurring?: boolean) => {
       const allTasks = (await makeApiCall(todoistService.fetchTasks, filter)) || [];
       
       // Calcula estimatedDurationMinutes para todas as tarefas
@@ -96,14 +96,21 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         return { ...task, estimatedDurationMinutes };
       });
 
-      if (includeSubtasksAndRecurring) {
-        return tasksWithDuration;
-      } else {
-        // Filtra subtarefas e tarefas recorrentes, se não for para incluir
+      // Lógica de filtragem aprimorada:
+      // - Se includeSubtasksAndRecurring for explicitamente true, não filtra.
+      // - Se includeSubtasksAndRecurring for explicitamente false, filtra.
+      // - Se includeSubtasksAndRecurring for undefined (não passado):
+      //   - Se um filtro for fornecido, filtra (comportamento padrão para visualizações filtradas).
+      //   - Se NENHUM filtro for fornecido, NÃO filtra (comportamento padrão para visualizações de "todas as tarefas").
+      const shouldFilter = includeSubtasksAndRecurring === false || (includeSubtasksAndRecurring === undefined && filter !== undefined);
+
+      if (shouldFilter) {
         const processedTasks = tasksWithDuration
           .filter(task => task.parent_id === null && task.due?.is_recurring !== true);
         
         return processedTasks;
+      } else {
+        return tasksWithDuration;
       }
     },
     [makeApiCall],
