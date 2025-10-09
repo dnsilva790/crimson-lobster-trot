@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
-import { toast } => "sonner";
+import { toast } from "sonner"; // Corrigido: de '=>' para 'from'
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
