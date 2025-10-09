@@ -311,6 +311,47 @@ const Seiton = () => {
               Resetar Ranking
             </Button>
           </div>
+
+          {/* Nova Seção de Preview do Ranking */}
+          {rankedTasks.length > 0 && (
+            <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner">
+              <h3 className="text-2xl font-bold mb-4 text-center text-gray-800">
+                Top 5 do Ranking Atual
+              </h3>
+              <div className="space-y-3">
+                {rankedTasks.slice(0, 5).map((task, index) => (
+                  <Card
+                    key={task.id}
+                    className={cn(
+                      "p-3 rounded-lg flex items-center gap-3 border",
+                      index === 0 && "bg-yellow-50 border-yellow-400",
+                      index === 1 && "bg-gray-50 border-gray-300",
+                      index === 2 && "bg-amber-50 border-amber-300",
+                    )}
+                  >
+                    <span className="text-xl font-bold text-gray-600 w-6 text-center">
+                      {index + 1}º
+                    </span>
+                    <div className="flex-1">
+                      <h4 className="text-md font-semibold text-gray-700">{task.content}</h4>
+                    </div>
+                    {index < 3 && (
+                      <span className="ml-auto text-2xl">
+                        {index === 0 && "🥇"}
+                        {index === 1 && "🥈"}
+                        {index === 2 && "🥉"}
+                      </span>
+                    )}
+                  </Card>
+                ))}
+              </div>
+              {rankedTasks.length > 5 && (
+                <p className="text-center text-sm text-gray-500 mt-4">
+                  ... e mais {rankedTasks.length - 5} tarefas ranqueadas.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
