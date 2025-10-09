@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb } from "lucide-react";
+import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter } from "lucide-react";
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask } from "@/lib/types";
@@ -34,9 +34,10 @@ const Planejador = () => {
   const [isLoadingBacklog, setIsLoadingBacklog] = useState(false);
   const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string } | null>(null);
   const [tempEstimatedDuration, setTempEstimatedDuration] = useState<string>("15"); // Para ajustar a duração da tarefa selecionada
+  const [filterInput, setFilterInput] = useState<string>(""); // Novo estado para o filtro
 
   const currentDaySchedule = schedules[format(selectedDate, "yyyy-MM-dd")] || {
-    date: format(selectedDate, "yyyy-MM-dd"),
+    date: format(selectedDate, "yyyy-MM-DD"),
     timeBlocks: [],
     scheduledTasks: [],
   };
@@ -62,7 +63,7 @@ const Planejador = () => {
   const fetchBacklogTasks = useCallback(async () => {
     setIsLoadingBacklog(true);
     try {
-      const todoistTasks = await fetchTasks();
+      const todoistTasks = await fetchTasks(filterInput.trim() || undefined); // Usar o filtro aqui
       const internalTasks = getInternalTasks();
 
       const combinedBacklog = [
@@ -88,7 +89,7 @@ const Planejador = () => {
     } finally {
       setIsLoadingBacklog(false);
     }
-  }, [fetchTasks]);
+  }, [fetchTasks, filterInput]); // Adicionar filterInput como dependência
 
   useEffect(() => {
     fetchBacklogTasks();
@@ -109,7 +110,7 @@ const Planejador = () => {
     };
 
     setSchedules((prevSchedules) => {
-      const dateKey = format(selectedDate, "yyyy-MM-dd");
+      const dateKey = format(selectedDate, "yyyy-MM-DD");
       const currentDay = prevSchedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
       const updatedBlocks = [...currentDay.timeBlocks, newBlock].sort((a, b) => a.start.localeCompare(b.start));
       return {
@@ -126,7 +127,7 @@ const Planejador = () => {
 
   const handleDeleteBlock = useCallback((blockId: string) => {
     setSchedules((prevSchedules) => {
-      const dateKey = format(selectedDate, "yyyy-MM-dd");
+      const dateKey = format(selectedDate, "yyyy-MM-DD");
       const currentDay = prevSchedules[dateKey];
       if (!currentDay) return prevSchedules;
 
@@ -162,7 +163,7 @@ const Planejador = () => {
   }, []);
 
   const scheduleTask = useCallback((task: TodoistTask | InternalTask, start: string, end: string) => {
-    const dateKey = format(selectedDate, "yyyy-MM-dd");
+    const dateKey = format(selectedDate, "yyyy-MM-DD");
     const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
     
     const newScheduledTask: ScheduledTask = {
@@ -199,7 +200,7 @@ const Planejador = () => {
     }
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
-    const dateKey = format(selectedDate, "yyyy-MM-dd");
+    const dateKey = format(selectedDate, "yyyy-MM-DD");
     const today = parseISO(dateKey);
 
     const startSlot = parse(slotTimeStr, "HH:mm", today);
@@ -245,7 +246,7 @@ const Planejador = () => {
 
   const handleDeleteScheduledTask = useCallback((taskToDelete: ScheduledTask) => {
     setSchedules((prevSchedules) => {
-      const dateKey = format(selectedDate, "yyyy-MM-dd");
+      const dateKey = format(selectedDate, "yyyy-MM-DD");
       const currentDay = prevSchedules[dateKey];
       if (!currentDay) return prevSchedules;
 
@@ -265,7 +266,7 @@ const Planejador = () => {
     }
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
-    const dateKey = format(selectedDate, "yyyy-MM-dd");
+    const dateKey = format(selectedDate, "yyyy-MM-DD");
     const today = parseISO(dateKey);
     const taskCategory = getTaskCategory(selectedTaskToSchedule);
     const taskPriority = 'priority' in selectedTaskToSchedule ? selectedTaskToSchedule.priority : 1; // P4 default for internal
@@ -483,6 +484,35 @@ const Planejador = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <Label htmlFor="backlog-filter" className="sr-only">Filtrar Backlog</Label>
+              <div className="relative">
+                <Input
+                  id="backlog-filter"
+                  type="text"
+                  placeholder="Filtrar tarefas (ex: 'hoje', 'p1', '#projeto')"
+                  value={filterInput}
+                  onChange={(e) => setFilterInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      fetchBacklogTasks(); // Recarregar tarefas ao pressionar Enter
+                    }
+                  }}
+                  className="pr-10"
+                  disabled={isLoading}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={fetchBacklogTasks}
+                  className="absolute right-0 top-0 h-full px-3"
+                  disabled={isLoading}
+                >
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
             {selectedTaskToSchedule && (
               <div className="mb-4 p-3 border border-indigo-400 bg-indigo-50 rounded-md flex flex-col gap-2">
                 <div className="flex items-center justify-between">
