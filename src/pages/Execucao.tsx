@@ -171,7 +171,7 @@ const Execucao = () => {
         const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
         if (savedSeitonState) {
           try {
-            const parsedState: SeitonStateSnapshot = JSON.parse(savedState);
+            const parsedState: SeitonStateSnapshot = JSON.parse(savedSeitonState); // CORRIGIDO: Usando savedSeitonState
             if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
               fetchedTasks = parsedState.rankedTasks;
               toast.info(`Carregadas ${fetchedTasks.length} tarefas do ranking do Seiton.`);
@@ -341,7 +341,7 @@ const Execucao = () => {
       const initialDueDate = currentTask.due?.date ? parseISO(currentTask.due.date) : undefined;
       const initialDueTime = currentTask.due?.datetime ? format(parseISO(currentTask.due.datetime), "HH:mm") : "";
       setSelectedDueDate(initialDueDate);
-      setSelectedDueTime(initialDueDueTime);
+      setSelectedDueTime(initialDueTime); // CORRIGIDO: Usando initialDueTime
       setSelectedPriority(currentTask.priority);
     }
   }, [currentTask]);
