@@ -1,6 +1,7 @@
 import { TodoistTask } from "@/lib/types";
 
 const TODOIST_API_BASE_URL = "https://api.todoist.com/rest/v2";
+const TODOIST_API_V1_BASE_URL = "https://todoist.com/api/v8"; // API v1 (ou v8, que é a mesma base para deadlines)
 
 interface TodoistError {
   status: number;
@@ -12,6 +13,7 @@ async function todoistApiCall<T>(
   apiKey: string,
   method: string = "GET",
   body?: object,
+  baseUrl: string = TODOIST_API_BASE_URL, // Adicionado parâmetro para URL base
 ): Promise<T> {
   // Sanitize the API key to ensure it only contains valid printable ASCII characters (0x20-0x7E).
   // This helps prevent "String contains non ISO-8859-1 code point" errors
@@ -29,7 +31,7 @@ async function todoistApiCall<T>(
     body: body ? JSON.stringify(body) : undefined,
   };
 
-  const url = `${TODOIST_API_BASE_URL}${endpoint}`;
+  const url = `${baseUrl}${endpoint}`; // Usar a baseUrl fornecida
   console.log("Todoist API Request URL:", url); // Log da URL para depuração
 
   const response = await fetch(url, config);
@@ -74,5 +76,28 @@ export const todoistService = {
     duration_unit?: "minute" | "day"; // Adicionado para a API do Todoist
   }): Promise<TodoistTask> => {
     return todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", data);
+  },
+
+  // --- Funções para testar a API v1 de Deadlines ---
+  setDeadlineV1: async (apiKey: string, taskId: string, dateString: string): Promise<void> => {
+    // A API v1 de deadlines espera 'item_id' e 'date'
+    return todoistApiCall<void>(
+      "/deadlines/set",
+      apiKey,
+      "POST",
+      { item_id: taskId, date: dateString },
+      TODOIST_API_V1_BASE_URL // Usar a URL base da API v1
+    );
+  },
+
+  clearDeadlineV1: async (apiKey: string, taskId: string): Promise<void> => {
+    // A API v1 de deadlines espera 'item_id'
+    return todoistApiCall<void>(
+      "/deadlines/clear",
+      apiKey,
+      "POST",
+      { item_id: taskId },
+      TODOIST_API_V1_BASE_URL // Usar a URL base da API v1
+    );
   },
 };

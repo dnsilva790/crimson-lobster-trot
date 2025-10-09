@@ -7,7 +7,11 @@ import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle } from "lucide-react"; // Adicionado MinusCircle
+import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { toast } from "sonner";
+import { useTodoist } from "@/context/TodoistContext"; // Importar useTodoist
 
 interface TaskReviewCardProps {
   task: TodoistTask;
@@ -15,7 +19,7 @@ interface TaskReviewCardProps {
   onComplete: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onUpdateCategory: (taskId: string, newCategory: "pessoal" | "profissional" | "none") => void;
-  onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void; // Nova prop
+  onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void;
   isLoading: boolean;
 }
 
@@ -39,10 +43,15 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onComplete,
   onDelete,
   onUpdateCategory,
-  onUpdatePriority, // Nova prop
+  onUpdatePriority,
   isLoading,
 }) => {
+  const { setDeadlineV1, clearDeadlineV1 } = useTodoist(); // Usar as novas funções
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
+  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(
+    task.deadline?.date ? new Date(task.deadline.date) : undefined
+  );
+  const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
 
   useEffect(() => {
     if (task.labels.includes("pessoal")) {
@@ -52,11 +61,40 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     } else {
       setSelectedCategory("none");
     }
-  }, [task.labels]);
+    setSelectedDeadlineDate(task.deadline?.date ? new Date(task.deadline.date) : undefined);
+  }, [task.labels, task.deadline?.date]);
 
   const handleCategoryChange = (newCategory: "pessoal" | "profissional" | "none") => {
     setSelectedCategory(newCategory);
     onUpdateCategory(task.id, newCategory);
+  };
+
+  const handleSetDeadlineV1 = async () => {
+    if (!selectedDeadlineDate) {
+      toast.error("Por favor, selecione uma data para o deadline.");
+      return;
+    }
+    const dateString = format(selectedDeadlineDate, "yyyy-MM-dd");
+    try {
+      await setDeadlineV1(task.id, dateString);
+      toast.success(`Deadline (v1) definido para ${dateString}!`);
+      setIsDeadlinePopoverOpen(false);
+    } catch (error) {
+      console.error("Erro ao definir deadline (v1):", error);
+      toast.error("Falha ao definir deadline (v1). Verifique o console.");
+    }
+  };
+
+  const handleClearDeadlineV1 = async () => {
+    try {
+      await clearDeadlineV1(task.id);
+      toast.success("Deadline (v1) removido!");
+      setSelectedDeadlineDate(undefined);
+      setIsDeadlinePopoverOpen(false);
+    } catch (error) {
+      console.error("Erro ao remover deadline (v1):", error);
+      toast.error("Falha ao remover deadline (v1). Verifique o console.");
+    }
   };
 
   const renderDueDate = () => {
@@ -194,6 +232,38 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         >
           <Trash2 className="mr-2 h-5 w-5" /> Excluir
         </Button>
+      </div>
+      <div className="mt-4">
+        <Popover open={isDeadlinePopoverOpen} onOpenChange={setIsDeadlinePopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              disabled={isLoading}
+              className="w-full py-3 text-md flex items-center justify-center"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" /> Definir Deadline (v1)
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-4">
+            <h4 className="font-semibold text-lg mb-3">Definir Deadline (API v1)</h4>
+            <Calendar
+              mode="single"
+              selected={selectedDeadlineDate}
+              onSelect={setSelectedDeadlineDate}
+              initialFocus
+              locale={ptBR}
+              className="rounded-md border shadow"
+            />
+            <div className="flex gap-2 mt-4">
+              <Button onClick={handleSetDeadlineV1} className="flex-1" disabled={isLoading}>
+                Salvar Deadline
+              </Button>
+              <Button onClick={handleClearDeadlineV1} variant="outline" className="flex-1" disabled={isLoading}>
+                Limpar Deadline
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
       <div className="mt-4">
         <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">

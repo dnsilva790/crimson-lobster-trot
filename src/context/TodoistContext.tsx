@@ -26,6 +26,8 @@ interface TodoistContextType {
     duration?: number; // Adicionado para a API do Todoist
     duration_unit?: "minute" | "day"; // Adicionado para a API do Todoist
   }) => Promise<TodoistTask | undefined>;
+  setDeadlineV1: (taskId: string, dateString: string) => Promise<void>; // Nova função v1
+  clearDeadlineV1: (taskId: string) => Promise<void>; // Nova função v1
   isLoading: boolean;
 }
 
@@ -36,7 +38,7 @@ type MakeApiCallFn = <T>(
 
 const TodoistContext = createContext<TodoistContextType | undefined>(undefined);
 
-export const TodoistProvider = ({ children }: { children: ReactNode }) => {
+export const TodoistProvider = ({ children }: { ReactNode }) => {
   const [apiKey, setApiKeyInternal] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -144,6 +146,20 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
     [makeApiCall],
   );
 
+  const setDeadlineV1 = useCallback(
+    async (taskId: string, dateString: string) => {
+      return await makeApiCall(todoistService.setDeadlineV1, taskId, dateString);
+    },
+    [makeApiCall],
+  );
+
+  const clearDeadlineV1 = useCallback(
+    async (taskId: string) => {
+      return await makeApiCall(todoistService.clearDeadlineV1, taskId);
+    },
+    [makeApiCall],
+  );
+
   return (
     <TodoistContext.Provider
       value={{
@@ -154,6 +170,8 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         closeTask,
         deleteTask,
         updateTask,
+        setDeadlineV1, // Expondo a nova função
+        clearDeadlineV1, // Expondo a nova função
         isLoading,
       }}
     >
