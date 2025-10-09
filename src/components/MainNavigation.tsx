@@ -35,14 +35,14 @@ const modules = [
     colorClass: "bg-yellow-100 hover:bg-yellow-200",
     activeColor: "border-yellow-600",
   },
-  // { // REMOVIDO
-  //   path: "/seiso",
-  //   icon: Sparkles,
-  //   title: "SEISO",
-  //   description: "Limpeza e Revisão",
-  //   colorClass: "bg-blue-100 hover:bg-blue-200",
-  //   activeColor: "border-blue-600",
-  // },
+  { // NOVO
+    path: "/seiso",
+    icon: Sparkles,
+    title: "SEISO",
+    description: "Limpeza e Revisão",
+    colorClass: "bg-blue-100 hover:bg-blue-200",
+    activeColor: "border-blue-600",
+  },
   // { // REMOVIDO
   //   path: "/shitsuke",
   //   icon: TrendingUp,
