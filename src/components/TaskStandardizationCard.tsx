@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
-import { cn, getTaskType } from "@/lib/utils"; // Importar getTaskType
+import { cn } from "@/lib/utils"; // Removido getTaskType
 import { format, setHours, setMinutes, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, ExternalLink } from "lucide-react";
@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge"; // Importar Badge
+// Removido: import { Badge } from "@/components/ui/badge"; // Importar Badge
 
 interface TaskStandardizationCardProps {
   task: TodoistTask;
@@ -140,23 +140,14 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
     return <div className="space-y-1">{dateElements}</div>;
   };
 
-  const taskType = getTaskType(task);
+  // Removido: const taskType = getTaskType(task);
 
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
       <div className="flex-grow">
         <div className="flex items-center gap-2 mb-3">
           <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
-          {taskType && (
-            <Badge
-              className={cn(
-                "text-xs font-medium",
-                taskType === "Pessoal" ? "bg-blue-100 text-blue-800" : "bg-indigo-100 text-indigo-800"
-              )}
-            >
-              {taskType}
-            </Badge>
-          )}
+          {/* Removido: {taskType && ( ... )} */}
         </div>
         {task.description && (
           <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>

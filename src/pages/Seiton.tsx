@@ -5,17 +5,15 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { cn, getTaskType } from "@/lib/utils"; // Importar getTaskType
+import { cn } from "@/lib/utils"; // Removido getTaskType
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge"; // Importar Badge
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type TournamentState = "initial" | "comparing" | "finished";
-type TaskTypeFilter = "all" | "pessoal" | "profissional";
 
 // Define a interface para o estado que será salvo no histórico
 interface SeitonStateSnapshot {
@@ -40,7 +38,6 @@ const Seiton = () => {
   const [history, setHistory] = useState<SeitonStateSnapshot[]>([]); // Histórico de estados para a função desfazer
   const [hasSavedState, setHasSavedState] = useState<boolean>(false);
   const [filterInput, setFilterInput] = useState<string>("");
-  const [taskTypeFilter, setTaskTypeFilter] = useState<TaskTypeFilter>("all");
 
   const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
     4: "bg-red-500", // P1 - Urgente
@@ -135,13 +132,8 @@ const Seiton = () => {
       setHasSavedState(false);
     }
 
-    let todoistFilter = filterInput.trim();
-    if (taskTypeFilter === "pessoal") {
-      todoistFilter = todoistFilter ? `${todoistFilter} & #pessoal` : "#pessoal";
-    } else if (taskTypeFilter === "profissional") {
-      todoistFilter = todoistFilter ? `${todoistFilter} & #profissional` : "#profissional";
-    }
-
+    const todoistFilter = filterInput.trim();
+    
     if (!continueSaved || tasksToProcess.length === 0) { // Only fetch if starting fresh or no tasks in saved state
       const allTasks = await fetchTasks(todoistFilter || undefined);
       if (allTasks && allTasks.length > 0) {
@@ -155,7 +147,7 @@ const Seiton = () => {
     } else {
       setTournamentState("comparing"); // Continue with existing tasksToProcess
     }
-  }, [fetchTasks, sortTasks, tasksToProcess.length, filterInput, taskTypeFilter]);
+  }, [fetchTasks, sortTasks, tasksToProcess.length, filterInput]);
 
   const startNextPlacement = useCallback(() => {
     if (tasksToProcess.length === 0) {
@@ -303,7 +295,7 @@ const Seiton = () => {
   };
 
   const renderTaskCard = (task: TodoistTask, isClickable: boolean = false) => {
-    const taskType = getTaskType(task);
+    // Removido: const taskType = getTaskType(task);
     return (
       <Card
         key={task.id}
@@ -320,16 +312,7 @@ const Seiton = () => {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <h3 className="text-xl font-semibold text-gray-800">{task.content}</h3>
-            {taskType && (
-              <Badge
-                className={cn(
-                  "text-xs font-medium",
-                  taskType === "Pessoal" ? "bg-blue-100 text-blue-800" : "bg-indigo-100 text-indigo-800"
-                )}
-              >
-                {taskType}
-              </Badge>
-            )}
+            {/* Removido: {taskType && ( ... )} */}
           </div>
           {task.description && (
             <p className="text-sm text-gray-600 mb-2 line-clamp-3">{task.description}</p>
@@ -372,7 +355,7 @@ const Seiton = () => {
 
       {!isLoading && tournamentState === "initial" && (
         <div className="text-center mt-10">
-          <div className="grid w-full items-center gap-1.5 mb-4 max-w-md mx-auto">
+          <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">
             <Label htmlFor="task-filter" className="text-left text-gray-600 font-medium">
               Filtro de Tarefas (ex: "hoje", "p1", "#projeto")
             </Label>
@@ -385,25 +368,6 @@ const Seiton = () => {
               className="mt-1"
               disabled={isLoading}
             />
-          </div>
-          <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">
-            <Label htmlFor="task-type-filter" className="text-left text-gray-600 font-medium">
-              Tipo de Tarefa
-            </Label>
-            <Select
-              value={taskTypeFilter}
-              onValueChange={(value: TaskTypeFilter) => setTaskTypeFilter(value)}
-              disabled={isLoading}
-            >
-              <SelectTrigger className="w-full mt-1">
-                <SelectValue placeholder="Filtrar por tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="pessoal">Pessoal</SelectItem>
-                <SelectItem value="profissional">Profissional</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
           {hasSavedState && (
             <Button
@@ -469,7 +433,7 @@ const Seiton = () => {
               </h3>
               <div className="space-y-3">
                 {rankedTasks.slice(0, 5).map((task, index) => {
-                  const taskType = getTaskType(task);
+                  // Removido: const taskType = getTaskType(task);
                   return (
                     <Card
                       key={task.id}
@@ -486,16 +450,7 @@ const Seiton = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <h4 className="text-md font-semibold text-gray-700">{task.content}</h4>
-                          {taskType && (
-                            <Badge
-                              className={cn(
-                                "text-xs font-medium",
-                                taskType === "Pessoal" ? "bg-blue-100 text-blue-800" : "bg-indigo-100 text-indigo-800"
-                              )}
-                            >
-                              {taskType}
-                            </Badge>
-                          )}
+                          {/* Removido: {taskType && ( ... )} */}
                         </div>
                         <div className="text-xs text-gray-500">
                           {renderTaskDates(task)}
@@ -530,7 +485,7 @@ const Seiton = () => {
           {rankedTasks.length > 0 ? (
             <div className="space-y-4">
               {rankedTasks.map((task, index) => {
-                const taskType = getTaskType(task);
+                // Removido: const taskType = getTaskType(task);
                 return (
                   <Card
                     key={task.id}
@@ -548,16 +503,7 @@ const Seiton = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
-                        {taskType && (
-                          <Badge
-                            className={cn(
-                              "text-xs font-medium",
-                              taskType === "Pessoal" ? "bg-blue-100 text-blue-800" : "bg-indigo-100 text-indigo-800"
-                            )}
-                          >
-                            {taskType}
-                          </Badge>
-                        )}
+                        {/* Removido: {taskType && ( ... )} */}
                       </div>
                       {task.description && (
                         <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
