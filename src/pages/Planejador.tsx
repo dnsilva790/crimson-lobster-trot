@@ -34,7 +34,20 @@ const Planejador = () => {
   const [isLoadingBacklog, setIsLoadingBacklog] = useState(false);
   const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string; date: string } | null>(null); // UPDATED: now stores date
   const [tempEstimatedDuration, setTempEstimatedDuration] = useState<string>("15"); // Para ajustar a duração da tarefa selecionada
-  const [filterInput, setFilterInput] = useState<string>(""); // Novo estado para o filtro
+  const [filterInput, setFilterInput] = useState<string>(() => {
+    // Load initial filter from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('planejador_filter_input') || "";
+    }
+    return "";
+  }); // Novo estado para o filtro
+
+  // Save filter to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('planejador_filter_input', filterInput);
+    }
+  }, [filterInput]);
 
   const currentDaySchedule = schedules[format(selectedDate, "yyyy-MM-dd")] || {
     date: format(selectedDate, "yyyy-MM-dd"),

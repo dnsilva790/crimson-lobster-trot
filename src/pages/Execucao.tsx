@@ -99,8 +99,21 @@ Anti-Procrastinação: Você é especialista em quebrar a inércia, transformand
 
 const Execucao = () => {
   const { closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
-  const [filterInput, setFilterInput] = useState<string>("");
+  const [filterInput, setFilterInput] = useState<string>(() => {
+    // Load initial filter from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('execucao_filter_input') || "";
+    }
+    return "";
+  });
   const [aiPrompt, setAiPrompt] = useState<string>(defaultAiPrompt);
+
+  // Save filter to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('execucao_filter_input', filterInput);
+    }
+  }, [filterInput]);
 
   const {
     focusTasks,
@@ -109,7 +122,6 @@ const Execucao = () => {
     execucaoState,
     isLoadingTasks,
     loadTasksForFocus,
-    handleNextTask,
   } = useExecucaoTasks(filterInput);
 
   const currentTask = focusTasks[currentTaskIndex]; // Pegar a tarefa pelo índice
@@ -129,13 +141,13 @@ const Execucao = () => {
   const handleComplete = useCallback(async (taskId: string) => {
     const success = await closeTask(taskId);
     if (success !== undefined) {
-      await handleNextTask(); // Re-fetch and update state
+      await loadTasksForFocus(true); // Re-fetch and update state
     }
-  }, [closeTask, handleNextTask]);
+  }, [closeTask, loadTasksForFocus]);
 
   const handleSkip = useCallback(async () => {
-    await handleNextTask(); // Re-fetch and update state
-  }, [handleNextTask]);
+    await loadTasksForFocus(true); // Re-fetch and update state
+  }, [loadTasksForFocus]);
 
   const handleUpdateTaskAndRefresh = useCallback(async (taskId: string, data: {
     priority?: 1 | 2 | 3 | 4;
@@ -144,10 +156,10 @@ const Execucao = () => {
   }) => {
     const updated = await updateTask(taskId, data);
     if (updated) {
-      await handleNextTask(); // Re-fetch and update state
+      await loadTasksForFocus(true); // Re-fetch and update state
     }
     return updated;
-  }, [updateTask, handleNextTask]);
+  }, [updateTask, loadTasksForFocus]);
 
   // States and handlers for keyboard shortcuts to open popovers
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);

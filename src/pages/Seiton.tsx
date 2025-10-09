@@ -37,7 +37,20 @@ const Seiton = () => {
   const [comparisonIndex, setComparisonIndex] = useState<number>(0);
   const [history, setHistory] = useState<SeitonStateSnapshot[]>([]);
   const [hasSavedState, setHasSavedState] = useState<boolean>(false);
-  const [filterInput, setFilterInput] = useState<string>("");
+  const [filterInput, setFilterInput] = useState<string>(() => {
+    // Load initial filter from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('seiton_filter_input') || "";
+    }
+    return "";
+  });
+
+  // Save filter to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('seiton_filter_input', filterInput);
+    }
+  }, [filterInput]);
 
   const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
     4: "bg-red-500", // P1 - Urgente

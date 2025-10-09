@@ -17,7 +17,20 @@ const Seiri = () => {
   const [tasksToReview, setTasksToReview] = useState<TodoistTask[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [reviewState, setReviewState] = useState<ReviewState>("initial");
-  const [filterInput, setFilterInput] = useState<string>("");
+  const [filterInput, setFilterInput] = useState<string>(() => {
+    // Load initial filter from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('seiri_filter_input') || "";
+    }
+    return "";
+  });
+
+  // Save filter to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('seiri_filter_input', filterInput);
+    }
+  }, [filterInput]);
 
   // Função para ordenar as tarefas com base nos critérios combinados, priorizando deadline
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {

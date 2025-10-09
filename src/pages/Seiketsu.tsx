@@ -17,7 +17,20 @@ const Seiketsu = () => {
   const [tasksToStandardize, setTasksToStandardize] = useState<TodoistTask[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [seiketsuState, setSeiketsuState] = useState<SeiketsuState>("initial");
-  const [filterInput, setFilterInput] = useState<string>("");
+  const [filterInput, setFilterInput] = useState<string>(() => {
+    // Load initial filter from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('seiketsu_filter_input') || "";
+    }
+    return "";
+  });
+
+  // Save filter to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('seiketsu_filter_input', filterInput);
+    }
+  }, [filterInput]);
 
   const loadTasksForStandardization = useCallback(async () => {
     setSeiketsuState("initial");
