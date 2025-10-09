@@ -32,7 +32,7 @@ const Planejador = () => {
   const [backlogTasks, setBacklogTasks] = useState<(TodoistTask | InternalTask)[]>([]);
   const [selectedTaskToSchedule, setSelectedTaskToSchedule] = useState<(TodoistTask | InternalTask) | null>(null);
   const [isLoadingBacklog, setIsLoadingBacklog] = useState(false);
-  const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string } | null>(null);
+  const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string; date: string } | null>(null); // UPDATED: now stores date
   const [tempEstimatedDuration, setTempEstimatedDuration] = useState<string>("15"); // Para ajustar a duração da tarefa selecionada
   const [filterInput, setFilterInput] = useState<string>(""); // Novo estado para o filtro
 
@@ -163,8 +163,8 @@ const Planejador = () => {
     toast.info("Seleção de tarefa cancelada.");
   }, []);
 
-  const scheduleTask = useCallback((task: TodoistTask | InternalTask, start: string, end: string) => {
-    const dateKey = format(selectedDate, "yyyy-MM-dd");
+  const scheduleTask = useCallback((task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date) => { // UPDATED: added targetDate
+    const dateKey = format(targetDate, "yyyy-MM-dd"); // UPDATED: use targetDate
     const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
     
     const newScheduledTask: ScheduledTask = {
@@ -188,11 +188,11 @@ const Planejador = () => {
       };
     });
 
-    toast.success(`Tarefa "${task.content}" agendada para ${start}-${end}!`);
+    toast.success(`Tarefa "${task.content}" agendada para ${start}-${end} em ${format(targetDate, "dd/MM", { locale: ptBR })}!`); // UPDATED toast message
     setSelectedTaskToSchedule(null); // Clear selection after scheduling
     setSuggestedSlot(null); // Clear suggestion
     setTempEstimatedDuration("15");
-  }, [selectedDate, schedules, tempEstimatedDuration]);
+  }, [schedules, tempEstimatedDuration]); // UPDATED dependencies
 
   const handleSelectSlot = useCallback((slotTimeStr: string, slotType: TimeBlockType) => {
     if (!selectedTaskToSchedule) {
@@ -202,13 +202,13 @@ const Planejador = () => {
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
     const dateKey = format(selectedDate, "yyyy-MM-dd");
-    const today = parseISO(dateKey);
+    const today = parseISO(dateKey); // Use selectedDate for current day's planner
 
     const startSlot = parse(slotTimeStr, "HH:mm", today);
     const endSlot = addMinutes(startSlot, durationMinutes);
     const endSlotStr = format(endSlot, "HH:mm");
 
-    // Check for conflicts with existing scheduled tasks
+    // Check for conflicts with existing scheduled tasks on the selectedDate
     const hasConflict = currentDaySchedule.scheduledTasks.some(st => {
       const stStart = parse(st.start, "HH:mm", today);
       const stEnd = parse(st.end, "HH:mm", today);
@@ -222,7 +222,7 @@ const Planejador = () => {
       return;
     }
 
-    // Check if the entire duration fits within a valid time block
+    // Check if the entire duration fits within a valid time block on the selectedDate
     const fitsInBlock = currentDaySchedule.timeBlocks.some(block => {
       const blockStart = parse(block.start, "HH:mm", today);
       const blockEnd = parse(block.end, "HH:mm", today);
@@ -242,23 +242,9 @@ const Planejador = () => {
       // Optionally, you could prevent scheduling here: return;
     }
 
-    scheduleTask(selectedTaskToSchedule, slotTimeStr, endSlotStr);
+    scheduleTask(selectedTaskToSchedule, slotTimeStr, endSlotStr, selectedDate); // UPDATED: pass selectedDate
   }, [selectedTaskToSchedule, selectedDate, currentDaySchedule, scheduleTask, tempEstimatedDuration]);
 
-  const handleDeleteScheduledTask = useCallback((taskToDelete: ScheduledTask) => {
-    setSchedules((prevSchedules) => {
-      const dateKey = format(selectedDate, "yyyy-MM-dd");
-      const currentDay = prevSchedules[dateKey];
-      if (!currentDay) return prevSchedules;
-
-      const updatedScheduledTasks = currentDay.scheduledTasks.filter((task) => task.id !== taskToDelete.id);
-      return {
-        ...prevSchedules,
-        [dateKey]: { ...currentDay, scheduledTasks: updatedScheduledTasks },
-      };
-    });
-    toast.info(`Tarefa agendada "${taskToDelete.content}" removida.`);
-  }, [selectedDate]);
 
   const suggestTimeSlot = useCallback(() => {
     if (!selectedTaskToSchedule) {
@@ -267,95 +253,99 @@ const Planejador = () => {
     }
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
-    const dateKey = format(selectedDate, "yyyy-MM-dd");
-    const today = parseISO(dateKey);
     const taskCategory = getTaskCategory(selectedTaskToSchedule);
     const taskPriority = 'priority' in selectedTaskToSchedule ? selectedTaskToSchedule.priority : 1; // P4 default for internal
 
-    let bestSlot: { start: string; end: string } | null = null;
-    let bestScore = -1;
+    let bestSlot: { start: string; end: string; date: string } | null = null; // UPDATED
+    let bestScore = -Infinity; // Initialize with a very low score
 
-    // Iterate through 15-minute slots for the entire day
-    for (let hour = 0; hour < 24; hour++) {
-      for (let minute = 0; minute < 60; minute += 15) {
-        const slotStart = setMinutes(setHours(today, hour), minute);
-        const slotEnd = addMinutes(slotStart, durationMinutes);
-        const slotStartStr = format(slotStart, "HH:mm");
-        const slotEndStr = format(slotEnd, "HH:mm");
+    const NUM_DAYS_TO_LOOK_AHEAD = 7; // Look up to 7 days ahead
 
-        // 1. Check if slot is within the current day
-        if (slotEnd.getDate() !== today.getDate()) continue;
+    for (let dayOffset = 0; dayOffset < NUM_DAYS_TO_LOOK_AHEAD; dayOffset++) {
+      const currentDayDate = addDays(selectedDate, dayOffset); // Iterate through days
+      const currentDayDateKey = format(currentDayDate, "yyyy-MM-dd");
+      const currentDayScheduleForSuggestion = schedules[currentDayDateKey] || { date: currentDayDateKey, timeBlocks: [], scheduledTasks: [] };
 
-        // 2. Check for conflicts with existing scheduled tasks
-        const hasConflict = currentDaySchedule.scheduledTasks.some(st => {
-          const stStart = parse(st.start, "HH:mm", today);
-          const stEnd = parse(st.end, "HH:mm", today);
-          return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
-                  isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
-                  (slotStart <= stStart && slotEnd >= stEnd));
-        });
-        if (hasConflict) continue;
+      for (let hour = 0; hour < 24; hour++) {
+        for (let minute = 0; minute < 60; minute += 15) {
+          const slotStart = setMinutes(setHours(currentDayDate, hour), minute);
+          const slotEnd = addMinutes(slotStart, durationMinutes);
+          const slotStartStr = format(slotStart, "HH:mm");
+          const slotEndStr = format(slotEnd, "HH:mm");
 
-        // 3. Check if it fits within a defined time block and matches category
-        let currentSlotScore = 0;
-        let fitsInAppropriateBlock = false;
-        let isProductivityPeak = false;
+          // 1. Check if slot is within the current day (should always be true with currentDayDate)
+          // if (slotEnd.getDate() !== currentDayDate.getDate()) continue; // This check is redundant if currentDayDate is used correctly
 
-        for (const block of currentDaySchedule.timeBlocks) {
-          const blockStart = parse(block.start, "HH:mm", today);
-          const blockEnd = parse(block.end, "HH:mm", today);
+          // 2. Check for conflicts with existing scheduled tasks on this specific day
+          const hasConflict = currentDayScheduleForSuggestion.scheduledTasks.some(st => {
+            const stStart = parse(st.start, "HH:mm", currentDayDate);
+            const stEnd = parse(st.end, "HH:mm", currentDayDate);
+            return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
+                    isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
+                    (slotStart <= stStart && slotEnd >= stEnd));
+          });
+          if (hasConflict) continue;
 
-          if (slotStart >= blockStart && slotEnd <= blockEnd) {
-            // Slot is fully within a block
-            if ((block.type === "work" && taskCategory === "profissional") ||
-                (block.type === "personal" && taskCategory === "pessoal") ||
-                (block.type === "break" && taskCategory === undefined) || // Breaks can be for anything
-                (block.type === "work" && taskCategory === undefined) || // If no category, can go in work
-                (block.type === "personal" && taskCategory === undefined)) {
-              fitsInAppropriateBlock = true;
-              currentSlotScore += 10; // High score for fitting in appropriate block
+          // 3. Check if it fits within a defined time block and matches category
+          let currentSlotScore = 0;
+          let fitsInAppropriateBlock = false;
+          let isProductivityPeak = false;
 
-              // Check for productivity peak (06h-10h) for work tasks
-              if (block.type === "work" && taskCategory === "profissional" &&
-                  slotStart.getHours() >= 6 && slotStart.getHours() < 10) {
-                isProductivityPeak = true;
-                currentSlotScore += 5; // Extra score for productivity peak
+          for (const block of currentDayScheduleForSuggestion.timeBlocks) {
+            const blockStart = parse(block.start, "HH:mm", currentDayDate);
+            const blockEnd = parse(block.end, "HH:mm", currentDayDate);
+
+            if (slotStart >= blockStart && slotEnd <= blockEnd) {
+              // Slot is fully within a block
+              if ((block.type === "work" && taskCategory === "profissional") ||
+                  (block.type === "personal" && taskCategory === "pessoal") ||
+                  (block.type === "break" && taskCategory === undefined) ||
+                  (block.type === "work" && taskCategory === undefined) ||
+                  (block.type === "personal" && taskCategory === undefined)) {
+                fitsInAppropriateBlock = true;
+                currentSlotScore += 10; // High score for fitting in appropriate block
+
+                // Check for productivity peak (06h-10h) for work tasks
+                if (block.type === "work" && taskCategory === "profissional" &&
+                    slotStart.getHours() >= 6 && slotStart.getHours() < 10) {
+                  isProductivityPeak = true;
+                  currentSlotScore += 5; // Extra score for productivity peak
+                }
+                break;
               }
-              break;
             }
           }
-        }
 
-        if (!fitsInAppropriateBlock && currentDaySchedule.timeBlocks.length > 0) {
-          // If there are blocks but it doesn't fit appropriately, it's a lower priority
-          currentSlotScore -= 5; // Penalize for not fitting in a defined block
-        } else if (currentDaySchedule.timeBlocks.length === 0) {
-          // If no blocks are defined, any free slot is fine
-          currentSlotScore += 5;
-        }
+          if (!fitsInAppropriateBlock && currentDayScheduleForSuggestion.timeBlocks.length > 0) {
+            currentSlotScore -= 5; // Penalize for not fitting in a defined block
+          } else if (currentDayScheduleForSuggestion.timeBlocks.length === 0) {
+            currentSlotScore += 5; // If no blocks are defined, any free slot is fine
+          }
 
-        // 4. Prioritize based on task priority
-        currentSlotScore += taskPriority * 2; // P1 (4) gets +8, P4 (1) gets +2
+          // 4. Prioritize based on task priority
+          currentSlotScore += taskPriority * 2; // P1 (4) gets +8, P4 (1) gets +2
 
-        // 5. Prioritize earlier slots
-        currentSlotScore -= (hour * 60 + minute) / 100; // Earlier in the day gets higher score
+          // 5. Prioritize earlier days
+          currentSlotScore -= dayOffset * 100; // Earlier days get higher score (e.g., today +0, tomorrow +100, etc.)
 
-        if (currentSlotScore > bestScore) {
-          bestScore = currentSlotScore;
-          bestSlot = { start: slotStartStr, end: slotEndStr };
+          // 6. Prioritize earlier slots within the day
+          currentSlotScore -= (hour * 60 + minute) / 100; // Earlier in the day gets higher score
+
+          if (currentSlotScore > bestScore) {
+            bestScore = currentSlotScore;
+            bestSlot = { start: slotStartStr, end: slotEndStr, date: currentDayDateKey }; // UPDATED
+          }
         }
       }
-    }
 
-    if (bestSlot) {
-      setSuggestedSlot(bestSlot);
-      toast.success(`Slot sugerido: ${bestSlot.start} - ${bestSlot.end}`);
-    } else {
-      setSuggestedSlot(null);
-      toast.error("Não foi possível encontrar um slot adequado para esta tarefa.");
-    }
-  }, [selectedTaskToSchedule, selectedDate, currentDaySchedule, tempEstimatedDuration]);
-
+      if (bestSlot) {
+        setSuggestedSlot(bestSlot);
+        toast.success(`Slot sugerido: ${bestSlot.start} - ${bestSlot.end} em ${format(parseISO(bestSlot.date), "dd/MM", { locale: ptBR })}`); // UPDATED toast message
+      } else {
+        setSuggestedSlot(null);
+        toast.error("Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias."); // UPDATED error message
+      }
+    }, [selectedTaskToSchedule, selectedDate, schedules, tempEstimatedDuration]); // UPDATED dependencies
 
   useEffect(() => {
     if (selectedTaskToSchedule) {
@@ -474,7 +464,13 @@ const Planejador = () => {
           )}
         </Card>
 
-        <TimeSlotPlanner daySchedule={currentDaySchedule} onSelectSlot={handleSelectSlot} onSelectTask={handleDeleteScheduledTask} suggestedSlotStart={suggestedSlot?.start} suggestedSlotEnd={suggestedSlot?.end} />
+        <TimeSlotPlanner
+          daySchedule={currentDaySchedule}
+          onSelectSlot={handleSelectSlot}
+          onSelectTask={handleDeleteScheduledTask}
+          suggestedSlotStart={suggestedSlot && suggestedSlot.date === format(selectedDate, "yyyy-MM-dd") ? suggestedSlot.start : null} // UPDATED
+          suggestedSlotEnd={suggestedSlot && suggestedSlot.date === format(selectedDate, "yyyy-MM-dd") ? suggestedSlot.end : null}   // UPDATED
+        />
       </div>
 
       <div className="lg:col-span-1">
@@ -541,9 +537,9 @@ const Planejador = () => {
                 {suggestedSlot && (
                   <div className="mt-2 p-2 bg-green-100 border border-green-400 rounded-md flex items-center justify-between">
                     <span className="text-sm text-green-800">
-                      Sugestão: {suggestedSlot.start} - {suggestedSlot.end}
+                      Sugestão: {suggestedSlot.start} - {suggestedSlot.end} ({format(parseISO(suggestedSlot.date), "dd/MM", { locale: ptBR })}) {/* UPDATED */}
                     </span>
-                    <Button size="sm" onClick={() => scheduleTask(selectedTaskToSchedule, suggestedSlot.start, suggestedSlot.end)}>
+                    <Button size="sm" onClick={() => scheduleTask(selectedTaskToSchedule, suggestedSlot.start, suggestedSlot.end, parseISO(suggestedSlot.date))}> {/* UPDATED */}
                       Agendar
                     </Button>
                   </div>
