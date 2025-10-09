@@ -1,19 +1,22 @@
-// Update this page (the content is just a fallback if you fail to update the page)
-
-import { MadeWithDyad } from "@/components/made-with-dyad";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useTodoist } from "@/context/TodoistContext";
+import MainLayout from "@/components/MainLayout";
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">
-          Start building your amazing project here!
-        </p>
-      </div>
-      <MadeWithDyad />
-    </div>
-  );
+  const { apiKey } = useTodoist();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!apiKey) {
+      navigate("/"); // Redirect to configuration if API key is not set
+    }
+  }, [apiKey, navigate]);
+
+  // If API key is present, render the MainLayout which will handle further routing
+  // If not, the useEffect will redirect to '/', which is the Configuration page.
+  // This page essentially acts as a smart redirect/entry point.
+  return apiKey ? <MainLayout /> : null;
 };
 
 export default Index;
