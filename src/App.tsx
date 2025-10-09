@@ -14,7 +14,7 @@ import Seiri from "./pages/Seiri";
 import Seiton from "./pages/Seiton";
 // import Seiso from "./pages/Seiso"; // REMOVIDO
 import Seiketsu from "./pages/Seiketsu";
-import Shitsuke from "./pages/Shitsuke";
+// import Shitsuke from "./pages/Shitsuke"; // REMOVIDO
 import Execucao from "./pages/Execucao";
 
 const queryClient = new QueryClient();
@@ -33,7 +33,7 @@ const App = () => (
               <Route path="/seiton" element={<Seiton />} />
               {/* <Route path="/seiso" element={<Seiso />} /> REMOVIDO */}
               <Route path="/seiketsu" element={<Seiketsu />} />
-              <Route path="/shitsuke" element={<Shitsuke />} />
+              {/* <Route path="/shitsuke" element={<Shitsuke />} /> REMOVIDO */}
               <Route path="/execucao" element={<Execucao />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

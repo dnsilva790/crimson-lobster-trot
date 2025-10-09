@@ -43,14 +43,14 @@ const modules = [
     colorClass: "bg-purple-100 hover:bg-purple-200",
     activeColor: "border-purple-600",
   },
-  {
-    path: "/shitsuke",
-    icon: TrendingUp,
-    title: "SHITSUKE",
-    description: "Métricas e Progresso",
-    colorClass: "bg-emerald-100 hover:bg-emerald-200",
-    activeColor: "border-emerald-600",
-  },
+  // { // REMOVIDO
+  //   path: "/shitsuke",
+  //   icon: TrendingUp,
+  //   title: "SHITSUKE",
+  //   description: "Métricas e Progresso",
+  //   colorClass: "bg-emerald-100 hover:bg-emerald-200",
+  //   activeColor: "border-emerald-600",
+  // },
   {
     path: "/execucao",
     icon: Zap,
