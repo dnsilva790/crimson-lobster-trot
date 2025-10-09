@@ -16,6 +16,7 @@ interface TodoistContextType {
   fetchTasks: (filter?: string) => Promise<TodoistTask[]>;
   closeTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
+  updateTask: (taskId: string, data: Partial<TodoistTask>) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
 
@@ -89,6 +90,13 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
     [makeApiCall],
   );
 
+  const updateTask = useCallback(
+    async (taskId: string, data: Partial<TodoistTask>) => {
+      return await makeApiCall(todoistService.updateTask, taskId, data);
+    },
+    [makeApiCall],
+  );
+
   return (
     <TodoistContext.Provider
       value={{
@@ -98,6 +106,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         fetchTasks,
         closeTask,
         deleteTask,
+        updateTask,
         isLoading,
       }}
     >

@@ -48,7 +48,7 @@ const Seiton = () => {
     1: "P4 - Baixo",
   };
 
-  // Função para ordenar as tarefas com base nos critérios combinados, priorizando due date
+  // Função para ordenar as tarefas com base nos critérios combinados, priorizando deadline
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
       // 1. Tarefas iniciadas com "*" primeiro
@@ -62,8 +62,9 @@ const Seiton = () => {
         return b.priority - a.priority;
       }
 
-      // 3. Depois, por prazo (due date/time > due date)
+      // 3. Depois, por prazo (deadline > due date/time > due date)
       const getTaskDate = (task: TodoistTask) => {
+        if (task.deadline?.date) return new Date(task.deadline.date).getTime();
         if (task.due?.datetime) return new Date(task.due.datetime).getTime();
         if (task.due?.date) return new Date(task.due.date).getTime();
         return Infinity; // Tarefas sem prazo vão para o final
@@ -274,7 +275,11 @@ const Seiton = () => {
         )}
       </div>
       <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2">
-        {task.due?.datetime ? (
+        {task.deadline?.date ? (
+          <span className="font-semibold text-red-600">
+            Prazo Final: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        ) : task.due?.datetime ? (
           <span>Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
         ) : task.due?.date ? (
           <span>Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}</span>

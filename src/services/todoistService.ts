@@ -55,8 +55,7 @@ export const todoistService = {
     return todoistApiCall<void>(`/tasks/${taskId}`, apiKey, "DELETE");
   },
 
-  // This endpoint is not explicitly listed in the prompt, but would be needed for 'Aplicar ao Todoist'
-  // updateTask: async (apiKey: string, taskId: string, data: Partial<TodoistTask>): Promise<TodoistTask> => {
-  //   return todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", data);
-  // },
+  updateTask: async (apiKey: string, taskId: string, data: Partial<TodoistTask>): Promise<TodoistTask> => {
+    return todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", data);
+  },
 };

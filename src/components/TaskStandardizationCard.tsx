@@ -1,0 +1,192 @@
+"use client";
+
+import React, { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { TodoistTask } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { CalendarIcon, ChevronDownIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+
+interface TaskStandardizationCardProps {
+  task: TodoistTask;
+  onUpdate: (taskId: string, data: Partial<TodoistTask>) => void;
+  onSkip: (taskId: string) => void;
+  isLoading: boolean;
+}
+
+const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
+  4: "bg-red-500", // P1 - Urgente
+  3: "bg-orange-500", // P2 - Alto
+  2: "bg-yellow-500", // P3 - Médio
+  1: "bg-gray-400", // P4 - Baixo
+};
+
+const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
+  4: "P1 - Urgente",
+  3: "P2 - Alto",
+  2: "P3 - Médio",
+  1: "P4 - Baixo",
+};
+
+const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
+  task,
+  onUpdate,
+  onSkip,
+  isLoading,
+}) => {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    task.due?.date ? new Date(task.due.date) : undefined
+  );
+  const [selectedPriority, setSelectedPriority] = useState<1 | 2 | 3 | 4>(task.priority);
+
+  const handleSave = () => {
+    const updateData: Partial<TodoistTask> = {};
+    let changed = false;
+
+    if (selectedDate && (!task.due?.date || format(selectedDate, "yyyy-MM-dd") !== task.due.date)) {
+      updateData.due = {
+        date: format(selectedDate, "yyyy-MM-dd"),
+        string: format(selectedDate, "dd/MM/yyyy", { locale: ptBR }),
+        lang: "pt",
+        is_recurring: false,
+        datetime: null,
+        timezone: null,
+      };
+      changed = true;
+    } else if (!selectedDate && task.due?.date) { // If date was removed
+      updateData.due = null;
+      changed = true;
+    }
+
+    if (selectedPriority !== task.priority) {
+      updateData.priority = selectedPriority;
+      changed = true;
+    }
+
+    if (changed) {
+      onUpdate(task.id, updateData);
+    } else {
+      onSkip(task.id); // If no changes, just skip
+    }
+  };
+
+  const renderDueDate = () => {
+    if (task.deadline?.date) {
+      return (
+        <span className="font-semibold text-red-600">
+          Prazo Final: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
+        </span>
+      );
+    } else if (task.due?.datetime) {
+      return (
+        <span>
+          Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+        </span>
+      );
+    } else if (task.due?.date) {
+      return (
+        <span>
+          Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
+        </span>
+      );
+    }
+    return <span>Sem prazo</span>;
+  };
+
+  return (
+    <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
+      <div className="flex-grow">
+        <h3 className="text-2xl font-bold mb-3 text-gray-800">{task.content}</h3>
+        {task.description && (
+          <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
+        {renderDueDate()}
+        <span
+          className={cn(
+            "px-2 py-1 rounded-full text-white text-xs font-medium",
+            PRIORITY_COLORS[task.priority],
+          )}
+        >
+          {PRIORITY_LABELS[task.priority]}
+        </span>
+      </div>
+
+      <div className="mt-6 space-y-4">
+        <div>
+          <Label htmlFor="due-date" className="text-gray-700">Definir Data de Vencimento</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full justify-start text-left font-normal mt-1",
+                  !selectedDate && "text-muted-foreground"
+                )}
+                disabled={isLoading}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                initialFocus
+                locale={ptBR}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div>
+          <Label htmlFor="priority" className="text-gray-700">Definir Prioridade</Label>
+          <Select
+            value={String(selectedPriority)}
+            onValueChange={(value) => setSelectedPriority(Number(value) as 1 | 2 | 3 | 4)}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="w-full mt-1">
+              <SelectValue placeholder="Selecione a prioridade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="4">P1 - Urgente</SelectItem>
+              <SelectItem value="3">P2 - Alto</SelectItem>
+              <SelectItem value="2">P3 - Médio</SelectItem>
+              <SelectItem value="1">P4 - Baixo</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mt-6">
+        <Button
+          onClick={() => onSkip(task.id)}
+          disabled={isLoading}
+          className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 text-md"
+        >
+          Pular
+        </Button>
+        <Button
+          onClick={handleSave}
+          disabled={isLoading}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-3 text-md"
+        >
+          Salvar e Próximo
+        </Button>
+      </div>
+    </Card>
+  );
+};
+
+export default TaskStandardizationCard;
