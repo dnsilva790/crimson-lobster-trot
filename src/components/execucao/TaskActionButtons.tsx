@@ -108,7 +108,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
         disabled={isLoading}
         className="bg-green-500 hover:bg-green-600 text-white py-3 text-md flex items-center justify-center"
       >
-        <Check className="mr-2 h-5 w-5" /> Concluir (C)
+        <Check className="mr-2 h-5 w-5" /> Concluir
       </Button>
       <Popover open={isReschedulePopoverOpen} onOpenChange={setIsReschedulePopoverOpen}>
         <PopoverTrigger asChild>
@@ -117,7 +117,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
             disabled={isLoading}
             className="py-3 text-md flex items-center justify-center"
           >
-            <CalendarIcon className="mr-2 h-5 w-5" /> Reagendar (R)
+            <CalendarIcon className="mr-2 h-5 w-5" /> Reagendar
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-4">
@@ -175,7 +175,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
         disabled={isLoading}
         className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 text-md flex items-center justify-center"
       >
-        <ArrowRight className="mr-2 h-5 w-5" /> Pular (P)
+        <ArrowRight className="mr-2 h-5 w-5" /> Pular
       </Button>
     </div>
   );
