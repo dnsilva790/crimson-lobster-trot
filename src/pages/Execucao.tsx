@@ -118,13 +118,14 @@ const Execucao = () => {
   const {
     focusTasks,
     originalTasksCount,
-    currentTaskIndex, // Usar o índice do hook
+    currentTaskIndex,
     execucaoState,
     isLoadingTasks,
     loadTasksForFocus,
+    handleNextTask, // Importando handleNextTask
   } = useExecucaoTasks(filterInput);
 
-  const currentTask = focusTasks[currentTaskIndex]; // Pegar a tarefa pelo índice
+  const currentTask = focusTasks[currentTaskIndex];
 
   useEffect(() => {
     const savedPrompt = localStorage.getItem(AI_PROMPT_STORAGE_KEY);
@@ -141,25 +142,28 @@ const Execucao = () => {
   const handleComplete = useCallback(async (taskId: string) => {
     const success = await closeTask(taskId);
     if (success !== undefined) {
-      await loadTasksForFocus(true); // Re-fetch and update state
+      handleNextTask(); // Chamar handleNextTask para avançar
     }
-  }, [closeTask, loadTasksForFocus]);
+  }, [closeTask, handleNextTask]);
 
   const handleSkip = useCallback(async () => {
-    await loadTasksForFocus(true); // Re-fetch and update state
-  }, [loadTasksForFocus]);
+    handleNextTask(); // Chamar handleNextTask para avançar
+  }, [handleNextTask]);
 
   const handleUpdateTaskAndRefresh = useCallback(async (taskId: string, data: {
     priority?: 1 | 2 | 3 | 4;
     due_date?: string | null;
     due_datetime?: string | null;
+    duration?: number;
+    duration_unit?: "minute" | "day";
   }) => {
     const updated = await updateTask(taskId, data);
     if (updated) {
-      await loadTasksForFocus(true); // Re-fetch and update state
+      // Não chame handleNextTask aqui, pois a tarefa atual ainda está em foco após a atualização.
+      // Apenas atualize o estado local se necessário, mas o hook useExecucaoTasks já lida com isso.
     }
     return updated;
-  }, [updateTask, loadTasksForFocus]);
+  }, [updateTask]);
 
   // States and handlers for keyboard shortcuts to open popovers
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
