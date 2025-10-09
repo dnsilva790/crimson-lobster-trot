@@ -21,7 +21,7 @@ interface TodoistContextType {
 
 const TodoistContext = createContext<TodoistContextType | undefined>(undefined);
 
-export const TodoistProvider = ({ children }: { children: ReactNode }) => {
+export const TodoistProvider = ({ children }: { ReactNode }) => {
   const [apiKey, setApiKeyInternal] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -68,9 +68,9 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchTasks = useCallback(
     async (filter?: string) => {
-      const allTasks = (await makeApiCall(todoistService.fetchTasks, filter)) || [];
-      // Filtra as subtarefas (aquelas com parent_id não nulo)
-      return allTasks.filter(task => task.parent_id === null);
+      // O filtro !subtasks será adicionado diretamente na chamada do componente,
+      // então não precisamos mais filtrar aqui.
+      return (await makeApiCall(todoistService.fetchTasks, filter)) || [];
     },
     [makeApiCall],
   );
