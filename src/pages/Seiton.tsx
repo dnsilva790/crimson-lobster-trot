@@ -8,8 +8,16 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type TournamentState = "initial" | "comparing" | "finished";
+type SortCriteria = "random" | "priority" | "deadline" | "starred";
 
 // Define a interface para o estado que será salvo no histórico
 interface SeitonStateSnapshot {
@@ -19,6 +27,7 @@ interface SeitonStateSnapshot {
   comparisonCandidate: TodoistTask | null;
   comparisonIndex: number;
   tournamentState: TournamentState;
+  sortCriteria: SortCriteria; // Incluir critério de ordenação no histórico
 }
 
 const Seiton = () => {
@@ -30,6 +39,7 @@ const Seiton = () => {
   const [comparisonCandidate, setComparisonCandidate] = useState<TodoistTask | null>(null); // A tarefa do rankedTasks com a qual currentTaskToPlace está sendo comparada
   const [comparisonIndex, setComparisonIndex] = useState<number>(0); // Índice em rankedTasks para a comparação
   const [history, setHistory] = useState<SeitonStateSnapshot[]>([]); // Histórico de estados para a função desfazer
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria>("random"); // Novo estado para o critério de ordenação
 
   const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
     4: "bg-red-500", // P1 - Urgente
@@ -45,6 +55,39 @@ const Seiton = () => {
     1: "P4 - Baixo",
   };
 
+  // Função para ordenar as tarefas com base no critério selecionado
+  const sortTasks = useCallback((tasks: TodoistTask[], criteria: SortCriteria): TodoistTask[] => {
+    switch (criteria) {
+      case "priority":
+        // P1 (4) > P2 (3) > P3 (2) > P4 (1)
+        return [...tasks].sort((a, b) => b.priority - a.priority);
+      case "deadline":
+        return [...tasks].sort((a, b) => {
+          const dateA = a.due?.datetime || a.due?.date;
+          const dateB = b.due?.datetime || b.due?.date;
+
+          if (dateA && dateB) {
+            return new Date(dateA).getTime() - new Date(dateB).getTime();
+          }
+          if (dateA) return -1; // A tem prazo, B não
+          if (dateB) return 1; // B tem prazo, A não
+          return 0; // Ambos sem prazo
+        });
+      case "starred":
+        return [...tasks].sort((a, b) => {
+          const isAStarred = a.content.startsWith("*");
+          const isBStarred = b.content.startsWith("*");
+
+          if (isAStarred && !isBStarred) return -1;
+          if (!isAStarred && isBStarred) return 1;
+          return 0;
+        });
+      case "random":
+      default:
+        return [...tasks].sort(() => 0.5 - Math.random());
+    }
+  }, []);
+
   // Salva o estado atual no histórico
   const saveStateToHistory = useCallback(() => {
     setHistory((prev) => [
@@ -56,9 +99,10 @@ const Seiton = () => {
         comparisonCandidate,
         comparisonIndex,
         tournamentState,
+        sortCriteria, // Salvar o critério de ordenação atual
       },
     ]);
-  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState]);
+  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState, sortCriteria]);
 
   // Desfaz a última ação
   const undoLastAction = useCallback(() => {
@@ -69,8 +113,9 @@ const Seiton = () => {
       setCurrentTaskToPlace(lastState.currentTaskToPlace);
       setComparisonCandidate(lastState.comparisonCandidate);
       setComparisonIndex(lastState.comparisonIndex);
-      setTournamentState(lastState.tournamentState); // Restaurar o estado do torneio
-      setHistory((prev) => prev.slice(0, prev.length - 1)); // Remove o último estado do histórico
+      setTournamentState(lastState.tournamentState);
+      setSortCriteria(lastState.sortCriteria); // Restaurar o critério de ordenação
+      setHistory((prev) => prev.slice(0, prev.length - 1));
       toast.info("Última ação desfeita.");
     } else {
       toast.info("Não há ações para desfazer.");
@@ -78,7 +123,7 @@ const Seiton = () => {
   }, [history]);
 
   const startTournament = useCallback(async () => {
-    setTournamentState("initial"); // Resetar estado
+    setTournamentState("initial");
     setTasksToProcess([]);
     setRankedTasks([]);
     setCurrentTaskToPlace(null);
@@ -88,14 +133,14 @@ const Seiton = () => {
 
     const allTasks = await fetchTasks();
     if (allTasks && allTasks.length > 0) {
-      const shuffledTasks = allTasks.sort(() => 0.5 - Math.random());
-      setTasksToProcess(shuffledTasks);
+      const sortedAndShuffledTasks = sortTasks(allTasks, sortCriteria); // Aplicar ordenação
+      setTasksToProcess(sortedAndShuffledTasks);
       setTournamentState("comparing");
     } else {
       toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
       setTournamentState("finished");
     }
-  }, [fetchTasks]);
+  }, [fetchTasks, sortTasks, sortCriteria]); // Adicionar sortCriteria como dependência
 
   const startNextPlacement = useCallback(() => {
     if (tasksToProcess.length === 0) {
@@ -105,7 +150,7 @@ const Seiton = () => {
       return;
     }
 
-    saveStateToHistory(); // Salvar estado antes de iniciar o próximo posicionamento
+    saveStateToHistory();
 
     const nextTask = tasksToProcess[0];
     setCurrentTaskToPlace(nextTask);
@@ -132,7 +177,7 @@ const Seiton = () => {
     (winner: TodoistTask) => {
       if (!currentTaskToPlace || !comparisonCandidate) return;
 
-      saveStateToHistory(); // Salvar estado antes de fazer a seleção
+      saveStateToHistory();
 
       const isCurrentTaskToPlaceWinner = winner.id === currentTaskToPlace.id;
 
@@ -226,6 +271,25 @@ const Seiton = () => {
 
       {!isLoading && tournamentState === "initial" && (
         <div className="text-center mt-10">
+          <div className="mb-6 flex flex-col items-center gap-4">
+            <label htmlFor="sort-criteria" className="text-lg font-medium text-gray-700">
+              Ordenar tarefas por:
+            </label>
+            <Select
+              value={sortCriteria}
+              onValueChange={(value: SortCriteria) => setSortCriteria(value)}
+            >
+              <SelectTrigger id="sort-criteria" className="w-[200px]">
+                <SelectValue placeholder="Selecione a ordenação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="random">Aleatório</SelectItem>
+                <SelectItem value="priority">Prioridade (P1-P4)</SelectItem>
+                <SelectItem value="deadline">Prazo (Mais Próximo)</SelectItem>
+                <SelectItem value="starred">Iniciadas com "*"</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button
             onClick={startTournament}
             className="px-8 py-4 text-xl bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-200"
