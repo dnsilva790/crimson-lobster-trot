@@ -6,6 +6,8 @@ import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 type TournamentState = "initial" | "comparing" | "finished";
 
@@ -43,8 +45,8 @@ const Seiton = () => {
     // Buscar tarefas relevantes (ex: hoje, atrasadas, ou sem prioridade definida)
     const allTasks = await fetchTasks("today | overdue | no priority");
     if (allTasks && allTasks.length > 0) {
-      // Embaralhar e pegar até 8 tarefas para o torneio
-      const shuffledTasks = allTasks.sort(() => 0.5 - Math.random()).slice(0, 8);
+      // Embaralhar e pegar até 50 tarefas para o torneio, permitindo um ranking de até 24
+      const shuffledTasks = allTasks.sort(() => 0.5 - Math.random()).slice(0, 50);
       setTasksToProcess(shuffledTasks);
       setTournamentState("comparing");
     } else {
@@ -89,12 +91,21 @@ const Seiton = () => {
     (winner: TodoistTask) => {
       if (!currentTaskToPlace || !comparisonCandidate) return;
 
-      if (winner.id === currentTaskToPlace.id) {
+      const isCurrentTaskToPlaceWinner = winner.id === currentTaskToPlace.id;
+
+      if (isCurrentTaskToPlaceWinner) {
         // currentTaskToPlace é mais importante que comparisonCandidate
         const nextComparisonIndex = comparisonIndex + 1;
         if (nextComparisonIndex >= rankedTasks.length) {
           // currentTaskToPlace é mais importante que todas as tarefas em rankedTasks até agora
-          setRankedTasks((prev) => [...prev, currentTaskToPlace]);
+          // ou rankedTasks está vazio.
+          if (rankedTasks.length < 24) {
+            setRankedTasks((prev) => [...prev, currentTaskToPlace]);
+          } else {
+            // rankedTasks já tem 24 tarefas. currentTaskToPlace é mais importante que todas as 24.
+            // Ela deve ser inserida no topo, e a última tarefa é removida.
+            setRankedTasks((prev) => [currentTaskToPlace, ...prev.slice(0, 23)]);
+          }
           setCurrentTaskToPlace(null); // Acionar próximo posicionamento
           setComparisonCandidate(null);
           setComparisonIndex(0);
@@ -105,12 +116,24 @@ const Seiton = () => {
         }
       } else {
         // comparisonCandidate é mais importante que currentTaskToPlace
-        // Inserir currentTaskToPlace antes de comparisonCandidate
-        setRankedTasks((prev) => {
-          const newRanked = [...prev];
-          newRanked.splice(comparisonIndex, 0, currentTaskToPlace);
-          return newRanked;
-        });
+        // currentTaskToPlace deve ser inserida antes de comparisonCandidate, SE houver espaço
+        // ou se ela for mais importante que a tarefa menos importante atual no ranking (a 24ª)
+        if (rankedTasks.length < 24 || comparisonIndex < 24) {
+          setRankedTasks((prev) => {
+            const newRanked = [...prev];
+            newRanked.splice(comparisonIndex, 0, currentTaskToPlace);
+            // Se o ranking exceder 24 tarefas após a inserção, remove a última
+            if (newRanked.length > 24) {
+              newRanked.pop();
+            }
+            return newRanked;
+          });
+        } else {
+          // rankedTasks já tem 24 tarefas e currentTaskToPlace é menos importante
+          // ou igual à 24ª tarefa atual (comparisonCandidate é rankedTasks[23] ou anterior).
+          // currentTaskToPlace é descartada.
+          toast.info(`Tarefa "${currentTaskToPlace.content}" descartada pois o ranking já está cheio e ela não é mais prioritária.`);
+        }
         setCurrentTaskToPlace(null); // Acionar próximo posicionamento
         setComparisonCandidate(null);
         setComparisonIndex(0);
@@ -139,9 +162,11 @@ const Seiton = () => {
         )}
       </div>
       <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2">
-        {task.due?.date && (
-          <span>Vencimento: {new Date(task.due.date).toLocaleDateString()}</span>
-        )}
+        {task.due?.datetime ? (
+          <span>Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
+        ) : task.due?.date ? (
+          <span>Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}</span>
+        ) : null}
         <span
           className={cn(
             "px-2 py-1 rounded-full text-white text-xs font-medium",
