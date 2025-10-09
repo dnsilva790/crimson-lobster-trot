@@ -209,7 +209,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col p-0">
-        <ScrollArea className="flex-grow p-4" viewportRef={scrollAreaRef}>
+        <ScrollArea className="h-[440px] p-4" viewportRef={scrollAreaRef}>
           <div className="space-y-4">
             {messages.map((msg) => (
               <div
