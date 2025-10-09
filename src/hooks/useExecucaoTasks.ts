@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask, SeitonStateSnapshot } from "@/lib/types";
 import { toast } from "sonner";
-import { format } from "date-fns";
+// import { format } from "date-fns"; // Not used here
 
 type ExecucaoState = "initial" | "focusing" | "finished";
 
@@ -13,7 +13,7 @@ const SEITON_RANKING_STORAGE_KEY = "seitonTournamentState";
 export const useExecucaoTasks = (filterInput: string) => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
   const [focusTasks, setFocusTasks] = useState<TodoistTask[]>([]);
-  const [originalTasksCount, setOriginalTasksCount] = useState<number>(0);
+  const [initialTotalTasks, setInitialTotalTasks] = useState<number>(0); // Total tasks at the start of the session
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [execucaoState, setExecucaoState] = useState<ExecucaoState>("initial");
 
@@ -44,14 +44,13 @@ export const useExecucaoTasks = (filterInput: string) => {
     let fetchedTasks: TodoistTask[] = [];
 
     if (useFilter && filterInput.trim()) {
-      // Alterado para incluir tarefas recorrentes e subtarefas
       fetchedTasks = await fetchTasks(filterInput.trim(), true); 
       if (fetchedTasks.length === 0) {
         toast.info("Nenhuma tarefa encontrada com o filtro. Tentando carregar do ranking do Seiton...");
         const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
         if (savedSeitonState) {
           try {
-            const parsedState: SeitonStateSnapshot = JSON.parse(savedSeitonState); // Corrigido: usar savedSeitonState
+            const parsedState: SeitonStateSnapshot = JSON.parse(savedSeitonState);
             if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
               fetchedTasks = parsedState.rankedTasks;
               toast.info(`Carregadas ${fetchedTasks.length} tarefas do ranking do Seiton.`);
@@ -65,41 +64,63 @@ export const useExecucaoTasks = (filterInput: string) => {
     }
 
     if (fetchedTasks.length === 0) {
-      // Alterado para incluir tarefas recorrentes e subtarefas
       fetchedTasks = await fetchTasks(undefined, true);
     }
 
     if (fetchedTasks && fetchedTasks.length > 0) {
       const sortedTasks = sortTasksForFocus(fetchedTasks);
       setFocusTasks(sortedTasks);
-      setOriginalTasksCount(sortedTasks.length);
+      setInitialTotalTasks(sortedTasks.length); // Set initial total
       setExecucaoState("focusing");
       toast.info(`Encontradas ${sortedTasks.length} tarefas para focar.`);
     } else {
       setFocusTasks([]);
-      setOriginalTasksCount(0);
+      setInitialTotalTasks(0);
       setExecucaoState("finished");
       toast.info("Nenhuma tarefa encontrada para focar. Bom trabalho!");
     }
   }, [fetchTasks, filterInput, sortTasksForFocus]);
 
-  const handleNextTask = useCallback(async () => {
-    if (currentTaskIndex < focusTasks.length - 1) {
-      setCurrentTaskIndex((prev) => prev + 1);
-    } else {
-      // If at the last task, re-fetch tasks to get a fresh list
-      toast.info("Última tarefa da lista. Recarregando tarefas...");
-      await loadTasksForFocus(true); // Use filter if present, else no filter
-    }
-  }, [currentTaskIndex, focusTasks.length, loadTasksForFocus]);
+  // This function will be called when a task is completed or skipped
+  const advanceToNextTask = useCallback(() => {
+    setFocusTasks(prevTasks => {
+      // Remove the current task from the list
+      const updatedTasks = prevTasks.filter((_, index) => index !== currentTaskIndex);
+      
+      if (updatedTasks.length === 0) {
+        setExecucaoState("finished");
+        setCurrentTaskIndex(0); // Reset index
+        // initialTotalTasks remains the same for progress calculation
+        toast.success("Todas as tarefas foram processadas!");
+        return [];
+      } else {
+        // If there are still tasks, advance the index or loop if at the end
+        // The currentTaskIndex should remain the same if the task at that index was removed,
+        // effectively shifting the next task into its place.
+        // If the removed task was the last one, the new index should be 0.
+        const newIndex = currentTaskIndex >= updatedTasks.length ? 0 : currentTaskIndex;
+        setCurrentTaskIndex(newIndex);
+        return updatedTasks;
+      }
+    });
+  }, [currentTaskIndex]);
+
+  // Function to update a task in the local state (used after API update)
+  const updateTaskInFocusList = useCallback((updatedTask: TodoistTask) => {
+    setFocusTasks(prevTasks => prevTasks.map(task => 
+      task.id === updatedTask.id ? updatedTask : task
+    ));
+  }, []);
+
 
   return {
     focusTasks,
-    originalTasksCount,
+    initialTotalTasks, // Renamed
     currentTaskIndex,
     execucaoState,
     isLoadingTasks: isLoadingTodoist,
     loadTasksForFocus,
-    handleNextTask,
+    advanceToNextTask,
+    updateTaskInFocusList, // Expose this function
   };
 };

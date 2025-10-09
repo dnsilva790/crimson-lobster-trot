@@ -117,12 +117,13 @@ const Execucao = () => {
 
   const {
     focusTasks,
-    originalTasksCount,
+    initialTotalTasks, // Renamed
     currentTaskIndex,
     execucaoState,
     isLoadingTasks,
     loadTasksForFocus,
-    handleNextTask, // Importando handleNextTask
+    advanceToNextTask, // Use the new function
+    updateTaskInFocusList, // Use the new function
   } = useExecucaoTasks(filterInput);
 
   const currentTask = focusTasks[currentTaskIndex];
@@ -142,13 +143,15 @@ const Execucao = () => {
   const handleComplete = useCallback(async (taskId: string) => {
     const success = await closeTask(taskId);
     if (success !== undefined) {
-      handleNextTask(); // Chamar handleNextTask para avançar
+      advanceToNextTask(); // Call the new function to remove and advance
+      toast.success("Tarefa concluída com sucesso!");
     }
-  }, [closeTask, handleNextTask]);
+  }, [closeTask, advanceToNextTask]);
 
   const handleSkip = useCallback(async () => {
-    handleNextTask(); // Chamar handleNextTask para avançar
-  }, [handleNextTask]);
+    advanceToNextTask(); // Call the new function to remove and advance
+    toast.info("Tarefa pulada.");
+  }, [advanceToNextTask]);
 
   const handleUpdateTaskAndRefresh = useCallback(async (taskId: string, data: {
     priority?: 1 | 2 | 3 | 4;
@@ -159,15 +162,15 @@ const Execucao = () => {
   }) => {
     const updated = await updateTask(taskId, data);
     if (updated) {
-      // Não chame handleNextTask aqui, pois a tarefa atual ainda está em foco após a atualização.
-      // Apenas atualize o estado local se necessário, mas o hook useExecucaoTasks já lida com isso.
+      updateTaskInFocusList(updated); // Update the task in the local focus list
+      toast.success("Tarefa atualizada com sucesso!");
     }
     return updated;
-  }, [updateTask]);
+  }, [updateTask, updateTaskInFocusList]);
 
   // States and handlers for keyboard shortcuts to open popovers
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
-  const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
+  // Removed isDeadlinePopoverOpen as it's no longer used
 
   useKeyboardShortcuts({
     execucaoState,
@@ -176,11 +179,13 @@ const Execucao = () => {
     onComplete: handleComplete,
     onSkip: handleSkip,
     onOpenReschedulePopover: () => setIsReschedulePopoverOpen(true),
-    onOpenDeadlinePopover: () => setIsDeadlinePopoverOpen(true),
+    // Removed onOpenDeadlinePopover as it's no longer used
   });
 
-  // Ajustar o cálculo do progresso
-  const progressValue = originalTasksCount > 0 ? ((currentTaskIndex + 1) / originalTasksCount) * 100 : 0;
+  // Adjust the progress calculation
+  const tasksProcessed = initialTotalTasks - focusTasks.length;
+  const progressValue = initialTotalTasks > 0 ? (tasksProcessed / initialTotalTasks) * 100 : 0;
+  
   const isLoading = isLoadingTodoist || isLoadingTasks;
 
   return (
@@ -218,7 +223,7 @@ const Execucao = () => {
 
             <div className="mt-8 text-center">
               <p className="text-lg font-medium text-gray-700 mb-2">
-                Tarefa {currentTaskIndex + 1} de {originalTasksCount}
+                Tarefas restantes: {focusTasks.length} de {initialTotalTasks}
               </p>
               <Progress value={progressValue} className="w-full max-w-md mx-auto h-3" />
             </div>
@@ -227,7 +232,7 @@ const Execucao = () => {
 
         {!isLoading && execucaoState === "finished" && (
           <ExecucaoFinishedState
-            originalTasksCount={originalTasksCount}
+            originalTasksCount={initialTotalTasks} // Use initialTotalTasks here
             onStartNewFocus={() => loadTasksForFocus(true)}
           />
         )}
