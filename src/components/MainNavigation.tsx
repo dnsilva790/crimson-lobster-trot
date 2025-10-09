@@ -7,7 +7,8 @@ import {
   Sparkles,
   BarChart,
   Zap,
-  ListTodo, // Novo ícone
+  ListTodo,
+  CalendarDays, // Novo ícone para o Planejador
 } from "lucide-react";
 
 const modules = [
@@ -52,19 +53,27 @@ const modules = [
     activeColor: "border-red-600",
   },
   {
-    path: "/internal-tasks", // Nova entrada
+    path: "/internal-tasks",
     icon: ListTodo,
     title: "INTERNAS",
     description: "Tarefas Pessoais/Profissionais",
     colorClass: "bg-gray-100 hover:bg-gray-200",
     activeColor: "border-gray-600",
   },
+  {
+    path: "/planejador", // Nova entrada
+    icon: CalendarDays,
+    title: "PLANEJADOR",
+    description: "Sequenciar Backlog",
+    colorClass: "bg-indigo-100 hover:bg-indigo-200",
+    activeColor: "border-indigo-600",
+  },
 ];
 
 const MainNavigation = () => {
   return (
     <nav className="p-4 bg-white shadow-md rounded-xl mb-6">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4"> {/* Ajustado para 7 colunas */}
         {modules.map((module) => (
           <NavLink
             key={module.path}

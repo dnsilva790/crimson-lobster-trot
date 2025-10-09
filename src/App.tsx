@@ -15,7 +15,8 @@ import Seiton from "./pages/Seiton";
 import Seiso from "./pages/Seiso";
 import Seiketsu from "./pages/Seiketsu";
 import Execucao from "./pages/Execucao";
-import InternalTasks from "./pages/InternalTasks"; // Novo import
+import InternalTasks from "./pages/InternalTasks";
+import Planejador from "./pages/Planejador"; // Novo import
 
 const queryClient = new QueryClient();
 
@@ -34,7 +35,8 @@ const App = () => (
               <Route path="/seiton" element={<Seiton />} />
               <Route path="/seiso" element={<Seiso />} />
               <Route path="/execucao" element={<Execucao />} />
-              <Route path="/internal-tasks" element={<InternalTasks />} /> {/* Nova rota */}
+              <Route path="/internal-tasks" element={<InternalTasks />} />
+              <Route path="/planejador" element={<Planejador />} /> {/* Nova rota */}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>

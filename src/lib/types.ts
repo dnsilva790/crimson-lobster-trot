@@ -56,3 +56,32 @@ export interface InternalTask {
   isCompleted: boolean;
   createdAt: string;
 }
+
+// Novas interfaces para o Planejador
+export type TimeBlockType = "work" | "personal" | "break";
+
+export interface TimeBlock {
+  id: string;
+  start: string; // HH:mm
+  end: string;   // HH:mm
+  type: TimeBlockType;
+  label?: string; // e.g., "Almoço", "Foco Profissional"
+}
+
+export interface ScheduledTask {
+  id: string;
+  taskId: string; // ID da tarefa do Todoist ou InternalTask
+  content: string;
+  description?: string;
+  start: string; // HH:mm
+  end: string;   // HH:mm
+  priority: 1 | 2 | 3 | 4;
+  category: "pessoal" | "profissional";
+  originalTask?: TodoistTask | InternalTask; // Referência à tarefa original
+}
+
+export interface DaySchedule {
+  date: string; // YYYY-MM-DD
+  timeBlocks: TimeBlock[];
+  scheduledTasks: ScheduledTask[];
+}
