@@ -224,6 +224,66 @@ const Planejador = () => {
     toast.info(`Tarefa "${taskToDelete.content}" removida da agenda.`);
   }, [selectedDate]);
 
+  const handleSelectSlot = useCallback((time: string, type: TimeBlockType) => {
+    if (!selectedTaskToSchedule) {
+      toast.info("Selecione uma tarefa do backlog primeiro para agendar.");
+      return;
+    }
+
+    const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
+    const slotStart = parse(time, "HH:mm", selectedDate);
+    const slotEnd = addMinutes(slotStart, durationMinutes);
+    const slotEndStr = format(slotEnd, "HH:mm");
+
+    // Check for conflicts with existing scheduled tasks for the selected date
+    const dateKey = format(selectedDate, "yyyy-MM-dd");
+    const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
+    const hasConflict = currentDay.scheduledTasks.some(st => {
+      const stStart = parse(st.start, "HH:mm", selectedDate);
+      const stEnd = parse(st.end, "HH:mm", selectedDate);
+      return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
+              isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
+              (slotStart <= stStart && slotEnd >= stEnd));
+    });
+
+    if (hasConflict) {
+      toast.error("Este slot já está ocupado por outra tarefa agendada.");
+      return;
+    }
+
+    // Check if the selected slot is within a defined time block of the appropriate type
+    let fitsInAppropriateBlock = false;
+    const taskCategory = getTaskCategory(selectedTaskToSchedule);
+
+    if (currentDay.timeBlocks.length > 0) {
+      for (const block of currentDay.timeBlocks) {
+        const blockStart = parse(block.start, "HH:mm", selectedDate);
+        const blockEnd = parse(block.end, "HH:mm", selectedDate);
+
+        if (slotStart >= blockStart && slotEnd <= blockEnd) {
+          if ((block.type === "work" && taskCategory === "profissional") ||
+              (block.type === "personal" && taskCategory === "pessoal") ||
+              (block.type === "break" && taskCategory === undefined) || // Allow any task in break if no category
+              (block.type === "work" && taskCategory === undefined) || // Allow any task in work if no category
+              (block.type === "personal" && taskCategory === undefined)) { // Allow any task in personal if no category
+            fitsInAppropriateBlock = true;
+            break;
+          }
+        }
+      }
+      if (!fitsInAppropriateBlock) {
+        toast.warning("O slot selecionado não está dentro de um bloco de tempo adequado para a categoria da tarefa.");
+        // We can still allow scheduling, but warn the user. Or we can block it. For now, let's warn.
+      }
+    } else {
+      // If no time blocks are defined, any slot is considered "appropriate"
+      fitsInAppropriateBlock = true;
+    }
+
+
+    scheduleTask(selectedTaskToSchedule, time, slotEndStr, selectedDate);
+  }, [selectedTaskToSchedule, tempEstimatedDuration, selectedDate, scheduleTask, schedules]);
+
   const suggestTimeSlot = useCallback(() => {
     if (!selectedTaskToSchedule) {
       toast.error("Selecione uma tarefa do backlog para sugerir um slot.");
