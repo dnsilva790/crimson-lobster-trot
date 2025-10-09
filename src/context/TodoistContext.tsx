@@ -36,7 +36,7 @@ type MakeApiCallFn = <T>(
 
 const TodoistContext = createContext<TodoistContextType | undefined>(undefined);
 
-export const TodoistProvider = ({ children }: { ReactNode }) => {
+export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   const [apiKey, setApiKeyInternal] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -60,11 +60,9 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
         return result;
       } catch (error: any) {
         console.error("Todoist API Error:", error);
-        if (error.status === 401) {
-          toast.error("API key inválida. Configure novamente.");
+        if (error.status === 401 || error.status === 403) { // Tratamento para 401 e 403
+          toast.error("API key inválida ou sem permissão. Configure novamente.");
           clearApiKey();
-        } else if (error.status === 403) {
-          toast.error("Sem permissão. Verifique sua conta Todoist.");
         } else if (error.status === 500) {
           toast.error("Erro no servidor. Tente novamente.");
         } else {
@@ -79,7 +77,7 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
   );
 
   const fetchTasks = useCallback(
-    async (filter?: string, includeSubtasksAndRecurring?: boolean) => {
+    async (filter?: string, includeSubtasksAndRecurring: boolean = false) => {
       const allTasks = (await makeApiCall(todoistService.fetchTasks, filter)) || [];
       
       // Calcula estimatedDurationMinutes para todas as tarefas
