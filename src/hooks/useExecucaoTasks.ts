@@ -51,7 +51,7 @@ export const useExecucaoTasks = (filterInput: string) => {
         const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
         if (savedSeitonState) {
           try {
-            const parsedState: SeitonStateSnapshot = JSON.parse(savedState);
+            const parsedState: SeitonStateSnapshot = JSON.parse(savedSeitonState); // Corrigido: usar savedSeitonState
             if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
               fetchedTasks = parsedState.rankedTasks;
               toast.info(`Carregadas ${fetchedTasks.length} tarefas do ranking do Seiton.`);
