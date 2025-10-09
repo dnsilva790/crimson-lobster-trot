@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 type ReviewState = "initial" | "reviewing" | "finished";
 
 const Seiri = () => {
-  const { fetchTasks, closeTask, deleteTask, isLoading } = useTodoist();
+  const { fetchTasks, closeTask, deleteTask, updateTask, isLoading } = useTodoist();
   const [tasksToReview, setTasksToReview] = useState<TodoistTask[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [reviewState, setReviewState] = useState<ReviewState>("initial");
@@ -107,6 +107,33 @@ const Seiri = () => {
     }
   }, [deleteTask, handleNextTask]);
 
+  const handleUpdateCategory = useCallback(async (taskId: string, newCategory: "pessoal" | "profissional" | "none") => {
+    const taskToUpdate = tasksToReview.find(task => task.id === taskId);
+    if (!taskToUpdate) return;
+
+    let updatedLabels = taskToUpdate.labels.filter(
+      label => label !== "pessoal" && label !== "profissional"
+    );
+
+    if (newCategory === "pessoal") {
+      updatedLabels.push("pessoal");
+    } else if (newCategory === "profissional") {
+      updatedLabels.push("profissional");
+    }
+
+    const updated = await updateTask(taskId, { labels: updatedLabels });
+    if (updated) {
+      setTasksToReview(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, labels: updatedLabels } : task
+        )
+      );
+      toast.success(`Categoria da tarefa atualizada para: ${newCategory === "none" ? "Nenhum" : newCategory}!`);
+    } else {
+      toast.error("Falha ao atualizar a categoria da tarefa.");
+    }
+  }, [tasksToReview, updateTask]);
+
   const currentTask = tasksToReview[currentTaskIndex];
 
   return (
@@ -155,6 +182,7 @@ const Seiri = () => {
             onKeep={handleKeep}
             onComplete={handleComplete}
             onDelete={handleDelete}
+            onUpdateCategory={handleUpdateCategory} // Passando a nova função
             isLoading={isLoading}
           />
         </div>

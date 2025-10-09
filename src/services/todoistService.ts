@@ -62,6 +62,7 @@ export const todoistService = {
     priority?: 1 | 2 | 3 | 4;
     due_date?: string | null; // YYYY-MM-DD
     due_datetime?: string | null; // YYYY-MM-DDTHH:MM:SS
+    labels?: string[]; // Adicionado labels aqui
     // deadline não pode ser atualizado via API REST v2
   }): Promise<TodoistTask> => {
     return todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", data);

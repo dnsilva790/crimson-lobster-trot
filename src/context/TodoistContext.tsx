@@ -23,6 +23,7 @@ interface TodoistContextType {
     priority?: 1 | 2 | 3 | 4;
     due_date?: string | null;
     due_datetime?: string | null;
+    labels?: string[]; // Adicionado labels aqui
   }) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
@@ -108,6 +109,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       priority?: 1 | 2 | 3 | 4;
       due_date?: string | null;
       due_datetime?: string | null;
+      labels?: string[]; // Adicionado labels aqui
     }) => {
       return await makeApiCall(todoistService.updateTask, taskId, data);
     },

@@ -1,20 +1,22 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
-import { cn } from "@/lib/utils"; // Removido getTaskType
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Check, Trash2, ArrowRight, ExternalLink } from "lucide-react";
-// Removido: import { Badge } from "@/components/ui/badge"; // Importar Badge
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 interface TaskReviewCardProps {
   task: TodoistTask;
   onKeep: (taskId: string) => void;
   onComplete: (taskId: string) => void;
   onDelete: (taskId: string) => void;
+  onUpdateCategory: (taskId: string, newCategory: "pessoal" | "profissional" | "none") => void; // Nova prop
   isLoading: boolean;
 }
 
@@ -37,8 +39,27 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onKeep,
   onComplete,
   onDelete,
+  onUpdateCategory, // Usando a nova prop
   isLoading,
 }) => {
+  const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
+
+  useEffect(() => {
+    if (task.labels.includes("pessoal")) {
+      setSelectedCategory("pessoal");
+    } else if (task.labels.includes("profissional")) {
+      setSelectedCategory("profissional");
+    } else {
+      setSelectedCategory("none");
+    }
+  }, [task.labels]);
+
+  const handleCategoryChange = (value: string) => {
+    const newCategory = value as "pessoal" | "profissional" | "none";
+    setSelectedCategory(newCategory);
+    onUpdateCategory(task.id, newCategory);
+  };
+
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
@@ -71,14 +92,11 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     return <div className="space-y-1">{dateElements}</div>;
   };
 
-  // Removido: const taskType = getTaskType(task);
-
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
       <div className="flex-grow">
         <div className="flex items-center gap-2 mb-3">
           <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
-          {/* Removido: {taskType && ( ... )} */}
         </div>
         {task.description && (
           <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>
@@ -95,6 +113,25 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           {PRIORITY_LABELS[task.priority]}
         </span>
       </div>
+
+      <div className="mt-6">
+        <Label htmlFor="task-category" className="text-gray-700">Categoria</Label>
+        <Select
+          value={selectedCategory}
+          onValueChange={handleCategoryChange}
+          disabled={isLoading}
+        >
+          <SelectTrigger className="w-full mt-1">
+            <SelectValue placeholder="Selecione a categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Nenhum</SelectItem>
+            <SelectItem value="pessoal">Pessoal</SelectItem>
+            <SelectItem value="profissional">Profissional</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
         <Button
           onClick={() => onKeep(task.id)}
