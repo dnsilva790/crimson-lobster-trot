@@ -5,17 +5,24 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, setHours, setMinutes, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, ExternalLink } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 interface TaskStandardizationCardProps {
   task: TodoistTask;
-  onUpdate: (taskId: string, data: Partial<TodoistTask>) => void;
+  onUpdate: (taskId: string, data: {
+    content?: string;
+    description?: string;
+    priority?: 1 | 2 | 3 | 4;
+    due_date?: string | null;
+    due_datetime?: string | null;
+  }) => void;
   onSkip: (taskId: string) => void;
   isLoading: boolean;
 }
@@ -40,42 +47,50 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
   onSkip,
   isLoading,
 }) => {
-  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(
-    task.due?.date ? new Date(task.due.date) : undefined
-  );
-  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(
-    task.deadline?.date ? new Date(task.deadline.date) : undefined
-  );
+  const initialDueDate = task.due?.date ? parseISO(task.due.date) : undefined;
+  const initialDueTime = task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "";
+
+  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(initialDueDate);
+  const [selectedDueTime, setSelectedDueTime] = useState<string>(initialDueTime);
   const [selectedPriority, setSelectedPriority] = useState<1 | 2 | 3 | 4>(task.priority);
 
   const handleSave = () => {
-    const updateData: Partial<TodoistTask> = {};
+    const updateData: {
+      priority?: 1 | 2 | 3 | 4;
+      due_date?: string | null;
+      due_datetime?: string | null;
+    } = {};
     let changed = false;
 
-    // Handle Due Date
-    if (selectedDueDate && (!task.due?.date || format(selectedDueDate, "yyyy-MM-dd") !== task.due.date)) {
-      updateData.due = {
-        date: format(selectedDueDate, "yyyy-MM-dd"),
-        string: format(selectedDueDate, "dd/MM/yyyy", { locale: ptBR }),
-        lang: "pt",
-        is_recurring: false,
-        datetime: null,
-        timezone: null,
-      };
-      changed = true;
-    } else if (!selectedDueDate && task.due?.date) { // If due date was removed
-      updateData.due = null;
-      changed = true;
-    }
+    // Handle Due Date and Time
+    if (selectedDueDate) {
+      let finalDate = selectedDueDate;
+      if (selectedDueTime) {
+        const [hours, minutes] = selectedDueTime.split(":").map(Number);
+        finalDate = setMinutes(setHours(selectedDueDate, hours), minutes);
+        updateData.due_datetime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
+        updateData.due_date = null; // Clear due_date if due_datetime is set
+      } else {
+        updateData.due_date = format(finalDate, "yyyy-MM-dd");
+        updateData.due_datetime = null; // Clear due_datetime if only due_date is set
+      }
 
-    // Handle Deadline Date
-    if (selectedDeadlineDate && (!task.deadline?.date || format(selectedDeadlineDate, "yyyy-MM-dd") !== task.deadline.date)) {
-      updateData.deadline = {
-        date: format(selectedDeadlineDate, "yyyy-MM-dd"),
-      };
-      changed = true;
-    } else if (!selectedDeadlineDate && task.deadline?.date) { // If deadline was removed
-      updateData.deadline = null;
+      // Check if due date/time actually changed
+      const currentTaskDueDateTime = task.due?.datetime ? format(parseISO(task.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
+      const currentTaskDueDate = task.due?.date ? format(parseISO(task.due.date), "yyyy-MM-dd") : null;
+
+      if (updateData.due_datetime && updateData.due_datetime !== currentTaskDueDateTime) {
+        changed = true;
+      } else if (updateData.due_date && updateData.due_date !== currentTaskDueDate && !currentTaskDueDateTime) {
+        changed = true;
+      } else if (!updateData.due_date && !updateData.due_datetime && (currentTaskDueDate || currentTaskDueDateTime)) {
+        // If both are cleared but task had a due date/time
+        changed = true;
+      }
+    } else if (!selectedDueDate && (task.due?.date || task.due?.datetime)) {
+      // If due date was removed
+      updateData.due_date = null;
+      updateData.due_datetime = null;
       changed = true;
     }
 
@@ -166,31 +181,15 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
         </div>
 
         <div>
-          <Label htmlFor="deadline-date" className="text-gray-700">Definir Prazo Final (Deadline)</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-full justify-start text-left font-normal mt-1",
-                  !selectedDeadlineDate && "text-muted-foreground"
-                )}
-                disabled={isLoading}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDeadlineDate ? format(selectedDeadlineDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={selectedDeadlineDate}
-                onSelect={setSelectedDeadlineDate}
-                initialFocus
-                locale={ptBR}
-              />
-            </PopoverContent>
-          </Popover>
+          <Label htmlFor="due-time" className="text-gray-700">Definir Hora de Vencimento (Opcional)</Label>
+          <Input
+            id="due-time"
+            type="time"
+            value={selectedDueTime}
+            onChange={(e) => setSelectedDueTime(e.target.value)}
+            className="mt-1"
+            disabled={isLoading}
+          />
         </div>
 
         <div>

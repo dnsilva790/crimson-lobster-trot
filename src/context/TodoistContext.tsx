@@ -1,4 +1,4 @@
-import React, {
+import React,
   createContext,
   useContext,
   useState,
@@ -16,7 +16,14 @@ interface TodoistContextType {
   fetchTasks: (filter?: string) => Promise<TodoistTask[]>;
   closeTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
-  updateTask: (taskId: string, data: Partial<TodoistTask>) => Promise<TodoistTask | undefined>;
+  // Atualizando a assinatura de updateTask para refletir o que a API aceita
+  updateTask: (taskId: string, data: {
+    content?: string;
+    description?: string;
+    priority?: 1 | 2 | 3 | 4;
+    due_date?: string | null;
+    due_datetime?: string | null;
+  }) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
 
@@ -90,8 +97,15 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
     [makeApiCall],
   );
 
+  // Atualizando a chamada para updateTask
   const updateTask = useCallback(
-    async (taskId: string, data: Partial<TodoistTask>) => {
+    async (taskId: string, data: {
+      content?: string;
+      description?: string;
+      priority?: 1 | 2 | 3 | 4;
+      due_date?: string | null;
+      due_datetime?: string | null;
+    }) => {
       return await makeApiCall(todoistService.updateTask, taskId, data);
     },
     [makeApiCall],
