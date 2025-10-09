@@ -20,6 +20,14 @@ const modules = [
     activeColor: "border-green-600",
   },
   {
+    path: "/seiketsu", // Seiketsu antes de Seiton
+    icon: BarChart,
+    title: "SEIKETSU",
+    description: "Organização Padrão",
+    colorClass: "bg-purple-100 hover:bg-purple-200",
+    activeColor: "border-purple-600",
+  },
+  {
     path: "/seiton",
     icon: Trophy,
     title: "SEITON",
@@ -35,14 +43,6 @@ const modules = [
   //   colorClass: "bg-blue-100 hover:bg-blue-200",
   //   activeColor: "border-blue-600",
   // },
-  {
-    path: "/seiketsu",
-    icon: BarChart,
-    title: "SEIKETSU",
-    description: "Organização Padrão",
-    colorClass: "bg-purple-100 hover:bg-purple-200",
-    activeColor: "border-purple-600",
-  },
   // { // REMOVIDO
   //   path: "/shitsuke",
   //   icon: TrendingUp,

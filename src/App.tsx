@@ -30,9 +30,9 @@ const App = () => (
             <Route path="/" element={<Configuration />} /> {/* Initial config page */}
             <Route element={<MainLayout />}>
               <Route path="/seiri" element={<Seiri />} />
+              <Route path="/seiketsu" element={<Seiketsu />} /> {/* Seiketsu antes de Seiton */}
               <Route path="/seiton" element={<Seiton />} />
               {/* <Route path="/seiso" element={<Seiso />} /> REMOVIDO */}
-              <Route path="/seiketsu" element={<Seiketsu />} />
               {/* <Route path="/shitsuke" element={<Shitsuke />} /> REMOVIDO */}
               <Route path="/execucao" element={<Execucao />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
