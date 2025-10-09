@@ -6,7 +6,6 @@ import {
   Trophy,
   Sparkles,
   BarChart,
-  TrendingUp,
   Zap,
 } from "lucide-react";
 
@@ -20,7 +19,7 @@ const modules = [
     activeColor: "border-green-600",
   },
   {
-    path: "/seiketsu", // Seiketsu antes de Seiton
+    path: "/seiketsu",
     icon: BarChart,
     title: "SEIKETSU",
     description: "Organização Padrão",
@@ -35,7 +34,7 @@ const modules = [
     colorClass: "bg-yellow-100 hover:bg-yellow-200",
     activeColor: "border-yellow-600",
   },
-  { // NOVO
+  {
     path: "/seiso",
     icon: Sparkles,
     title: "SEISO",
@@ -43,14 +42,6 @@ const modules = [
     colorClass: "bg-blue-100 hover:bg-blue-200",
     activeColor: "border-blue-600",
   },
-  // { // REMOVIDO
-  //   path: "/shitsuke",
-  //   icon: TrendingUp,
-  //   title: "SHITSUKE",
-  //   description: "Métricas e Progresso",
-  //   colorClass: "bg-emerald-100 hover:bg-emerald-200",
-  //   activeColor: "border-emerald-600",
-  // },
   {
     path: "/execucao",
     icon: Zap,

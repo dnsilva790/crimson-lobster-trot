@@ -9,12 +9,11 @@ import Configuration from "./pages/Configuration";
 import MainLayout from "./components/MainLayout";
 import { TodoistProvider } from "./context/TodoistContext";
 
-// Import module pages (will be created in next steps)
+// Import module pages
 import Seiri from "./pages/Seiri";
 import Seiton from "./pages/Seiton";
-import Seiso from "./pages/Seiso"; // NOVO
+import Seiso from "./pages/Seiso";
 import Seiketsu from "./pages/Seiketsu";
-// import Shitsuke from "./pages/Shitsuke"; // REMOVIDO
 import Execucao from "./pages/Execucao";
 
 const queryClient = new QueryClient();
@@ -30,10 +29,9 @@ const App = () => (
             <Route path="/" element={<Configuration />} /> {/* Initial config page */}
             <Route element={<MainLayout />}>
               <Route path="/seiri" element={<Seiri />} />
-              <Route path="/seiketsu" element={<Seiketsu />} /> {/* Seiketsu antes de Seiton */}
+              <Route path="/seiketsu" element={<Seiketsu />} />
               <Route path="/seiton" element={<Seiton />} />
-              <Route path="/seiso" element={<Seiso />} /> {/* NOVO */}
-              {/* <Route path="/shitsuke" element={<Shitsuke />} /> REMOVIDO */}
+              <Route path="/seiso" element={<Seiso />} />
               <Route path="/execucao" element={<Execucao />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
