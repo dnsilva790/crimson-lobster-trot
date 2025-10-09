@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import { todoistService } from "@/services/todoistService";
-import { TodoistTask } from "@/lib/types";
+import { TodoistTask, TodoistProject } from "@/lib/types"; // Importar TodoistProject
 import { toast } from "sonner";
 
 interface TodoistContextType {
@@ -14,6 +14,7 @@ interface TodoistContextType {
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
   fetchTasks: (filter?: string, includeSubtasksAndRecurring?: boolean) => Promise<TodoistTask[]>;
+  fetchProjects: () => Promise<TodoistProject[]>; // Nova função
   closeTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   updateTask: (taskId: string, data: {
@@ -26,8 +27,6 @@ interface TodoistContextType {
     duration?: number; // Adicionado para a API do Todoist
     duration_unit?: "minute" | "day"; // Adicionado para a API do Todoist
   }) => Promise<TodoistTask | undefined>;
-  // setDeadlineV1: (taskId: string, dateString: string) => Promise<void>; // Nova função v1 - Removido
-  // clearDeadlineV1: (taskId: string) => Promise<void>; // Nova função v1 - Removido
   isLoading: boolean;
 }
 
@@ -116,6 +115,10 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
     [makeApiCall],
   );
 
+  const fetchProjects = useCallback(async () => {
+    return (await makeApiCall(todoistService.fetchProjects)) || [];
+  }, [makeApiCall]);
+
   const closeTask = useCallback(
     async (taskId: string) => {
       return await makeApiCall(todoistService.closeTask, taskId);
@@ -146,20 +149,6 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
     [makeApiCall],
   );
 
-  // const setDeadlineV1 = useCallback( // Removido
-  //   async (taskId: string, dateString: string) => {
-  //     return await makeApiCall(todoistService.setDeadlineV1, taskId, dateString);
-  //   },
-  //   [makeApiCall],
-  // );
-
-  // const clearDeadlineV1 = useCallback( // Removido
-  //   async (taskId: string) => {
-  //     return await makeApiCall(todoistService.clearDeadlineV1, taskId);
-  //   },
-  //   [makeApiCall],
-  // );
-
   return (
     <TodoistContext.Provider
       value={{
@@ -167,11 +156,10 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
         setApiKey,
         clearApiKey,
         fetchTasks,
+        fetchProjects, // Expondo a nova função
         closeTask,
         deleteTask,
         updateTask,
-        // setDeadlineV1, // Expondo a nova função - Removido
-        // clearDeadlineV1, // Expondo a nova função - Removido
         isLoading,
       }}
     >

@@ -8,10 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter } from "lucide-react";
-import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay } from "date-fns";
+import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck } from "lucide-react";
+import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek } from "@/lib/types";
+import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject } from "@/lib/types";
 import TimeSlotPlanner from "@/components/TimeSlotPlanner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
@@ -20,9 +20,10 @@ import { getInternalTasks, updateInternalTask } from "@/utils/internalTaskStorag
 import LoadingSpinner from "@/components/ui/loading-spinner";
 
 const PLANNER_STORAGE_KEY = "planner_schedules_v2"; // Updated storage key for new structure
+const MEETING_PROJECT_NAME = "📅 Reuniões"; // Nome do projeto de reuniões
 
 const Planejador = () => {
-  const { fetchTasks, updateTask, isLoading: isLoadingTodoist } = useTodoist(); // Adicionar updateTask
+  const { fetchTasks, fetchProjects, updateTask, isLoading: isLoadingTodoist } = useTodoist(); // Adicionar fetchProjects
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [schedules, setSchedules] = useState<Record<string, DaySchedule>>({}); // Key: YYYY-MM-DD for date-specific blocks and scheduled tasks
   const [recurringBlocks, setRecurringBlocks] = useState<RecurringTimeBlock[]>([]); // New state for recurring blocks
@@ -48,6 +49,9 @@ const Planejador = () => {
     }
     return "";
   });
+
+  const [meetingProjectId, setMeetingProjectId] = useState<string | null>(null);
+  const [isPreallocatingMeetings, setIsPreallocatingMeetings] = useState(false);
 
   // Save filter to localStorage whenever it changes
   useEffect(() => {
@@ -75,6 +79,21 @@ const Planejador = () => {
   useEffect(() => {
     localStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify({ schedules, recurringBlocks }));
   }, [schedules, recurringBlocks]);
+
+  // Fetch projects and identify meeting project ID
+  useEffect(() => {
+    const getMeetingProjectId = async () => {
+      const projects = await fetchProjects();
+      const meetingProject = projects.find(p => p.name === MEETING_PROJECT_NAME);
+      if (meetingProject) {
+        setMeetingProjectId(meetingProject.id);
+      } else {
+        toast.warning(`Projeto "${MEETING_PROJECT_NAME}" não encontrado no Todoist.`);
+        setMeetingProjectId(null);
+      }
+    };
+    getMeetingProjectId();
+  }, [fetchProjects]);
 
   const getCombinedTimeBlocksForDate = useCallback((date: Date): TimeBlock[] => {
     const dateKey = format(date, "yyyy-MM-dd");
@@ -106,8 +125,27 @@ const Planejador = () => {
         ...internalTasks.filter(task => !task.isCompleted)
       ];
 
+      // Filter out tasks that are already scheduled (Todoist tasks only)
+      const allScheduledTodoistTaskIds = Object.values(schedules).flatMap(day => 
+        day.scheduledTasks
+          .filter(st => st.originalTask && 'project_id' in st.originalTask)
+          .map(st => st.originalTask?.id)
+      );
+
+      const filteredBacklog = combinedBacklog.filter(task => {
+        if ('project_id' in task) { // It's a TodoistTask
+          // Exclude tasks from the meeting project if they have a due_datetime
+          if (meetingProjectId && task.project_id === meetingProjectId && task.due?.datetime) {
+            return false;
+          }
+          // Exclude tasks already scheduled
+          return !allScheduledTodoistTaskIds.includes(task.id);
+        }
+        return true; // Keep internal tasks unless completed
+      });
+
       // Nova lógica de ordenação
-      const sortedBacklog = combinedBacklog.sort((a, b) => {
+      const sortedBacklog = filteredBacklog.sort((a, b) => {
         // 1. Tarefas iniciadas com "*" primeiro
         const isAStarred = a.content.startsWith("*");
         const isBStarred = b.content.startsWith("*");
@@ -147,7 +185,7 @@ const Planejador = () => {
     } finally {
       setIsLoadingBacklog(false);
     }
-  }, [fetchTasks, filterInput]);
+  }, [fetchTasks, filterInput, meetingProjectId, schedules]); // Adicionar schedules como dependência
 
   useEffect(() => {
     fetchBacklogTasks();
@@ -272,7 +310,7 @@ const Planejador = () => {
     toast.info("Seleção de tarefa cancelada.");
   }, []);
 
-  const scheduleTask = useCallback(async (task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date) => {
+  const scheduleTask = useCallback(async (task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date, isPreallocated: boolean = false) => {
     const dateKey = format(targetDate, "yyyy-MM-dd");
     const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
     
@@ -289,19 +327,22 @@ const Planejador = () => {
         newLabels.push("profissional");
       }
 
-      const updatedTodoistTask = await updateTask(task.id, {
-        priority: tempSelectedPriority,
-        labels: newLabels,
-        duration: durationMinutes,
-        duration_unit: "minute",
-      });
+      // Only update if not preallocated, or if preallocated but needs specific updates
+      if (!isPreallocated) {
+        const updatedTodoistTask = await updateTask(task.id, {
+          priority: tempSelectedPriority,
+          labels: newLabels,
+          duration: durationMinutes,
+          duration_unit: "minute",
+        });
 
-      if (!updatedTodoistTask) {
-        toast.error("Falha ao atualizar a tarefa no Todoist.");
-        return;
+        if (!updatedTodoistTask) {
+          toast.error("Falha ao atualizar a tarefa no Todoist.");
+          return;
+        }
+        // Atualizar a tarefa no backlog local para refletir as mudanças
+        setBacklogTasks(prev => prev.map(t => t.id === updatedTodoistTask.id ? updatedTodoistTask : t));
       }
-      // Atualizar a tarefa no backlog local para refletir as mudanças
-      setBacklogTasks(prev => prev.map(t => t.id === updatedTodoistTask.id ? updatedTodoistTask : t));
 
     } else { // É uma InternalTask
       const updatedInternalTask: InternalTask = {
@@ -335,7 +376,9 @@ const Planejador = () => {
       };
     });
 
-    toast.success(`Tarefa "${task.content}" agendada para ${start}-${end} em ${format(targetDate, "dd/MM", { locale: ptBR })} e atualizada!`);
+    if (!isPreallocated) {
+      toast.success(`Tarefa "${task.content}" agendada para ${start}-${end} em ${format(targetDate, "dd/MM", { locale: ptBR })} e atualizada!`);
+    }
     setSelectedTaskToSchedule(null);
     setSuggestedSlot(null);
     setTempEstimatedDuration("15");
@@ -358,7 +401,9 @@ const Planejador = () => {
       };
     });
     toast.info(`Tarefa "${taskToDelete.content}" removida da agenda.`);
-  }, [selectedDate]);
+    // Re-fetch backlog to potentially show the task again if it was a Todoist task
+    fetchBacklogTasks();
+  }, [selectedDate, fetchBacklogTasks]);
 
   const handleSelectSlot = useCallback(async (time: string, type: TimeBlockType) => { // Tornar assíncrono
     if (!selectedTaskToSchedule) {
@@ -370,10 +415,16 @@ const Planejador = () => {
     const slotStartDateTime = parse(time, "HH:mm", selectedDate);
 
     // Prevenir agendamento no passado
-    if (slotStartDateTime < now) {
+    if (isBefore(slotStartDateTime, now) && !isEqual(startOfDay(slotStartDateTime), startOfDay(now))) {
       toast.error("Não é possível agendar tarefas para um horário ou dia que já passou.");
       return;
     }
+    // Allow scheduling for current day, but not for past times on current day
+    if (isEqual(startOfDay(slotStartDateTime), startOfDay(now)) && isBefore(slotStartDateTime, now)) {
+      toast.error("Não é possível agendar tarefas para um horário que já passou hoje.");
+      return;
+    }
+
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
     const slotStart = parse(time, "HH:mm", selectedDate);
@@ -423,7 +474,8 @@ const Planejador = () => {
     }
 
     await scheduleTask(selectedTaskToSchedule, time, slotEndStr, selectedDate); // Chamar scheduleTask assincronamente
-  }, [selectedTaskToSchedule, tempEstimatedDuration, tempSelectedCategory, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate]);
+    fetchBacklogTasks(); // Refresh backlog after scheduling
+  }, [selectedTaskToSchedule, tempEstimatedDuration, tempSelectedCategory, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate, fetchBacklogTasks]);
 
   const suggestTimeSlot = useCallback(async () => { // Tornar assíncrono
     if (!selectedTaskToSchedule) {
@@ -447,7 +499,7 @@ const Planejador = () => {
       const startOfCurrentDay = startOfDay(currentDayDate);
 
       // Pular dias que já passaram
-      if (startOfCurrentDay < startOfToday) {
+      if (isBefore(startOfCurrentDay, startOfToday)) {
         continue;
       }
 
@@ -460,7 +512,7 @@ const Planejador = () => {
       let startMinute = 0;
 
       // Se for o dia atual, começar a partir do próximo intervalo de 15 minutos
-      if (format(currentDayDate, "yyyy-MM-dd") === format(now, "yyyy-MM-dd")) {
+      if (isEqual(startOfCurrentDay, startOfToday)) {
         const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
         const next15MinInterval = Math.ceil(currentTotalMinutes / 15) * 15;
         startHour = Math.floor(next15MinInterval / 60);
@@ -475,7 +527,7 @@ const Planejador = () => {
           const slotEndStr = format(slotEnd, "HH:mm");
 
           // Pular slots que já passaram (redundante para dias passados, mas útil para o dia atual)
-          if (slotStart < now) {
+          if (isBefore(slotStart, now)) {
             continue;
           }
 
@@ -550,7 +602,80 @@ const Planejador = () => {
     }
   }, [selectedTaskToSchedule]);
 
-  const isLoading = isLoadingTodoist || isLoadingBacklog;
+  const preallocateMeetingTasks = useCallback(async () => {
+    if (!meetingProjectId) {
+      toast.error(`Projeto "${MEETING_PROJECT_NAME}" não encontrado. Não é possível pré-alocar reuniões.`);
+      return;
+    }
+    setIsPreallocatingMeetings(true);
+    toast.loading("Pré-alocando reuniões...");
+
+    try {
+      const allTodoistTasks = await fetchTasks(undefined, true); // Fetch all tasks, including subtasks and recurring
+      const meetingTasks = allTodoistTasks.filter(
+        task => task.project_id === meetingProjectId && task.due?.datetime
+      );
+
+      let allocatedCount = 0;
+      const newSchedules = { ...schedules };
+
+      for (const task of meetingTasks) {
+        const taskDueDateTime = parseISO(task.due!.datetime!);
+        const taskDateKey = format(taskDueDateTime, "yyyy-MM-dd");
+        const taskStartTime = format(taskDueDateTime, "HH:mm");
+        const taskEndTime = format(addMinutes(taskDueDateTime, 30), "HH:mm"); // Default 30 min duration
+
+        // Check for conflicts before scheduling
+        const currentDayScheduledTasks = newSchedules[taskDateKey]?.scheduledTasks || [];
+        const hasConflict = currentDayScheduledTasks.some(st => {
+          const stStart = parse(st.start, "HH:mm", taskDueDateTime);
+          const stEnd = parse(st.end, "HH:mm", taskDueDateTime);
+          const proposedStart = parse(taskStartTime, "HH:mm", taskDueDateTime);
+          const proposedEnd = parse(taskEndTime, "HH:mm", taskDueDateTime);
+
+          return (isWithinInterval(proposedStart, { start: stStart, end: stEnd }) ||
+                  isWithinInterval(proposedEnd, { start: stStart, end: stEnd }) ||
+                  (proposedStart <= stStart && proposedEnd >= stEnd));
+        });
+
+        // Check if already scheduled
+        const alreadyScheduled = currentDayScheduledTasks.some(st => st.originalTask?.id === task.id);
+
+        if (!hasConflict && !alreadyScheduled) {
+          const newScheduledTask: ScheduledTask = {
+            id: `${task.id}-${Date.now()}`,
+            taskId: task.id,
+            content: task.content,
+            description: task.description,
+            start: taskStartTime,
+            end: taskEndTime,
+            priority: task.priority,
+            category: getTaskCategory(task) || "profissional", // Meetings are usually professional
+            estimatedDurationMinutes: 30,
+            originalTask: task,
+          };
+
+          if (!newSchedules[taskDateKey]) {
+            newSchedules[taskDateKey] = { date: taskDateKey, timeBlocks: [], scheduledTasks: [] };
+          }
+          newSchedules[taskDateKey].scheduledTasks.push(newScheduledTask);
+          newSchedules[taskDateKey].scheduledTasks.sort((a, b) => a.start.localeCompare(b.start));
+          allocatedCount++;
+        }
+      }
+      setSchedules(newSchedules);
+      toast.success(`Pré-alocadas ${allocatedCount} reuniões.`);
+      fetchBacklogTasks(); // Refresh backlog to remove allocated meetings
+    } catch (error) {
+      console.error("Erro ao pré-alocar reuniões:", error);
+      toast.error("Falha ao pré-alocar reuniões.");
+    } finally {
+      setIsPreallocatingMeetings(false);
+    }
+  }, [meetingProjectId, fetchTasks, schedules, fetchBacklogTasks]);
+
+
+  const isLoading = isLoadingTodoist || isLoadingBacklog || isPreallocatingMeetings;
 
   const DayOfWeekNames: Record<DayOfWeek, string> = {
     "0": "Domingo",
@@ -622,7 +747,7 @@ const Planejador = () => {
           Defina seus blocos de tempo e organize suas tarefas em intervalos de 15 minutos.
         </p>
 
-        <div className="mb-6">
+        <div className="mb-6 flex items-center gap-4">
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -646,6 +771,18 @@ const Planejador = () => {
               />
             </PopoverContent>
           </Popover>
+          <Button
+            onClick={preallocateMeetingTasks}
+            disabled={!meetingProjectId || isLoading}
+            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+          >
+            {isPreallocatingMeetings ? (
+              <LoadingSpinner size={20} className="text-white" />
+            ) : (
+              <CalendarCheck className="h-4 w-4" />
+            )}
+            Pré-alocar Reuniões
+          </Button>
         </div>
 
         <Card className="mb-6 p-6">
