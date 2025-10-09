@@ -19,7 +19,6 @@ import { ptBR } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import AIAssistant from "@/components/AIAssistant";
 import PromptEditor from "@/components/PromptEditor";
-// REMOVIDO: import TaskOwnerSelector from "@/components/TaskOwnerSelector";
 
 type ExecucaoState = "initial" | "focusing" | "finished";
 
@@ -288,21 +287,6 @@ const Execucao = () => {
     }
   }, [currentTask, selectedDueDate, selectedDueTime, selectedPriority, updateTask, handleNextTask]);
 
-  // REMOVIDO: const handleUpdateTaskContent = useCallback(async (taskId: string, newContent: string) => {
-  // REMOVIDO:   const updated = await updateTask(taskId, { content: newContent });
-  // REMOVIDO:   if (updated) {
-  // REMOVIDO:     // Atualiza o estado local de focusTasks para refletir a mudança imediatamente
-  // REMOVIDO:     setFocusTasks(prevTasks =>
-  // REMOVIDO:       prevTasks.map(task =>
-  // REMOVIDO:         task.id === taskId ? { ...task, content: newContent } : task
-  // REMOVIDO:       )
-  // REMOVIDO:     );
-  // REMOVIDO:     toast.success("Nome da tarefa atualizado com sucesso!");
-  // REMOVIDO:   } else {
-  // REMOVIDO:     toast.error("Falha ao atualizar o nome da tarefa.");
-  // REMOVIDO:   }
-  // REMOVIDO: }, [updateTask]);
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -388,17 +372,6 @@ const Execucao = () => {
         {!isLoading && execucaoState === "focusing" && currentTask && (
           <div className="mt-8">
             <FocusTaskCard task={currentTask} />
-
-            {/* REMOVIDO:
-            <div className="mt-6 p-4 border rounded-lg bg-gray-50">
-              <TaskOwnerSelector
-                taskId={currentTask.id}
-                currentContent={currentTask.content}
-                onUpdateTaskContent={handleUpdateTaskContent}
-                isLoading={isLoading}
-              />
-            </div>
-            */}
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-8">
               <Button
