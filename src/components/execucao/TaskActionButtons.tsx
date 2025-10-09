@@ -23,6 +23,8 @@ interface TaskActionButtonsProps {
     priority?: 1 | 2 | 3 | 4;
     due_date?: string | null;
     due_datetime?: string | null;
+    duration?: number; // Adicionado
+    duration_unit?: "minute" | "day"; // Adicionado
   }) => Promise<TodoistTask | undefined>;
 }
 
@@ -34,23 +36,30 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   onUpdateTask,
 }) => {
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
-  const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
+  // const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false); // Removido, pois não está sendo usado
 
   const initialDueDate = currentTask.due?.date ? parseISO(currentTask.due.date) : undefined;
   const initialDueTime = currentTask.due?.datetime ? format(parseISO(currentTask.due.datetime), "HH:mm") : "";
+  const initialDuration = currentTask.duration?.amount && currentTask.duration.unit === "minute"
+    ? String(currentTask.duration.amount)
+    : "15"; // Default to 15 minutes
 
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(initialDueDate);
   const [selectedDueTime, setSelectedDueTime] = useState<string>(initialDueTime);
   const [selectedPriority, setSelectedPriority] = useState<1 | 2 | 3 | 4>(currentTask.priority);
+  const [selectedDuration, setSelectedDuration] = useState<string>(initialDuration); // Novo estado para duração
 
   const handleReschedule = async () => {
     const updateData: {
       priority?: 1 | 2 | 3 | 4;
       due_date?: string | null;
       due_datetime?: string | null;
+      duration?: number;
+      duration_unit?: "minute" | "day";
     } = {};
     let changed = false;
 
+    // Handle Due Date and Time
     if (selectedDueDate) {
       let finalDate = selectedDueDate;
       if (selectedDueTime) {
@@ -79,8 +88,27 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
       changed = true;
     }
 
+    // Handle Priority
     if (selectedPriority !== currentTask.priority) {
       updateData.priority = selectedPriority;
+      changed = true;
+    }
+
+    // Handle Duration
+    const newDurationAmount = parseInt(selectedDuration, 10);
+    const currentDurationAmount = currentTask.duration?.amount;
+    const currentDurationUnit = currentTask.duration?.unit;
+
+    if (!isNaN(newDurationAmount) && newDurationAmount > 0) {
+      if (newDurationAmount !== currentDurationAmount || currentDurationUnit !== "minute") {
+        updateData.duration = newDurationAmount;
+        updateData.duration_unit = "minute";
+        changed = true;
+      }
+    } else if (currentDurationAmount !== undefined || currentDurationUnit !== undefined) {
+      // If duration was present but now cleared or invalid
+      updateData.duration = null; // Explicitly set to null to clear
+      updateData.duration_unit = undefined; // Clear unit as well
       changed = true;
     }
 
@@ -160,6 +188,18 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
                   <SelectItem value="1">P4 - Baixo</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label htmlFor="reschedule-duration">Duração Estimada (minutos)</Label>
+              <Input
+                id="reschedule-duration"
+                type="number"
+                value={selectedDuration}
+                onChange={(e) => setSelectedDuration(e.target.value)}
+                min="1"
+                placeholder="Ex: 30"
+                className="mt-1"
+              />
             </div>
             <Button onClick={handleReschedule} className="w-full">
               Salvar Reagendamento
