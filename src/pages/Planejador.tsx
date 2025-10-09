@@ -8,8 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle } from "lucide-react";
-import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse } from "date-fns";
+import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb } from "lucide-react";
+import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask } from "@/lib/types";
 import TimeSlotPlanner from "@/components/TimeSlotPlanner";
@@ -32,6 +32,8 @@ const Planejador = () => {
   const [backlogTasks, setBacklogTasks] = useState<(TodoistTask | InternalTask)[]>([]);
   const [selectedTaskToSchedule, setSelectedTaskToSchedule] = useState<(TodoistTask | InternalTask) | null>(null);
   const [isLoadingBacklog, setIsLoadingBacklog] = useState(false);
+  const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string } | null>(null);
+  const [tempEstimatedDuration, setTempEstimatedDuration] = useState<string>("15"); // Para ajustar a duração da tarefa selecionada
 
   const currentDaySchedule = schedules[format(selectedDate, "yyyy-MM-dd")] || {
     date: format(selectedDate, "yyyy-MM-dd"),
@@ -141,69 +143,39 @@ const Planejador = () => {
     if (date) {
       setSelectedDate(startOfDay(date));
       setSelectedTaskToSchedule(null); // Clear selected task when date changes
+      setSuggestedSlot(null); // Clear suggested slot
     }
   };
 
   const handleSelectBacklogTask = useCallback((task: TodoistTask | InternalTask) => {
     setSelectedTaskToSchedule(task);
+    setTempEstimatedDuration(String(task.estimatedDurationMinutes || 15)); // Set duration for editing
+    setSuggestedSlot(null); // Clear any previous suggestion
     toast.info(`Tarefa "${task.content}" selecionada para agendamento.`);
   }, []);
 
   const handleCancelTaskSelection = useCallback(() => {
     setSelectedTaskToSchedule(null);
+    setSuggestedSlot(null);
+    setTempEstimatedDuration("15");
     toast.info("Seleção de tarefa cancelada.");
   }, []);
 
-  const handleSelectSlot = useCallback((slotTimeStr: string, slotType: TimeBlockType) => {
-    if (!selectedTaskToSchedule) {
-      toast.info("Selecione uma tarefa do backlog primeiro para agendar.");
-      return;
-    }
-
+  const scheduleTask = useCallback((task: TodoistTask | InternalTask, start: string, end: string) => {
     const dateKey = format(selectedDate, "yyyy-MM-dd");
     const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
-    const today = parseISO(dateKey);
-
-    const slotStart = parse(slotTimeStr, "HH:mm", today);
-    const slotEnd = addMinutes(slotStart, 15);
-    const slotEndStr = format(slotEnd, "HH:mm");
-
-    // Basic conflict detection: check if the slot is already occupied by another scheduled task
-    const isSlotOccupied = currentDay.scheduledTasks.some(st => {
-      const stStart = parse(st.start, "HH:mm", today);
-      const stEnd = parse(st.end, "HH:mm", today);
-      return isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
-             isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
-             (slotStart <= stStart && slotEnd >= stEnd);
-    });
-
-    if (isSlotOccupied) {
-      toast.error("Este slot já está ocupado por outra tarefa agendada.");
-      return;
-    }
-
-    // Check if the slot is within a defined time block of the correct type
-    const isWithinCorrectBlock = currentDay.timeBlocks.some(block => {
-      const blockStart = parse(block.start, "HH:mm", today);
-      const blockEnd = parse(block.end, "HH:mm", today);
-      return isWithinInterval(slotStart, { start: blockStart, end: blockEnd }) && block.type === slotType;
-    });
-
-    if (!isWithinCorrectBlock && currentDay.timeBlocks.length > 0) {
-      toast.warning(`Este slot está fora de um bloco de tempo definido ou o tipo de bloco (${slotType}) não corresponde.`);
-      // Optionally, you could prevent scheduling here: return;
-    }
-
+    
     const newScheduledTask: ScheduledTask = {
-      id: `${selectedTaskToSchedule.id}-${Date.now()}`, // Unique ID for scheduled instance
-      taskId: selectedTaskToSchedule.id,
-      content: selectedTaskToSchedule.content,
-      description: selectedTaskToSchedule.description,
-      start: slotTimeStr,
-      end: slotEndStr,
-      priority: 'priority' in selectedTaskToSchedule ? selectedTaskToSchedule.priority : 1,
-      category: getTaskCategory(selectedTaskToSchedule) || "pessoal", // Default to pessoal if not found
-      originalTask: selectedTaskToSchedule,
+      id: `${task.id}-${Date.now()}`, // Unique ID for scheduled instance
+      taskId: task.id,
+      content: task.content,
+      description: task.description,
+      start: start,
+      end: end,
+      priority: 'priority' in task ? task.priority : 1,
+      category: getTaskCategory(task) || "pessoal", // Default to pessoal if not found
+      estimatedDurationMinutes: parseInt(tempEstimatedDuration, 10) || 15,
+      originalTask: task,
     };
 
     setSchedules((prevSchedules) => {
@@ -214,9 +186,62 @@ const Planejador = () => {
       };
     });
 
-    toast.success(`Tarefa "${selectedTaskToSchedule.content}" agendada para ${slotTimeStr}!`);
+    toast.success(`Tarefa "${task.content}" agendada para ${start}-${end}!`);
     setSelectedTaskToSchedule(null); // Clear selection after scheduling
-  }, [selectedDate, selectedTaskToSchedule, schedules]);
+    setSuggestedSlot(null); // Clear suggestion
+    setTempEstimatedDuration("15");
+  }, [selectedDate, schedules, tempEstimatedDuration]);
+
+  const handleSelectSlot = useCallback((slotTimeStr: string, slotType: TimeBlockType) => {
+    if (!selectedTaskToSchedule) {
+      toast.info("Selecione uma tarefa do backlog primeiro para agendar.");
+      return;
+    }
+
+    const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
+    const dateKey = format(selectedDate, "yyyy-MM-dd");
+    const today = parseISO(dateKey);
+
+    const startSlot = parse(slotTimeStr, "HH:mm", today);
+    const endSlot = addMinutes(startSlot, durationMinutes);
+    const endSlotStr = format(endSlot, "HH:mm");
+
+    // Check for conflicts with existing scheduled tasks
+    const hasConflict = currentDaySchedule.scheduledTasks.some(st => {
+      const stStart = parse(st.start, "HH:mm", today);
+      const stEnd = parse(st.end, "HH:mm", today);
+      return (isWithinInterval(startSlot, { start: stStart, end: stEnd }) ||
+              isWithinInterval(endSlot, { start: stStart, end: stEnd }) ||
+              (startSlot <= stStart && endSlot >= stEnd));
+    });
+
+    if (hasConflict) {
+      toast.error("O slot selecionado ou a duração da tarefa conflita com uma tarefa já agendada.");
+      return;
+    }
+
+    // Check if the entire duration fits within a valid time block
+    const fitsInBlock = currentDaySchedule.timeBlocks.some(block => {
+      const blockStart = parse(block.start, "HH:mm", today);
+      const blockEnd = parse(block.end, "HH:mm", today);
+      const taskCategory = getTaskCategory(selectedTaskToSchedule);
+
+      // Check if start and end are within the block and block type matches category
+      return (startSlot >= blockStart && endSlot <= blockEnd) &&
+             ((block.type === "work" && taskCategory === "profissional") ||
+              (block.type === "personal" && taskCategory === "pessoal") ||
+              (block.type === "break" && taskCategory === undefined) || // Breaks can be for anything
+              (block.type === "work" && taskCategory === undefined) || // If no category, can go in work
+              (block.type === "personal" && taskCategory === undefined)); // If no category, can go in personal
+    });
+
+    if (!fitsInBlock && currentDaySchedule.timeBlocks.length > 0) {
+      toast.warning("A duração da tarefa não se encaixa completamente em um bloco de tempo apropriado ou o tipo de bloco não corresponde à categoria da tarefa.");
+      // Optionally, you could prevent scheduling here: return;
+    }
+
+    scheduleTask(selectedTaskToSchedule, slotTimeStr, endSlotStr);
+  }, [selectedTaskToSchedule, selectedDate, currentDaySchedule, scheduleTask, tempEstimatedDuration]);
 
   const handleDeleteScheduledTask = useCallback((taskToDelete: ScheduledTask) => {
     setSchedules((prevSchedules) => {
@@ -232,6 +257,109 @@ const Planejador = () => {
     });
     toast.info(`Tarefa agendada "${taskToDelete.content}" removida.`);
   }, [selectedDate]);
+
+  const suggestTimeSlot = useCallback(() => {
+    if (!selectedTaskToSchedule) {
+      toast.error("Selecione uma tarefa do backlog para sugerir um slot.");
+      return;
+    }
+
+    const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
+    const dateKey = format(selectedDate, "yyyy-MM-dd");
+    const today = parseISO(dateKey);
+    const taskCategory = getTaskCategory(selectedTaskToSchedule);
+    const taskPriority = 'priority' in selectedTaskToSchedule ? selectedTaskToSchedule.priority : 1; // P4 default for internal
+
+    let bestSlot: { start: string; end: string } | null = null;
+    let bestScore = -1;
+
+    // Iterate through 15-minute slots for the entire day
+    for (let hour = 0; hour < 24; hour++) {
+      for (let minute = 0; minute < 60; minute += 15) {
+        const slotStart = setMinutes(setHours(today, hour), minute);
+        const slotEnd = addMinutes(slotStart, durationMinutes);
+        const slotStartStr = format(slotStart, "HH:mm");
+        const slotEndStr = format(slotEnd, "HH:mm");
+
+        // 1. Check if slot is within the current day
+        if (slotEnd.getDate() !== today.getDate()) continue;
+
+        // 2. Check for conflicts with existing scheduled tasks
+        const hasConflict = currentDaySchedule.scheduledTasks.some(st => {
+          const stStart = parse(st.start, "HH:mm", today);
+          const stEnd = parse(st.end, "HH:mm", today);
+          return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
+                  isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
+                  (slotStart <= stStart && slotEnd >= stEnd));
+        });
+        if (hasConflict) continue;
+
+        // 3. Check if it fits within a defined time block and matches category
+        let currentSlotScore = 0;
+        let fitsInAppropriateBlock = false;
+        let isProductivityPeak = false;
+
+        for (const block of currentDaySchedule.timeBlocks) {
+          const blockStart = parse(block.start, "HH:mm", today);
+          const blockEnd = parse(block.end, "HH:mm", today);
+
+          if (slotStart >= blockStart && slotEnd <= blockEnd) {
+            // Slot is fully within a block
+            if ((block.type === "work" && taskCategory === "profissional") ||
+                (block.type === "personal" && taskCategory === "pessoal") ||
+                (block.type === "break" && taskCategory === undefined) ||
+                (block.type === "work" && taskCategory === undefined) ||
+                (block.type === "personal" && taskCategory === undefined)) {
+              fitsInAppropriateBlock = true;
+              currentSlotScore += 10; // High score for fitting in appropriate block
+
+              // Check for productivity peak (06h-10h) for work tasks
+              if (block.type === "work" && taskCategory === "profissional" &&
+                  slotStart.getHours() >= 6 && slotStart.getHours() < 10) {
+                isProductivityPeak = true;
+                currentSlotScore += 5; // Extra score for productivity peak
+              }
+              break;
+            }
+          }
+        }
+
+        if (!fitsInAppropriateBlock && currentDaySchedule.timeBlocks.length > 0) {
+          // If there are blocks but it doesn't fit appropriately, it's a lower priority
+          currentSlotScore -= 5; // Penalize for not fitting in a defined block
+        } else if (currentDaySchedule.timeBlocks.length === 0) {
+          // If no blocks are defined, any free slot is fine
+          currentSlotScore += 5;
+        }
+
+        // 4. Prioritize based on task priority
+        currentSlotScore += taskPriority * 2; // P1 (4) gets +8, P4 (1) gets +2
+
+        // 5. Prioritize earlier slots
+        currentSlotScore -= (hour * 60 + minute) / 100; // Earlier in the day gets higher score
+
+        if (currentSlotScore > bestScore) {
+          bestScore = currentSlotScore;
+          bestSlot = { start: slotStartStr, end: slotEndStr };
+        }
+      }
+    }
+
+    if (bestSlot) {
+      setSuggestedSlot(bestSlot);
+      toast.success(`Slot sugerido: ${bestSlot.start} - ${bestSlot.end}`);
+    } else {
+      setSuggestedSlot(null);
+      toast.error("Não foi possível encontrar um slot adequado para esta tarefa.");
+    }
+  }, [selectedTaskToSchedule, selectedDate, currentDaySchedule, tempEstimatedDuration]);
+
+
+  useEffect(() => {
+    if (selectedTaskToSchedule) {
+      setTempEstimatedDuration(String(selectedTaskToSchedule.estimatedDurationMinutes || 15));
+    }
+  }, [selectedTaskToSchedule]);
 
   const isLoading = isLoadingTodoist || isLoadingBacklog;
 
@@ -344,7 +472,7 @@ const Planejador = () => {
           )}
         </Card>
 
-        <TimeSlotPlanner daySchedule={currentDaySchedule} onSelectSlot={handleSelectSlot} onSelectTask={handleDeleteScheduledTask} />
+        <TimeSlotPlanner daySchedule={currentDaySchedule} onSelectSlot={handleSelectSlot} onSelectTask={handleDeleteScheduledTask} suggestedSlotStart={suggestedSlot?.start} suggestedSlotEnd={suggestedSlot?.end} />
       </div>
 
       <div className="lg:col-span-1">
@@ -356,13 +484,39 @@ const Planejador = () => {
           </CardHeader>
           <CardContent>
             {selectedTaskToSchedule && (
-              <div className="mb-4 p-3 border border-indigo-400 bg-indigo-50 rounded-md flex items-center justify-between">
-                <span className="text-sm font-medium text-indigo-800">
-                  Selecionado: {selectedTaskToSchedule.content}
-                </span>
-                <Button variant="ghost" size="icon" onClick={handleCancelTaskSelection}>
-                  <XCircle className="h-4 w-4 text-indigo-600" />
-                </Button>
+              <div className="mb-4 p-3 border border-indigo-400 bg-indigo-50 rounded-md flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-indigo-800">
+                    Selecionado: {selectedTaskToSchedule.content}
+                  </span>
+                  <Button variant="ghost" size="icon" onClick={handleCancelTaskSelection}>
+                    <XCircle className="h-4 w-4 text-indigo-600" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="temp-duration" className="text-sm text-indigo-800">Duração (min):</Label>
+                  <Input
+                    id="temp-duration"
+                    type="number"
+                    value={tempEstimatedDuration}
+                    onChange={(e) => setTempEstimatedDuration(e.target.value)}
+                    min="1"
+                    className="w-20 text-sm"
+                  />
+                  <Button onClick={suggestTimeSlot} className="flex-grow bg-yellow-500 hover:bg-yellow-600 text-white">
+                    <Lightbulb className="h-4 w-4 mr-2" /> Sugerir Slot
+                  </Button>
+                </div>
+                {suggestedSlot && (
+                  <div className="mt-2 p-2 bg-green-100 border border-green-400 rounded-md flex items-center justify-between">
+                    <span className="text-sm text-green-800">
+                      Sugestão: {suggestedSlot.start} - {suggestedSlot.end}
+                    </span>
+                    <Button size="sm" onClick={() => scheduleTask(selectedTaskToSchedule, suggestedSlot.start, suggestedSlot.end)}>
+                      Agendar
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
             {isLoading ? (
@@ -385,6 +539,9 @@ const Planejador = () => {
                     <div className="flex justify-between items-center text-xs text-gray-500 mt-1">
                       <span>
                         {'priority' in task ? `P${task.priority}` : 'P4'} - {'labels' in task ? (getTaskCategory(task) || 'N/A') : task.category}
+                      </span>
+                      <span className="flex items-center">
+                        <Clock className="h-3 w-3 mr-1" /> {task.estimatedDurationMinutes || 15} min
                       </span>
                       {'due' in task && task.due?.date && (
                         <span>Venc: {format(parseISO(task.due.date), "dd/MM", { locale: ptBR })}</span>

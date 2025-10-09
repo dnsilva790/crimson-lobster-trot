@@ -11,16 +11,23 @@ interface TimeSlotPlannerProps {
   daySchedule: DaySchedule;
   onSelectSlot?: (time: string, type: TimeBlockType) => void;
   onSelectTask?: (task: ScheduledTask) => void; // Adicionada prop para selecionar tarefa agendada
+  suggestedSlotStart?: string | null; // Novo: Início do slot sugerido
+  suggestedSlotEnd?: string | null;   // Novo: Fim do slot sugerido
 }
 
 const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
   daySchedule,
   onSelectSlot,
   onSelectTask,
+  suggestedSlotStart,
+  suggestedSlotEnd,
 }) => {
   const renderTimeSlots = () => {
     const slots: JSX.Element[] = [];
     const today = parseISO(daySchedule.date); // Use the date from daySchedule
+
+    const parsedSuggestedStart = suggestedSlotStart ? parse(suggestedSlotStart, "HH:mm", today) : null;
+    const parsedSuggestedEnd = suggestedSlotEnd ? parse(suggestedSlotEnd, "HH:mm", today) : null;
 
     for (let hour = 0; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 15) {
@@ -70,6 +77,9 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                  !tasksStartingInSlot.some(t => t.id === task.id); // Exclude tasks already handled by tasksStartingInSlot
         });
 
+        // Determine if this slot is part of the suggested slot
+        const isSuggestedSlot = parsedSuggestedStart && parsedSuggestedEnd &&
+                                isWithinInterval(slotTime, { start: parsedSuggestedStart, end: parsedSuggestedEnd });
 
         slots.push(
           <div
@@ -77,7 +87,8 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
             className={cn(
               "relative p-1 border-b border-gray-200 text-xs h-10 flex items-center justify-between",
               blockColorClass,
-              onSelectSlot && "cursor-pointer"
+              onSelectSlot && "cursor-pointer",
+              isSuggestedSlot && "bg-yellow-200 border-yellow-500 ring-2 ring-yellow-500 z-10" // Highlight suggested slot
             )}
             onClick={() => onSelectSlot?.(formattedTime, blockType)}
           >
