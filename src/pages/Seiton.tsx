@@ -166,7 +166,9 @@ const Seiton = () => {
           <span>Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
         ) : task.due?.date ? (
           <span>Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}</span>
-        ) : null}
+        ) : (
+          <span>Sem prazo</span> // Adicionado para tarefas sem prazo
+        )}
         <span
           className={cn(
             "px-2 py-1 rounded-full text-white text-xs font-medium",
