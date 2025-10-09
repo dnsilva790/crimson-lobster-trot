@@ -7,6 +7,7 @@ import {
   Sparkles,
   BarChart,
   Zap,
+  ListTodo, // Novo ícone
 } from "lucide-react";
 
 const modules = [
@@ -49,6 +50,14 @@ const modules = [
     description: "Modo Foco Total",
     colorClass: "bg-red-100 hover:bg-red-200",
     activeColor: "border-red-600",
+  },
+  {
+    path: "/internal-tasks", // Nova entrada
+    icon: ListTodo,
+    title: "INTERNAS",
+    description: "Tarefas Pessoais/Profissionais",
+    colorClass: "bg-gray-100 hover:bg-gray-200",
+    activeColor: "border-gray-600",
   },
 ];
 

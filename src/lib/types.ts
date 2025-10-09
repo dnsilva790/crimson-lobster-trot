@@ -46,3 +46,13 @@ export interface SeitonStateSnapshot {
   comparisonIndex: number;
   tournamentState: "initial" | "comparing" | "finished";
 }
+
+// Nova interface para tarefas gerenciadas internamente
+export interface InternalTask {
+  id: string;
+  content: string;
+  description?: string;
+  category: "pessoal" | "profissional";
+  isCompleted: boolean;
+  createdAt: string;
+}
