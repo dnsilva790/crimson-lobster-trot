@@ -22,6 +22,20 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 const PLANNER_STORAGE_KEY = "planner_schedules_v2"; // Updated storage key for new structure
 const MEETING_PROJECT_NAME = "📅 Reuniões"; // Nome do projeto de reuniões
 
+const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
+  4: "bg-red-500", // P1 - Urgente
+  3: "bg-orange-500", // P2 - Alto
+  2: "bg-yellow-500", // P3 - Médio
+  1: "bg-gray-400", // P4 - Baixo
+};
+
+const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
+  4: "P1",
+  3: "P2",
+  2: "P3",
+  1: "P4",
+};
+
 const Planejador = () => {
   const { fetchTasks, fetchProjects, updateTask, isLoading: isLoadingTodoist } = useTodoist(); // Adicionar fetchProjects
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
@@ -1028,15 +1042,35 @@ const Planejador = () => {
                     <h4 className="font-semibold text-gray-800">{task.content}</h4>
                     {task.description && <p className="text-xs text-gray-600 line-clamp-2">{task.description}</p>}
                     <div className="flex justify-between items-center text-xs text-gray-500 mt-1">
-                      <span>
-                        {'priority' in task ? `P${task.priority}` : 'P4'} - {'labels' in task ? (getTaskCategory(task) || 'N/A') : task.category}
-                      </span>
-                      <span className="flex items-center">
-                        <Clock className="h-3 w-3 mr-1" /> {task.estimatedDurationMinutes || 15} min
-                      </span>
-                      {'due' in task && task.due?.date && (
-                        <span>Venc: {format(parseISO(task.due.date), "dd/MM", { locale: ptBR })}</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "px-2 py-0.5 rounded-full text-white text-xs font-medium",
+                            PRIORITY_COLORS['priority' in task ? task.priority : 1],
+                          )}
+                        >
+                          {PRIORITY_LABELS['priority' in task ? task.priority : 1]}
+                        </span>
+                        <span className="text-gray-600">
+                          {'labels' in task ? (getTaskCategory(task) || 'N/A') : task.category}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {'deadline' in task && task.deadline?.date && (
+                          <span className="font-semibold text-red-600">
+                            DL: {format(parseISO(task.deadline.date), "dd/MM", { locale: ptBR })}
+                          </span>
+                        )}
+                        {'due' in task && task.due?.datetime && (
+                          <span>Venc: {format(parseISO(task.due.datetime), "dd/MM HH:mm", { locale: ptBR })}</span>
+                        )}
+                        {'due' in task && task.due?.date && !('due' in task && task.due?.datetime) && (
+                          <span>Venc: {format(parseISO(task.due.date), "dd/MM", { locale: ptBR })}</span>
+                        )}
+                        <span className="flex items-center">
+                          <Clock className="h-3 w-3 mr-1" /> {task.estimatedDurationMinutes || 15} min
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
