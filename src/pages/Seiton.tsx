@@ -266,10 +266,33 @@ const Seiton = () => {
     const success = await closeTask(taskId);
     if (success !== undefined) {
       toast.success("Tarefa concluída com sucesso!");
-      // Re-fetch tasks and restart the tournament to update the lists
-      await startTournament(false); 
+
+      // Remove the completed task from tasksToProcess
+      setTasksToProcess(prev => prev.filter(task => task.id !== taskId));
+
+      // Remove the completed task from rankedTasks
+      setRankedTasks(prev => prev.filter(task => task.id !== taskId));
+
+      // If the completed task was the one currently being placed
+      if (currentTaskToPlace?.id === taskId) {
+        setCurrentTaskToPlace(null); // This will trigger startNextPlacement via useEffect
+        setComparisonCandidate(null); // Clear candidate as well
+        setComparisonIndex(0); // Reset index
+      }
+      // If the completed task was the comparison candidate
+      else if (comparisonCandidate?.id === taskId) {
+        // The current comparison is invalid. We need to find a new candidate for currentTaskToPlace.
+        // Reset comparison for currentTaskToPlace to restart its placement from the beginning of the (now updated) ranked list.
+        setComparisonIndex(0);
+        // Filter rankedTasks again to ensure we get the correct first element after removal
+        const updatedRankedTasks = rankedTasks.filter(task => task.id !== taskId);
+        setComparisonCandidate(updatedRankedTasks[0] || null);
+      }
+      // If the completed task was neither currentTaskToPlace nor comparisonCandidate,
+      // the tournament can continue as is, as the tasks were just removed from the lists.
+      // The current comparison (if any) remains valid.
     }
-  }, [closeTask, startTournament]);
+  }, [closeTask, currentTaskToPlace, comparisonCandidate, rankedTasks, tasksToProcess]);
 
   const renderTaskDates = (task: TodoistTask) => {
     const dateElements: JSX.Element[] = [];
