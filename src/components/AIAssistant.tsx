@@ -9,6 +9,7 @@ import { Send, Bot, User } from "lucide-react";
 import { TodoistTask } from "@/lib/types";
 import { useTodoist } from "@/context/TodoistContext";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils"; // Importando a função cn
 
 interface AIAssistantProps {
   aiPrompt: string;
