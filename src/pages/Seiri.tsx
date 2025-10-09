@@ -161,28 +161,6 @@ const Seiri = () => {
     }
   }, [tasksToReview, updateTask]);
 
-  // Função para atualizar a tarefa e o estado local
-  const handleUpdateTaskAndRefresh = useCallback(async (taskId: string, data: {
-    content?: string;
-    description?: string;
-    priority?: 1 | 2 | 3 | 4;
-    due_date?: string | null;
-    due_datetime?: string | null;
-    labels?: string[];
-    duration?: number;
-    duration_unit?: "minute" | "day";
-  }) => {
-    const updated = await updateTask(taskId, data);
-    if (updated) {
-      setTasksToReview(prevTasks =>
-        prevTasks.map(task =>
-          task.id === taskId ? { ...task, ...data } : task // Atualiza o estado local com os dados enviados
-        )
-      );
-    }
-    return updated;
-  }, [updateTask]);
-
   const currentTask = tasksToReview[currentTaskIndex];
 
   return (
@@ -233,7 +211,6 @@ const Seiri = () => {
             onDelete={handleDelete}
             onUpdateCategory={handleUpdateCategory}
             onUpdatePriority={handleUpdatePriority}
-            onUpdateTask={handleUpdateTaskAndRefresh} // Passando a nova função
             isLoading={isLoading}
           />
         </div>
