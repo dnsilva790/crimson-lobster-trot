@@ -36,7 +36,12 @@ const Planejador = () => {
   const [selectedTaskToSchedule, setSelectedTaskToSchedule] = useState<(TodoistTask | InternalTask) | null>(null);
   const [isLoadingBacklog, setIsLoadingBacklog] = useState(false);
   const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string; date: string } | null>(null);
+  
+  // Novos estados temporários para a tarefa selecionada
   const [tempEstimatedDuration, setTempEstimatedDuration] = useState<string>("15");
+  const [tempSelectedCategory, setTempSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
+  const [tempSelectedPriority, setTempSelectedPriority] = useState<1 | 2 | 3 | 4>(1); // Default to P4
+
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('planejador_filter_input') || "";
@@ -234,6 +239,10 @@ const Planejador = () => {
       setSelectedDate(startOfDay(date));
       setSelectedTaskToSchedule(null);
       setSuggestedSlot(null);
+      // Reset temporary states when date changes
+      setTempEstimatedDuration("15");
+      setTempSelectedCategory("none");
+      setTempSelectedPriority(1);
     }
   };
 
@@ -241,6 +250,15 @@ const Planejador = () => {
     setSelectedTaskToSchedule(task);
     setTempEstimatedDuration(String(task.estimatedDurationMinutes || 15));
     setSuggestedSlot(null);
+    
+    // Set initial category for temp state
+    const initialCategory = getTaskCategory(task);
+    setTempSelectedCategory(initialCategory || "none");
+
+    // Set initial priority for temp state
+    const initialPriority = 'priority' in task ? task.priority : 1;
+    setTempSelectedPriority(initialPriority);
+
     toast.info(`Tarefa "${task.content}" selecionada para agendamento.`);
   }, []);
 
@@ -248,6 +266,8 @@ const Planejador = () => {
     setSelectedTaskToSchedule(null);
     setSuggestedSlot(null);
     setTempEstimatedDuration("15");
+    setTempSelectedCategory("none");
+    setTempSelectedPriority(1);
     toast.info("Seleção de tarefa cancelada.");
   }, []);
 
@@ -262,9 +282,9 @@ const Planejador = () => {
       description: task.description,
       start: start,
       end: end,
-      priority: 'priority' in task ? task.priority : 1,
-      category: getTaskCategory(task) || "pessoal",
-      estimatedDurationMinutes: parseInt(tempEstimatedDuration, 10) || 15,
+      priority: tempSelectedPriority, // Usar a prioridade temporária
+      category: tempSelectedCategory === "none" ? (getTaskCategory(task) || "pessoal") : tempSelectedCategory, // Usar a categoria temporária
+      estimatedDurationMinutes: parseInt(tempEstimatedDuration, 10) || 15, // Usar a duração temporária
       originalTask: task,
     };
 
@@ -280,7 +300,9 @@ const Planejador = () => {
     setSelectedTaskToSchedule(null);
     setSuggestedSlot(null);
     setTempEstimatedDuration("15");
-  }, [schedules, tempEstimatedDuration]);
+    setTempSelectedCategory("none");
+    setTempSelectedPriority(1);
+  }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority]);
 
   const handleDeleteScheduledTask = useCallback((taskToDelete: ScheduledTask) => {
     setSchedules((prevSchedules) => {
@@ -326,7 +348,7 @@ const Planejador = () => {
     }
 
     let fitsInAppropriateBlock = false;
-    const taskCategory = getTaskCategory(selectedTaskToSchedule);
+    const taskCategory = tempSelectedCategory === "none" ? (getTaskCategory(selectedTaskToSchedule)) : tempSelectedCategory; // Usar a categoria temporária
     const combinedBlocks = getCombinedTimeBlocksForDate(selectedDate);
 
     if (combinedBlocks.length > 0) {
@@ -353,7 +375,7 @@ const Planejador = () => {
     }
 
     scheduleTask(selectedTaskToSchedule, time, slotEndStr, selectedDate);
-  }, [selectedTaskToSchedule, tempEstimatedDuration, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate]);
+  }, [selectedTaskToSchedule, tempEstimatedDuration, tempSelectedCategory, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate]);
 
   const suggestTimeSlot = useCallback(() => {
     if (!selectedTaskToSchedule) {
@@ -362,8 +384,8 @@ const Planejador = () => {
     }
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
-    const taskCategory = getTaskCategory(selectedTaskToSchedule);
-    const taskPriority = 'priority' in selectedTaskToSchedule ? selectedTaskToSchedule.priority : 1;
+    const taskCategory = tempSelectedCategory === "none" ? (getTaskCategory(selectedTaskToSchedule)) : tempSelectedCategory; // Usar a categoria temporária
+    const taskPriority = tempSelectedPriority; // Usar a prioridade temporária
 
     let bestSlot: { start: string; end: string; date: string } | null = null;
     let bestScore = -Infinity;
@@ -443,11 +465,15 @@ const Planejador = () => {
       setSuggestedSlot(null);
       toast.error("Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias.");
     }
-  }, [selectedTaskToSchedule, selectedDate, schedules, tempEstimatedDuration, getCombinedTimeBlocksForDate]);
+  }, [selectedTaskToSchedule, selectedDate, schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate]);
 
   useEffect(() => {
     if (selectedTaskToSchedule) {
       setTempEstimatedDuration(String(selectedTaskToSchedule.estimatedDurationMinutes || 15));
+      const initialCategory = getTaskCategory(selectedTaskToSchedule);
+      setTempSelectedCategory(initialCategory || "none");
+      const initialPriority = 'priority' in selectedTaskToSchedule ? selectedTaskToSchedule.priority : 1;
+      setTempSelectedPriority(initialPriority);
     }
   }, [selectedTaskToSchedule]);
 
@@ -713,7 +739,36 @@ const Planejador = () => {
                     <XCircle className="h-4 w-4 text-indigo-600" />
                   </Button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div>
+                    <Label htmlFor="temp-category" className="text-sm text-indigo-800">Categoria:</Label>
+                    <Select value={tempSelectedCategory} onValueChange={(value: "pessoal" | "profissional" | "none") => setTempSelectedCategory(value)}>
+                      <SelectTrigger className="w-full mt-1">
+                        <SelectValue placeholder="Categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pessoal">Pessoal</SelectItem>
+                        <SelectItem value="profissional">Profissional</SelectItem>
+                        <SelectItem value="none">Manter Categoria</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="temp-priority" className="text-sm text-indigo-800">Prioridade:</Label>
+                    <Select value={String(tempSelectedPriority)} onValueChange={(value) => setTempSelectedPriority(Number(value) as 1 | 2 | 3 | 4)}>
+                      <SelectTrigger className="w-full mt-1">
+                        <SelectValue placeholder="Prioridade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="4">P1 - Urgente</SelectItem>
+                        <SelectItem value="3">P2 - Alto</SelectItem>
+                        <SelectItem value="2">P3 - Médio</SelectItem>
+                        <SelectItem value="1">P4 - Baixo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
                   <Label htmlFor="temp-duration" className="text-sm text-indigo-800">Duração (min):</Label>
                   <Input
                     id="temp-duration"
