@@ -126,17 +126,22 @@ const Seiton = () => {
     }
   }, [history]);
 
+  const resetTournamentState = useCallback(() => {
+    setTournamentState("initial");
+    setTasksToProcess([]);
+    setRankedTasks([]);
+    setCurrentTaskToPlace(null);
+    setComparisonCandidate(null);
+    setComparisonIndex(0);
+    setHistory([]);
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    setHasSavedState(false);
+    toast.success("Ranking salvo resetado!");
+  }, []);
+
   const startTournament = useCallback(async (continueSaved: boolean = false) => {
     if (!continueSaved) {
-      setTournamentState("initial");
-      setTasksToProcess([]);
-      setRankedTasks([]);
-      setCurrentTaskToPlace(null);
-      setComparisonCandidate(null);
-      setComparisonIndex(0);
-      setHistory([]);
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
-      setHasSavedState(false);
+      resetTournamentState(); // Ensure a clean slate if not continuing
     }
 
     const todoistFilterParts: string[] = [];
@@ -161,7 +166,7 @@ const Seiton = () => {
     } else {
       setTournamentState("comparing");
     }
-  }, [fetchTasks, sortTasks, tasksToProcess.length, filterInput, selectedCategoryFilter]);
+  }, [fetchTasks, sortTasks, tasksToProcess.length, filterInput, selectedCategoryFilter, resetTournamentState]);
 
   const startNextPlacement = useCallback(() => {
     if (tasksToProcess.length === 0) {
@@ -432,20 +437,30 @@ const Seiton = () => {
               </SelectContent>
             </Select>
           </div>
-          {hasSavedState && (
+          <div className="flex flex-col md:flex-row justify-center gap-4 mt-6">
+            {hasSavedState && (
+              <Button
+                onClick={() => startTournament(true)}
+                className="px-8 py-4 text-xl bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
+              >
+                Continuar Torneio
+              </Button>
+            )}
             <Button
-              onClick={() => startTournament(true)}
-              className="px-8 py-4 text-xl bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 mb-4 mr-4"
+              onClick={() => startTournament(false)}
+              className="px-8 py-4 text-xl bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-200"
             >
-              Continuar Torneio
+              Iniciar Novo Torneio
             </Button>
-          )}
-          <Button
-            onClick={() => startTournament(false)}
-            className="px-8 py-4 text-xl bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-200"
-          >
-            Iniciar Novo Torneio
-          </Button>
+            {hasSavedState && (
+              <Button
+                onClick={resetTournamentState}
+                className="px-8 py-4 text-xl bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors duration-200"
+              >
+                Resetar Ranking Salvo
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
