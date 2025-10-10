@@ -11,12 +11,12 @@ import { TodoistProvider } from "./context/TodoistContext";
 
 // Import module pages
 import Seiri from "./pages/Seiri";
+import GTDProcessor from "./pages/GTDProcessor"; // Renomeado de Seiketsu
 import Seiton from "./pages/Seiton";
 import Seiso from "./pages/Seiso";
-import Seiketsu from "./pages/Seiketsu";
 import Execucao from "./pages/Execucao";
 import InternalTasks from "./pages/InternalTasks";
-import Planejador from "./pages/Planejador"; // Novo import
+import Planejador from "./pages/Planejador";
 
 const queryClient = new QueryClient();
 
@@ -31,12 +31,12 @@ const App = () => (
             <Route path="/" element={<Configuration />} /> {/* Initial config page */}
             <Route element={<MainLayout />}>
               <Route path="/seiri" element={<Seiri />} />
-              <Route path="/seiketsu" element={<Seiketsu />} />
+              <Route path="/gtd-processor" element={<GTDProcessor />} /> {/* Nova rota para o GTD Processor */}
               <Route path="/seiton" element={<Seiton />} />
               <Route path="/seiso" element={<Seiso />} />
               <Route path="/execucao" element={<Execucao />} />
               <Route path="/internal-tasks" element={<InternalTasks />} />
-              <Route path="/planejador" element={<Planejador />} /> {/* Nova rota */}
+              <Route path="/planejador" element={<Planejador />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>

@@ -5,10 +5,11 @@ import {
   ClipboardList,
   Trophy,
   Sparkles,
-  BarChart,
+  BarChart, // Será substituído por um ícone GTD
   Zap,
   ListTodo,
-  CalendarDays, // Novo ícone para o Planejador
+  CalendarDays,
+  Inbox, // Novo ícone para o GTD Processor
 } from "lucide-react";
 
 const modules = [
@@ -21,10 +22,10 @@ const modules = [
     activeColor: "border-green-600",
   },
   {
-    path: "/seiketsu",
-    icon: BarChart,
-    title: "SEIKETSU",
-    description: "Organização Padrão",
+    path: "/gtd-processor", // Nova rota
+    icon: Inbox, // Novo ícone
+    title: "GTD PROCESSOR",
+    description: "Processar Caixa de Entrada",
     colorClass: "bg-purple-100 hover:bg-purple-200",
     activeColor: "border-purple-600",
   },
@@ -61,7 +62,7 @@ const modules = [
     activeColor: "border-gray-600",
   },
   {
-    path: "/planejador", // Nova entrada
+    path: "/planejador",
     icon: CalendarDays,
     title: "PLANEJADOR",
     description: "Sequenciar Backlog",
@@ -73,7 +74,7 @@ const modules = [
 const MainNavigation = () => {
   return (
     <nav className="p-4 bg-white shadow-md rounded-xl mb-6">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4"> {/* Ajustado para 7 colunas */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
         {modules.map((module) => (
           <NavLink
             key={module.path}
