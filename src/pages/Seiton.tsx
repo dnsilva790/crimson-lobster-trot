@@ -170,9 +170,9 @@ const Seiton = () => {
   }, [fetchTasks, sortTasks, tasksToProcess.length, filterInput, selectedCategoryFilter, resetTournamentState]);
 
   const startNextPlacement = useCallback(() => {
-    console.log("startNextPlacement called. tasksToProcess.length:", tasksToProcess.length, "rankedTasks.length:", rankedTasks.length); // Debug log
+    console.log("startNextPlacement called. tasksToProcess.length:", tasksToProcess.length, "rankedTasks.length:", rankedTasks.length);
     if (tasksToProcess.length === 0) {
-      console.log("tasksToProcess is empty, setting tournamentState to finished."); // Debug log
+      console.log("tasksToProcess is empty, setting tournamentState to finished.");
       setTournamentState("finished");
       setCurrentTaskToPlace(null);
       setComparisonCandidate(null);
@@ -182,15 +182,18 @@ const Seiton = () => {
     saveStateToHistory();
 
     const nextTask = tasksToProcess[0];
-    setCurrentTaskToPlace(nextTask);
-    setTasksToProcess((prev) => prev.slice(1));
+    setTasksToProcess((prev) => prev.slice(1)); // Remove from tasksToProcess immediately
 
     if (rankedTasks.length === 0) {
+      // If rankedTasks is empty, this is the very first task.
+      // It doesn't need a comparison, just add it to rankedTasks.
       setRankedTasks([nextTask]);
-      setCurrentTaskToPlace(null);
+      setCurrentTaskToPlace(null); // Clear to trigger next placement
       setComparisonCandidate(null);
       setComparisonIndex(0);
     } else {
+      // If rankedTasks has items, set up for comparison
+      setCurrentTaskToPlace(nextTask);
       setComparisonIndex(rankedTasks.length - 1);
       setComparisonCandidate(rankedTasks[rankedTasks.length - 1]);
     }
