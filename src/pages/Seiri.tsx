@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import TaskReviewCard from "@/components/TaskReviewCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChevronDown, ChevronUp, Bug } from "lucide-react"; // Importar ícones
+import { ChevronDown, ChevronUp, Bug, XCircle } from "lucide-react"; // Importar ícones
 
 type ReviewState = "initial" | "reviewing" | "finished";
 
@@ -80,17 +80,12 @@ const Seiri = () => {
     setCurrentTaskIndex(0);
 
     const todoistFilter = filterInput.trim();
-    const finalFilter = todoistFilter || undefined; // Se o filtro estiver vazio, buscar todas as tarefas
-
-    // Inclua subtarefas e tarefas recorrentes para uma revisão abrangente
+    const finalFilter = todoistFilter || undefined; 
+    
     const fetchedTasks = await fetchTasks(finalFilter, true); 
     
     let filteredTasksAfterInternalLogic: TodoistTask[] = [];
     if (fetchedTasks) {
-      // A lógica de filtragem de subtasks e recorrentes já está em TodoistContext.tsx
-      // Se `includeSubtasksAndRecurring` for `true`, `fetchTasks` retorna todas.
-      // Se for `false` ou `undefined` E `filter` for `undefined`, ele filtra.
-      // Como estamos passando `true`, `fetchedTasks` já deve conter tudo.
       filteredTasksAfterInternalLogic = fetchedTasks;
     }
 
@@ -207,6 +202,13 @@ const Seiri = () => {
     }
   }, [tasksToReview, updateTask]);
 
+  const handleClearFilter = useCallback(() => {
+    setFilterInput(""); // Limpa o input do filtro
+    // loadTasks será chamado automaticamente pelo useEffect do filterInput,
+    // ou pode ser chamado explicitamente aqui se preferir um comportamento imediato.
+    // Por enquanto, deixaremos o useEffect lidar com isso.
+  }, []);
+
   const currentTask = tasksToReview[currentTaskIndex];
 
   return (
@@ -249,15 +251,28 @@ const Seiri = () => {
             <Label htmlFor="task-filter" className="text-left text-gray-600 font-medium">
               Filtro de Tarefas (ex: "hoje", "p1", "#projeto")
             </Label>
-            <Input
-              type="text"
-              id="task-filter"
-              placeholder="Opcional: insira um filtro do Todoist (padrão: todas as tarefas)..."
-              value={filterInput}
-              onChange={(e) => setFilterInput(e.target.value)}
-              className="mt-1"
-              disabled={isLoading}
-            />
+            <div className="relative flex items-center mt-1">
+              <Input
+                type="text"
+                id="task-filter"
+                placeholder="Opcional: insira um filtro do Todoist (padrão: todas as tarefas)..."
+                value={filterInput}
+                onChange={(e) => setFilterInput(e.target.value)}
+                className="pr-10" // Adiciona padding para o botão
+                disabled={isLoading}
+              />
+              {filterInput && ( // Mostra o botão apenas se houver texto no filtro
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleClearFilter}
+                  className="absolute right-0 top-0 h-full px-3"
+                  disabled={isLoading}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
           <Button
             onClick={loadTasks}
