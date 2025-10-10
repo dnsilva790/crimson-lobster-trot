@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import LoadingSpinner from "@/components/ui/loading-spinner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ExecucaoInitialStateProps {
   filterInput: string;
   setFilterInput: (value: string) => void;
+  selectedCategoryFilter: "all" | "pessoal" | "profissional";
+  setSelectedCategoryFilter: (value: "all" | "pessoal" | "profissional") => void;
   onStartFocus: () => void;
   isLoading: boolean;
 }
@@ -16,6 +19,8 @@ interface ExecucaoInitialStateProps {
 const ExecucaoInitialState: React.FC<ExecucaoInitialStateProps> = ({
   filterInput,
   setFilterInput,
+  selectedCategoryFilter,
+  setSelectedCategoryFilter,
   onStartFocus,
   isLoading,
 }) => {
@@ -34,6 +39,25 @@ const ExecucaoInitialState: React.FC<ExecucaoInitialStateProps> = ({
           className="mt-1"
           disabled={isLoading}
         />
+      </div>
+      <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">
+        <Label htmlFor="category-filter" className="text-left text-gray-600 font-medium">
+          Filtrar por Categoria
+        </Label>
+        <Select
+          value={selectedCategoryFilter}
+          onValueChange={(value: "all" | "pessoal" | "profissional") => setSelectedCategoryFilter(value)}
+          disabled={isLoading}
+        >
+          <SelectTrigger className="w-full mt-1">
+            <SelectValue placeholder="Todas as Categorias" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as Categorias</SelectItem>
+            <SelectItem value="pessoal">Pessoal</SelectItem>
+            <SelectItem value="profissional">Profissional</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <Button
         onClick={onStartFocus}

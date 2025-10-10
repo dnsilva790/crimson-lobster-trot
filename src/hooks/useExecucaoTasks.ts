@@ -10,7 +10,7 @@ type ExecucaoState = "initial" | "focusing" | "finished";
 
 const SEITON_RANKING_STORAGE_KEY = "seitonTournamentState";
 
-export const useExecucaoTasks = (filterInput: string) => {
+export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "all" | "pessoal" | "profissional") => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
   const [focusTasks, setFocusTasks] = useState<TodoistTask[]>([]);
   const [initialTotalTasks, setInitialTotalTasks] = useState<number>(0); // Total tasks at the start of the session
@@ -43,8 +43,17 @@ export const useExecucaoTasks = (filterInput: string) => {
     setCurrentTaskIndex(0); // Reset index when loading new tasks
     let fetchedTasks: TodoistTask[] = [];
 
-    if (useFilter && filterInput.trim()) {
-      fetchedTasks = await fetchTasks(filterInput.trim(), true); 
+    const todoistFilterParts: string[] = [];
+    if (filterInput.trim()) {
+      todoistFilterParts.push(filterInput.trim());
+    }
+    if (selectedCategoryFilter !== "all") {
+      todoistFilterParts.push(`#${selectedCategoryFilter}`);
+    }
+    const finalTodoistFilter = todoistFilterParts.join(" & ");
+
+    if (useFilter && finalTodoistFilter) {
+      fetchedTasks = await fetchTasks(finalTodoistFilter, true); 
       if (fetchedTasks.length === 0) {
         toast.info("Nenhuma tarefa encontrada com o filtro. Tentando carregar do ranking do Seiton...");
         const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
@@ -64,6 +73,7 @@ export const useExecucaoTasks = (filterInput: string) => {
     }
 
     if (fetchedTasks.length === 0) {
+      // Fallback to fetching all tasks if no filter or filter yielded no results
       fetchedTasks = await fetchTasks(undefined, true);
     }
 
@@ -79,7 +89,7 @@ export const useExecucaoTasks = (filterInput: string) => {
       setExecucaoState("finished");
       toast.info("Nenhuma tarefa encontrada para focar. Bom trabalho!");
     }
-  }, [fetchTasks, filterInput, sortTasksForFocus]);
+  }, [fetchTasks, filterInput, selectedCategoryFilter, sortTasksForFocus]);
 
   // This function will be called when a task is completed or skipped
   const advanceToNextTask = useCallback(() => {

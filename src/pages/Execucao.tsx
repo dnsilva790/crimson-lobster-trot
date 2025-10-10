@@ -16,6 +16,8 @@ import { useExecucaoTasks } from "@/hooks/useExecucaoTasks";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 const AI_PROMPT_STORAGE_KEY = "ai_tutor_seiso_prompt";
+const EXECUCAO_FILTER_INPUT_STORAGE_KEY = "execucao_filter_input";
+const EXECUCAO_CATEGORY_FILTER_STORAGE_KEY = "execucao_category_filter";
 
 const defaultAiPrompt = `**TUTOR IA SEISO - COACH DE EXECUÇÃO ESTRATÉGICA E PRODUTIVIDADE**
 **MISSÃO PRINCIPAL**
@@ -102,18 +104,32 @@ const Execucao = () => {
   const [filterInput, setFilterInput] = useState<string>(() => {
     // Load initial filter from localStorage
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('execucao_filter_input') || "";
+      return localStorage.getItem(EXECUCAO_FILTER_INPUT_STORAGE_KEY) || "";
     }
     return "";
+  });
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<"all" | "pessoal" | "profissional">(() => {
+    // Load initial category filter from localStorage
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(EXECUCAO_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all";
+    }
+    return "all";
   });
   const [aiPrompt, setAiPrompt] = useState<string>(defaultAiPrompt);
 
   // Save filter to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('execucao_filter_input', filterInput);
+      localStorage.setItem(EXECUCAO_FILTER_INPUT_STORAGE_KEY, filterInput);
     }
   }, [filterInput]);
+
+  // Save category filter to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(EXECUCAO_CATEGORY_FILTER_STORAGE_KEY, selectedCategoryFilter);
+    }
+  }, [selectedCategoryFilter]);
 
   const {
     focusTasks,
@@ -124,7 +140,7 @@ const Execucao = () => {
     loadTasksForFocus,
     advanceToNextTask, // Use the new function
     updateTaskInFocusList, // Use the new function
-  } = useExecucaoTasks(filterInput);
+  } = useExecucaoTasks(filterInput, selectedCategoryFilter); // Pass selectedCategoryFilter here
 
   const currentTask = focusTasks[currentTaskIndex];
 
@@ -204,6 +220,8 @@ const Execucao = () => {
           <ExecucaoInitialState
             filterInput={filterInput}
             setFilterInput={setFilterInput}
+            selectedCategoryFilter={selectedCategoryFilter}
+            setSelectedCategoryFilter={setSelectedCategoryFilter}
             onStartFocus={() => loadTasksForFocus(true)}
             isLoading={isLoading}
           />
