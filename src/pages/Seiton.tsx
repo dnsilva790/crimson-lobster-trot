@@ -5,7 +5,7 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ExternalLink, Check } from "lucide-react"; // Importar Check para o ícone de concluir
@@ -342,6 +342,7 @@ const Seiton = () => {
   };
 
   const renderTaskCard = (task: TodoistTask, isClickable: boolean = false, showActions: boolean = false) => {
+    const category = getTaskCategory(task);
     return (
       <Card
         key={task.id}
@@ -358,6 +359,16 @@ const Seiton = () => {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <h3 className="text-xl font-semibold text-gray-800">{task.content}</h3>
+            {category && (
+              <Badge
+                className={cn(
+                  "text-xs font-medium",
+                  category === "pessoal" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                )}
+              >
+                {category === "pessoal" ? "Pessoal" : "Profissional"}
+              </Badge>
+            )}
           </div>
           {task.description && (
             <p className="text-sm text-gray-600 mb-2 line-clamp-3">{task.description}</p>
@@ -491,6 +502,7 @@ const Seiton = () => {
               </h3>
               <div className="space-y-3">
                 {rankedTasks.slice(0, 5).map((task, index) => {
+                  const category = getTaskCategory(task);
                   return (
                     <Card
                       key={task.id}
@@ -507,6 +519,16 @@ const Seiton = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <h4 className="text-md font-semibold text-gray-700">{task.content}</h4>
+                          {category && (
+                            <Badge
+                              className={cn(
+                                "text-xs font-medium",
+                                category === "pessoal" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                              )}
+                            >
+                              {category === "pessoal" ? "Pessoal" : "Profissional"}
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-xs text-gray-500">
                           {renderTaskDates(task)}
@@ -541,6 +563,7 @@ const Seiton = () => {
           {rankedTasks.length > 0 ? (
             <div className="space-y-4">
               {rankedTasks.map((task, index) => {
+                const category = getTaskCategory(task);
                 return (
                   <Card
                     key={task.id}
@@ -558,6 +581,16 @@ const Seiton = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
+                        {category && (
+                          <Badge
+                            className={cn(
+                              "text-xs font-medium",
+                              category === "pessoal" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                            )}
+                          >
+                            {category === "pessoal" ? "Pessoal" : "Profissional"}
+                          </Badge>
+                        )}
                       </div>
                       {task.description && (
                         <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
