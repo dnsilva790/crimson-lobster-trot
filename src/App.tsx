@@ -11,7 +11,7 @@ import { TodoistProvider } from "./context/TodoistContext";
 
 // Import module pages
 import Seiri from "./pages/Seiri";
-import GTDProcessor from "./pages/GTDProcessor"; // Renomeado de Seiketsu
+import Seiketsu from "./pages/Seiketsu"; // Renomeado de GTDProcessor
 import Seiton from "./pages/Seiton";
 import Seiso from "./pages/Seiso";
 import Execucao from "./pages/Execucao";
@@ -31,7 +31,7 @@ const App = () => (
             <Route path="/" element={<Configuration />} /> {/* Initial config page */}
             <Route element={<MainLayout />}>
               <Route path="/seiri" element={<Seiri />} />
-              <Route path="/gtd-processor" element={<GTDProcessor />} /> {/* Nova rota para o GTD Processor */}
+              <Route path="/seiketsu" element={<Seiketsu />} /> {/* Rota atualizada para Seiketsu */}
               <Route path="/seiton" element={<Seiton />} />
               <Route path="/seiso" element={<Seiso />} />
               <Route path="/execucao" element={<Execucao />} />

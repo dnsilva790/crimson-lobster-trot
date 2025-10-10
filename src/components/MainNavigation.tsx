@@ -5,11 +5,11 @@ import {
   ClipboardList,
   Trophy,
   Sparkles,
-  BarChart, // Será substituído por um ícone GTD
+  BarChart, // Ícone para Seiketsu
   Zap,
   ListTodo,
   CalendarDays,
-  Inbox, // Novo ícone para o GTD Processor
+  Inbox, // Ícone original do GTD Processor, agora não usado para Seiketsu
 } from "lucide-react";
 
 const modules = [
@@ -22,10 +22,10 @@ const modules = [
     activeColor: "border-green-600",
   },
   {
-    path: "/gtd-processor", // Nova rota
-    icon: Inbox, // Novo ícone
-    title: "GTD PROCESSOR",
-    description: "Processar Caixa de Entrada",
+    path: "/seiketsu", // Rota atualizada
+    icon: BarChart, // Ícone para Seiketsu
+    title: "SEIKETSU", // Título atualizado
+    description: "Padronização", // Descrição atualizada
     colorClass: "bg-purple-100 hover:bg-purple-200",
     activeColor: "border-purple-600",
   },

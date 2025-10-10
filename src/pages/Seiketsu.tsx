@@ -12,41 +12,41 @@ import GTDTaskCard from "@/components/GTDTaskCard"; // Novo componente
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft } from "lucide-react";
 
-type GTDState = "initial" | "collecting" | "processing" | "finished";
-type GTDStep = "initial" | "actionable_decision" | "not_actionable_options" | "actionable_options";
+type SeiketsuState = "initial" | "collecting" | "processing" | "finished";
+type SeiketsuStep = "initial" | "actionable_decision" | "not_actionable_options" | "actionable_options";
 
-interface GTDProcessorStateSnapshot {
+interface SeiketsuProcessorStateSnapshot {
   inboxTasks: TodoistTask[];
   processedTasksCount: number;
   currentTask: TodoistTask | null;
-  gtdState: GTDState;
-  gtdStep: GTDStep;
+  seiketsuState: SeiketsuState;
+  seiketsuStep: SeiketsuStep;
   filterInput: string;
 }
 
-const LOCAL_STORAGE_KEY = "gtdProcessorState";
-const GTD_FILTER_INPUT_STORAGE_KEY = "gtd_filter_input";
+const LOCAL_STORAGE_KEY = "seiketsuProcessorState";
+const SEIKETSU_FILTER_INPUT_STORAGE_KEY = "seiketsu_filter_input";
 
-const GTDProcessor = () => {
+const Seiketsu = () => {
   const { fetchTasks, closeTask, deleteTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const [inboxTasks, setInboxTasks] = useState<TodoistTask[]>([]);
   const [processedTasksCount, setProcessedTasksCount] = useState<number>(0);
   const [currentTask, setCurrentTask] = useState<TodoistTask | null>(null);
-  const [gtdState, setGtdState] = useState<GTDState>("initial");
-  const [gtdStep, setGtdStep] = useState<GTDStep>("initial"); // Controla o sub-passo dentro do GTD
+  const [seiketsuState, setSeiketsuState] = useState<SeiketsuState>("initial");
+  const [seiketsuStep, setSeiketsuStep] = useState<SeiketsuStep>("initial"); // Controla o sub-passo dentro do Seiketsu
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(GTD_FILTER_INPUT_STORAGE_KEY) || "";
+      return localStorage.getItem(SEIKETSU_FILTER_INPUT_STORAGE_KEY) || "";
     }
     return "";
   });
-  const [history, setHistory] = useState<GTDProcessorStateSnapshot[]>([]);
+  const [history, setHistory] = useState<SeiketsuProcessorStateSnapshot[]>([]);
   const [hasSavedState, setHasSavedState] = useState<boolean>(false);
 
   // Save filter to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(GTD_FILTER_INPUT_STORAGE_KEY, filterInput);
+      localStorage.setItem(SEIKETSU_FILTER_INPUT_STORAGE_KEY, filterInput);
     }
   }, [filterInput]);
 
@@ -55,21 +55,21 @@ const GTDProcessor = () => {
     const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (savedState) {
       try {
-        const parsedState: GTDProcessorStateSnapshot = JSON.parse(savedState);
+        const parsedState: SeiketsuProcessorStateSnapshot = JSON.parse(savedState);
         setInboxTasks(parsedState.inboxTasks);
         setProcessedTasksCount(parsedState.processedTasksCount);
         setCurrentTask(parsedState.currentTask);
-        setGtdState(parsedState.gtdState);
-        setGtdStep(parsedState.gtdStep);
+        setSeiketsuState(parsedState.seiketsuState);
+        setSeiketsuStep(parsedState.seiketsuStep);
         setFilterInput(parsedState.filterInput);
         setHasSavedState(true);
-        if (parsedState.gtdState === "processing" && parsedState.currentTask) {
-          toast.info("Estado do processador GTD carregado. Clique em 'Continuar Processamento' para prosseguir.");
-        } else if (parsedState.gtdState === "finished") {
-          toast.info("Processamento GTD concluído na última sessão. Inicie um novo para revisar mais tarefas.");
+        if (parsedState.seiketsuState === "processing" && parsedState.currentTask) {
+          toast.info("Estado do processador Seiketsu carregado. Clique em 'Continuar Processamento' para prosseguir.");
+        } else if (parsedState.seiketsuState === "finished") {
+          toast.info("Processamento Seiketsu concluído na última sessão. Inicie um novo para revisar mais tarefas.");
         }
       } catch (e) {
-        console.error("Failed to parse saved GTD state from localStorage", e);
+        console.error("Failed to parse saved Seiketsu state from localStorage", e);
         localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
     }
@@ -77,19 +77,19 @@ const GTDProcessor = () => {
 
   // Save state to localStorage whenever relevant state changes
   useEffect(() => {
-    if (gtdState !== "initial") {
-      const stateToSave: GTDProcessorStateSnapshot = {
+    if (seiketsuState !== "initial") {
+      const stateToSave: SeiketsuProcessorStateSnapshot = {
         inboxTasks,
         processedTasksCount,
         currentTask,
-        gtdState,
-        gtdStep,
+        seiketsuState,
+        seiketsuStep,
         filterInput,
       };
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
       setHasSavedState(true);
     }
-  }, [inboxTasks, processedTasksCount, currentTask, gtdState, gtdStep, filterInput]);
+  }, [inboxTasks, processedTasksCount, currentTask, seiketsuState, seiketsuStep, filterInput]);
 
   const saveStateToHistory = useCallback(() => {
     setHistory((prev) => [
@@ -98,12 +98,12 @@ const GTDProcessor = () => {
         inboxTasks,
         processedTasksCount,
         currentTask,
-        gtdState,
-        gtdStep,
+        seiketsuState,
+        seiketsuStep,
         filterInput,
       },
     ]);
-  }, [inboxTasks, processedTasksCount, currentTask, gtdState, gtdStep, filterInput]);
+  }, [inboxTasks, processedTasksCount, currentTask, seiketsuState, seiketsuStep, filterInput]);
 
   const undoLastAction = useCallback(() => {
     if (history.length > 0) {
@@ -111,8 +111,8 @@ const GTDProcessor = () => {
       setInboxTasks(lastState.inboxTasks);
       setProcessedTasksCount(lastState.processedTasksCount);
       setCurrentTask(lastState.currentTask);
-      setGtdState(lastState.gtdState);
-      setGtdStep(lastState.gtdStep);
+      setSeiketsuState(lastState.seiketsuState);
+      setSeiketsuStep(lastState.seiketsuStep);
       setFilterInput(lastState.filterInput);
       setHistory((prev) => prev.slice(0, prev.length - 1));
       toast.info("Última ação desfeita.");
@@ -125,25 +125,25 @@ const GTDProcessor = () => {
     setInboxTasks([]);
     setProcessedTasksCount(0);
     setCurrentTask(null);
-    setGtdState("initial");
-    setGtdStep("initial");
+    setSeiketsuState("initial");
+    setSeiketsuStep("initial");
     setHistory([]);
     localStorage.removeItem(LOCAL_STORAGE_KEY);
     setHasSavedState(false);
-    toast.success("Processador GTD resetado!");
+    toast.success("Processador Seiketsu resetado!");
   }, []);
 
   const loadTasksForProcessing = useCallback(async (continueSaved: boolean = false) => {
-    setGtdState("collecting");
-    setGtdStep("initial");
+    setSeiketsuState("collecting");
+    setSeiketsuStep("initial");
     setProcessedTasksCount(0);
 
     let tasks: TodoistTask[] = [];
     if (continueSaved && inboxTasks.length > 0) {
       tasks = inboxTasks; // Continue with existing tasks
       setCurrentTask(inboxTasks[0]);
-      setGtdStep("actionable_decision");
-      setGtdState("processing");
+      setSeiketsuStep("actionable_decision");
+      setSeiketsuState("processing");
       toast.info(`Continuando processamento com ${inboxTasks.length} tarefas.`);
       return;
     }
@@ -152,13 +152,13 @@ const GTDProcessor = () => {
     if (fetchedTasks && fetchedTasks.length > 0) {
       setInboxTasks(fetchedTasks);
       setCurrentTask(fetchedTasks[0]);
-      setGtdStep("actionable_decision");
-      setGtdState("processing");
+      setSeiketsuStep("actionable_decision");
+      setSeiketsuState("processing");
       toast.info(`Encontradas ${fetchedTasks.length} tarefas para processar.`);
     } else {
       setInboxTasks([]);
       setCurrentTask(null);
-      setGtdState("finished");
+      setSeiketsuState("finished");
       toast.info("Nenhuma tarefa encontrada para processar. Sua caixa de entrada está limpa!");
     }
   }, [fetchTasks, filterInput, inboxTasks]);
@@ -171,23 +171,23 @@ const GTDProcessor = () => {
 
     if (remainingTasks.length > 0) {
       setCurrentTask(remainingTasks[0]);
-      setGtdStep("actionable_decision"); // Reset to actionable decision for next task
+      setSeiketsuStep("actionable_decision"); // Reset to actionable decision for next task
     } else {
       setCurrentTask(null);
-      setGtdState("finished");
+      setSeiketsuState("finished");
       toast.success("Todas as tarefas da caixa de entrada foram processadas!");
     }
   }, [inboxTasks, saveStateToHistory]);
 
-  // GTD Actions
+  // Seiketsu Actions
   const handleNotActionable = useCallback(() => {
     saveStateToHistory();
-    setGtdStep("not_actionable_options");
+    setSeiketsuStep("not_actionable_options");
   }, [saveStateToHistory]);
 
   const handleActionable = useCallback(() => {
     saveStateToHistory();
-    setGtdStep("actionable_options");
+    setSeiketsuStep("actionable_options");
   }, [saveStateToHistory]);
 
   const handleDelete = useCallback(async (taskId: string) => {
@@ -269,11 +269,11 @@ const GTDProcessor = () => {
 
   const progressValue = inboxTasks.length > 0 ? (processedTasksCount / (processedTasksCount + inboxTasks.length)) * 100 : 0;
 
-  const isLoading = isLoadingTodoist || gtdState === "collecting";
+  const isLoading = isLoadingTodoist || seiketsuState === "collecting";
 
   return (
     <div className="p-4">
-      <h2 className="text-3xl font-bold mb-2 text-gray-800">📥 GTD PROCESSOR - Processar Caixa de Entrada</h2>
+      <h2 className="text-3xl font-bold mb-2 text-gray-800">📥 SEIKETSU - Processar Caixa de Entrada</h2>
       <p className="text-lg text-gray-600 mb-6">
         Siga o fluxo GTD para esvaziar sua caixa de entrada e definir as próximas ações.
       </p>
@@ -284,7 +284,7 @@ const GTDProcessor = () => {
         </div>
       )}
 
-      {!isLoading && gtdState === "initial" && (
+      {!isLoading && seiketsuState === "initial" && (
         <div className="text-center mt-10">
           <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">
             <Label htmlFor="task-filter" className="text-left text-gray-600 font-medium">
@@ -327,7 +327,7 @@ const GTDProcessor = () => {
         </div>
       )}
 
-      {!isLoading && gtdState === "processing" && currentTask && (
+      {!isLoading && seiketsuState === "processing" && currentTask && (
         <div className="mt-8">
           <p className="text-center text-xl font-medium mb-6 text-gray-700">
             Processando tarefa {processedTasksCount + 1} de {processedTasksCount + inboxTasks.length}
@@ -346,7 +346,7 @@ const GTDProcessor = () => {
             onNextAction={handleNextAction}
             onEditTask={handleEditTask}
             onGoToProject={handleGoToProject}
-            gtdStep={gtdStep}
+            gtdStep={seiketsuStep}
           />
           <div className="flex justify-center gap-4 mt-6">
             <Button
@@ -363,10 +363,10 @@ const GTDProcessor = () => {
         </div>
       )}
 
-      {!isLoading && gtdState === "finished" && (
+      {!isLoading && seiketsuState === "finished" && (
         <div className="text-center mt-10">
           <p className="text-2xl font-semibold text-gray-700 mb-4">
-            🎉 Processamento GTD Concluído!
+            🎉 Processamento Seiketsu Concluído!
           </p>
           <p className="text-lg text-gray-600 mb-6">
             Você processou todas as {processedTasksCount} tarefas da sua caixa de entrada.
@@ -383,4 +383,4 @@ const GTDProcessor = () => {
   );
 };
 
-export default GTDProcessor;
+export default Seiketsu;
