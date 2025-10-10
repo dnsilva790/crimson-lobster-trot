@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import TaskReviewCard from "@/components/TaskReviewCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ChevronDown, ChevronUp, Bug } from "lucide-react"; // Importar ícones
 
 type ReviewState = "initial" | "reviewing" | "finished";
 
@@ -18,12 +19,21 @@ const Seiri = () => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [reviewState, setReviewState] = useState<ReviewState>("initial");
   const [filterInput, setFilterInput] = useState<string>(() => {
-    // Load initial filter from localStorage
     if (typeof window !== 'undefined') {
       return localStorage.getItem('seiri_filter_input') || "";
     }
     return "";
   });
+
+  // Estados para o painel de depuração
+  const [showDebug, setShowDebug] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<{
+    apiFilterUsed: string;
+    rawTasksCount: number;
+    filteredTasksCount: number;
+    sortedTasksCount: number;
+    currentReviewState: ReviewState;
+  } | null>(null);
 
   // Save filter to localStorage whenever it changes
   useEffect(() => {
@@ -70,14 +80,23 @@ const Seiri = () => {
     setCurrentTaskIndex(0);
 
     const todoistFilter = filterInput.trim();
-    // Se o filtro estiver vazio, passe undefined para fetchTasks para buscar todas as tarefas.
-    // Caso contrário, use o filtro fornecido.
-    const finalFilter = todoistFilter || undefined; 
-    
+    const finalFilter = todoistFilter || undefined; // Se o filtro estiver vazio, buscar todas as tarefas
+
     // Inclua subtarefas e tarefas recorrentes para uma revisão abrangente
     const fetchedTasks = await fetchTasks(finalFilter, true); 
-    if (fetchedTasks && fetchedTasks.length > 0) {
-      const sortedTasks = sortTasks(fetchedTasks); // Aplicar ordenação combinada
+    
+    let filteredTasksAfterInternalLogic: TodoistTask[] = [];
+    if (fetchedTasks) {
+      // A lógica de filtragem de subtasks e recorrentes já está em TodoistContext.tsx
+      // Se `includeSubtasksAndRecurring` for `true`, `fetchTasks` retorna todas.
+      // Se for `false` ou `undefined` E `filter` for `undefined`, ele filtra.
+      // Como estamos passando `true`, `fetchedTasks` já deve conter tudo.
+      filteredTasksAfterInternalLogic = fetchedTasks;
+    }
+
+    let sortedTasks: TodoistTask[] = [];
+    if (filteredTasksAfterInternalLogic.length > 0) {
+      sortedTasks = sortTasks(filteredTasksAfterInternalLogic); // Aplicar ordenação combinada
       setTasksToReview(sortedTasks);
       setReviewState("reviewing");
       toast.info(`Encontradas ${sortedTasks.length} tarefas para revisar.`);
@@ -86,6 +105,16 @@ const Seiri = () => {
       setReviewState("finished");
       toast.info("Nenhuma tarefa encontrada para revisar. Bom trabalho!");
     }
+
+    // Atualizar informações de depuração
+    setDebugInfo({
+      apiFilterUsed: finalFilter || "Nenhum (todas as tarefas)",
+      rawTasksCount: fetchedTasks ? fetchedTasks.length : 0,
+      filteredTasksCount: filteredTasksAfterInternalLogic.length,
+      sortedTasksCount: sortedTasks.length,
+      currentReviewState: sortedTasks.length > 0 ? "reviewing" : "finished",
+    });
+
   }, [fetchTasks, sortTasks, filterInput]);
 
   useEffect(() => {
@@ -184,6 +213,29 @@ const Seiri = () => {
     <div className="p-4">
       <h2 className="text-3xl font-bold mb-2 text-gray-800">📋 SEIRI - Separar o Essencial</h2>
       <p className="text-lg text-gray-600 mb-6">Decida: esta tarefa é realmente necessária?</p>
+
+      {/* Botão de Debug */}
+      <div className="flex justify-end mb-4">
+        <Button variant="outline" onClick={() => setShowDebug(!showDebug)} className="flex items-center gap-2">
+          <Bug className="h-4 w-4" /> Debug {showDebug ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </Button>
+      </div>
+
+      {/* Painel de Debug */}
+      {showDebug && debugInfo && (
+        <div className="bg-gray-100 p-4 rounded-md shadow-inner mb-6 text-sm text-gray-700">
+          <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
+            <Bug className="h-5 w-5" /> Informações de Depuração
+          </h3>
+          <p><strong>Estado Atual:</strong> {debugInfo.currentReviewState}</p>
+          <p><strong>Filtro da API Usado:</strong> {debugInfo.apiFilterUsed}</p>
+          <p><strong>Tarefas Brutas da API (Contagem):</strong> {debugInfo.rawTasksCount}</p>
+          <p><strong>Tarefas Após Filtragem Interna (Contagem):</strong> {debugInfo.filteredTasksCount}</p>
+          <p><strong>Tarefas Após Ordenação Seiri (Contagem):</strong> {debugInfo.sortedTasksCount}</p>
+          <p><strong>Índice da Tarefa Atual:</strong> {currentTaskIndex}</p>
+          <p><strong>Tarefas Restantes para Revisar:</strong> {tasksToReview.length - currentTaskIndex}</p>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex justify-center items-center h-48">
