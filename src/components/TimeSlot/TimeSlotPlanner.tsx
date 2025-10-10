@@ -1,10 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useRef } from "react"; // Importar useRef
 import { DaySchedule, TimeBlock, ScheduledTask, TimeBlockType } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { format, parseISO, setHours, setMinutes, addMinutes, isWithinInterval, parse, isBefore, isAfter, isEqual, addDays } from "date-fns";
+import { format, parseISO, setHours, setMinutes, addMinutes, isWithinInterval, parse, isBefore, isAfter, isEqual, addDays, isToday } from "date-fns"; // Adicionar isToday
 import { ptBR } from "date-fns/locale";
 
 interface TimeSlotPlannerProps {
@@ -22,6 +22,58 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
   suggestedSlotStart,
   suggestedSlotEnd,
 }) => {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const scrollAreaRef = useRef<HTMLDivElement>(null); // Ref para a área de scroll
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60 * 1000); // Atualiza a cada minuto
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Calcula a posição da linha do horário atual
+  const renderCurrentTimeLine = () => {
+    if (!isToday(parseISO(daySchedule.date))) {
+      return null; // Apenas mostra para o dia atual
+    }
+
+    const now = currentTime;
+    const totalMinutesToday = now.getHours() * 60 + now.getMinutes();
+    // Cada slot de 15 minutos tem 40px (h-10). Então 1 minuto = 40/15 pixels.
+    const pixelsPerMinute = 40 / 15;
+    const topPosition = totalMinutesToday * pixelsPerMinute;
+
+    return (
+      <div
+        className="absolute left-0 right-0 h-0.5 bg-red-500 z-20"
+        style={{ top: `${topPosition}px` }}
+      >
+        <div className="absolute -left-1 -top-2 w-3 h-3 rounded-full bg-red-500"></div>
+        <span className="absolute -right-10 -top-2 text-xs text-red-600 font-semibold">
+          {format(now, "HH:mm")}
+        </span>
+      </div>
+    );
+  };
+
+  // Efeito para rolar para a linha do tempo atual ao carregar
+  useEffect(() => {
+    if (scrollAreaRef.current && isToday(parseISO(daySchedule.date))) {
+      const now = new Date();
+      const totalMinutesToday = now.getHours() * 60 + now.getMinutes();
+      const pixelsPerMinute = 40 / 15;
+      const topPosition = totalMinutesToday * pixelsPerMinute;
+      
+      // Rola para a posição, centralizando a linha do tempo na tela
+      scrollAreaRef.current.scrollTo({
+        top: Math.max(0, topPosition - scrollAreaRef.current.clientHeight / 2),
+        behavior: 'smooth'
+      });
+    }
+  }, [daySchedule.date]); // Rola quando o dia muda
+
   const renderTimeSlots = () => {
     const slots: JSX.Element[] = [];
     const today = parseISO(daySchedule.date); // Use the date from daySchedule
@@ -118,8 +170,9 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-y-auto h-[calc(100vh-300px)] custom-scroll"> {/* Adjust height as needed */}
+        <div ref={scrollAreaRef} className="overflow-y-auto h-[calc(100vh-300px)] custom-scroll relative"> {/* Adicionar relative aqui */}
           {renderTimeSlots()}
+          {renderCurrentTimeLine()} {/* Renderizar a linha do tempo */}
         </div>
       </CardContent>
     </Card>

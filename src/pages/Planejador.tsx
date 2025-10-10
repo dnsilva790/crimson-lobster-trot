@@ -504,10 +504,10 @@ const Planejador = () => {
             isCategoryMatch = true;
           } else if (taskCategory === "pessoal" && block.type === "personal") {
             isCategoryMatch = true;
-          } else if (taskCategory === undefined && (block.type === "work" || block.type === "personal" || block.type === "break")) {
-            // Uncategorized tasks can go into work, personal, or break blocks
-            isCategoryMatch = true;
           }
+          // Removido: else if (taskCategory === undefined && (block.type === "work" || block.type === "personal" || block.type === "break")) {
+          //   isCategoryMatch = true;
+          // }
 
           if (isCategoryMatch) {
             fitsInAppropriateBlock = true;
@@ -519,7 +519,7 @@ const Planejador = () => {
         toast.warning("O slot selecionado não está dentro de um bloco de tempo adequado para a categoria da tarefa.");
       }
     } else {
-      fitsInAppropriateBlock = true;
+      fitsInAppropriateBlock = true; // Se não há blocos definidos, qualquer slot é considerado adequado
     }
 
     await scheduleTask(selectedTaskToSchedule, time, slotEndStr, selectedDate); // Chamar scheduleTask assincronamente
@@ -613,10 +613,10 @@ const Planejador = () => {
                 isCategoryMatch = true;
               } else if (taskCategory === "pessoal" && block.type === "personal") {
                 isCategoryMatch = true;
-              } else if (taskCategory === undefined && (block.type === "work" || block.type === "personal" || block.type === "break")) {
-                // Uncategorized tasks can go into work, personal, or break blocks
-                isCategoryMatch = true;
               }
+              // Removido: else if (taskCategory === undefined && (block.type === "work" || block.type === "personal" || block.type === "break")) {
+              //   isCategoryMatch = true;
+              // }
 
               if (isCategoryMatch) {
                 fitsInAppropriateBlock = true;
