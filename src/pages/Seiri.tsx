@@ -70,10 +70,12 @@ const Seiri = () => {
     setCurrentTaskIndex(0);
 
     const todoistFilter = filterInput.trim();
-    // Use a simpler default filter if filterInput is empty
-    const finalFilter = todoistFilter || "today"; 
+    // Se o filtro estiver vazio, passe undefined para fetchTasks para buscar todas as tarefas.
+    // Caso contrário, use o filtro fornecido.
+    const finalFilter = todoistFilter || undefined; 
     
-    const fetchedTasks = await fetchTasks(finalFilter || undefined);
+    // Inclua subtarefas e tarefas recorrentes para uma revisão abrangente
+    const fetchedTasks = await fetchTasks(finalFilter, true); 
     if (fetchedTasks && fetchedTasks.length > 0) {
       const sortedTasks = sortTasks(fetchedTasks); // Aplicar ordenação combinada
       setTasksToReview(sortedTasks);
@@ -198,7 +200,7 @@ const Seiri = () => {
             <Input
               type="text"
               id="task-filter"
-              placeholder="Opcional: insira um filtro do Todoist (padrão: 'today')..."
+              placeholder="Opcional: insira um filtro do Todoist (padrão: todas as tarefas)..."
               value={filterInput}
               onChange={(e) => setFilterInput(e.target.value)}
               className="mt-1"
