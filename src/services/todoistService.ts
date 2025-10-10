@@ -13,7 +13,7 @@ async function todoistApiCall<T>(
   method: string = "GET",
   body?: object,
   baseUrl: string = TODOIST_API_BASE_URL,
-): Promise<T | undefined> { // Alterado para retornar T | undefined para 204
+): Promise<T | undefined> {
   const sanitizedApiKey = apiKey.replace(/[^\x20-\x7E]/g, '');
 
   const headers: HeadersInit = {
@@ -41,12 +41,12 @@ async function todoistApiCall<T>(
       status: response.status,
       message: errorText,
     };
-    throw errorData;
+    throw errorData; // Re-throw para ser capturado pelo makeApiCall no contexto
   }
 
   if (response.status === 204) {
     console.log(`Todoist API Response Body for ${url}:`, "No Content (204)");
-    return undefined; // Retorna undefined para 204
+    return undefined;
   }
 
   const jsonResponse = await response.json();
@@ -64,27 +64,16 @@ async function todoistApiCall<T>(
 export const todoistService = {
   fetchTasks: async (apiKey: string, filter?: string): Promise<TodoistTask[]> => {
     const endpoint = filter ? `/tasks?filter=${encodeURIComponent(filter)}` : "/tasks";
-    try {
-      const result = await todoistApiCall<TodoistTask[]>(endpoint, apiKey);
-      return result || []; // Garante que sempre seja um array, mesmo se todoistApiCall retornar undefined (para 204)
-    } catch (error) {
-      console.error("todoistService.fetchTasks failed:", error);
-      return []; // Retorna array vazio em caso de erro
-    }
+    const result = await todoistApiCall<TodoistTask[]>(endpoint, apiKey);
+    return result || []; // Garante que sempre seja um array, mesmo se todoistApiCall retornar undefined (para 204)
   },
 
   fetchProjects: async (apiKey: string): Promise<TodoistProject[]> => {
-    try {
-      const result = await todoistApiCall<TodoistProject[]>("/projects", apiKey);
-      return result || []; // Garante que sempre seja um array
-    } catch (error) {
-      console.error("todoistService.fetchProjects failed:", error);
-      return []; // Retorna array vazio em caso de erro
-    }
+    const result = await todoistApiCall<TodoistProject[]>("/projects", apiKey);
+    return result || []; // Garante que sempre seja um array
   },
 
   closeTask: async (apiKey: string, taskId: string): Promise<void> => {
-    // todoistApiCall para void pode retornar undefined para 204, o que é aceitável para Promise<void>
     return todoistApiCall<void>(`/tasks/${taskId}/close`, apiKey, "POST");
   },
 

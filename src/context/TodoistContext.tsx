@@ -69,8 +69,12 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         } else {
           toast.error(`Erro na API: ${error.message || "Erro desconhecido"}`);
         }
-        // Como fetchTasks e fetchProjects agora garantem o retorno de arrays vazios,
-        // para outras funções da API, podemos simplesmente retornar undefined em caso de erro.
+        
+        // Se a função API esperava um array (como fetchTasks ou fetchProjects),
+        // retorne um array vazio em caso de erro para evitar que o código que espera um array falhe.
+        if (apiFunction === todoistService.fetchTasks || apiFunction === todoistService.fetchProjects) {
+          return [] as typeof apiFunction extends (...args: any[]) => Promise<infer R> ? R : undefined;
+        }
         return undefined;
       } finally {
         setIsLoading(false);
@@ -82,17 +86,12 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   const fetchTasks = useCallback(
     async (filter?: string, includeSubtasksAndRecurring: boolean = false) => {
       let allTasks: TodoistTask[] = [];
-      try {
-        // rawTasks agora sempre será um array (possivelmente vazio) devido ao tratamento interno de todoistService.fetchTasks
-        const rawTasks = await makeApiCall(todoistService.fetchTasks, filter);
-        if (Array.isArray(rawTasks)) { // Esta verificação ainda é uma boa prática
-          allTasks = rawTasks;
-        } else {
-          console.warn("TodoistContext: makeApiCall did not return an array for tasks. Received:", rawTasks);
-          allTasks = [];
-        }
-      } catch (error) {
-        console.error("TodoistContext: Error fetching tasks:", error);
+      // makeApiCall agora lida com o try-catch e retorna [] em caso de erro para fetchTasks
+      const rawTasks = await makeApiCall(todoistService.fetchTasks, filter);
+      if (Array.isArray(rawTasks)) {
+        allTasks = rawTasks;
+      } else {
+        console.warn("TodoistContext: makeApiCall did not return an array for tasks. Received:", rawTasks);
         allTasks = [];
       }
       
@@ -132,7 +131,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const fetchProjects = useCallback(async () => {
-    // rawProjects agora sempre será um array (possivelmente vazio)
+    // makeApiCall agora lida com o try-catch e retorna [] em caso de erro para fetchProjects
     return (await makeApiCall(todoistService.fetchProjects)) || [];
   }, [makeApiCall]);
 
