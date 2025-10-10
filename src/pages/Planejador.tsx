@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck } from "lucide-react";
-import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual } from "date-fns";
+import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject } from "@/lib/types";
 import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner";
@@ -459,7 +459,7 @@ const Planejador = () => {
       return;
     }
     // Allow scheduling for current day, but not for past times on current day
-    if (isEqual(startOfDay(slotStartDateTime), startOfDay(now)) && isBefore(slotStartDateTime, now)) {
+    if (isEqual(startOfDay(slotStartDateTime), startOfDay(now)) && isBefore(slotStartDateTime, startOfMinute(now))) {
       toast.error("Não é possível agendar tarefas para um horário que já passou hoje.");
       return;
     }
@@ -485,42 +485,52 @@ const Planejador = () => {
       return;
     }
 
-    let fitsInAppropriateBlock = false;
     const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory; // Usar a categoria temporária
     const combinedBlocks = getCombinedTimeBlocksForDate(selectedDate);
 
-    if (combinedBlocks.length > 0) {
-      for (const block of combinedBlocks) {
-        const blockStart = parse(block.start, "HH:mm", selectedDate);
-        let blockEnd = parse(block.end, "HH:mm", selectedDate);
-        // Adjust blockEnd if it crosses midnight
-        if (isBefore(blockEnd, blockStart)) {
-          blockEnd = addDays(blockEnd, 1);
-        }
+    let isOverlappingBreak = false;
+    let fitsInAppropriateBlock = false;
 
-        if (slotStart >= blockStart && slotEnd <= blockEnd) {
-          let isCategoryMatch = false;
-          if (taskCategory === "profissional" && block.type === "work") {
-            isCategoryMatch = true;
-          } else if (taskCategory === "pessoal" && block.type === "personal") {
-            isCategoryMatch = true;
-          }
-          // Removido: else if (taskCategory === undefined && (block.type === "work" || block.type === "personal" || block.type === "break")) {
-          //   isCategoryMatch = true;
-          // }
+    for (const block of combinedBlocks) {
+      const blockStart = parse(block.start, "HH:mm", selectedDate);
+      let blockEnd = parse(block.end, "HH:mm", selectedDate);
+      if (isBefore(blockEnd, blockStart)) {
+        blockEnd = addDays(blockEnd, 1);
+      }
 
-          if (isCategoryMatch) {
-            fitsInAppropriateBlock = true;
-            break;
-          }
+      // Check for overlap with ANY break block
+      if (block.type === "break" && (
+          isWithinInterval(slotStart, { start: blockStart, end: blockEnd }) ||
+          isWithinInterval(slotEnd, { start: blockStart, end: blockEnd }) ||
+          (slotStart <= blockStart && slotEnd >= blockEnd)
+      )) {
+        isOverlappingBreak = true;
+        break; // Found an overlapping break, no need to check further blocks
+      }
+
+      // Check for fit in appropriate category block
+      if (slotStart >= blockStart && slotEnd <= blockEnd) {
+        if (taskCategory === "profissional" && block.type === "work") {
+          fitsInAppropriateBlock = true;
+        } else if (taskCategory === "pessoal" && block.type === "personal") {
+          fitsInAppropriateBlock = true;
         }
       }
-      if (!fitsInAppropriateBlock) {
-        toast.warning("O slot selecionado não está dentro de um bloco de tempo adequado para a categoria da tarefa.");
-      }
-    } else {
-      fitsInAppropriateBlock = true; // Se não há blocos definidos, qualquer slot é considerado adequado
     }
+
+    if (isOverlappingBreak) {
+      toast.error("Não é possível agendar tarefas em blocos de pausa.");
+      return;
+    }
+
+    if (!fitsInAppropriateBlock && combinedBlocks.length > 0) {
+      toast.warning("O slot selecionado não está dentro de um bloco de tempo adequado para a categoria da tarefa.");
+      // Allow scheduling if no appropriate block, but warn.
+      // For strictness, we could add 'return' here. For now, it's a warning.
+    } else if (combinedBlocks.length === 0) {
+      fitsInAppropriateBlock = true; // If no blocks defined, any slot is considered appropriate
+    }
+
 
     await scheduleTask(selectedTaskToSchedule, time, slotEndStr, selectedDate); // Chamar scheduleTask assincronamente
     fetchBacklogTasks(); // Refresh backlog after scheduling
@@ -567,12 +577,11 @@ const Planejador = () => {
       let startHour = 0;
       let startMinute = 0;
 
-      // Se for o dia atual, começar a partir do próximo intervalo de 15 minutos
+      // Se for o dia atual, começar a partir do início do bloco de 15 minutos atual
       if (isEqual(startOfCurrentDay, startOfToday)) {
         const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-        const next15MinInterval = Math.ceil(currentTotalMinutes / 15) * 15;
-        startHour = Math.floor(next15MinInterval / 60);
-        startMinute = next15MinInterval % 60;
+        startHour = Math.floor(currentTotalMinutes / 60);
+        startMinute = Math.floor((currentTotalMinutes % 60) / 15) * 15;
       }
 
       for (let hour = startHour; hour < 24; hour++) {
@@ -582,10 +591,32 @@ const Planejador = () => {
           const slotStartStr = format(slotStart, "HH:mm");
           const slotEndStr = format(slotEnd, "HH:mm");
 
-          // Pular slots que já passaram (redundante para dias passados, mas útil para o dia atual)
-          if (isBefore(slotStart, now)) {
+          // Pular slots que já passaram (considerando o final do slot)
+          if (isBefore(slotEnd, now)) {
             continue;
           }
+
+          // --- Nova trava: Ignorar slots que se sobrepõem a blocos de pausa ---
+          let isOverlappingBreak = false;
+          for (const block of combinedBlocksForSuggestion) {
+            if (block.type === "break") {
+              const blockStart = parse(block.start, "HH:mm", currentDayDate);
+              let blockEnd = parse(block.end, "HH:mm", currentDayDate);
+              if (isBefore(blockEnd, blockStart)) {
+                blockEnd = addDays(blockEnd, 1);
+              }
+              if (isWithinInterval(slotStart, { start: blockStart, end: blockEnd }) ||
+                  isWithinInterval(slotEnd, { start: blockStart, end: blockEnd }) ||
+                  (slotStart <= blockStart && slotEnd >= blockEnd)) {
+                isOverlappingBreak = true;
+                break;
+              }
+            }
+          }
+          if (isOverlappingBreak) {
+            continue; // Pular este slot completamente
+          }
+          // --- Fim da trava de pausa ---
 
           const hasConflict = scheduledTasksForSuggestion.some(st => {
             const stStart = parse(st.start, "HH:mm", currentDayDate);
@@ -600,6 +631,9 @@ const Planejador = () => {
           let fitsInAppropriateBlock = false;
 
           for (const block of combinedBlocksForSuggestion) {
+            // Já filtramos blocos de pausa acima, então aqui só consideramos work/personal
+            if (block.type === "break") continue; 
+
             const blockStart = parse(block.start, "HH:mm", currentDayDate);
             let blockEnd = parse(block.end, "HH:mm", currentDayDate);
             // Adjust blockEnd if it crosses midnight
@@ -635,6 +669,7 @@ const Planejador = () => {
           if (!fitsInAppropriateBlock && combinedBlocksForSuggestion.length > 0) {
             currentSlotScore -= 5; // Penalize if it doesn't fit a specific block type
           } else if (combinedBlocksForSuggestion.length === 0) {
+            fitsInAppropriateBlock = true; // If no blocks defined, any slot is considered appropriate
             currentSlotScore += 5; // Small bonus if no blocks are defined, so any slot is fine
           }
 
