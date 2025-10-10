@@ -1,6 +1,6 @@
 import { TodoistTask, TodoistProject } from "@/lib/types";
 
-const TODOIST_API_BASE_URL = "https://api.todoist.com/api/v1";
+const TODOIST_API_BASE_URL = "https://api.todoist.com/rest/v2"; // Alterado para a API REST v2
 
 interface TodoistError {
   status: number;
