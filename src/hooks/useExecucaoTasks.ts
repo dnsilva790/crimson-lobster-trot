@@ -41,7 +41,7 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
   const loadTasksForFocus = useCallback(async (useFilter: boolean = false) => {
     setExecucaoState("initial");
     setCurrentTaskIndex(0); // Reset index when loading new tasks
-    let fetchedTasks: TodoistTask[] = [];
+    let combinedTasks: TodoistTask[] = [];
 
     const todoistFilterParts: string[] = [];
     if (filterInput.trim()) {
@@ -52,37 +52,58 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     }
     const finalTodoistFilter = todoistFilterParts.join(" & ");
 
-    if (useFilter && finalTodoistFilter) {
-      fetchedTasks = await fetchTasks(finalTodoistFilter, true); 
-      if (fetchedTasks.length === 0) {
-        toast.info("Nenhuma tarefa encontrada com o filtro. Tentando carregar do ranking do Seiton...");
-        const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
-        if (savedSeitonState) {
-          try {
-            const parsedState: SeitonStateSnapshot = JSON.parse(savedSeitonState);
-            if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
-              fetchedTasks = parsedState.rankedTasks;
-              toast.info(`Carregadas ${fetchedTasks.length} tarefas do ranking do Seiton.`);
-            }
-          } catch (e) {
-            console.error("Failed to parse Seiton state from localStorage", e);
-            toast.error("Erro ao carregar ranking do Seiton.");
-          }
+    // 1. Tentar carregar a tarefa principal do ranking do Seiton primeiro
+    let topSeitonTask: TodoistTask | null = null;
+    const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
+    if (savedSeitonState) {
+      try {
+        const parsedState: SeitonStateSnapshot = JSON.parse(savedSeitonState);
+        if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
+          topSeitonTask = parsedState.rankedTasks[0];
+          toast.info(`Carregada tarefa principal do ranking do Seiton: "${topSeitonTask.content}".`);
         }
+      } catch (e) {
+        console.error("Failed to parse Seiton state from localStorage", e);
+        toast.error("Erro ao carregar ranking do Seiton.");
       }
     }
 
-    if (fetchedTasks.length === 0) {
-      // Fallback to fetching all tasks if no filter or filter yielded no results
-      fetchedTasks = await fetchTasks(undefined, true);
+    // 2. Buscar tarefas com base no filtro (ou todas se não houver filtro)
+    let filteredTasks: TodoistTask[] = [];
+    if (useFilter && finalTodoistFilter) {
+      filteredTasks = await fetchTasks(finalTodoistFilter, true); // Buscar todos os tipos de tarefas para o modo foco
+      if (filteredTasks.length > 0) {
+        toast.info(`Encontradas ${filteredTasks.length} tarefas com o filtro.`);
+      }
+    } else {
+      // Se nenhum filtro específico for fornecido, buscar todas as tarefas
+      filteredTasks = await fetchTasks(undefined, true);
+      if (filteredTasks.length > 0) {
+        toast.info(`Encontradas ${filteredTasks.length} tarefas sem filtro específico.`);
+      }
     }
 
-    if (fetchedTasks && fetchedTasks.length > 0) {
-      const sortedTasks = sortTasksForFocus(fetchedTasks);
+    // 3. Combinar e remover duplicatas, priorizando a tarefa do Seiton
+    if (topSeitonTask) {
+      combinedTasks.push(topSeitonTask);
+      // Filtrar a topSeitonTask das filteredTasks para evitar duplicatas
+      filteredTasks = filteredTasks.filter(task => task.id !== topSeitonTask!.id);
+    }
+    combinedTasks = [...combinedTasks, ...filteredTasks];
+
+    // 4. Se ainda não houver tarefas, fallback para buscar todas as tarefas (se ainda não foi feito)
+    if (combinedTasks.length === 0 && (useFilter && finalTodoistFilter)) { // Apenas se um filtro foi aplicado e não retornou nada
+        toast.info("Nenhuma tarefa encontrada com o filtro ou ranking Seiton. Tentando carregar todas as tarefas...");
+        combinedTasks = await fetchTasks(undefined, true);
+    }
+
+
+    if (combinedTasks && combinedTasks.length > 0) {
+      const sortedTasks = sortTasksForFocus(combinedTasks);
       setFocusTasks(sortedTasks);
-      setInitialTotalTasks(sortedTasks.length); // Set initial total
+      setInitialTotalTasks(sortedTasks.length); // Definir total inicial
       setExecucaoState("focusing");
-      toast.info(`Encontradas ${sortedTasks.length} tarefas para focar.`);
+      toast.info(`Iniciando foco com ${sortedTasks.length} tarefas.`);
     } else {
       setFocusTasks([]);
       setInitialTotalTasks(0);
@@ -91,23 +112,23 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     }
   }, [fetchTasks, filterInput, selectedCategoryFilter, sortTasksForFocus]);
 
-  // This function will be called when a task is completed or skipped
+  // Esta função será chamada quando uma tarefa for concluída ou pulada
   const advanceToNextTask = useCallback(() => {
     setFocusTasks(prevTasks => {
-      // Remove the current task from the list
+      // Remover a tarefa atual da lista
       const updatedTasks = prevTasks.filter((_, index) => index !== currentTaskIndex);
       
       if (updatedTasks.length === 0) {
         setExecucaoState("finished");
-        setCurrentTaskIndex(0); // Reset index
-        // initialTotalTasks remains the same for progress calculation
+        setCurrentTaskIndex(0); // Resetar índice
+        // initialTotalTasks permanece o mesmo para cálculo de progresso
         toast.success("Todas as tarefas foram processadas!");
         return [];
       } else {
-        // If there are still tasks, advance the index or loop if at the end
-        // The currentTaskIndex should remain the same if the task at that index was removed,
-        // effectively shifting the next task into its place.
-        // If the removed task was the last one, the new index should be 0.
+        // Se ainda houver tarefas, avançar o índice ou voltar ao início se estiver no final
+        // O currentTaskIndex deve permanecer o mesmo se a tarefa naquele índice foi removida,
+        // efetivamente deslocando a próxima tarefa para o seu lugar.
+        // Se a tarefa removida foi a última, o novo índice deve ser 0.
         const newIndex = currentTaskIndex >= updatedTasks.length ? 0 : currentTaskIndex;
         setCurrentTaskIndex(newIndex);
         return updatedTasks;
@@ -115,7 +136,7 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     });
   }, [currentTaskIndex]);
 
-  // Function to update a task in the local state (used after API update)
+  // Função para atualizar uma tarefa no estado local (usada após atualização da API)
   const updateTaskInFocusList = useCallback((updatedTask: TodoistTask) => {
     setFocusTasks(prevTasks => prevTasks.map(task => 
       task.id === updatedTask.id ? updatedTask : task
@@ -125,12 +146,12 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
 
   return {
     focusTasks,
-    initialTotalTasks, // Renamed
+    initialTotalTasks, // Renomeado
     currentTaskIndex,
     execucaoState,
     isLoadingTasks: isLoadingTodoist,
     loadTasksForFocus,
     advanceToNextTask,
-    updateTaskInFocusList, // Expose this function
+    updateTaskInFocusList, // Expor esta função
   };
 };
