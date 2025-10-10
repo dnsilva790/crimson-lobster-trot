@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck } from "lucide-react";
+import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban } from "lucide-react"; // Adicionado Ban icon
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject } from "@/lib/types";
@@ -51,6 +51,7 @@ const Planejador = () => {
   const [selectedTaskToSchedule, setSelectedTaskToSchedule] = useState<(TodoistTask | InternalTask) | null>(null);
   const [isLoadingBacklog, setIsLoadingBacklog] = useState(false);
   const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string; date: string } | null>(null);
+  const [ignoredMeetingTaskIds, setIgnoredMeetingTaskIds] = useState<string[]>([]); // Novo estado para IDs de reuniões ignoradas
   
   // Novos estados temporários para a tarefa selecionada
   const [tempEstimatedDuration, setTempEstimatedDuration] = useState<string>("15");
@@ -82,6 +83,7 @@ const Planejador = () => {
         const parsedData = JSON.parse(storedData);
         setSchedules(parsedData.schedules || {});
         setRecurringBlocks(parsedData.recurringBlocks || []);
+        setIgnoredMeetingTaskIds(parsedData.ignoredMeetingTaskIds || []); // Carregar IDs de reuniões ignoradas
       }
     } catch (error) {
       console.error("Failed to load planner schedules from localStorage", error);
@@ -91,8 +93,8 @@ const Planejador = () => {
 
   // Save schedules and recurring blocks to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify({ schedules, recurringBlocks }));
-  }, [schedules, recurringBlocks]);
+    localStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify({ schedules, recurringBlocks, ignoredMeetingTaskIds })); // Salvar IDs de reuniões ignoradas
+  }, [schedules, recurringBlocks, ignoredMeetingTaskIds]);
 
   // Fetch projects and identify meeting project ID
   useEffect(() => {
@@ -150,7 +152,8 @@ const Planejador = () => {
         if ('project_id' in task) { // It's a TodoistTask
           // Exclude tasks from the meeting project if they have a due_datetime
           if (meetingProjectId && task.project_id === meetingProjectId && task.due?.datetime) {
-            return false;
+            // Also exclude if it's an ignored meeting task
+            return !ignoredMeetingTaskIds.includes(task.id);
           }
           // Exclude tasks already scheduled
           return !allScheduledTodoistTaskIds.includes(task.id);
@@ -199,7 +202,7 @@ const Planejador = () => {
     } finally {
       setIsLoadingBacklog(false);
     }
-  }, [fetchTasks, filterInput, meetingProjectId, schedules]); // Adicionar schedules como dependência
+  }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingTaskIds]); // Adicionar ignoredMeetingTaskIds como dependência
 
   useEffect(() => {
     fetchBacklogTasks();
@@ -435,15 +438,26 @@ const Planejador = () => {
       };
     });
     
-    // Set the deleted task as selected for re-scheduling
-    if (taskToDelete.originalTask) {
+    // Se a tarefa deletada for uma reunião pré-alocada, adicione-a à lista de ignorados
+    if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask && taskToDelete.originalTask.project_id === meetingProjectId) {
+      setIgnoredMeetingTaskIds(prev => [...new Set([...prev, taskToDelete.originalTask!.id])]);
+      toast.info(`Reunião "${taskToDelete.content}" removida da agenda e não será pré-alocada novamente.`);
+      // Não selecionamos para o backlog automaticamente se for uma reunião ignorada
+    } else if (taskToDelete.originalTask) {
+      // Se não for uma reunião ignorada, ou for uma tarefa normal, coloque no backlog para reagendamento manual
       handleSelectBacklogTask(taskToDelete.originalTask);
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e pronta para ser reagendada.`);
     } else {
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda.`);
     }
     fetchBacklogTasks(); // Refresh backlog to potentially show the task again if it was a Todoist task
-  }, [selectedDate, fetchBacklogTasks, handleSelectBacklogTask]);
+  }, [selectedDate, fetchBacklogTasks, handleSelectBacklogTask, meetingProjectId]);
+
+  const handleClearIgnoredMeetings = useCallback(() => {
+    setIgnoredMeetingTaskIds([]);
+    toast.success("Lista de reuniões ignoradas limpa. Elas podem ser pré-alocadas novamente.");
+    fetchBacklogTasks(); // Refresh backlog to potentially show them again
+  }, [fetchBacklogTasks]);
 
   const handleSelectSlot = useCallback(async (time: string, type: TimeBlockType) => { // Tornar assíncrono
     if (!selectedTaskToSchedule) {
@@ -716,7 +730,7 @@ const Planejador = () => {
     try {
       const allTodoistTasks = await fetchTasks(undefined, true); // Fetch all tasks, including subtasks and recurring
       const meetingTasks = allTodoistTasks.filter(
-        task => task.project_id === meetingProjectId && task.due?.datetime
+        task => task.project_id === meetingProjectId && task.due?.datetime && !ignoredMeetingTaskIds.includes(task.id) // Filtrar reuniões ignoradas
       );
 
       let allocatedCount = 0;
@@ -775,7 +789,7 @@ const Planejador = () => {
     } finally {
       setIsPreallocatingMeetings(false);
     }
-  }, [meetingProjectId, fetchTasks, schedules, fetchBacklogTasks]);
+  }, [meetingProjectId, fetchTasks, schedules, fetchBacklogTasks, ignoredMeetingTaskIds]); // Adicionar ignoredMeetingTaskIds como dependência
 
 
   const isLoading = isLoadingTodoist || isLoadingBacklog || isPreallocatingMeetings;
@@ -886,6 +900,15 @@ const Planejador = () => {
             )}
             Pré-alocar Reuniões
           </Button>
+          {ignoredMeetingTaskIds.length > 0 && (
+            <Button
+              onClick={handleClearIgnoredMeetings}
+              variant="outline"
+              className="flex items-center gap-2 text-red-600 border-red-600 hover:bg-red-50"
+            >
+              <Ban className="h-4 w-4" /> Limpar Ignorados ({ignoredMeetingTaskIds.length})
+            </Button>
+          )}
         </div>
 
         <Card className="mb-6 p-6">
