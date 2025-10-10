@@ -79,11 +79,23 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchTasks = useCallback(
     async (filter?: string, includeSubtasksAndRecurring: boolean = false) => {
-      const allTasks = (await makeApiCall(todoistService.fetchTasks, filter)) || [];
+      let allTasks: TodoistTask[] = [];
+      try {
+        const rawTasks = await makeApiCall(todoistService.fetchTasks, filter);
+        if (Array.isArray(rawTasks)) {
+          allTasks = rawTasks;
+        } else {
+          console.warn("TodoistContext: makeApiCall did not return an array for tasks. Received:", rawTasks);
+          allTasks = [];
+        }
+      } catch (error) {
+        console.error("TodoistContext: Error fetching tasks:", error);
+        allTasks = [];
+      }
       
       // Adiciona um log para inspecionar as tarefas brutas da API
       console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
-      allTasks.forEach(task => {
+      allTasks.forEach(task => { // This forEach is now safe because allTasks is guaranteed to be an array
         console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, parent_id: ${task.parent_id}`);
       });
 
