@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -5,17 +7,17 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
+import { cn, getTaskCategory } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink, Check } from "lucide-react"; // Importar Check para o ícone de concluir
+import { ExternalLink, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select
 
 type TournamentState = "initial" | "comparing" | "finished";
 
-// Define a interface para o estado que será salvo no histórico
 interface SeitonStateSnapshot {
   tasksToProcess: TodoistTask[];
   rankedTasks: TodoistTask[];
@@ -28,7 +30,7 @@ interface SeitonStateSnapshot {
 const LOCAL_STORAGE_KEY = "seitonTournamentState";
 
 const Seiton = () => {
-  const { fetchTasks, closeTask, isLoading } = useTodoist(); // Obter closeTask do contexto, updateTask removido
+  const { fetchTasks, closeTask, isLoading } = useTodoist();
   const [tournamentState, setTournamentState] = useState<TournamentState>("initial");
   const [tasksToProcess, setTasksToProcess] = useState<TodoistTask[]>([]);
   const [rankedTasks, setRankedTasks] = useState<TodoistTask[]>([]);
@@ -38,14 +40,13 @@ const Seiton = () => {
   const [history, setHistory] = useState<SeitonStateSnapshot[]>([]);
   const [hasSavedState, setHasSavedState] = useState<boolean>(false);
   const [filterInput, setFilterInput] = useState<string>(() => {
-    // Load initial filter from localStorage
     if (typeof window !== 'undefined') {
       return localStorage.getItem('seiton_filter_input') || "";
     }
     return "";
   });
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<"all" | "pessoal" | "profissional">("all"); // Novo estado para filtro de categoria
 
-  // Save filter to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('seiton_filter_input', filterInput);
@@ -53,10 +54,10 @@ const Seiton = () => {
   }, [filterInput]);
 
   const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
-    4: "bg-red-500", // P1 - Urgente
-    3: "bg-orange-500", // P2 - Alto
-    2: "bg-yellow-500", // P3 - Médio
-    1: "bg-gray-400", // P4 - Baixo
+    4: "bg-red-500",
+    3: "bg-orange-500",
+    2: "bg-yellow-500",
+    1: "bg-gray-400",
   };
 
   const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
@@ -66,41 +67,35 @@ const Seiton = () => {
     1: "P4 - Baixo",
   };
 
-  // Função para ordenar as tarefas com base nos critérios combinados, priorizando deadline
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
-      // 1. Tarefas iniciadas com "*" primeiro
       const isAStarred = a.content.startsWith("*");
       const isBStarred = b.content.startsWith("*");
       if (isAStarred && !isBStarred) return -1;
       if (!isAStarred && isBStarred) return 1;
 
-      // 2. Em seguida, por prioridade (P1 > P4)
       if (b.priority !== a.priority) {
         return b.priority - a.priority;
       }
 
-      // 3. Depois, por prazo (deadline > due date/time > due date)
       const getTaskDate = (task: TodoistTask) => {
         if (task.deadline?.date) return new Date(task.deadline.date).getTime();
         if (task.due?.datetime) return new Date(task.due.datetime).getTime();
         if (task.due?.date) return new Date(task.due.date).getTime();
-        return Infinity; // Tarefas sem prazo vão para o final
+        return Infinity;
       };
 
       const dateA = getTaskDate(a);
       const dateB = getTaskDate(b);
 
       if (dateA !== dateB) {
-        return dateA - dateB; // Mais próximo primeiro
+        return dateA - dateB;
       }
 
-      // 4. Desempate final: por data de criação (mais antiga primeiro)
       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
   }, []);
 
-  // Salva o estado atual no histórico
   const saveStateToHistory = useCallback(() => {
     setHistory((prev) => [
       ...prev,
@@ -115,7 +110,6 @@ const Seiton = () => {
     ]);
   }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState]);
 
-  // Desfaz a última ação
   const undoLastAction = useCallback(() => {
     if (history.length > 0) {
       const lastState = history[history.length - 1];
@@ -140,17 +134,24 @@ const Seiton = () => {
       setCurrentTaskToPlace(null);
       setComparisonCandidate(null);
       setComparisonIndex(0);
-      setHistory([]); // Limpar histórico ao iniciar novo torneio
-      localStorage.removeItem(LOCAL_STORAGE_KEY); // Limpar estado salvo
+      setHistory([]);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
       setHasSavedState(false);
     }
 
-    const todoistFilter = filterInput.trim();
-    
-    if (!continueSaved || tasksToProcess.length === 0) { // Only fetch if starting fresh or no tasks in saved state
-      const allTasks = await fetchTasks(todoistFilter || undefined);
+    const todoistFilterParts: string[] = [];
+    if (filterInput.trim()) {
+      todoistFilterParts.push(filterInput.trim());
+    }
+    if (selectedCategoryFilter !== "all") {
+      todoistFilterParts.push(`#${selectedCategoryFilter}`);
+    }
+    const finalTodoistFilter = todoistFilterParts.join(" & ");
+
+    if (!continueSaved || tasksToProcess.length === 0) {
+      const allTasks = await fetchTasks(finalTodoistFilter || undefined);
       if (allTasks && allTasks.length > 0) {
-        const sortedTasks = sortTasks(allTasks); // Aplicar ordenação combinada
+        const sortedTasks = sortTasks(allTasks);
         setTasksToProcess(sortedTasks);
         setTournamentState("comparing");
       } else {
@@ -158,9 +159,9 @@ const Seiton = () => {
         setTournamentState("finished");
       }
     } else {
-      setTournamentState("comparing"); // Continue with existing tasksToProcess
+      setTournamentState("comparing");
     }
-  }, [fetchTasks, sortTasks, tasksToProcess.length, filterInput]);
+  }, [fetchTasks, sortTasks, tasksToProcess.length, filterInput, selectedCategoryFilter]);
 
   const startNextPlacement = useCallback(() => {
     if (tasksToProcess.length === 0) {
@@ -182,14 +183,12 @@ const Seiton = () => {
       setComparisonCandidate(null);
       setComparisonIndex(0);
     } else {
-      // Começar a comparação com a última tarefa do ranking
       setComparisonIndex(rankedTasks.length - 1);
       setComparisonCandidate(rankedTasks[rankedTasks.length - 1]);
     }
   }, [tasksToProcess, rankedTasks, saveStateToHistory]);
 
   useEffect(() => {
-    // Load state from localStorage on mount
     const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (savedState) {
       try {
@@ -210,8 +209,7 @@ const Seiton = () => {
   }, []);
 
   useEffect(() => {
-    // Save state to localStorage whenever relevant state changes
-    if (tournamentState !== "initial") { // Don't save initial empty state
+    if (tournamentState !== "initial") {
       const stateToSave: SeitonStateSnapshot = {
         tasksToProcess,
         rankedTasks,
@@ -241,30 +239,25 @@ const Seiton = () => {
       const isCurrentTaskToPlaceWinner = winner.id === currentTaskToPlace.id;
 
       if (isCurrentTaskToPlaceWinner) {
-        // currentTaskToPlace é mais importante que comparisonCandidate
-        const nextComparisonIndex = comparisonIndex - 1; // Move para cima na lista ranqueada
+        const nextComparisonIndex = comparisonIndex - 1;
 
         if (nextComparisonIndex < 0) {
-          // currentTaskToPlace é mais importante que todas as tarefas em rankedTasks
           setRankedTasks((prev) => {
-            const newRanked = [currentTaskToPlace, ...prev]; // Insere no início
-            return newRanked.slice(0, 24); // Garante no máximo 24 tarefas
+            const newRanked = [currentTaskToPlace, ...prev];
+            return newRanked.slice(0, 24);
           });
           setCurrentTaskToPlace(null);
           setComparisonCandidate(null);
           setComparisonIndex(0);
         } else {
-          // Continua comparando com a próxima tarefa de maior prioridade
           setComparisonIndex(nextComparisonIndex);
           setComparisonCandidate(rankedTasks[nextComparisonIndex]);
         }
       } else {
-        // comparisonCandidate é mais importante que currentTaskToPlace
-        // Insere currentTaskToPlace *depois* de comparisonCandidate
         setRankedTasks((prev) => {
           const newRanked = [...prev];
-          newRanked.splice(comparisonIndex + 1, 0, currentTaskToPlace); // Insere após comparisonCandidate
-          return newRanked.slice(0, 24); // Garante no máximo 24 tarefas
+          newRanked.splice(comparisonIndex + 1, 0, currentTaskToPlace);
+          return newRanked.slice(0, 24);
         });
         setCurrentTaskToPlace(null);
         setComparisonCandidate(null);
@@ -279,34 +272,21 @@ const Seiton = () => {
     if (success !== undefined) {
       toast.success("Tarefa concluída com sucesso!");
 
-      // Remove the completed task from tasksToProcess
       setTasksToProcess(prev => prev.filter(task => task.id !== taskId));
-
-      // Remove the completed task from rankedTasks
       setRankedTasks(prev => prev.filter(task => task.id !== taskId));
 
-      // If the completed task was the one currently being placed
       if (currentTaskToPlace?.id === taskId) {
-        setCurrentTaskToPlace(null); // This will trigger startNextPlacement via useEffect
-        setComparisonCandidate(null); // Clear candidate as well
-        setComparisonIndex(0); // Reset index
-      }
-      // If the completed task was the comparison candidate
-      else if (comparisonCandidate?.id === taskId) {
-        // The current comparison is invalid. We need to find a new candidate for currentTaskToPlace.
-        // Reset comparison for currentTaskToPlace to restart its placement from the beginning of the (now updated) ranked list.
+        setCurrentTaskToPlace(null);
+        setComparisonCandidate(null);
         setComparisonIndex(0);
-        // Filter rankedTasks again to ensure we get the correct first element after removal
+      }
+      else if (comparisonCandidate?.id === taskId) {
+        setComparisonIndex(0);
         const updatedRankedTasks = rankedTasks.filter(task => task.id !== taskId);
         setComparisonCandidate(updatedRankedTasks[0] || null);
       }
-      // If the completed task was neither currentTaskToPlace nor comparisonCandidate,
-      // the tournament can continue as is, as the tasks were just removed from the lists.
-      // The current comparison (if any) remains valid.
     }
   }, [closeTask, currentTaskToPlace, comparisonCandidate, rankedTasks, tasksToProcess]);
-
-  // handleUpdatePriority removido
 
   const renderTaskDates = (task: TodoistTask) => {
     const dateElements: JSX.Element[] = [];
@@ -325,7 +305,7 @@ const Seiton = () => {
           Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
         </span>
       );
-    } else if (task.due?.date) { // Only show due.date if due.datetime is not present
+    } else if (task.due?.date) {
       dateElements.push(
         <span key="due-date" className="block">
           Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
@@ -386,7 +366,6 @@ const Seiton = () => {
         </div>
         {showActions && (
           <div className="mt-4 space-y-2">
-            {/* Existing buttons */}
             <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
               <Button variant="outline" className="w-full py-2 text-sm flex items-center justify-center">
                 <ExternalLink className="mr-2 h-4 w-4" /> Abrir no Todoist
@@ -400,8 +379,6 @@ const Seiton = () => {
             >
               <Check className="mr-2 h-4 w-4" /> Concluir
             </Button>
-
-            {/* New Priority Buttons - REMOVIDOS */}
           </div>
         )}
       </Card>
@@ -436,6 +413,25 @@ const Seiton = () => {
               className="mt-1"
               disabled={isLoading}
             />
+          </div>
+          <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">
+            <Label htmlFor="category-filter" className="text-left text-gray-600 font-medium">
+              Filtrar por Categoria
+            </Label>
+            <Select
+              value={selectedCategoryFilter}
+              onValueChange={(value: "all" | "pessoal" | "profissional") => setSelectedCategoryFilter(value)}
+              disabled={isLoading}
+            >
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Todas as Categorias" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Categorias</SelectItem>
+                <SelectItem value="pessoal">Pessoal</SelectItem>
+                <SelectItem value="profissional">Profissional</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           {hasSavedState && (
             <Button
@@ -493,14 +489,13 @@ const Seiton = () => {
             </Button>
           </div>
 
-          {/* Nova Seção de Preview do Ranking */}
           {rankedTasks.length > 0 && (
             <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner">
               <h3 className="text-2xl font-bold mb-4 text-center text-gray-800">
                 Ranking Atual (Top {Math.min(rankedTasks.length, 24)})
               </h3>
               <div className="space-y-3">
-                {rankedTasks.slice(0, 24).map((task, index) => { // Display up to 24 tasks
+                {rankedTasks.slice(0, 24).map((task, index) => {
                   const category = getTaskCategory(task);
                   return (
                     <Card
@@ -544,7 +539,7 @@ const Seiton = () => {
                   );
                 })}
               </div>
-              {rankedTasks.length > 24 && ( // Adjust message if more than 24 tasks are ranked internally
+              {rankedTasks.length > 24 && (
                 <p className="text-center text-sm text-gray-500 mt-4">
                   ... e mais {rankedTasks.length - 24} tarefas ranqueadas (não exibidas).
                 </p>
@@ -633,13 +628,6 @@ const Seiton = () => {
             >
               Desfazer Última Ação
             </Button>
-            {/* O botão "Aplicar ao Todoist" está comentado pois requer a implementação de um endpoint de atualização de tarefa na API do Todoist, que não está disponível no serviço atual. */}
-            {/* <Button
-              onClick={() => toast.info("Funcionalidade 'Aplicar ao Todoist' em desenvolvimento.")}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 text-lg"
-            >
-              Aplicar ao Todoist
-            </Button> */}
           </div>
         </div>
       )}
