@@ -49,7 +49,16 @@ async function todoistApiCall<T>(
     return undefined as T; // Para outros 204s (e.g., closeTask, que espera void)
   }
 
-  return response.json() as Promise<T>;
+  const jsonResponse = await response.json();
+
+  // Adicionado: Garantir que se um array é esperado (para /tasks), e a resposta não é um array,
+  // retorne um array vazio para evitar TypeError: .forEach is not a function
+  if ((endpoint === "/tasks" || (endpoint.startsWith("/tasks?") && !endpoint.includes("/tasks/"))) && !Array.isArray(jsonResponse)) {
+    console.warn(`Todoist API: Expected array for ${endpoint}, but received non-array. Returning empty array.`);
+    return [] as T;
+  }
+
+  return jsonResponse as T;
 }
 
 export const todoistService = {
