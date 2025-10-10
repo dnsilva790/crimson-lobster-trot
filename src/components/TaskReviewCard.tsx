@@ -5,13 +5,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, setHours, setMinutes, parseISO } from "date-fns"; // Adicionado setHours, setMinutes, parseISO
 import { ptBR } from "date-fns/locale";
 import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { useTodoist } from "@/context/TodoistContext"; // Importar useTodoist
+import { Label } from "@/components/ui/label"; // Adicionado Label
+import { Input } from "@/components/ui/input"; // Adicionado Input
 
 interface TaskReviewCardProps {
   task: TodoistTask;
@@ -20,6 +21,7 @@ interface TaskReviewCardProps {
   onDelete: (taskId: string) => void;
   onUpdateCategory: (taskId: string, newCategory: "pessoal" | "profissional" | "none") => void;
   onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void;
+  onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>; // Nova prop
   isLoading: boolean;
 }
 
@@ -44,14 +46,17 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onDelete,
   onUpdateCategory,
   onUpdatePriority,
+  onUpdateDeadline, // Nova prop
   isLoading,
 }) => {
-  // const { setDeadlineV1, clearDeadlineV1 } = useTodoist(); // Usar as novas funções - Removido
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
-  // const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>( // Removido
-  //   task.deadline?.date ? new Date(task.deadline.date) : undefined
-  // );
-  // const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false); // Removido
+  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(
+    task.due?.date ? parseISO(task.due.date) : undefined
+  );
+  const [selectedDueTime, setSelectedDueTime] = useState<string>(
+    task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : ""
+  );
+  const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
 
   useEffect(() => {
     if (task.labels.includes("pessoal")) {
@@ -61,41 +66,42 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     } else {
       setSelectedCategory("none");
     }
-    // setSelectedDeadlineDate(task.deadline?.date ? new Date(task.deadline.date) : undefined); // Removido
-  }, [task.labels, task.deadline?.date]);
+    setSelectedDueDate(task.due?.date ? parseISO(task.due.date) : undefined);
+    setSelectedDueTime(task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "");
+  }, [task]); // Depende da tarefa para atualizar os estados
 
   const handleCategoryChange = (newCategory: "pessoal" | "profissional" | "none") => {
     setSelectedCategory(newCategory);
     onUpdateCategory(task.id, newCategory);
   };
 
-  // const handleSetDeadlineV1 = async () => { // Removido
-  //   if (!selectedDeadlineDate) {
-  //     toast.error("Por favor, selecione uma data para o deadline.");
-  //     return;
-  //   }
-  //   const dateString = format(selectedDeadlineDate, "yyyy-MM-dd");
-  //   try {
-  //     await setDeadlineV1(task.id, dateString);
-  //     toast.success(`Deadline (v1) definido para ${dateString}!`);
-  //     setIsDeadlinePopoverOpen(false);
-  //   } catch (error) {
-  //     console.error("Erro ao definir deadline (v1):", error);
-  //     toast.error("Falha ao definir deadline (v1). Verifique o console.");
-  //   }
-  // };
+  const handleSetDeadline = async () => {
+    if (!selectedDueDate) {
+      toast.error("Por favor, selecione uma data para o prazo.");
+      return;
+    }
 
-  // const handleClearDeadlineV1 = async () => { // Removido
-  //   try {
-  //     await clearDeadlineV1(task.id);
-  //     toast.success("Deadline (v1) removido!");
-  //     setSelectedDeadlineDate(undefined);
-  //     setIsDeadlinePopoverOpen(false);
-  //   } catch (error) {
-  //     console.error("Erro ao remover deadline (v1):", error);
-  //     toast.error("Falha ao remover deadline (v1). Verifique o console.");
-  //   }
-  // };
+    let finalDueDate: string | null = null;
+    let finalDueDateTime: string | null = null;
+
+    if (selectedDueTime) {
+      const [hours, minutes] = selectedDueTime.split(":").map(Number);
+      const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
+      finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
+    } else {
+      finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
+    }
+
+    await onUpdateDeadline(task.id, finalDueDate, finalDueDateTime);
+    setIsDeadlinePopoverOpen(false);
+  };
+
+  const handleClearDeadline = async () => {
+    await onUpdateDeadline(task.id, null, null);
+    setSelectedDueDate(undefined);
+    setSelectedDueTime("");
+    setIsDeadlinePopoverOpen(false);
+  };
 
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
@@ -233,7 +239,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           <Trash2 className="mr-2 h-5 w-5" /> Excluir
         </Button>
       </div>
-      {/* <div className="mt-4"> // Removido o popover de deadline da v1
+      <div className="mt-4">
         <Popover open={isDeadlinePopoverOpen} onOpenChange={setIsDeadlinePopoverOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -241,30 +247,43 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
               disabled={isLoading}
               className="w-full py-3 text-md flex items-center justify-center"
             >
-              <CalendarIcon className="mr-2 h-4 w-4" /> Definir Deadline (v1)
+              <CalendarIcon className="mr-2 h-4 w-4" /> Definir Prazo
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-4">
-            <h4 className="font-semibold text-lg mb-3">Definir Deadline (API v1)</h4>
-            <Calendar
-              mode="single"
-              selected={selectedDeadlineDate}
-              onSelect={setSelectedDeadlineDate}
-              initialFocus
-              locale={ptBR}
-              className="rounded-md border shadow"
-            />
-            <div className="flex gap-2 mt-4">
-              <Button onClick={handleSetDeadlineV1} className="flex-1" disabled={isLoading}>
-                Salvar Deadline
+            <h4 className="font-semibold text-lg mb-3">Definir Prazo da Tarefa</h4>
+            <div className="grid gap-4">
+              <div>
+                <Label htmlFor="due-date">Data de Vencimento</Label>
+                <Calendar
+                  mode="single"
+                  selected={selectedDueDate}
+                  onSelect={setSelectedDueDate}
+                  initialFocus
+                  locale={ptBR}
+                  className="rounded-md border shadow"
+                />
+              </div>
+              <div>
+                <Label htmlFor="due-time">Hora de Vencimento (Opcional)</Label>
+                <Input
+                  id="due-time"
+                  type="time"
+                  value={selectedDueTime}
+                  onChange={(e) => setSelectedDueTime(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <Button onClick={handleSetDeadline} className="w-full" disabled={isLoading}>
+                Salvar Prazo
               </Button>
-              <Button onClick={handleClearDeadlineV1} variant="outline" className="flex-1" disabled={isLoading}>
-                Limpar Deadline
+              <Button onClick={handleClearDeadline} variant="outline" className="w-full" disabled={isLoading}>
+                Limpar Prazo
               </Button>
             </div>
           </PopoverContent>
         </Popover>
-      </div> */}
+      </div>
       <div className="mt-4">
         <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
           <Button variant="outline" className="w-full py-3 text-md flex items-center justify-center">

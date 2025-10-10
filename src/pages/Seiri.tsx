@@ -161,6 +161,20 @@ const Seiri = () => {
     }
   }, [tasksToReview, updateTask]);
 
+  const handleUpdateDeadline = useCallback(async (taskId: string, dueDate: string | null, dueDateTime: string | null) => {
+    const updated = await updateTask(taskId, { due_date: dueDate, due_datetime: dueDateTime });
+    if (updated) {
+      setTasksToReview(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, due: updated.due } : task
+        )
+      );
+      toast.success("Prazo da tarefa atualizado com sucesso!");
+    } else {
+      toast.error("Falha ao atualizar o prazo da tarefa.");
+    }
+  }, [tasksToReview, updateTask]);
+
   const currentTask = tasksToReview[currentTaskIndex];
 
   return (
@@ -211,6 +225,7 @@ const Seiri = () => {
             onDelete={handleDelete}
             onUpdateCategory={handleUpdateCategory}
             onUpdatePriority={handleUpdatePriority}
+            onUpdateDeadline={handleUpdateDeadline} // Passando a nova função
             isLoading={isLoading}
           />
         </div>
