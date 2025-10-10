@@ -671,13 +671,20 @@ const Seiton = () => {
         </>
       )}
 
-      {/* Fallback for 'comparing' state without active tasks */}
+      {/* Fallback for 'comparing' state without active tasks - now includes a reset button */}
       {!isLoading && tournamentState === "comparing" && (!currentTaskToPlace || !comparisonCandidate) && (
         <>
-          {console.log("Rendering: Comparing state, waiting for next task")}
+          {console.log("Rendering: Comparing state, waiting for next task (with reset option)")}
           <div className="text-center mt-10">
-            <p className="text-xl text-gray-700">Preparando próxima comparação...</p>
+            <p className="text-xl text-gray-700">Preparando próxima comparação ou estado inválido.</p>
+            <p className="text-md text-gray-600 mb-4">Se o problema persistir, por favor, resete o ranking.</p>
             <LoadingSpinner size={30} className="mt-4" />
+            <Button
+              onClick={resetTournamentState}
+              className="mt-6 px-8 py-4 text-xl bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors duration-200"
+            >
+              Resetar Ranking
+            </Button>
           </div>
         </>
       )}
