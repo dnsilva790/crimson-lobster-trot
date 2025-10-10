@@ -272,21 +272,20 @@ const Seiton = () => {
     if (success !== undefined) {
       toast.success("Tarefa concluída com sucesso!");
 
+      // Remove from tasksToProcess
       setTasksToProcess(prev => prev.filter(task => task.id !== taskId));
+      // Remove from rankedTasks
       setRankedTasks(prev => prev.filter(task => task.id !== taskId));
 
-      if (currentTaskToPlace?.id === taskId) {
+      // If the completed task was one of the tasks currently being compared,
+      // reset currentTaskToPlace to null to trigger a re-evaluation of the comparison.
+      if (currentTaskToPlace?.id === taskId || comparisonCandidate?.id === taskId) {
         setCurrentTaskToPlace(null);
-        setComparisonCandidate(null);
-        setComparisonIndex(0);
-      }
-      else if (comparisonCandidate?.id === taskId) {
-        setComparisonIndex(0);
-        const updatedRankedTasks = rankedTasks.filter(task => task.id !== taskId);
-        setComparisonCandidate(updatedRankedTasks[0] || null);
+        setComparisonCandidate(null); // Also clear candidate to ensure a fresh start
+        setComparisonIndex(0); // Reset index
       }
     }
-  }, [closeTask, currentTaskToPlace, comparisonCandidate, rankedTasks, tasksToProcess]);
+  }, [closeTask, currentTaskToPlace, comparisonCandidate]);
 
   const renderTaskDates = (task: TodoistTask) => {
     const dateElements: JSX.Element[] = [];
