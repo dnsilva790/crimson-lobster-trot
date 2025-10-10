@@ -46,16 +46,21 @@ async function todoistApiCall<T>(
 
   if (response.status === 204) {
     console.log(`Todoist API Response Body for ${url}:`, "No Content (204)");
-    return undefined;
+    // For endpoints expecting an array (like /tasks or /projects), return an empty array
+    if (endpoint.startsWith("/tasks") || endpoint.startsWith("/projects")) {
+      return [] as T;
+    }
+    return undefined; // For other endpoints (like closeTask, deleteTask)
   }
 
   const jsonResponse = await response.json();
   console.log(`Todoist API Response Body for ${url}:`, jsonResponse);
 
-  // Esta verificação ainda é útil para garantir que a resposta bruta seja um array se esperado
+  // This check is now mostly redundant for 204, but still useful if a 200 response
+  // somehow returns non-array for an endpoint expecting an array.
   if ((endpoint.startsWith("/tasks") || endpoint.startsWith("/projects")) && !Array.isArray(jsonResponse)) {
     console.warn(`Todoist API: Expected array for ${endpoint}, but received non-array. Returning empty array.`);
-    return [] as T; // Retorna array vazio se o tipo estiver incorreto
+    return [] as T;
   }
 
   return jsonResponse as T;

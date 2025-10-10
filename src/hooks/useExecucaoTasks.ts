@@ -71,7 +71,7 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
     if (savedSeitonState) {
       try {
-        const parsedState: SeitonStateSnapshot = JSON.parse(savedState);
+        const parsedState: SeitonStateSnapshot = JSON.parse(savedSeitonState);
         if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
           const potentialTopSeitonTask = parsedState.rankedTasks[0];
           // Adicionar a tarefa do Seiton apenas se ela não estiver já na lista filtrada
@@ -82,7 +82,8 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
         }
       } catch (e) {
         console.error("Failed to parse Seiton state from localStorage", e);
-        toast.error("Erro ao carregar ranking do Seiton.");
+        localStorage.removeItem(SEITON_RANKING_STORAGE_KEY); // Clear corrupted data
+        toast.error("Erro ao carregar ranking do Seiton. Dados corrompidos foram removidos.");
       }
     }
 
