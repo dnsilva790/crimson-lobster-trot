@@ -12,7 +12,7 @@ import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCi
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject } from "@/lib/types";
-import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner"; // Caminho de importação atualizado
+import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
 import { useTodoist } from "@/context/TodoistContext";
@@ -531,6 +531,13 @@ const Planejador = () => {
       toast.error("Selecione uma tarefa do backlog para sugerir um slot.");
       return;
     }
+
+    // --- Nova trava: Obrigar classificação antes de sugerir ---
+    if (tempSelectedCategory === "none") {
+      toast.error("Por favor, classifique a tarefa como 'Pessoal' ou 'Profissional' antes de sugerir um slot.");
+      return;
+    }
+    // --- Fim da trava ---
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
     const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory; // Usar a categoria temporária
