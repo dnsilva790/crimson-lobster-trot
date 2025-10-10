@@ -242,9 +242,10 @@ const Seiton = () => {
       if (isCurrentTaskToPlaceWinner) {
         const nextComparisonIndex = comparisonIndex + 1;
         if (nextComparisonIndex >= rankedTasks.length) {
-          if (rankedTasks.length < 24) {
+          if (rankedTasks.length < 24) { // Limit to 24 tasks in the ranking
             setRankedTasks((prev) => [...prev, currentTaskToPlace]);
           } else {
+            // If ranking is full, replace the last task with the new one if it's more important
             setRankedTasks((prev) => [currentTaskToPlace, ...prev.slice(0, 23)]);
           }
           setCurrentTaskToPlace(null);
@@ -255,11 +256,11 @@ const Seiton = () => {
           setComparisonCandidate(rankedTasks[nextComparisonIndex]);
         }
       } else {
-        if (rankedTasks.length < 24 || comparisonIndex < 24) {
+        if (rankedTasks.length < 24 || comparisonIndex < 24) { // Ensure we don't exceed 24 tasks
           setRankedTasks((prev) => {
             const newRanked = [...prev];
             newRanked.splice(comparisonIndex, 0, currentTaskToPlace);
-            if (newRanked.length > 24) {
+            if (newRanked.length > 24) { // Trim if it exceeds 24 after insertion
               newRanked.pop();
             }
             return newRanked;
@@ -498,10 +499,10 @@ const Seiton = () => {
           {rankedTasks.length > 0 && (
             <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner">
               <h3 className="text-2xl font-bold mb-4 text-center text-gray-800">
-                Top 5 do Ranking Atual
+                Ranking Atual (Top {Math.min(rankedTasks.length, 24)})
               </h3>
               <div className="space-y-3">
-                {rankedTasks.slice(0, 5).map((task, index) => {
+                {rankedTasks.slice(0, 24).map((task, index) => { // Display up to 24 tasks
                   const category = getTaskCategory(task);
                   return (
                     <Card
@@ -545,9 +546,9 @@ const Seiton = () => {
                   );
                 })}
               </div>
-              {rankedTasks.length > 5 && (
+              {rankedTasks.length > 24 && ( // Adjust message if more than 24 tasks are ranked internally
                 <p className="text-center text-sm text-gray-500 mt-4">
-                  ... e mais {rankedTasks.length - 5} tarefas ranqueadas.
+                  ... e mais {rankedTasks.length - 24} tarefas ranqueadas (não exibidas).
                 </p>
               )}
             </div>
