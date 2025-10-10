@@ -60,7 +60,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         const result = await apiFunction(apiKey, ...args);
         return result;
       } catch (error: any) {
-        console.error("Todoist API Error in makeApiCall:", error); // Log do objeto de erro completo
+        console.error("Todoist API Error in makeApiCall:", error);
         if (error.status === 401 || error.status === 403) {
           toast.error("API key inválida ou sem permissão. Configure novamente.");
           clearApiKey();
@@ -68,6 +68,12 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
           toast.error("Erro no servidor. Tente novamente.");
         } else {
           toast.error(`Erro na API: ${error.message || "Erro desconhecido"}`);
+        }
+        
+        // Se a função API esperava um array (como fetchTasks ou fetchProjects),
+        // retorne um array vazio em caso de erro para evitar que o código que espera um array falhe.
+        if (apiFunction === todoistService.fetchTasks || apiFunction === todoistService.fetchProjects) {
+          return [] as typeof apiFunction extends (...args: any[]) => Promise<infer R> ? R : undefined;
         }
         return undefined;
       } finally {
