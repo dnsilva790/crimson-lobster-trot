@@ -14,7 +14,7 @@ import { ExternalLink, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type TournamentState = "initial" | "comparing" | "finished";
 
@@ -28,6 +28,8 @@ interface SeitonStateSnapshot {
 }
 
 const LOCAL_STORAGE_KEY = "seitonTournamentState";
+const SEITON_FILTER_INPUT_STORAGE_KEY = "seiton_filter_input";
+const SEITON_CATEGORY_FILTER_STORAGE_KEY = "seiton_category_filter"; // Nova chave para o filtro de categoria
 
 const Seiton = () => {
   console.log("Seiton component rendering..."); // Debug log
@@ -42,17 +44,28 @@ const Seiton = () => {
   const [hasSavedState, setHasSavedState] = useState<boolean>(false);
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('seiton_filter_input') || "";
+      return localStorage.getItem(SEITON_FILTER_INPUT_STORAGE_KEY) || "";
     }
     return "";
   });
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<"all" | "pessoal" | "profissional">("all"); // Novo estado para filtro de categoria
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<"all" | "pessoal" | "profissional">(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(SEITON_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all";
+    }
+    return "all";
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('seiton_filter_input', filterInput);
+      localStorage.setItem(SEITON_FILTER_INPUT_STORAGE_KEY, filterInput);
     }
   }, [filterInput]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SEITON_CATEGORY_FILTER_STORAGE_KEY, selectedCategoryFilter);
+    }
+  }, [selectedCategoryFilter]);
 
   const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
     4: "bg-red-500",
