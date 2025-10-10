@@ -28,31 +28,33 @@ async function todoistApiCall<T>(
   };
 
   const url = `${baseUrl}${endpoint}`;
-  console.log("Todoist API Request URL:", url);
+  console.log("Todoist API Request URL:", url); // Log da URL da requisição
 
   const response = await fetch(url, config);
 
+  console.log(`Todoist API Response Status for ${url}:`, response.status); // Log do status da resposta
+
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Todoist API Error Response Body for ${url}:`, errorText); // Log do corpo do erro
     const errorData: TodoistError = {
       status: response.status,
-      message: await response.text(),
+      message: errorText,
     };
     throw errorData;
   }
 
   if (response.status === 204) {
-    // Se o endpoint é para buscar uma lista de tarefas (e.g., /tasks), retorna um array vazio.
-    // Para outras respostas 204 (e.g., fechar uma tarefa), retorna undefined (que é tratado por makeApiCall).
+    console.log(`Todoist API Response Body for ${url}:`, "No Content (204)"); // Log para 204
     if (endpoint === "/tasks" || (endpoint.startsWith("/tasks?") && !endpoint.includes("/tasks/"))) {
-      return [] as T; // Retorna array vazio para lista de tarefas
+      return [] as T;
     }
-    return undefined as T; // Para outros 204s (e.g., closeTask, que espera void)
+    return undefined as T;
   }
 
   const jsonResponse = await response.json();
+  console.log(`Todoist API Response Body for ${url}:`, jsonResponse); // Log do corpo da resposta JSON
 
-  // Adicionado: Garantir que se um array é esperado (para /tasks), e a resposta não é um array,
-  // retorne um array vazio para evitar TypeError: .forEach is not a function
   if ((endpoint === "/tasks" || (endpoint.startsWith("/tasks?") && !endpoint.includes("/tasks/"))) && !Array.isArray(jsonResponse)) {
     console.warn(`Todoist API: Expected array for ${endpoint}, but received non-array. Returning empty array.`);
     return [] as T;
