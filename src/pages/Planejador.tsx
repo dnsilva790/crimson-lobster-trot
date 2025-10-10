@@ -12,7 +12,7 @@ import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCi
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject } from "@/lib/types";
-import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner";
+import TimeSlotPlanner from "@/components/TimeSlotPlanner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
 import { useTodoist } from "@/context/TodoistContext";
@@ -448,7 +448,7 @@ const Planejador = () => {
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
     const slotStart = parse(time, "HH:mm", selectedDate);
-    const slotEnd = addMinutes(slotStart, durationMinutes);
+    let slotEnd = addMinutes(slotStart, durationMinutes); // `addMinutes` handles crossing midnight correctly
     const slotEndStr = format(slotEnd, "HH:mm");
 
     const dateKey = format(selectedDate, "yyyy-MM-dd");
@@ -473,7 +473,11 @@ const Planejador = () => {
     if (combinedBlocks.length > 0) {
       for (const block of combinedBlocks) {
         const blockStart = parse(block.start, "HH:mm", selectedDate);
-        const blockEnd = parse(block.end, "HH:mm", selectedDate);
+        let blockEnd = parse(block.end, "HH:mm", selectedDate);
+        // Adjust blockEnd if it crosses midnight
+        if (isBefore(blockEnd, blockStart)) {
+          blockEnd = addDays(blockEnd, 1);
+        }
 
         if (slotStart >= blockStart && slotEnd <= blockEnd) {
           let isCategoryMatch = false;
@@ -548,7 +552,7 @@ const Planejador = () => {
       for (let hour = startHour; hour < 24; hour++) {
         for (let minute = (hour === startHour ? startMinute : 0); minute < 60; minute += 15) {
           const slotStart = setMinutes(setHours(currentDayDate, hour), minute);
-          const slotEnd = addMinutes(slotStart, durationMinutes);
+          let slotEnd = addMinutes(slotStart, durationMinutes); // `addMinutes` handles crossing midnight correctly
           const slotStartStr = format(slotStart, "HH:mm");
           const slotEndStr = format(slotEnd, "HH:mm");
 
@@ -571,7 +575,11 @@ const Planejador = () => {
 
           for (const block of combinedBlocksForSuggestion) {
             const blockStart = parse(block.start, "HH:mm", currentDayDate);
-            const blockEnd = parse(block.end, "HH:mm", currentDayDate);
+            let blockEnd = parse(block.end, "HH:mm", currentDayDate);
+            // Adjust blockEnd if it crosses midnight
+            if (isBefore(blockEnd, blockStart)) {
+              blockEnd = addDays(blockEnd, 1);
+            }
 
             if (slotStart >= blockStart && slotEnd <= blockEnd) {
               let isCategoryMatch = false;

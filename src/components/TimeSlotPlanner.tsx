@@ -4,7 +4,7 @@ import React from "react";
 import { DaySchedule, TimeBlock, ScheduledTask, TimeBlockType } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { format, parseISO, setHours, setMinutes, addMinutes, isWithinInterval, parse, isBefore, isAfter, isEqual } from "date-fns";
+import { format, parseISO, setHours, setMinutes, addMinutes, isWithinInterval, parse, isBefore, isAfter, isEqual, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface TimeSlotPlannerProps {
@@ -43,7 +43,11 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
         // Check if this slot falls within any defined time blocks
         for (const block of daySchedule.timeBlocks) {
           const blockStart = parse(block.start, "HH:mm", today);
-          const blockEnd = parse(block.end, "HH:mm", today);
+          let blockEnd = parse(block.end, "HH:mm", today);
+          // Adjust blockEnd if it crosses midnight (e.g., 23:00 to 00:00)
+          if (isBefore(blockEnd, blockStart)) {
+            blockEnd = addDays(blockEnd, 1);
+          }
 
           // A block covers this 15-min slot if the slot's start is >= block's start
           // AND the slot's end is <= block's end.
