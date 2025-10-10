@@ -1,6 +1,6 @@
 import { TodoistTask, TodoistProject } from "@/lib/types";
 
-const TODOIST_API_BASE_URL = "https://api.todoist.com/api/v1"; // Atualizado para a API v1
+const TODOIST_API_BASE_URL = "https://api.todoist.com/api/v1";
 
 interface TodoistError {
   status: number;
@@ -12,11 +12,8 @@ async function todoistApiCall<T>(
   apiKey: string,
   method: string = "GET",
   body?: object,
-  baseUrl: string = TODOIST_API_BASE_URL, // Adicionado parâmetro para URL base
+  baseUrl: string = TODOIST_API_BASE_URL,
 ): Promise<T> {
-  // Sanitize the API key to ensure it only contains valid printable ASCII characters (0x20-0x7E).
-  // This helps prevent "String contains non ISO-8859-1 code point" errors
-  // if the API key was copied with invisible or non-standard characters.
   const sanitizedApiKey = apiKey.replace(/[^\x20-\x7E]/g, '');
 
   const headers: HeadersInit = {
@@ -30,8 +27,8 @@ async function todoistApiCall<T>(
     body: body ? JSON.stringify(body) : undefined,
   };
 
-  const url = `${baseUrl}${endpoint}`; // Usar a baseUrl fornecida
-  console.log("Todoist API Request URL:", url); // Log da URL para depuração
+  const url = `${baseUrl}${endpoint}`;
+  console.log("Todoist API Request URL:", url);
 
   const response = await fetch(url, config);
 
@@ -44,7 +41,12 @@ async function todoistApiCall<T>(
   }
 
   if (response.status === 204) {
-    return {} as T; // No content for successful DELETE/POST close
+    // Se o endpoint é para buscar uma lista de tarefas (e.g., /tasks), retorna um array vazio.
+    // Para outras respostas 204 (e.g., fechar uma tarefa), retorna undefined (que é tratado por makeApiCall).
+    if (endpoint === "/tasks" || (endpoint.startsWith("/tasks?") && !endpoint.includes("/tasks/"))) {
+      return [] as T; // Retorna array vazio para lista de tarefas
+    }
+    return undefined as T; // Para outros 204s (e.g., closeTask, que espera void)
   }
 
   return response.json() as Promise<T>;

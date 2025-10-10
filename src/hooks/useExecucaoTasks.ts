@@ -53,28 +53,28 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     }
     const finalTodoistFilter = todoistFilterParts.join(" & ");
 
-    // 1. Load tasks based on the filter first
+    // 1. Carregar tarefas com base no filtro primeiro
     if (useFilter && finalTodoistFilter) {
       tasksFromFilter = await fetchTasks(finalTodoistFilter, true); // Buscar todos os tipos de tarefas para o modo foco
       if (tasksFromFilter.length > 0) {
         toast.info(`Encontradas ${tasksFromFilter.length} tarefas com o filtro.`);
       }
     } else {
-      // If no specific filter is provided, fetch all tasks (this is the fallback if filter is empty)
+      // Se nenhum filtro específico for fornecido, buscar todas as tarefas
       tasksFromFilter = await fetchTasks(undefined, true);
       if (tasksFromFilter.length > 0) {
         toast.info(`Encontradas ${tasksFromFilter.length} tarefas sem filtro específico.`);
       }
     }
 
-    // 2. Consider Seiton's top task and add it to the beginning if it's not already in tasksFromFilter
+    // 2. Considerar a tarefa principal do ranking do Seiton
     const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
     if (savedSeitonState) {
       try {
-        const parsedState: SeitonStateSnapshot = JSON.parse(savedSeitonState);
+        const parsedState: SeitonStateSnapshot = JSON.parse(savedState);
         if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
           const potentialTopSeitonTask = parsedState.rankedTasks[0];
-          // Add Seiton task only if it's not already in the filtered list
+          // Adicionar a tarefa do Seiton apenas se ela não estiver já na lista filtrada
           if (!tasksFromFilter.some(task => task.id === potentialTopSeitonTask.id)) {
             topSeitonTask = potentialTopSeitonTask;
             toast.info(`Adicionada tarefa principal do ranking do Seiton: "${topSeitonTask.content}".`);
@@ -86,13 +86,19 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
       }
     }
 
-    // 3. Combine the lists, prioritizing the top Seiton task if it exists and is unique
+    // 3. Combinar as listas: tarefas filtradas primeiro, depois a tarefa única do Seiton (se houver)
     let combinedTasks = [...tasksFromFilter];
     if (topSeitonTask) {
-        combinedTasks = [topSeitonTask, ...combinedTasks];
+        combinedTasks.push(topSeitonTask); // Adicionar ao final, a ordenação cuidará da posição
     }
 
-    // 4. Sort the combined list
+    // 4. Se ainda não houver tarefas, fallback para buscar todas as tarefas (se um filtro foi aplicado e não retornou nada)
+    if (combinedTasks.length === 0 && (useFilter && finalTodoistFilter)) {
+        toast.info("Nenhuma tarefa encontrada com o filtro ou ranking Seiton. Tentando carregar todas as tarefas...");
+        combinedTasks = await fetchTasks(undefined, true);
+    }
+
+    // 5. Ordenar a lista combinada
     if (combinedTasks && combinedTasks.length > 0) {
       const sortedTasks = sortTasksForFocus(combinedTasks);
       setFocusTasks(sortedTasks);
