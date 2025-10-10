@@ -3,11 +3,10 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { TodoistTask } from "@/lib/types";
-import { cn } from "@/lib/utils"; // Removido getTaskType
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ExternalLink } from "lucide-react";
-// Removido: import { Badge } from "@/components/ui/badge"; // Importar Badge
 
 interface FocusTaskCardProps {
   task: TodoistTask;
@@ -33,13 +32,7 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
-    if (task.deadline?.date) {
-      dateElements.push(
-        <span key="deadline" className="font-semibold text-red-600 block">
-          Data Limite: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
-        </span>
-      );
-    }
+    // Removido: if (task.deadline?.date) { ... }
 
     if (task.due?.datetime) {
       dateElements.push(
@@ -62,15 +55,12 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
     return <div className="space-y-1">{dateElements}</div>;
   };
 
-  // Removido: const taskType = getTaskType(task);
-
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
       <div className="flex-grow">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
-            {/* Removido: {taskType && ( ... )} */}
           </div>
           <a href={task.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 hover:text-indigo-800">
             <ExternalLink className="h-5 w-5" />

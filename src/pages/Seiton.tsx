@@ -93,7 +93,6 @@ const Seiton = () => {
       }
 
       const getTaskDate = (task: TodoistTask) => {
-        if (task.deadline?.date) return new Date(task.deadline.date).getTime();
         if (task.due?.datetime) return new Date(task.due.datetime).getTime();
         if (task.due?.date) return new Date(task.due.date).getTime();
         return Infinity;
@@ -316,13 +315,7 @@ const Seiton = () => {
   const renderTaskDates = (task: TodoistTask) => {
     const dateElements: JSX.Element[] = [];
 
-    if (task.deadline?.date) {
-      dateElements.push(
-        <span key="deadline" className="font-semibold text-red-600 block">
-          Data Limite: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
-        </span>
-      );
-    }
+    // Removido: if (task.deadline?.date) { ... }
 
     if (task.due?.datetime) {
       dateElements.push(

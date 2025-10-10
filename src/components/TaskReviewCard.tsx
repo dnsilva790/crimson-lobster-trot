@@ -5,14 +5,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { format, setHours, setMinutes, parseISO } from "date-fns"; // Adicionado setHours, setMinutes, parseISO
+import { format, setHours, setMinutes, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { Label } from "@/components/ui/label"; // Adicionado Label
-import { Input } from "@/components/ui/input"; // Adicionado Input
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 interface TaskReviewCardProps {
   task: TodoistTask;
@@ -106,13 +106,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
-    if (task.deadline?.date) {
-      dateElements.push(
-        <span key="deadline" className="font-semibold text-red-600 block">
-          Data Limite: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
-        </span>
-      );
-    }
+    // Removido: if (task.deadline?.date) { ... }
 
     if (task.due?.datetime) {
       dateElements.push(

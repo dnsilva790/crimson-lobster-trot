@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge"; // Importar Badge
 
 interface GTDTaskCardProps {
   task: TodoistTask;
@@ -130,13 +131,7 @@ const GTDTaskCard: React.FC<GTDTaskCardProps> = ({
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
-    if (task.deadline?.date) {
-      dateElements.push(
-        <span key="deadline" className="font-semibold text-red-600 block">
-          Data Limite: {format(new Date(task.deadline.date), "dd/MM/yyyy", { locale: ptBR })}
-        </span>
-      );
-    }
+    // Removido: if (task.deadline?.date) { ... }
 
     if (task.due?.datetime) {
       dateElements.push(

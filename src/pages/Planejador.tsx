@@ -32,8 +32,8 @@ const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
 const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
   4: "P1",
   3: "P2",
-  2: "P3",
-  1: "P4",
+  1: "P3",
+  2: "P4",
 };
 
 const Planejador = () => {
@@ -174,9 +174,8 @@ const Planejador = () => {
         const priorityB = 'priority' in b ? b.priority : 1;
         if (priorityA !== priorityB) return priorityB - priorityA;
 
-        // 3. Depois, por prazo (deadline > due date/time > due date)
+        // 3. Depois, por prazo (due date/time > due date)
         const getTaskDateValue = (task: TodoistTask | InternalTask) => {
-          if ('deadline' in task && task.deadline?.date) return parseISO(task.deadline.date).getTime();
           if ('due' in task && task.due?.datetime) return parseISO(task.due.datetime).getTime();
           if ('due' in task && task.due?.date) return parseISO(task.due.date).getTime();
           return Infinity; // Tarefas sem prazo vão para o final
@@ -1162,11 +1161,7 @@ const Planejador = () => {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        {'deadline' in task && task.deadline?.date && (
-                          <span className="font-semibold text-red-600">
-                            DL: {format(parseISO(task.deadline.date), "dd/MM", { locale: ptBR })}
-                          </span>
-                        )}
+                        {/* Removido: {'deadline' in task && task.deadline?.date && ( ... )} */}
                         {'due' in task && task.due?.datetime && (
                           <span>Venc: {format(parseISO(task.due.datetime), "dd/MM HH:mm", { locale: ptBR })}</span>
                         )}

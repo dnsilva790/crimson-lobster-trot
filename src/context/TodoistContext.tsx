@@ -37,7 +37,7 @@ type MakeApiCallFn = <T>(
 
 const TodoistContext = createContext<TodoistContextType | undefined>(undefined);
 
-export const TodoistProvider = ({ children }: { ReactNode }) => {
+export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   const [apiKey, setApiKeyInternal] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 

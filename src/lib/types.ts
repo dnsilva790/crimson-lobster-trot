@@ -8,7 +8,7 @@ export interface TodoistTask {
   labels: string[];
   parent_id: string | null;
   order: number;
-  priority: 1 | 2 | 3 | 4; // 1: P4 (Baixa), 2: P3 (Média), 3: P2 (Alta), 3: P1 (Urgente)
+  priority: 1 | 2 | 3 | 4; // 1: P4 (Baixa), 2: P3 (Média), 3: P2 (Média), 4: P1 (Urgente)
   due: {
     date: string;
     string: string;
@@ -16,9 +16,6 @@ export interface TodoistTask {
     is_recurring: boolean;
     datetime: string | null;
     timezone: string | null;
-  } | null;
-  deadline: { // Reintroduzindo o campo deadline
-    date: string;
   } | null;
   duration: { // Adicionado o campo duration conforme a API do Todoist
     amount: number;

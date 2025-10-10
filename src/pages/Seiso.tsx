@@ -39,7 +39,6 @@ const Seiso = () => {
       // In a real scenario, Todoist API has a /completed endpoint or sync API for this.
       // For now, let's assume we're getting a list of tasks that *were* completed.
       // Since fetchTasks only gets *uncompleted* tasks, this part needs adjustment.
-      // For demonstration, let's assume `fetchTasks` could return completed tasks if filtered.
       // Or, we'd need a separate API call for completed tasks.
 
       // For now, let's simulate data for the chart based on some criteria
