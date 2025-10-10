@@ -417,7 +417,8 @@ const Planejador = () => {
     setTempEstimatedDuration("15");
     setTempSelectedCategory("none");
     setTempSelectedPriority(1);
-  }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask]); // Adicionar updateTask e updateInternalTask
+    fetchBacklogTasks(); // Re-fetch and re-sort the backlog after scheduling
+  }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask, fetchBacklogTasks]);
 
   const handleDeleteScheduledTask = useCallback((taskToDelete: ScheduledTask) => {
     setSchedules((prevSchedules) => {
