@@ -182,8 +182,9 @@ const Seiton = () => {
       setComparisonCandidate(null);
       setComparisonIndex(0);
     } else {
-      setComparisonIndex(0);
-      setComparisonCandidate(rankedTasks[0]);
+      // Começar a comparação com a última tarefa do ranking
+      setComparisonIndex(rankedTasks.length - 1);
+      setComparisonCandidate(rankedTasks[rankedTasks.length - 1]);
     }
   }, [tasksToProcess, rankedTasks, saveStateToHistory]);
 
@@ -240,34 +241,31 @@ const Seiton = () => {
       const isCurrentTaskToPlaceWinner = winner.id === currentTaskToPlace.id;
 
       if (isCurrentTaskToPlaceWinner) {
-        const nextComparisonIndex = comparisonIndex + 1;
-        if (nextComparisonIndex >= rankedTasks.length) {
-          if (rankedTasks.length < 24) { // Limit to 24 tasks in the ranking
-            setRankedTasks((prev) => [...prev, currentTaskToPlace]);
-          } else {
-            // If ranking is full, replace the last task with the new one if it's more important
-            setRankedTasks((prev) => [currentTaskToPlace, ...prev.slice(0, 23)]);
-          }
+        // currentTaskToPlace é mais importante que comparisonCandidate
+        const nextComparisonIndex = comparisonIndex - 1; // Move para cima na lista ranqueada
+
+        if (nextComparisonIndex < 0) {
+          // currentTaskToPlace é mais importante que todas as tarefas em rankedTasks
+          setRankedTasks((prev) => {
+            const newRanked = [currentTaskToPlace, ...prev]; // Insere no início
+            return newRanked.slice(0, 24); // Garante no máximo 24 tarefas
+          });
           setCurrentTaskToPlace(null);
           setComparisonCandidate(null);
           setComparisonIndex(0);
         } else {
+          // Continua comparando com a próxima tarefa de maior prioridade
           setComparisonIndex(nextComparisonIndex);
           setComparisonCandidate(rankedTasks[nextComparisonIndex]);
         }
       } else {
-        if (rankedTasks.length < 24 || comparisonIndex < 24) { // Ensure we don't exceed 24 tasks
-          setRankedTasks((prev) => {
-            const newRanked = [...prev];
-            newRanked.splice(comparisonIndex, 0, currentTaskToPlace);
-            if (newRanked.length > 24) { // Trim if it exceeds 24 after insertion
-              newRanked.pop();
-            }
-            return newRanked;
-          });
-        } else {
-          toast.info(`Tarefa "${currentTaskToPlace.content}" descartada pois o ranking já está cheio e ela não é mais prioritária.`);
-        }
+        // comparisonCandidate é mais importante que currentTaskToPlace
+        // Insere currentTaskToPlace *depois* de comparisonCandidate
+        setRankedTasks((prev) => {
+          const newRanked = [...prev];
+          newRanked.splice(comparisonIndex + 1, 0, currentTaskToPlace); // Insere após comparisonCandidate
+          return newRanked.slice(0, 24); // Garante no máximo 24 tarefas
+        });
         setCurrentTaskToPlace(null);
         setComparisonCandidate(null);
         setComparisonIndex(0);
