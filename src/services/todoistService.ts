@@ -1,6 +1,6 @@
 import { TodoistTask, TodoistProject } from "@/lib/types";
 
-const TODOIST_API_BASE_URL = "https://api.todoist.com/rest/v2"; // Alterado para a API REST v2
+const TODOIST_API_BASE_URL = "https://api.todoist.com/rest/v2"; // Confirmando que é a API REST v2
 
 interface TodoistError {
   status: number;
@@ -46,7 +46,8 @@ async function todoistApiCall<T>(
 
   if (response.status === 204) {
     console.log(`Todoist API Response Body for ${url}:`, "No Content (204)"); // Log para 204
-    if (endpoint === "/tasks" || (endpoint.startsWith("/tasks?") && !endpoint.includes("/tasks/"))) {
+    // Para endpoints que são esperados retornar arrays, retornar um array vazio em caso de 204
+    if (endpoint.startsWith("/tasks") || endpoint.startsWith("/projects")) {
       return [] as T;
     }
     return undefined as T;
@@ -55,7 +56,8 @@ async function todoistApiCall<T>(
   const jsonResponse = await response.json();
   console.log(`Todoist API Response Body for ${url}:`, jsonResponse); // Log do corpo da resposta JSON
 
-  if ((endpoint === "/tasks" || (endpoint.startsWith("/tasks?") && !endpoint.includes("/tasks/"))) && !Array.isArray(jsonResponse)) {
+  // Adicionar verificação para /projects também, garantindo que sempre seja um array
+  if ((endpoint.startsWith("/tasks") || endpoint.startsWith("/projects")) && !Array.isArray(jsonResponse)) {
     console.warn(`Todoist API: Expected array for ${endpoint}, but received non-array. Returning empty array.`);
     return [] as T;
   }
