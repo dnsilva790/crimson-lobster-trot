@@ -12,7 +12,7 @@ import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCi
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject } from "@/lib/types";
-import TimeSlotPlanner from "@/components/TimeSlotPlanner";
+import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner"; // Caminho de importação atualizado
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
 import { useTodoist } from "@/context/TodoistContext";
@@ -204,6 +204,25 @@ const Planejador = () => {
   useEffect(() => {
     fetchBacklogTasks();
   }, [fetchBacklogTasks]);
+
+  // Efeito para sincronizar selectedTaskToSchedule com backlogTasks
+  useEffect(() => {
+    if (selectedTaskToSchedule && backlogTasks.length > 0) {
+      const updatedSelectedTask = backlogTasks.find(
+        (task) => task.id === selectedTaskToSchedule.id
+      );
+      if (updatedSelectedTask && updatedSelectedTask !== selectedTaskToSchedule) {
+        // Se a tarefa foi atualizada no backlog, atualize selectedTaskToSchedule e seus estados temporários
+        setSelectedTaskToSchedule(updatedSelectedTask);
+        setTempEstimatedDuration(String(updatedSelectedTask.estimatedDurationMinutes || 15));
+        const initialCategory = getTaskCategory(updatedSelectedTask);
+        setTempSelectedCategory(initialCategory || "none");
+        const initialPriority = 'priority' in updatedSelectedTask ? updatedSelectedTask.priority : 1;
+        setTempSelectedPriority(initialPriority);
+        toast.info(`Detalhes da tarefa selecionada atualizados no planejador.`);
+      }
+    }
+  }, [backlogTasks, selectedTaskToSchedule]); // Depende de backlogTasks e selectedTaskToSchedule
 
   const handleAddBlock = useCallback(() => {
     if (!newBlockStart || !newBlockEnd) {
@@ -467,7 +486,7 @@ const Planejador = () => {
     }
 
     let fitsInAppropriateBlock = false;
-    const taskCategory = tempSelectedCategory === "none" ? (getTaskCategory(selectedTaskToSchedule)) : tempSelectedCategory; // Usar a categoria temporária
+    const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory; // Usar a categoria temporária
     const combinedBlocks = getCombinedTimeBlocksForDate(selectedDate);
 
     if (combinedBlocks.length > 0) {
@@ -514,7 +533,7 @@ const Planejador = () => {
     }
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
-    const taskCategory = tempSelectedCategory === "none" ? (getTaskCategory(selectedTaskToSchedule)) : tempSelectedCategory; // Usar a categoria temporária
+    const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory; // Usar a categoria temporária
     const taskPriority = tempSelectedPriority; // Usar a prioridade temporária
 
     let bestSlot: { start: string; end: string; date: string } | null = null;
