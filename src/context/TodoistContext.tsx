@@ -81,6 +81,12 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
     async (filter?: string, includeSubtasksAndRecurring: boolean = false) => {
       const allTasks = (await makeApiCall(todoistService.fetchTasks, filter)) || [];
       
+      // Adiciona um log para inspecionar as tarefas brutas da API
+      console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
+      allTasks.forEach(task => {
+        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, parent_id: ${task.parent_id}`);
+      });
+
       // Calcula estimatedDurationMinutes para todas as tarefas
       const tasksWithDuration = allTasks.map(task => {
         let estimatedDurationMinutes = 15; // Padrão de 15 minutos
@@ -96,19 +102,21 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       });
 
       // Lógica de filtragem aprimorada:
-      // - Se includeSubtasksAndRecurring for explicitamente true, não filtra.
       // - Se includeSubtasksAndRecurring for explicitamente false, filtra.
-      // - Se includeSubtasksAndRecurring for undefined (não passado):
-      //   - Se um filtro for fornecido, filtra (comportamento padrão para visualizações filtradas).
-      //   - Se NENHUM filtro for fornecido, NÃO filtra (comportamento padrão para visualizações de "todas as tarefas").
-      const shouldFilter = includeSubtasksAndRecurring === false || (includeSubtasksAndRecurring === undefined && filter !== undefined);
+      // - Se includeSubtasksAndRecurring for undefined (não passado) E um filtro for fornecido, filtra.
+      // Em todos os outros casos (incluindo includeSubtasksAndRecurring = true), NÃO filtra.
+      const shouldFilterOutSubtasksAndRecurring = includeSubtasksAndRecurring === false || (includeSubtasksAndRecurring === undefined && filter !== undefined);
 
-      if (shouldFilter) {
+      console.log("TodoistContext: fetchTasks chamado com filter:", filter, "includeSubtasksAndRecurring:", includeSubtasksAndRecurring, "shouldFilterOutSubtasksAndRecurring:", shouldFilterOutSubtasksAndRecurring);
+
+      if (shouldFilterOutSubtasksAndRecurring) {
         const processedTasks = tasksWithDuration
           .filter(task => task.parent_id === null && task.due?.is_recurring !== true);
         
+        console.log("TodoistContext: Filtrando tarefas (subtarefas e recorrentes). Contagem original:", tasksWithDuration.length, "Contagem filtrada:", processedTasks.length);
         return processedTasks;
       } else {
+        console.log("TodoistContext: Não filtrando tarefas (subtarefas e recorrentes). Contagem:", tasksWithDuration.length);
         return tasksWithDuration;
       }
     },
