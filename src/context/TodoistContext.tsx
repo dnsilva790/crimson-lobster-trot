@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import { todoistService } from "@/services/todoistService";
-import { TodoistTask, TodoistProject } from "@/lib/types"; // Importar TodoistProject
+import { TodoistTask, TodoistProject } from "@/lib/types";
 import { toast } from "sonner";
 
 interface TodoistContextType {
@@ -14,7 +14,7 @@ interface TodoistContextType {
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
   fetchTasks: (filter?: string, includeSubtasksAndRecurring?: boolean) => Promise<TodoistTask[]>;
-  fetchProjects: () => Promise<TodoistProject[]>; // Nova função
+  fetchProjects: () => Promise<TodoistProject[]>;
   closeTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   updateTask: (taskId: string, data: {
@@ -24,8 +24,8 @@ interface TodoistContextType {
     due_date?: string | null;
     due_datetime?: string | null;
     labels?: string[];
-    duration?: number; // Adicionado para a API do Todoist
-    duration_unit?: "minute" | "day"; // Adicionado para a API do Todoist
+    duration?: number;
+    duration_unit?: "minute" | "day";
   }) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
@@ -60,8 +60,8 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         const result = await apiFunction(apiKey, ...args);
         return result;
       } catch (error: any) {
-        console.error("Todoist API Error:", error);
-        if (error.status === 401 || error.status === 403) { // Tratamento para 401 e 403
+        console.error("Todoist API Error in makeApiCall:", error); // Log do objeto de erro completo
+        if (error.status === 401 || error.status === 403) {
           toast.error("API key inválida ou sem permissão. Configure novamente.");
           clearApiKey();
         } else if (error.status === 500) {
@@ -93,30 +93,23 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         allTasks = [];
       }
       
-      // Adiciona um log para inspecionar as tarefas brutas da API
       console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
-      allTasks.forEach(task => { // This forEach is now safe because allTasks is guaranteed to be an array
+      allTasks.forEach(task => {
         console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, parent_id: ${task.parent_id}`);
       });
 
-      // Calcula estimatedDurationMinutes para todas as tarefas
       const tasksWithDuration = allTasks.map(task => {
-        let estimatedDurationMinutes = 15; // Padrão de 15 minutos
+        let estimatedDurationMinutes = 15;
         if (task.duration) {
           if (task.duration.unit === "minute") {
             estimatedDurationMinutes = task.duration.amount;
           } else if (task.duration.unit === "day") {
-            // Assumindo 8 horas de trabalho por dia para converter dias em minutos
             estimatedDurationMinutes = task.duration.amount * 8 * 60;
           }
         }
         return { ...task, estimatedDurationMinutes };
       });
 
-      // Lógica de filtragem aprimorada:
-      // - Se includeSubtasksAndRecurring for explicitamente false, filtra.
-      // - Se includeSubtasksAndRecurring for undefined (não passado) E um filtro for fornecido, filtra.
-      // Em todos os outros casos (incluindo includeSubtasksAndRecurring = true), NÃO filtra.
       const shouldFilterOutSubtasksAndRecurring = includeSubtasksAndRecurring === false || (includeSubtasksAndRecurring === undefined && filter !== undefined);
 
       console.log("TodoistContext: fetchTasks chamado com filter:", filter, "includeSubtasksAndRecurring:", includeSubtasksAndRecurring, "shouldFilterOutSubtasksAndRecurring:", shouldFilterOutSubtasksAndRecurring);
@@ -176,7 +169,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         setApiKey,
         clearApiKey,
         fetchTasks,
-        fetchProjects, // Expondo a nova função
+        fetchProjects,
         closeTask,
         deleteTask,
         updateTask,

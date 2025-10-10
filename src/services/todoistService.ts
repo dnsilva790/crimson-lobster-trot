@@ -1,6 +1,6 @@
 import { TodoistTask, TodoistProject } from "@/lib/types";
 
-const TODOIST_API_BASE_URL = "https://api.todoist.com/rest/v2"; // Confirmando que é a API REST v2
+const TODOIST_API_BASE_URL = "https://api.todoist.com/rest/v2";
 
 interface TodoistError {
   status: number;
@@ -28,41 +28,49 @@ async function todoistApiCall<T>(
   };
 
   const url = `${baseUrl}${endpoint}`;
-  console.log("Todoist API Request URL:", url); // Log da URL da requisição
+  console.log("Todoist API Request URL:", url);
 
-  const response = await fetch(url, config);
+  try {
+    const response = await fetch(url, config);
 
-  console.log(`Todoist API Response Status for ${url}:`, response.status); // Log do status da resposta
+    console.log(`Todoist API Response Status for ${url}:`, response.status);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Todoist API Error Response Body for ${url}:`, errorText); // Log do corpo do erro
-    const errorData: TodoistError = {
-      status: response.status,
-      message: errorText,
-    };
-    throw errorData;
-  }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Todoist API Error Response Body for ${url}:`, errorText);
+      const errorData: TodoistError = {
+        status: response.status,
+        message: errorText,
+      };
+      throw errorData; // Re-throw para ser capturado pelo makeApiCall
+    }
 
-  if (response.status === 204) {
-    console.log(`Todoist API Response Body for ${url}:`, "No Content (204)"); // Log para 204
-    // Para endpoints que são esperados retornar arrays, retornar um array vazio em caso de 204
+    if (response.status === 204) {
+      console.log(`Todoist API Response Body for ${url}:`, "No Content (204)");
+      if (endpoint.startsWith("/tasks") || endpoint.startsWith("/projects")) {
+        return [] as T;
+      }
+      return undefined as T;
+    }
+
+    const jsonResponse = await response.json();
+    console.log(`Todoist API Response Body for ${url}:`, jsonResponse);
+
+    if ((endpoint.startsWith("/tasks") || endpoint.startsWith("/projects")) && !Array.isArray(jsonResponse)) {
+      console.warn(`Todoist API: Expected array for ${endpoint}, but received non-array. Returning empty array.`);
+      return [] as T;
+    }
+
+    return jsonResponse as T;
+
+  } catch (error: any) {
+    console.error(`Todoist API Call failed for ${url}:`, error);
+    // Se for um endpoint de tarefas ou projetos, retorna um array vazio em caso de erro
     if (endpoint.startsWith("/tasks") || endpoint.startsWith("/projects")) {
       return [] as T;
     }
-    return undefined as T;
+    throw error; // Re-lança outros erros
   }
-
-  const jsonResponse = await response.json();
-  console.log(`Todoist API Response Body for ${url}:`, jsonResponse); // Log do corpo da resposta JSON
-
-  // Adicionar verificação para /projects também, garantindo que sempre seja um array
-  if ((endpoint.startsWith("/tasks") || endpoint.startsWith("/projects")) && !Array.isArray(jsonResponse)) {
-    console.warn(`Todoist API: Expected array for ${endpoint}, but received non-array. Returning empty array.`);
-    return [] as T;
-  }
-
-  return jsonResponse as T;
 }
 
 export const todoistService = {
@@ -87,11 +95,11 @@ export const todoistService = {
     content?: string;
     description?: string;
     priority?: 1 | 2 | 3 | 4;
-    due_date?: string | null; // YYYY-MM-DD
-    due_datetime?: string | null; // YYYY-MM-DDTHH:MM:SS
+    due_date?: string | null;
+    due_datetime?: string | null;
     labels?: string[];
-    duration?: number; // Adicionado para a API do Todoist
-    duration_unit?: "minute" | "day"; // Adicionado para a API do Todoist
+    duration?: number;
+    duration_unit?: "minute" | "day";
   }): Promise<TodoistTask> => {
     return todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", data);
   },
