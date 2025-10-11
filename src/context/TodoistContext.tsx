@@ -1,4 +1,4 @@
-import React, {
+import React,
   createContext,
   useContext,
   useState,
@@ -106,9 +106,19 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}`);
       });
 
+      // Sanitize 'due' object fields if they are the string "undefined"
+      const sanitizedTasks = rawTasks.map(task => {
+        if (task.due) {
+          if (task.due.date === "undefined") task.due.date = null;
+          if (task.due.datetime === "undefined") task.due.datetime = null;
+          if (task.due.string === "undefined") task.due.string = null;
+        }
+        return task;
+      });
+
       // FILTRO UNIVERSAL: Remover tarefas recorrentes "every hour"
-      const filteredHourlyRecurring = rawTasks.filter(task => 
-        !(task.due?.is_recurring === true && task.due?.string.toLowerCase().includes("every hour"))
+      const filteredHourlyRecurring = sanitizedTasks.filter(task => // Use sanitizedTasks here
+        !(task.due?.is_recurring === true && task.due?.string?.toLowerCase().includes("every hour")) // Add optional chaining for .string
       );
 
       console.log("TodoistContext: Tarefas após filtro 'every hour'. Original:", rawTasks.length, "Filtrado:", filteredHourlyRecurring.length);

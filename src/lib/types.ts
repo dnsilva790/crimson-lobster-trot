@@ -10,8 +10,8 @@ export interface TodoistTask {
   order: number;
   priority: 1 | 2 | 3 | 4; // 1: P4 (Baixa), 2: P3 (Média), 3: P2 (Média), 4: P1 (Urgente)
   due: {
-    date: string;
-    string: string;
+    date: string | null; // Alterado para permitir null
+    string: string | null; // Alterado para permitir null
     lang: string;
     is_recurring: boolean;
     datetime: string | null;
