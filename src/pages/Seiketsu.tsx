@@ -89,15 +89,24 @@ const Seiketsu = () => {
       if (savedState) {
         try {
           const parsedState: GtdProcessorState = JSON.parse(savedState);
-          setGtdState(parsedState.gtdState);
+          
+          let newGtdState = parsedState.gtdState;
+          // Se estivermos no estado de revisão mas não houver tarefas, resetar para inicial
+          if (newGtdState === "reviewing" && (!parsedState.tasksToProcess || parsedState.tasksToProcess.length === 0)) {
+            newGtdState = "initial"; 
+            toast.warning("Estado de revisão inválido detectado (sem tarefas). Reiniciando o processamento.");
+          }
+
+          setGtdState(newGtdState);
           setActionableStep(parsedState.actionableStep);
-          setTasksToProcess(parsedState.tasksToProcess);
+          setTasksToProcess(parsedState.tasksToProcess || []); // Garante que seja um array
           setCurrentTaskIndex(parsedState.currentTaskIndex);
           setInboxFilter(parsedState.inboxFilter);
           setSelectedDueDate(parsedState.selectedDueDate ? parseISO(parsedState.selectedDueDate.toISOString()) : undefined);
           setSelectedDueTime(parsedState.selectedDueTime);
           setDelegateName(parsedState.delegateName);
-          if (parsedState.gtdState === "reviewing" && parsedState.tasksToProcess.length > 0) {
+          
+          if (newGtdState === "reviewing" && parsedState.tasksToProcess.length > 0) {
             toast.info("Processamento GTD retomado.");
           }
         } catch (e) {

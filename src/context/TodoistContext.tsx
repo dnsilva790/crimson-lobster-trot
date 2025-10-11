@@ -30,10 +30,11 @@ interface TodoistContextType {
   isLoading: boolean;
 }
 
+// Alterado o tipo de retorno para sempre T, assumindo que T é um array para funções de busca de lista
 type MakeApiCallFn = <T>(
   apiFunction: (key: string, ...args: any[]) => Promise<T>,
   ...args: any[]
-) => Promise<T | undefined>;
+) => Promise<T>;
 
 const TodoistContext = createContext<TodoistContextType | undefined>(undefined);
 
@@ -51,9 +52,12 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
   const makeApiCall: MakeApiCallFn = useCallback(
     async (apiFunction, ...args) => {
+      const isFetchingList = (apiFunction === todoistService.fetchTasks || apiFunction === todoistService.fetchProjects);
+
       if (!apiKey) {
         toast.error("API key não configurada.");
-        return undefined;
+        // Retorna um array vazio para funções que buscam listas, undefined para outras
+        return isFetchingList ? [] as any : undefined as any; 
       }
       setIsLoading(true);
       try {
@@ -70,12 +74,8 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
           toast.error(`Erro na API: ${error.message || "Erro desconhecido"}`);
         }
         
-        // Se a função API esperava um array (como fetchTasks ou fetchProjects),
-        // retorne um array vazio em caso de erro para evitar que o código que espera um array falhe.
-        if (apiFunction === todoistService.fetchTasks || apiFunction === todoistService.fetchProjects) {
-          return [] as typeof apiFunction extends (...args: any[]) => Promise<infer R> ? R : undefined;
-        }
-        return undefined;
+        // Retorna um array vazio em caso de erro para funções que buscam listas
+        return isFetchingList ? [] as any : undefined as any; 
       } finally {
         setIsLoading(false);
       }
@@ -85,22 +85,15 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchTasks = useCallback(
     async (filter?: string, includeSubtasksAndRecurring: boolean = false) => {
-      let allTasks: TodoistTask[] = [];
-      // makeApiCall agora lida com o try-catch e retorna [] em caso de erro para fetchTasks
+      // rawTasks agora será sempre um array devido às mudanças em makeApiCall
       const rawTasks = await makeApiCall(todoistService.fetchTasks, filter);
-      if (Array.isArray(rawTasks)) {
-        allTasks = rawTasks;
-      } else {
-        console.warn("TodoistContext: makeApiCall did not return an array for tasks. Received:", rawTasks);
-        allTasks = [];
-      }
       
       console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
-      allTasks.forEach(task => {
+      rawTasks.forEach(task => { // rawTasks é garantido ser um array aqui
         console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, parent_id: ${task.parent_id}`);
       });
 
-      const tasksWithDuration = allTasks.map(task => {
+      const tasksWithDuration = rawTasks.map(task => {
         let estimatedDurationMinutes = 15;
         if (task.duration) {
           if (task.duration.unit === "minute") {
@@ -131,8 +124,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const fetchProjects = useCallback(async () => {
-    // makeApiCall agora lida com o try-catch e retorna [] em caso de erro para fetchProjects
-    return (await makeApiCall(todoistService.fetchProjects)) || [];
+    return await makeApiCall(todoistService.fetchProjects); // Sempre retornará um array
   }, [makeApiCall]);
 
   const closeTask = useCallback(
