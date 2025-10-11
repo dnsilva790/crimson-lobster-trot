@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
@@ -24,7 +24,7 @@ interface TaskReviewCardProps {
   onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>;
   onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
   onPostpone: (taskId: string) => Promise<void>;
-  onUpdateDuration: (taskId: string, duration: number | null) => Promise<void>; // Nova prop
+  onUpdateDuration: (taskId: string, duration: number | null) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -52,7 +52,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onUpdateDeadline,
   onUpdateFieldDeadline,
   onPostpone,
-  onUpdateDuration, // Nova prop
+  onUpdateDuration,
   isLoading,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
@@ -75,6 +75,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       : ""
   );
 
+  const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     console.log("TaskReviewCard: Task prop changed. Updating local states.");
@@ -149,16 +150,23 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     setIsFieldDeadlinePopoverOpen(false);
   };
 
-  const handleDurationChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDurationChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSelectedDuration(value);
-    const duration = parseInt(value, 10);
-    if (!isNaN(duration) && duration > 0) {
-      await onUpdateDuration(task.id, duration);
-    } else if (value === "") {
-      await onUpdateDuration(task.id, null); // Clear duration if input is empty
+
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
     }
-  };
+
+    debounceTimeout.current = setTimeout(async () => {
+      const duration = parseInt(value, 10);
+      if (!isNaN(duration) && duration > 0) {
+        await onUpdateDuration(task.id, duration);
+      } else if (value === "") {
+        await onUpdateDuration(task.id, null); // Clear duration if input is empty
+      }
+    }, 500); // 500ms debounce
+  }, [onUpdateDuration, task.id]);
 
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
