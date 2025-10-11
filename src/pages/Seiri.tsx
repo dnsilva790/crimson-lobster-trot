@@ -10,6 +10,7 @@ import TaskReviewCard from "@/components/TaskReviewCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { XCircle } from "lucide-react"; // Importar ícones
+import { addMinutes, setMinutes, setHours, format, isBefore } from 'date-fns';
 
 type ReviewState = "initial" | "reviewing" | "finished";
 
@@ -184,6 +185,65 @@ const Seiri = () => {
     }
   }, [tasksToReview, updateTask]);
 
+  const handleUpdateFieldDeadline = useCallback(async (taskId: string, deadlineDate: string | null) => {
+    console.log("Seiri: onUpdateFieldDeadline called. Task ID:", taskId, "Deadline Date:", deadlineDate);
+    const updated = await updateTask(taskId, { deadline: deadlineDate });
+    if (updated) {
+      console.log("Seiri: Task updated successfully. New deadline from API:", updated.deadline);
+      setTasksToReview(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, deadline: updated.deadline } : task
+        )
+      );
+      toast.success("Deadline da tarefa atualizado com sucesso!");
+    } else {
+      console.error("Seiri: Failed to update task deadline.");
+      toast.error("Falha ao atualizar o deadline da tarefa.");
+    }
+  }, [tasksToReview, updateTask]);
+
+  const calculateNext15MinInterval = useCallback((currentDate: Date): { date: string, datetime: string } => {
+    let nextTime = addMinutes(currentDate, 15); // Adiciona 15 minutos à hora atual
+
+    // Arredonda para baixo para o próximo intervalo de 15 minutos
+    const minutes = nextTime.getMinutes();
+    const roundedMinutes = Math.floor(minutes / 15) * 15;
+    nextTime = setMinutes(nextTime, roundedMinutes);
+    nextTime = setHours(nextTime, nextTime.getHours()); // Garante que as horas também sejam definidas corretamente após o ajuste dos minutos
+
+    // Se o tempo calculado ainda estiver no passado (por exemplo, se a hora atual fosse 10:00:01 e arredondamos para 10:00:00),
+    // ou se for exatamente a hora atual, avance mais 15 minutos.
+    // Isso garante que sempre obtemos um slot de 15 minutos *futuro*.
+    if (isBefore(nextTime, currentDate) || nextTime.getTime() === currentDate.getTime()) {
+      nextTime = addMinutes(nextTime, 15);
+    }
+
+    return {
+      date: format(nextTime, "yyyy-MM-dd"),
+      datetime: format(nextTime, "yyyy-MM-dd'T'HH:mm:ss"),
+    };
+  }, []);
+
+  const handlePostpone = useCallback(async (taskId: string) => {
+    const nextInterval = calculateNext15MinInterval(new Date());
+    const updated = await updateTask(taskId, {
+      due_date: nextInterval.date,
+      due_datetime: nextInterval.datetime,
+    });
+    if (updated) {
+      setTasksToReview(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, due: updated.due } : task
+        )
+      );
+      toast.success(`Tarefa postergada para ${format(new Date(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
+      handleNextTask();
+    } else {
+      toast.error("Falha ao postergar a tarefa.");
+    }
+  }, [calculateNext15MinInterval, updateTask, handleNextTask]);
+
+
   const handleClearFilter = useCallback(() => {
     setFilterInput(""); // Limpa o input do filtro
     // loadTasks será chamado automaticamente pelo useEffect do filterInput,
@@ -255,22 +315,8 @@ const Seiri = () => {
             onUpdateCategory={handleUpdateCategory}
             onUpdatePriority={handleUpdatePriority}
             onUpdateDeadline={handleUpdateDeadline} // Passando a nova função
-            onUpdateFieldDeadline={async (taskId, deadlineDate) => {
-              console.log("Seiri: onUpdateFieldDeadline called. Task ID:", taskId, "Deadline Date:", deadlineDate);
-              const updated = await updateTask(taskId, { deadline: deadlineDate });
-              if (updated) {
-                console.log("Seiri: Task updated successfully. New deadline from API:", updated.deadline);
-                setTasksToReview(prevTasks =>
-                  prevTasks.map(task =>
-                    task.id === taskId ? { ...task, deadline: updated.deadline } : task
-                  )
-                );
-                toast.success("Deadline da tarefa atualizado com sucesso!");
-              } else {
-                console.error("Seiri: Failed to update task deadline.");
-                toast.error("Falha ao atualizar o deadline da tarefa.");
-              }
-            }}
+            onUpdateFieldDeadline={handleUpdateFieldDeadline}
+            onPostpone={handlePostpone} // Passando a nova função de postergar
             isLoading={isLoading}
           />
         </div>

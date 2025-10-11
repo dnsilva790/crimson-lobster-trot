@@ -7,7 +7,7 @@ import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format, setHours, setMinutes, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon } from "lucide-react";
+import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock } from "lucide-react"; // Adicionado Clock para o botão Postergue
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ interface TaskReviewCardProps {
   onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void;
   onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>;
   onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>; // Nova prop para o campo deadline
+  onPostpone: (taskId: string) => Promise<void>; // Nova prop para postergar
   isLoading: boolean;
 }
 
@@ -49,6 +50,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onUpdatePriority,
   onUpdateDeadline,
   onUpdateFieldDeadline,
+  onPostpone, // Nova prop
   isLoading,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
@@ -247,7 +249,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"> {/* Ajustado para 2 colunas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6"> {/* Ajustado para 3 colunas */}
         <Button
           onClick={() => onKeep(task.id)}
           disabled={isLoading}
@@ -262,7 +264,13 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         >
           <Check className="mr-2 h-5 w-5" /> Concluir
         </Button>
-        {/* Botão Excluir removido */}
+        <Button
+          onClick={() => onPostpone(task.id)}
+          disabled={isLoading}
+          className="bg-yellow-500 hover:bg-yellow-600 text-white py-3 text-md flex items-center justify-center"
+        >
+          <Clock className="mr-2 h-5 w-5" /> Postergue
+        </Button>
       </div>
       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         <Popover open={isDeadlinePopoverOpen} onOpenChange={setIsDeadlinePopoverOpen}>
