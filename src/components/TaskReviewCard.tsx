@@ -44,11 +44,11 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   task,
   onKeep,
   onComplete,
-  onDelete,
+  onDelete, // Mantido na interface, mas o botão será removido
   onUpdateCategory,
   onUpdatePriority,
   onUpdateDeadline,
-  onUpdateFieldDeadline, // Nova prop
+  onUpdateFieldDeadline,
   isLoading,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
@@ -60,7 +60,6 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   );
   const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
 
-  // Novos estados para o campo 'deadline'
   const [selectedFieldDeadlineDate, setSelectedFieldDeadlineDate] = useState<Date | undefined>(
     task.deadline ? parseISO(task.deadline) : undefined
   );
@@ -78,10 +77,10 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     }
     setSelectedDueDate(task.due?.date ? parseISO(task.due.date) : undefined);
     setSelectedDueTime(task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "");
-    setSelectedFieldDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined); // Atualiza o estado do deadline
+    setSelectedFieldDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined);
     console.log("TaskReviewCard: New task.deadline:", task.deadline);
     console.log("TaskReviewCard: New selectedFieldDeadlineDate:", task.deadline ? parseISO(task.deadline) : undefined);
-  }, [task]); // Depende da tarefa para atualizar os estados
+  }, [task]);
 
   const handleCategoryChange = (newCategory: "pessoal" | "profissional" | "none") => {
     setSelectedCategory(newCategory);
@@ -116,7 +115,6 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     setIsDeadlinePopoverOpen(false);
   };
 
-  // Funções para o novo campo 'deadline'
   const handleSetFieldDeadline = async () => {
     console.log("TaskReviewCard: handleSetFieldDeadline called.");
     if (!selectedFieldDeadlineDate) {
@@ -132,6 +130,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   const handleClearFieldDeadline = async () => {
     console.log("TaskReviewCard: handleClearFieldDeadline called.");
     await onUpdateFieldDeadline(task.id, null);
+    setSelectedFieldDeadlineDate(undefined);
     setIsFieldDeadlinePopoverOpen(false);
   };
 
@@ -144,7 +143,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
         </span>
       );
-    } else if (task.due?.date) { // Only show due.date if due.datetime is not present
+    } else if (task.due?.date) {
       dateElements.push(
         <span key="due-date" className="block">
           Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
@@ -248,7 +247,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"> {/* Ajustado para 2 colunas */}
         <Button
           onClick={() => onKeep(task.id)}
           disabled={isLoading}
@@ -263,13 +262,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         >
           <Check className="mr-2 h-5 w-5" /> Concluir
         </Button>
-        <Button
-          onClick={() => onDelete(task.id)}
-          disabled={isLoading}
-          className="bg-red-500 hover:bg-red-600 text-white py-3 text-md flex items-center justify-center"
-        >
-          <Trash2 className="mr-2 h-5 w-5" /> Excluir
-        </Button>
+        {/* Botão Excluir removido */}
       </div>
       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         <Popover open={isDeadlinePopoverOpen} onOpenChange={setIsDeadlinePopoverOpen}>
@@ -324,7 +317,6 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           </PopoverContent>
         </Popover>
 
-        {/* Novo Popover para o campo 'deadline' */}
         <Popover open={isFieldDeadlinePopoverOpen} onOpenChange={setIsFieldDeadlinePopoverOpen}>
           <PopoverTrigger asChild>
             <Button
