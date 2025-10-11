@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { format, setHours, setMinutes, parseISO, isValid } from "date-fns"; // Adicionado isValid
+import { format, setHours, setMinutes, parseISO, isValid, parse } from "date-fns"; // Adicionado parse
 import { ptBR } from "date-fns/locale";
 import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -89,8 +89,40 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     } else {
       setSelectedCategory("none");
     }
-    setSelectedDueDate(task.due?.date ? parseISO(task.due.date) : undefined);
-    setSelectedDueTime(task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "");
+    
+    // Ajuste para parsear due.string se due.date e due.datetime não estiverem presentes
+    let initialDueDate: Date | undefined;
+    let initialDueTime: string = "";
+
+    if (task.due?.datetime) {
+      const parsed = parseISO(task.due.datetime);
+      if (isValid(parsed)) {
+        initialDueDate = parsed;
+        initialDueTime = format(parsed, "HH:mm");
+      }
+    } else if (task.due?.date) {
+      const parsed = parseISO(task.due.date);
+      if (isValid(parsed)) {
+        initialDueDate = parsed;
+      }
+    } else if (task.due?.string) {
+      // Tentar parsear due.string com um formato mais flexível
+      const parsed = parse(task.due.string, "dd MMM HH:mm", new Date()); // Ex: "11 Oct 15:15"
+      if (isValid(parsed)) {
+        initialDueDate = parsed;
+        initialDueTime = format(parsed, "HH:mm");
+      } else {
+        // Tentar outro formato se o primeiro falhar (ex: "today", "tomorrow")
+        const parsedSimple = parse(task.due.string, "MMM dd", new Date()); // Ex: "Oct 11"
+        if (isValid(parsedSimple)) {
+          initialDueDate = parsedSimple;
+        }
+      }
+    }
+
+    setSelectedDueDate(initialDueDate);
+    setSelectedDueTime(initialDueTime);
+
     setSelectedFieldDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined);
     setSelectedDuration(
       task.duration?.amount && task.duration.unit === "minute"
@@ -117,11 +149,13 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
 
     if (selectedDueTime) {
       try {
-        const [hours, minutes] = selectedDueTime.split(":").map(Number);
+        // Garantir que selectedDueTime é uma string antes de chamar split
+        const timeString = String(selectedDueTime);
+        const [hours, minutes] = timeString.split(":").map(Number);
         const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
         finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
       } catch (error) {
-        console.error(`Error splitting selectedDueTime for task ${task.id} (${task.content}):`, selectedDueTime, error);
+        console.error(`Error processing selectedDueTime for task ${task.id} (${task.content}):`, selectedDueTime, error);
         toast.error("Erro ao processar a hora de vencimento. Verifique o formato.");
         return; // Prevent further execution with bad data
       }
@@ -180,6 +214,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
+    // Priorizar due.datetime
     if (task.due?.datetime) {
       const parsedDate = parseISO(task.due.datetime);
       if (isValid(parsedDate)) {
@@ -189,7 +224,9 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           </span>
         );
       }
-    } else if (task.due?.date) {
+    } 
+    // Se não houver due.datetime, verificar due.date
+    else if (task.due?.date) {
       const parsedDate = parseISO(task.due.date);
       if (isValid(parsedDate)) {
         dateElements.push(
@@ -197,6 +234,32 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
             Vencimento: {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })}
           </span>
         );
+      }
+    }
+    // Se não houver due.datetime nem due.date, tentar due.string com parse flexível
+    else if (task.due?.string) {
+      const parsed = parse(task.due.string, "dd MMM HH:mm", new Date()); // Ex: "11 Oct 15:15"
+      if (isValid(parsed)) {
+        dateElements.push(
+          <span key="due-string-datetime" className="block">
+            Vencimento: {format(parsed, "dd/MM/yyyy HH:mm", { locale: ptBR })} (estimado)
+          </span>
+        );
+      } else {
+        const parsedSimple = parse(task.due.string, "MMM dd", new Date()); // Ex: "Oct 11"
+        if (isValid(parsedSimple)) {
+          dateElements.push(
+            <span key="due-string-date" className="block">
+              Vencimento: {format(parsedSimple, "dd/MM/yyyy", { locale: ptBR })} (estimado)
+            </span>
+          );
+        } else {
+          dateElements.push(
+            <span key="due-string-raw" className="block">
+              Vencimento: {task.due.string} (formato desconhecido)
+            </span>
+          );
+        }
       }
     }
 
