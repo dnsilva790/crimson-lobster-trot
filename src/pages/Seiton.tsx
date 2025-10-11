@@ -164,7 +164,8 @@ const Seiton = () => {
       todoistFilterParts.push(filterInput.trim());
     }
     if (selectedCategoryFilter !== "all") {
-      todoistFilterParts.push(`#${selectedCategoryFilter}`);
+      // CORREÇÃO: Usar '@' para filtrar por etiqueta, não '#' para projeto
+      todoistFilterParts.push(`@${selectedCategoryFilter}`);
     }
     const finalTodoistFilter = todoistFilterParts.join(" & ");
     console.log("Final Todoist Filter:", finalTodoistFilter);
