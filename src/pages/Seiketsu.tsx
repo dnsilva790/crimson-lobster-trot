@@ -32,6 +32,7 @@ import { format, parseISO, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge"; // Importar Badge
+import { useNavigate } from "react-router-dom"; // Importar useNavigate
 
 type GtdState =
   | "initial"
@@ -64,6 +65,7 @@ const GTD_PROCESSED_LABEL = "gtd_processada";
 const Seiketsu = () => {
   console.log("Seiketsu component rendered.");
   const { fetchTasks, closeTask, deleteTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
+  const navigate = useNavigate(); // Inicializar useNavigate
   const [gtdState, setGtdState] = useState<GtdState>("initial");
   const [actionableStep, setActionableStep] = useState<ActionableStep>("isActionable");
   const [tasksToProcess, setTasksToProcess] = useState<TodoistTask[]>([]);
@@ -289,13 +291,16 @@ const Seiketsu = () => {
 
   const handleMarkAsProject = useCallback(async () => {
     if (!currentTask) return;
-    const updatedLabels = [...currentTask.labels.filter(l => l !== "projeto"), "projeto"];
-    const updated = await updateTask(currentTask.id, { labels: updatedLabels });
-    if (updated) {
-      toast.info(`Tarefa "${currentTask.content}" marcada como projeto.`);
-      advanceToNextTask();
-    }
-  }, [currentTask, updateTask, advanceToNextTask]);
+    // Navegar para a página de criação de projetos, passando os dados da tarefa
+    navigate("/shitsuke/create", {
+      state: {
+        initialWhat: currentTask.content,
+        initialTodoistTaskId: currentTask.id,
+      },
+    });
+    // Não avançar para a próxima tarefa aqui, pois o usuário ainda estará na tela de criação do projeto.
+    // A tarefa será marcada como processada ou removida do backlog do Seiketsu após a criação do projeto no Shitsuke.
+  }, [currentTask, navigate]);
 
   const handleNextAction = useCallback(async () => {
     if (!currentTask) return;

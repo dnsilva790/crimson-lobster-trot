@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useCallback, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom"; // Importar useLocation
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,11 +17,20 @@ import { cn } from "@/lib/utils";
 import { Project } from "@/lib/types";
 import { addProject } from "@/utils/projectStorage";
 import { toast } from "sonner";
+import { useTodoist } from "@/context/TodoistContext"; // Importar useTodoist
 
 const CreateProject = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // Hook para acessar o estado passado na navegação
+  const { updateTask } = useTodoist(); // Para atualizar a tarefa do Todoist após a criação do projeto
 
-  const [what, setWhat] = useState("");
+  // Extrair dados passados via `state`
+  const { initialWhat, initialTodoistTaskId } = (location.state || {}) as {
+    initialWhat?: string;
+    initialTodoistTaskId?: string;
+  };
+
+  const [what, setWhat] = useState(initialWhat || ""); // Pré-preencher com initialWhat
   const [why, setWhy] = useState("");
   const [who, setWho] = useState("");
   const [where, setWhere] = useState("");
@@ -30,7 +39,7 @@ const CreateProject = () => {
   const [howMuch, setHowMuch] = useState("");
   const [status, setStatus] = useState<Project['status']>("ativo");
 
-  const handleCreateProject = useCallback(() => {
+  const handleCreateProject = useCallback(async () => { // Tornar assíncrono
     if (!what.trim() || !why.trim() || !who.trim() || !when || !how.trim()) {
       toast.error("Por favor, preencha todos os campos obrigatórios (O Quê, Por Quê, Quem, Quando, Como).");
       return;
@@ -50,12 +59,29 @@ const CreateProject = () => {
       createdAt: new Date().toISOString(),
       status: status,
       subtasks: subtasks,
+      todoistTaskId: initialTodoistTaskId, // Armazenar o ID da tarefa do Todoist
     };
 
     addProject(newProject);
     toast.success("Projeto 5W2H criado com sucesso!");
+
+    // Se o projeto foi criado a partir de uma tarefa do Todoist, atualize a tarefa
+    if (initialTodoistTaskId) {
+      const updated = await updateTask(initialTodoistTaskId, {
+        labels: ["projeto", "gtd_processada"], // Adicionar etiquetas de projeto e processada
+        due_date: null, // Limpar data de vencimento da tarefa original
+        due_datetime: null,
+        description: `[PROJETO SHITSUKE]: ${newProject.what}\n[ID]: ${newProject.id}\n[LINK]: /shitsuke/${newProject.id}\n\n${newProject.why}`, // Adicionar link e descrição do projeto
+      });
+      if (updated) {
+        toast.info("Tarefa original do Todoist atualizada e vinculada ao projeto Shitsuke.");
+      } else {
+        toast.error("Falha ao atualizar a tarefa original do Todoist.");
+      }
+    }
+
     navigate("/shitsuke");
-  }, [what, why, who, when, how, howMuch, status, navigate]);
+  }, [what, why, who, when, how, howMuch, status, initialTodoistTaskId, navigate, updateTask]);
 
   return (
     <div className="p-4">

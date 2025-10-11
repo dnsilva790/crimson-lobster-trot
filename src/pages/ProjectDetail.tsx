@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Edit, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, ExternalLink } from "lucide-react"; // Importar ExternalLink
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -119,6 +119,22 @@ const ProjectDetail = () => {
             <Label className="font-semibold text-base">Quanto? (How Much - Custo, Recursos)</Label>
             <p className="mt-1 text-sm">{project.howMuch || "Não especificado"}</p>
           </div>
+
+          {project.todoistTaskId && (
+            <div>
+              <Label className="font-semibold text-base">Tarefa Todoist Vinculada</Label>
+              <p className="mt-1 text-sm flex items-center gap-2">
+                <a
+                  href={`https://todoist.com/app/task/${project.todoistTaskId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  Abrir Tarefa no Todoist <ExternalLink className="h-4 w-4" />
+                </a>
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col md:flex-row gap-4 mt-4">
             <Button onClick={() => navigate("/shitsuke")} variant="outline" className="flex-1">
