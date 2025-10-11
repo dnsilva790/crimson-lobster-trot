@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { format, setHours, setMinutes, parseISO } from "date-fns";
+import { format, setHours, setMinutes, parseISO, isValid } from "date-fns"; // Adicionado isValid
 import { ptBR } from "date-fns/locale";
 import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -172,25 +172,34 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     const dateElements: JSX.Element[] = [];
 
     if (task.due?.datetime) {
-      dateElements.push(
-        <span key="due-datetime" className="block">
-          Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-        </span>
-      );
+      const parsedDate = parseISO(task.due.datetime);
+      if (isValid(parsedDate)) {
+        dateElements.push(
+          <span key="due-datetime" className="block">
+            Vencimento: {format(parsedDate, "dd/MM/yyyy HH:mm", { locale: ptBR })}
+          </span>
+        );
+      }
     } else if (task.due?.date) {
-      dateElements.push(
-        <span key="due-date" className="block">
-          Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
-        </span>
-      );
+      const parsedDate = parseISO(task.due.date);
+      if (isValid(parsedDate)) {
+        dateElements.push(
+          <span key="due-date" className="block">
+            Vencimento: {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        );
+      }
     }
 
     if (task.deadline) {
-      dateElements.push(
-        <span key="field-deadline" className="block text-red-600 font-semibold">
-          Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
-        </span>
-      );
+      const parsedDeadline = parseISO(task.deadline);
+      if (isValid(parsedDeadline)) {
+        dateElements.push(
+          <span key="field-deadline" className="block text-red-600 font-semibold">
+            Deadline: {format(parsedDeadline, "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        );
+      }
     }
 
     if (dateElements.length === 0) {

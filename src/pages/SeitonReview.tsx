@@ -10,7 +10,7 @@ import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
-import { format, parseISO, isPast, isToday, isTomorrow, addDays } from "date-fns";
+import { format, parseISO, isPast, isToday, isTomorrow, addDays, isValid } from "date-fns"; // Adicionado isValid
 import { ptBR } from "date-fns/locale";
 import { ArrowRight, Check, XCircle, Star, CalendarIcon, Clock, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +58,7 @@ const SeitonReview = () => {
       if (task.due?.date || task.due?.datetime) {
         const dueDate = task.due.datetime ? parseISO(task.due.datetime) : parseISO(task.due.date);
         // A task is overdue if its due date is strictly in the past (não incluindo hoje)
-        if (isPast(dueDate) && !isToday(dueDate)) {
+        if (isValid(dueDate) && isPast(dueDate) && !isToday(dueDate)) {
           counts[task.priority]++;
         }
       }
@@ -103,7 +103,7 @@ const SeitonReview = () => {
       }
 
       // Desempate final: por data de criação (mais antiga primeiro)
-      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      return parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime();
     });
   }, []);
 
@@ -186,17 +186,23 @@ const SeitonReview = () => {
     const dateElements: JSX.Element[] = [];
 
     if (task.due?.datetime) {
-      dateElements.push(
-        <span key="due-datetime" className="flex items-center gap-1">
-          <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-        </span>
-      );
+      const parsedDate = parseISO(task.due.datetime);
+      if (isValid(parsedDate)) {
+        dateElements.push(
+          <span key="due-datetime" className="flex items-center gap-1">
+            <CalendarIcon className="h-3 w-3" /> {format(parsedDate, "dd/MM/yyyy HH:mm", { locale: ptBR })}
+          </span>
+        );
+      }
     } else if (task.due?.date) {
-      dateElements.push(
-        <span key="due-date" className="flex items-center gap-1">
-          <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
-        </span>
-      );
+      const parsedDate = parseISO(task.due.date);
+      if (isValid(parsedDate)) {
+        dateElements.push(
+          <span key="due-date" className="flex items-center gap-1">
+            <CalendarIcon className="h-3 w-3" /> {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        );
+      }
     }
 
     if (task.duration?.amount && task.duration.unit === "minute") {

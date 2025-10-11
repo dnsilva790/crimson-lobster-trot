@@ -14,7 +14,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo } from "lucide-react"; // Importar Edit, Clock, XCircle, ListTodo
 import { cn, getDelegateNameFromLabels } from "@/lib/utils";
-import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes } from "date-fns"; // Importar setHours, setMinutes
+import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes, isValid } from "date-fns"; // Importar setHours, setMinutes, isValid
 import { ptBR } from "date-fns/locale";
 import FollowUpAIAssistant from "@/components/FollowUpAIAssistant";
 
@@ -144,6 +144,7 @@ const FollowUp = () => {
       if (!task.due?.date && !task.due?.datetime) return false;
 
       const dueDate = task.due.datetime ? parseISO(task.due.datetime) : parseISO(task.due.date);
+      if (!isValid(dueDate)) return false; // Ensure valid date
 
       if (filterStatus === "overdue") {
         return isPast(dueDate) && !isToday(dueDate);
@@ -159,6 +160,7 @@ const FollowUp = () => {
       const getStatusRank = (task: TodoistTask) => {
         if (!task.due?.date && !task.due?.datetime) return 4;
         const dueDate = task.due.datetime ? parseISO(task.due.datetime) : parseISO(task.due.date);
+        if (!isValid(dueDate)) return 4; // Treat invalid dates as lowest rank
         if (isPast(dueDate) && !isToday(dueDate)) return 0;
         if (isToday(dueDate)) return 1;
         if (isTomorrow(dueDate)) return 2;
@@ -390,12 +392,12 @@ const FollowUp = () => {
             <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
             {task.description && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{task.description}</p>}
             <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
-              {task.due?.datetime && (
+              {task.due?.datetime && isValid(parseISO(task.due.datetime)) && (
                 <span className="flex items-center gap-1">
                   <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                 </span>
               )}
-              {task.due?.date && !task.due?.datetime && (
+              {task.due?.date && !task.due?.datetime && isValid(parseISO(task.due.date)) && (
                 <span className="flex items-center gap-1">
                   <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
                 </span>
@@ -466,12 +468,12 @@ const FollowUp = () => {
                     {PRIORITY_LABELS[task.priority]}
                   </span>
                   {task.content}
-                  {task.due?.datetime && (
+                  {task.due?.datetime && isValid(parseISO(task.due.datetime)) && (
                     <span className="ml-2 text-gray-500 text-xs">
                       (Vencimento: {format(parseISO(task.due.datetime), "dd/MM HH:mm", { locale: ptBR })})
                     </span>
                   )}
-                  {task.due?.date && !task.due?.datetime && (
+                  {task.due?.date && !task.due?.datetime && isValid(parseISO(task.due.date)) && (
                     <span className="ml-2 text-gray-500 text-xs">
                       (Vencimento: {format(parseISO(task.due.date), "dd/MM", { locale: ptBR })})
                     </span>

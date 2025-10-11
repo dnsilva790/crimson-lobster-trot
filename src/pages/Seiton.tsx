@@ -8,7 +8,7 @@ import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, parseISO, isValid } from "date-fns"; // Adicionado isValid
 import { ptBR } from "date-fns/locale";
 import { ExternalLink, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -93,8 +93,8 @@ const Seiton = () => {
       }
 
       const getTaskDate = (task: TodoistTask) => {
-        if (task.due?.datetime) return new Date(task.due.datetime).getTime();
-        if (task.due?.date) return new Date(task.due.date).getTime();
+        if (task.due?.datetime) return parseISO(task.due.datetime).getTime();
+        if (task.due?.date) return parseISO(task.due.date).getTime();
         return Infinity;
       };
 
@@ -105,7 +105,7 @@ const Seiton = () => {
         return dateA - dateB;
       }
 
-      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      return parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime();
     });
   }, []);
 
@@ -404,17 +404,23 @@ const Seiton = () => {
     const dateElements: JSX.Element[] = [];
 
     if (task.due?.datetime) {
-      dateElements.push(
-        <span key="due-datetime" className="block">
-          Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-        </span>
-      );
+      const parsedDate = parseISO(task.due.datetime);
+      if (isValid(parsedDate)) {
+        dateElements.push(
+          <span key="due-datetime" className="block">
+            Vencimento: {format(parsedDate, "dd/MM/yyyy HH:mm", { locale: ptBR })}
+          </span>
+        );
+      }
     } else if (task.due?.date) {
-      dateElements.push(
-        <span key="due-date" className="block">
-          Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
-        </span>
-      );
+      const parsedDate = parseISO(task.due.date);
+      if (isValid(parsedDate)) {
+        dateElements.push(
+          <span key="due-date" className="block">
+            Vencimento: {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        );
+      }
     }
 
     if (dateElements.length === 0) {

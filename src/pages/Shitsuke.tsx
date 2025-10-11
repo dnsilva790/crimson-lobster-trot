@@ -9,7 +9,7 @@ import { PlusCircle, Search } from "lucide-react";
 import { Project } from "@/lib/types";
 import { getProjects } from "@/utils/projectStorage";
 import { toast } from "sonner";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isValid } from "date-fns"; // Adicionado isValid
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -98,27 +98,33 @@ const Shitsuke = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((project) => (
-            <Card 
-              key={project.id} 
-              className="flex flex-col cursor-pointer hover:shadow-lg hover:scale-[1.01] transition-all duration-200"
-              onClick={() => handleViewProjectDetail(project.id)}
-            >
-              <CardHeader>
-                <CardTitle className="text-xl font-bold text-gray-800">{project.what}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-grow space-y-2 text-sm text-gray-700">
-                <p><strong>Por Quê:</strong> {project.why}</p>
-                <p><strong>Quem:</strong> {project.who}</p>
-                <p><strong>Quando:</strong> {format(parseISO(project.when), "dd/MM/yyyy", { locale: ptBR })}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium", getStatusBadgeClass(project.status))}>
-                    {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {filteredProjects.map((project) => {
+            const parsedWhen = parseISO(project.when);
+            return (
+              <Card 
+                key={project.id} 
+                className="flex flex-col cursor-pointer hover:shadow-lg hover:scale-[1.01] transition-all duration-200"
+                onClick={() => handleViewProjectDetail(project.id)}
+              >
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold text-gray-800">{project.what}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-grow space-y-2 text-sm text-gray-700">
+                  <p><strong>Por Quê:</strong> {project.why}</p>
+                  <p><strong>Quem:</strong> {project.who}</p>
+                  <p>
+                    <strong>Quando:</strong>{" "}
+                    {isValid(parsedWhen) ? format(parsedWhen, "dd/MM/yyyy", { locale: ptBR }) : "Data inválida"}
+                  </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium", getStatusBadgeClass(project.status))}>
+                      {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban } from "lucide-react"; // Adicionado Ban icon
-import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute } from "date-fns";
+import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute, isValid } from "date-fns"; // Adicionado isValid
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project } from "@/lib/types"; // Importar Project
 import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner";
@@ -865,6 +865,10 @@ const Planejador = () => {
 
       for (const task of meetingTasks) {
         const taskDueDateTime = parseISO(task.due!.datetime!);
+        if (!isValid(taskDueDateTime)) { // Adicionar verificação de validade
+          console.warn(`Skipping invalid meeting task due date: ${task.content}`);
+          continue;
+        }
         const taskDateKey = format(taskDueDateTime, "yyyy-MM-dd");
         const taskStartTime = format(taskDueDateTime, "HH:mm");
         const taskEndTime = format(addMinutes(taskDueDateTime, 30), "HH:mm"); // Default 30 min duration
@@ -1093,12 +1097,12 @@ const Planejador = () => {
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder="Recorrência" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Apenas nesta data</SelectItem>
-                  <SelectItem value="dayOfWeek">Todo(a) ...</SelectItem>
-                  <SelectItem value="weekdays">Todos os dias de semana</SelectItem>
-                  <SelectItem value="weekend">Todos os fins de semana</SelectItem>
-                </SelectContent>
+                  <SelectContent>
+                    <SelectItem value="daily">Apenas nesta data</SelectItem>
+                    <SelectItem value="dayOfWeek">Todo(a) ...</SelectItem>
+                    <SelectItem value="weekdays">Todos os dias de semana</SelectItem>
+                    <SelectItem value="weekend">Todos os fins de semana</SelectItem>
+                  </SelectContent>
               </Select>
             </div>
             {newBlockRecurrence === "dayOfWeek" && (
@@ -1319,10 +1323,10 @@ const Planejador = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         {/* Removido: {'deadline' in task && task.deadline?.date && ( ... )} */}
-                        {'due' in task && task.due?.datetime && (
+                        {'due' in task && task.due?.datetime && isValid(parseISO(task.due.datetime)) && (
                           <span>Venc: {format(parseISO(task.due.datetime), "dd/MM HH:mm", { locale: ptBR })}</span>
                         )}
-                        {'due' in task && task.due?.date && !('due' in task && task.due?.datetime) && (
+                        {'due' in task && task.due?.date && !('due' in task && task.due?.datetime) && isValid(parseISO(task.due.date)) && (
                           <span>Venc: {format(parseISO(task.due.date), "dd/MM", { locale: ptBR })}</span>
                         )}
                         <span className="flex items-center">

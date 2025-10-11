@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select
 import { ArrowLeft, Edit, Trash2, ExternalLink, ListTodo, PlusCircle, RefreshCw } from "lucide-react"; // Importar RefreshCw
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isValid } from "date-fns"; // Adicionado isValid
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Project } from "@/lib/types";
@@ -182,6 +182,9 @@ const ProjectDetail = () => {
     );
   }
 
+  const parsedCreatedAt = parseISO(project.createdAt);
+  const parsedWhen = parseISO(project.when);
+
   return (
     <div className="p-4">
       <h2 className="text-3xl font-bold mb-2 text-gray-800">Detalhes do Projeto</h2>
@@ -196,7 +199,9 @@ const ProjectDetail = () => {
             <span className={cn("px-2.5 py-0.5 rounded-full text-sm font-medium", getStatusBadgeClass(project.status))}>
               {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
             </span>
-            <span className="text-sm text-gray-500">Criado em: {format(parseISO(project.createdAt), "dd/MM/yyyy", { locale: ptBR })}</span>
+            <span className="text-sm text-gray-500">
+              Criado em: {isValid(parsedCreatedAt) ? format(parsedCreatedAt, "dd/MM/yyyy", { locale: ptBR }) : "Data inválida"}
+            </span>
           </div>
         </CardHeader>
         <CardContent className="grid gap-6 text-gray-700">
@@ -214,7 +219,9 @@ const ProjectDetail = () => {
           </div>
           <div>
             <Label className="font-semibold text-base">Quando? (When - Data de Vencimento)</Label>
-            <p className="mt-1 text-sm">{format(parseISO(project.when), "dd/MM/yyyy", { locale: ptBR })}</p>
+            <p className="mt-1 text-sm">
+              {isValid(parsedWhen) ? format(parsedWhen, "dd/MM/yyyy", { locale: ptBR }) : "Data inválida"}
+            </p>
           </div>
           <div>
             <Label className="font-semibold text-base">Como? (How - Passos, Metodologia)</Label>

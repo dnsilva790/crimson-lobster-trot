@@ -4,7 +4,7 @@ import React from "react";
 import { Card } from "@/components/ui/card";
 import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, parseISO, isValid } from "date-fns"; // Adicionado parseISO e isValid
 import { ptBR } from "date-fns/locale";
 import { ExternalLink } from "lucide-react";
 
@@ -32,20 +32,24 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
-    // Removido: if (task.deadline?.date) { ... }
-
     if (task.due?.datetime) {
-      dateElements.push(
-        <span key="due-datetime" className="block">
-          Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-        </span>
-      );
+      const parsedDate = parseISO(task.due.datetime);
+      if (isValid(parsedDate)) {
+        dateElements.push(
+          <span key="due-datetime" className="block">
+            Vencimento: {format(parsedDate, "dd/MM/yyyy HH:mm", { locale: ptBR })}
+          </span>
+        );
+      }
     } else if (task.due?.date) { // Only show due.date if due.datetime is not present
-      dateElements.push(
-        <span key="due-date" className="block">
-          Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
-        </span>
-      );
+      const parsedDate = parseISO(task.due.date);
+      if (isValid(parsedDate)) {
+        dateElements.push(
+          <span key="due-date" className="block">
+            Vencimento: {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        );
+      }
     }
 
     if (dateElements.length === 0) {

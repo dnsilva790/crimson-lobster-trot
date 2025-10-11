@@ -10,7 +10,7 @@ import TaskReviewCard from "@/components/TaskReviewCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { XCircle } from "lucide-react"; // Importar ícones
-import { format } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns'; // Adicionado isValid
 import { ptBR } from 'date-fns/locale';
 import { calculateNext15MinInterval } from '@/utils/dateUtils'; // Importar do novo utilitário
 
@@ -51,8 +51,14 @@ const Seiri = () => {
 
       // 3. Depois, por prazo (due date/time > due date)
       const getTaskDate = (task: TodoistTask) => {
-        if (task.due?.datetime) return new Date(task.due.datetime).getTime();
-        if (task.due?.date) return new Date(task.due.date).getTime();
+        if (task.due?.datetime) {
+          const parsedDate = parseISO(task.due.datetime);
+          return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
+        }
+        if (task.due?.date) {
+          const parsedDate = parseISO(task.due.date);
+          return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
+        }
         return Infinity; // Tarefas sem prazo vão para o final
       };
 
@@ -64,7 +70,9 @@ const Seiri = () => {
       }
 
       // 4. Desempate final: por data de criação (mais antiga primeiro)
-      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      const createdAtA = parseISO(a.created_at);
+      const createdAtB = parseISO(b.created_at);
+      return isValid(createdAtA) && isValid(createdAtB) ? createdAtA.getTime() - createdAtB.getTime() : 0;
     });
   }, []);
 
@@ -233,7 +241,7 @@ const Seiri = () => {
           task.id === taskId ? { ...task, due: updated.due } : task
         )
       );
-      toast.success(`Tarefa postergada para ${format(new Date(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
+      toast.success(`Tarefa postergada para ${format(parseISO(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
       handleNextTask();
     } else {
       toast.error("Falha ao postergar a tarefa.");
