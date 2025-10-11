@@ -151,22 +151,22 @@ export const todoistService = {
     duration_unit?: "minute" | "day";
     deadline?: string | null; // Adicionado o campo deadline
   }): Promise<TodoistTask | undefined> => {
-    const restApiData: any = {};
+    const restApiPayload: any = {};
     const syncApiCommands: any[] = [];
     let needsRestApiCall = false;
     let needsSyncApiCall = false;
 
-    // Processar campos para a REST API v2
-    if (data.content !== undefined) { restApiData.content = data.content; needsRestApiCall = true; }
-    if (data.description !== undefined) { restApiData.description = data.description; needsRestApiCall = true; }
-    if (data.priority !== undefined) { restApiData.priority = data.priority; needsRestApiCall = true; }
-    if (data.due_date !== undefined) { restApiData.due_date = data.due_date; needsRestApiCall = true; }
-    if (data.due_datetime !== undefined) { restApiData.due_datetime = data.due_datetime; needsRestApiCall = true; }
-    if (data.labels !== undefined) { restApiData.labels = data.labels; needsRestApiCall = true; }
-    if (data.duration !== undefined) { restApiData.duration = data.duration; needsRestApiCall = true; }
-    if (data.duration_unit !== undefined) { restApiData.duration_unit = data.duration_unit; needsRestApiCall = true; }
+    // 1. Identificar campos para a REST API v2
+    if (data.content !== undefined) { restApiPayload.content = data.content; needsRestApiCall = true; }
+    if (data.description !== undefined) { restApiPayload.description = data.description; needsRestApiCall = true; }
+    if (data.priority !== undefined) { restApiPayload.priority = data.priority; needsRestApiCall = true; }
+    if (data.due_date !== undefined) { restApiPayload.due_date = data.due_date; needsRestApiCall = true; }
+    if (data.due_datetime !== undefined) { restApiPayload.due_datetime = data.due_datetime; needsRestApiCall = true; }
+    if (data.labels !== undefined) { restApiPayload.labels = data.labels; needsRestApiCall = true; }
+    if (data.duration !== undefined) { restApiPayload.duration = data.duration; needsRestApiCall = true; }
+    if (data.duration_unit !== undefined) { restApiPayload.duration_unit = data.duration_unit; needsRestApiCall = true; }
 
-    // Processar campo deadline para a Sync API v9
+    // 2. Identificar campo deadline para a Sync API v9
     if (data.deadline !== undefined) {
       syncApiCommands.push({
         type: "item_update",
@@ -179,35 +179,41 @@ export const todoistService = {
       needsSyncApiCall = true;
     }
 
-    let finalTaskResult: TodoistTask | undefined;
+    let restApiUpdateResult: TodoistTask | undefined;
+    let fetchedTaskAfterUpdates: TodoistTask | undefined;
 
+    // 3. Realizar a atualização via REST API, se necessário
     if (needsRestApiCall) {
-      finalTaskResult = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", restApiData);
+      restApiUpdateResult = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", restApiPayload);
     }
 
+    // 4. Realizar a atualização via Sync API, se necessário
     if (needsSyncApiCall) {
       await todoistSyncApiCall(apiKey, syncApiCommands);
-      // Após a chamada da Sync API, buscamos a tarefa novamente para obter o estado mais recente.
-      // Isso é crucial porque a REST API v2 pode não retornar campos personalizados como 'deadline'.
-      const fetchedTaskAfterSync = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "GET");
-      
-      // Mesclamos o resultado da REST API (se houver) com a tarefa recém-buscada.
-      // Isso garante que todos os campos padrão e o 'deadline' (se presente na busca) sejam combinados.
-      finalTaskResult = { ...(finalTaskResult || {}), ...(fetchedTaskAfterSync || {}) } as TodoistTask;
-
-      // Se o 'deadline' foi explicitamente fornecido nos dados e a tarefa existe,
-      // garantimos que ele esteja no objeto final, pois a REST API pode não retorná-lo.
-      if (data.deadline !== undefined && finalTaskResult) {
-        finalTaskResult.deadline = data.deadline;
-      }
-    }
-    
-    // Se apenas a Sync API foi chamada e não houve uma chamada REST anterior,
-    // e um deadline foi definido, criamos um objeto de tarefa mínimo para garantir que o deadline seja retornado.
-    if (needsSyncApiCall && !finalTaskResult && data.deadline !== undefined) {
-        finalTaskResult = { id: taskId, deadline: data.deadline } as TodoistTask; // Objeto de tarefa mínimo
     }
 
-    return finalTaskResult;
+    // 5. Buscar a tarefa novamente para obter o estado mais atualizado do Todoist
+    // Isso é importante porque a REST API POST pode não retornar todos os campos,
+    // e a Sync API não retorna o item atualizado diretamente.
+    fetchedTaskAfterUpdates = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "GET");
+
+    // 6. Construir o objeto de resultado final
+    let finalResult: TodoistTask | undefined = fetchedTaskAfterUpdates;
+
+    // Sobrepor campos do resultado da atualização REST API se for mais completo
+    if (restApiUpdateResult) {
+        finalResult = { ...(finalResult || {}), ...restApiUpdateResult } as TodoistTask;
+    }
+
+    // Finalmente, definir explicitamente o deadline a partir dos dados originais (data) se ele foi fornecido.
+    // Isso garante que o frontend receba o valor exato que foi enviado, já que a API GET pode não retornar campos personalizados.
+    if (data.deadline !== undefined && finalResult) {
+        finalResult.deadline = data.deadline;
+    } else if (data.deadline === null && finalResult) { // Se o deadline foi explicitamente definido como null
+        finalResult.deadline = null;
+    }
+
+    console.log("TodoistService: updateTask final result:", finalResult);
+    return finalResult;
   },
 };
