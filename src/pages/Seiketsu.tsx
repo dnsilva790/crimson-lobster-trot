@@ -56,7 +56,7 @@ interface GtdProcessorState {
 
 const GTD_STORAGE_KEY = "gtdProcessorState";
 const INBOX_FILTER_STORAGE_KEY = "gtdInboxFilter";
-const FOCO_LABEL_ID = "foco-2178267950"; // A etiqueta que será adicionada
+const FOCO_LABEL_ID = "🎯 Foco"; // A etiqueta que será adicionada
 
 const Seiketsu = () => {
   console.log("Seiketsu component rendered."); // Log de depuração
