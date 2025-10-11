@@ -66,7 +66,7 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
     if (selectedDueDate) {
       let finalDate = selectedDueDate;
       if (selectedDueTime) {
-        const [hours, minutes] = selectedDueTime.split(":").map(Number);
+        const [hours, minutes] = (selectedDueTime || '').split(":").map(Number); // Adicionado (selectedDueTime || '').
         finalDate = setMinutes(setHours(selectedDueDate, hours), minutes);
         updateData.due_datetime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
         updateData.due_date = null; // Clear due_date if due_datetime is set

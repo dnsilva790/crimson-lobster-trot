@@ -26,7 +26,7 @@ export function getDelegateNameFromLabels(labels: string[]): string | undefined 
   if (delegateLabel) {
     // Remove 'espera_de_' prefix and replace underscores with spaces, then capitalize first letter of each word
     const name = delegateLabel.replace("espera_de_", "").replace(/_/g, " ");
-    return name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    return (name || '').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '); // Adicionado (name || '').
   }
   return undefined;
 }
