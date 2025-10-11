@@ -10,6 +10,7 @@ import {
   ListTodo,
   CalendarDays,
   Star, // Ícone para Shitsuke
+  Users, // Ícone para Follow-Up
 } from "lucide-react";
 
 const modules = [
@@ -76,6 +77,14 @@ const modules = [
     description: "Projetos 5W2H",
     colorClass: "bg-orange-100 hover:bg-orange-200",
     activeColor: "border-orange-600",
+  },
+  {
+    path: "/follow-up", // Nova rota para Acompanhamento de Delegados
+    icon: Users, // Ícone para Follow-Up
+    title: "FOLLOW-UP",
+    description: "Acompanhar Delegados",
+    colorClass: "bg-pink-100 hover:bg-pink-200",
+    activeColor: "border-pink-600",
   },
 ];
 

@@ -20,3 +20,13 @@ export function getTaskCategory(task: TodoistTask | InternalTask): "pessoal" | "
   }
   return undefined;
 }
+
+export function getDelegateNameFromLabels(labels: string[]): string | undefined {
+  const delegateLabel = labels.find(label => label.startsWith("espera_de_"));
+  if (delegateLabel) {
+    // Remove 'espera_de_' prefix and replace underscores with spaces, then capitalize first letter of each word
+    const name = delegateLabel.replace("espera_de_", "").replace(/_/g, " ");
+    return name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  }
+  return undefined;
+}
