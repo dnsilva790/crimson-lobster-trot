@@ -19,7 +19,8 @@ import InternalTasks from "./pages/InternalTasks";
 import Planejador from "./pages/Planejador";
 import Shitsuke from "./pages/Shitsuke";
 import CreateProject from "./pages/CreateProject";
-import ProjectDetail from "./pages/ProjectDetail"; // Importar a nova página ProjectDetail
+import ProjectDetail from "./pages/ProjectDetail";
+import EditProject from "./pages/EditProject"; // Importar a nova página EditProject
 
 const queryClient = new QueryClient();
 
@@ -42,7 +43,8 @@ const App = () => (
               <Route path="/planejador" element={<Planejador />} />
               <Route path="/shitsuke" element={<Shitsuke />} />
               <Route path="/shitsuke/create" element={<CreateProject />} />
-              <Route path="/shitsuke/:projectId" element={<ProjectDetail />} /> {/* Nova rota para detalhes do projeto */}
+              <Route path="/shitsuke/:projectId" element={<ProjectDetail />} />
+              <Route path="/shitsuke/edit/:projectId" element={<EditProject />} /> {/* Nova rota para edição de projeto */}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>
