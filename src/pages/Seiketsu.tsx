@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -285,8 +284,7 @@ const Seiketsu = () => {
     const updated = await updateTask(currentTask.id, { labels: updatedLabels });
     if (updated) {
       toast.info(`Tarefa "${currentTask.content}" marcada como projeto.`);
-      // Optionally open Todoist URL for the user to break it down
-      window.open(currentTask.url, "_blank");
+      // REMOVIDO: window.open(currentTask.url, "_blank");
       advanceToNextTask();
     }
   }, [currentTask, updateTask, advanceToNextTask]);
