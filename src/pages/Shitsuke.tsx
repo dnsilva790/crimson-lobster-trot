@@ -9,7 +9,7 @@ import { PlusCircle, Search } from "lucide-react";
 import { Project } from "@/lib/types";
 import { getProjects } from "@/utils/projectStorage";
 import { toast } from "sonner";
-import { format, parseISO, isValid } from "date-fns"; // Adicionado isValid
+import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -99,7 +99,7 @@ const Shitsuke = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => {
-            const parsedWhen = parseISO(project.when);
+            const parsedWhen = (typeof project.when === 'string' && project.when) ? parseISO(project.when) : null;
             return (
               <Card 
                 key={project.id} 
@@ -114,7 +114,7 @@ const Shitsuke = () => {
                   <p><strong>Quem:</strong> {project.who}</p>
                   <p>
                     <strong>Quando:</strong>{" "}
-                    {isValid(parsedWhen) ? format(parsedWhen, "dd/MM/yyyy", { locale: ptBR }) : "Data inválida"}
+                    {parsedWhen && isValid(parsedWhen) ? format(parsedWhen, "dd/MM/yyyy", { locale: ptBR }) : "Data inválida"}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
                     <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium", getStatusBadgeClass(project.status))}>

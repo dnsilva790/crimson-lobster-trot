@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
 import { useTodoist } from "@/context/TodoistContext";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import FocusTaskCard from "@/components/FocusTaskCard";
@@ -8,14 +9,13 @@ import { Progress } from "@/components/ui/progress";
 import AIAssistant from "@/components/AIAssistant";
 import PromptEditor from "@/components/PromptEditor";
 
-// Novos componentes e hooks modulares
 import ExecucaoInitialState from "@/components/execucao/ExecucaoInitialState";
 import ExecucaoFinishedState from "@/components/execucao/ExecucaoFinishedState";
 import TaskActionButtons from "@/components/execucao/TaskActionButtons";
 import { useExecucaoTasks } from "@/hooks/useExecucaoTasks";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { calculateNext15MinInterval } from '@/utils/dateUtils'; // Importar do novo utilitário
-import { format } from 'date-fns';
+import { calculateNext15MinInterval } from '@/utils/dateUtils';
+import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from "sonner";
 
@@ -107,29 +107,25 @@ Anti-Procrastinação: Você é especialista em quebrar a inércia, transformand
 const Execucao = () => {
   const { closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const [filterInput, setFilterInput] = useState<string>(() => {
-    // Load initial filter from localStorage
     if (typeof window !== 'undefined') {
       return localStorage.getItem(EXECUCAO_FILTER_INPUT_STORAGE_KEY) || "";
     }
     return "";
   });
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<"all" | "pessoal" | "profissional">(() => {
-    // Load initial category filter from localStorage
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(EXECUCAO_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all";
     }
-    return "";
+    return "all";
   });
   const [aiPrompt, setAiPrompt] = useState<string>(defaultAiPrompt);
 
-  // Save filter to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem(EXECUCAO_FILTER_INPUT_STORAGE_KEY, filterInput);
     }
   }, [filterInput]);
 
-  // Save category filter to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem(EXECUCAO_CATEGORY_FILTER_STORAGE_KEY, selectedCategoryFilter);
@@ -138,14 +134,14 @@ const Execucao = () => {
 
   const {
     focusTasks,
-    initialTotalTasks, // Renamed
+    initialTotalTasks,
     currentTaskIndex,
     execucaoState,
     isLoadingTasks,
     loadTasksForFocus,
-    advanceToNextTask, // Use the new function
-    updateTaskInFocusList, // Use the new function
-  } = useExecucaoTasks(filterInput, selectedCategoryFilter); // Pass selectedCategoryFilter here
+    advanceToNextTask,
+    updateTaskInFocusList,
+  } = useExecucaoTasks(filterInput, selectedCategoryFilter);
 
   const currentTask = focusTasks[currentTaskIndex];
 
@@ -164,13 +160,13 @@ const Execucao = () => {
   const handleComplete = useCallback(async (taskId: string) => {
     const success = await closeTask(taskId);
     if (success !== undefined) {
-      advanceToNextTask(); // Call the new function to remove and advance
+      advanceToNextTask();
       toast.success("Tarefa concluída com sucesso!");
     }
   }, [closeTask, advanceToNextTask]);
 
   const handleSkip = useCallback(async () => {
-    advanceToNextTask(); // Call the new function to remove and advance
+    advanceToNextTask();
     toast.info("Tarefa pulada.");
   }, [advanceToNextTask]);
 
@@ -183,7 +179,7 @@ const Execucao = () => {
   }) => {
     const updated = await updateTask(taskId, data);
     if (updated) {
-      updateTaskInFocusList(updated); // Update the task in the local focus list
+      updateTaskInFocusList(updated);
       toast.success("Tarefa atualizada com sucesso!");
     }
     return updated;
@@ -196,18 +192,14 @@ const Execucao = () => {
       due_datetime: nextInterval.datetime,
     });
     if (updated) {
-      // Não precisamos atualizar a lista de tarefas em foco aqui, pois a tarefa será pulada
-      // e a próxima tarefa será carregada.
-      toast.success(`Tarefa postergada para ${format(new Date(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
-      advanceToNextTask(); // Avança para a próxima tarefa após postergar
+      toast.success(`Tarefa postergada para ${format(parseISO(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
+      advanceToNextTask();
     } else {
       toast.error("Falha ao postergar a tarefa.");
     }
-  }, [calculateNext15MinInterval, updateTask, advanceToNextTask]);
+  }, [updateTask, advanceToNextTask]);
 
-  // States and handlers for keyboard shortcuts to open popovers
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
-  // Removed isDeadlinePopoverOpen as it's no longer used
 
   useKeyboardShortcuts({
     execucaoState,
@@ -216,10 +208,8 @@ const Execucao = () => {
     onComplete: handleComplete,
     onSkip: handleSkip,
     onOpenReschedulePopover: () => setIsReschedulePopoverOpen(true),
-    // Removed onOpenDeadlinePopover as it's no longer used
   });
 
-  // Adjust the progress calculation
   const tasksProcessed = initialTotalTasks - focusTasks.length;
   const progressValue = initialTotalTasks > 0 ? (tasksProcessed / initialTotalTasks) * 100 : 0;
   
@@ -258,7 +248,7 @@ const Execucao = () => {
               onComplete={handleComplete}
               onSkip={handleSkip}
               onUpdateTask={handleUpdateTaskAndRefresh}
-              onPostpone={handlePostpone} // Passando a nova função de postergar
+              onPostpone={handlePostpone}
             />
 
             <div className="mt-8 text-center">
@@ -272,7 +262,7 @@ const Execucao = () => {
 
         {!isLoading && execucaoState === "finished" && (
           <ExecucaoFinishedState
-            originalTasksCount={initialTotalTasks} // Use initialTotalTasks here
+            originalTasksCount={initialTotalTasks}
             onStartNewFocus={() => loadTasksForFocus(true)}
           />
         )}

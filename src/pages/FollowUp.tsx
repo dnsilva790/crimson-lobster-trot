@@ -5,16 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input"; // Importar Input
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Importar Popover
-import { Calendar } from "@/components/ui/calendar"; // Importar Calendar
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo } from "lucide-react"; // Importar Edit, Clock, XCircle, ListTodo
+import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo } from "lucide-react";
 import { cn, getDelegateNameFromLabels } from "@/lib/utils";
-import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes, isValid } from "date-fns"; // Importar setHours, setMinutes, isValid
+import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import FollowUpAIAssistant from "@/components/FollowUpAIAssistant";
 
@@ -74,8 +74,8 @@ const FollowUp = () => {
             return b.priority - a.priority;
           }
           const getDateValue = (task: TodoistTask) => {
-            if (task.due?.datetime) return parseISO(task.due.datetime).getTime();
-            if (task.due?.date) return parseISO(task.due.date).getTime();
+            if (typeof task.due?.datetime === 'string' && task.due.datetime) return parseISO(task.due.datetime).getTime();
+            if (typeof task.due?.date === 'string' && task.due.date) return parseISO(task.due.date).getTime();
             return Infinity;
           };
           const dateA = getDateValue(a);
@@ -141,10 +141,10 @@ const FollowUp = () => {
     return tasks.filter(task => {
       if (filterStatus === "all") return true;
 
-      if (!task.due?.date && !task.due?.datetime) return false;
+      if (!(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime)) return false;
 
-      const dueDate = task.due.datetime ? parseISO(task.due.datetime) : parseISO(task.due.date);
-      if (!isValid(dueDate)) return false; // Ensure valid date
+      const dueDate = (typeof task.due?.datetime === 'string' && task.due.datetime) ? parseISO(task.due.datetime) : (typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : null;
+      if (!dueDate || !isValid(dueDate)) return false;
 
       if (filterStatus === "overdue") {
         return isPast(dueDate) && !isToday(dueDate);
@@ -158,9 +158,9 @@ const FollowUp = () => {
       return true;
     }).sort((a, b) => {
       const getStatusRank = (task: TodoistTask) => {
-        if (!task.due?.date && !task.due?.datetime) return 4;
-        const dueDate = task.due.datetime ? parseISO(task.due.datetime) : parseISO(task.due.date);
-        if (!isValid(dueDate)) return 4; // Treat invalid dates as lowest rank
+        if (!(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime)) return 4;
+        const dueDate = (typeof task.due?.datetime === 'string' && task.due.datetime) ? parseISO(task.due.datetime) : (typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : null;
+        if (!dueDate || !isValid(dueDate)) return 4;
         if (isPast(dueDate) && !isToday(dueDate)) return 0;
         if (isToday(dueDate)) return 1;
         if (isTomorrow(dueDate)) return 2;
@@ -176,8 +176,8 @@ const FollowUp = () => {
       }
 
       const getDateValue = (task: TodoistTask) => {
-        if (task.due?.datetime) return parseISO(task.due.datetime).getTime();
-        if (task.due?.date) return parseISO(task.due.date).getTime();
+        if (typeof task.due?.datetime === 'string' && task.due.datetime) return parseISO(task.due.datetime).getTime();
+        if (typeof task.due?.date === 'string' && task.due.date) return parseISO(task.due.date).getTime();
         return Infinity;
       };
       const dateA = getDateValue(a);
@@ -204,8 +204,8 @@ const FollowUp = () => {
 
   const handleStartEditing = useCallback((task: TodoistTask) => {
     setEditingTaskId(task.id);
-    setEditedDueDate(task.due?.date ? parseISO(task.due.date) : undefined);
-    setEditedDueTime(task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "");
+    setEditedDueDate((typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : undefined);
+    setEditedDueTime((typeof task.due?.datetime === 'string' && task.due.datetime) ? format(parseISO(task.due.datetime), "HH:mm") : "");
     setEditedPriority(task.priority);
     setEditedDuration(task.duration?.amount && task.duration.unit === "minute" ? String(task.duration.amount) : "");
   }, []);
@@ -234,7 +234,7 @@ const FollowUp = () => {
     let changed = false;
 
     // Handle Due Date and Time
-    if (editedDueDate) {
+    if (editedDueDate && isValid(editedDueDate)) {
       let finalDate = editedDueDate;
       if (editedDueTime) {
         const [hours, minutes] = (editedDueTime || '').split(":").map(Number);
@@ -246,8 +246,8 @@ const FollowUp = () => {
         updateData.due_datetime = null;
       }
 
-      const currentTaskDueDateTime = taskToEdit.due?.datetime ? format(parseISO(taskToEdit.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
-      const currentTaskDueDate = taskToEdit.due?.date ? format(parseISO(taskToEdit.due.date), "yyyy-MM-dd") : null;
+      const currentTaskDueDateTime = (typeof taskToEdit.due?.datetime === 'string' && taskToEdit.due.datetime) ? format(parseISO(taskToEdit.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
+      const currentTaskDueDate = (typeof taskToEdit.due?.date === 'string' && taskToEdit.due.date) ? format(parseISO(taskToEdit.due.date), "yyyy-MM-dd") : null;
 
       if (updateData.due_datetime && updateData.due_datetime !== currentTaskDueDateTime) {
         changed = true;
@@ -288,7 +288,7 @@ const FollowUp = () => {
     if (changed) {
       await updateTask(editingTaskId, updateData);
       toast.success("Tarefa delegada atualizada!");
-      fetchDelegatedTasks(); // Refresh the list
+      fetchDelegatedTasks();
     } else {
       toast.info("Nenhuma alteração detectada.");
     }
@@ -321,7 +321,7 @@ const FollowUp = () => {
                   disabled={isLoadingTodoist}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {editedDueDate ? format(editedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                  {editedDueDate && isValid(editedDueDate) ? format(editedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
@@ -392,17 +392,17 @@ const FollowUp = () => {
             <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
             {task.description && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{task.description}</p>}
             <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
-              {task.due?.datetime && isValid(parseISO(task.due.datetime)) && (
+              {(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.datetime)) && (
                 <span className="flex items-center gap-1">
                   <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                 </span>
               )}
-              {task.due?.date && !task.due?.datetime && isValid(parseISO(task.due.date)) && (
+              {(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.date)) && (
                 <span className="flex items-center gap-1">
                   <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
                 </span>
               )}
-              {!task.due && <span>Sem prazo</span>}
+              {!(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && <span>Sem prazo</span>}
               {task.duration?.amount && task.duration.unit === "minute" && (
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" /> {task.duration.amount} min
@@ -468,12 +468,12 @@ const FollowUp = () => {
                     {PRIORITY_LABELS[task.priority]}
                   </span>
                   {task.content}
-                  {task.due?.datetime && isValid(parseISO(task.due.datetime)) && (
+                  {(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.datetime)) && (
                     <span className="ml-2 text-gray-500 text-xs">
                       (Vencimento: {format(parseISO(task.due.datetime), "dd/MM HH:mm", { locale: ptBR })})
                     </span>
                   )}
-                  {task.due?.date && !task.due?.datetime && isValid(parseISO(task.due.date)) && (
+                  {(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.date)) && (
                     <span className="ml-2 text-gray-500 text-xs">
                       (Vencimento: {format(parseISO(task.due.date), "dd/MM", { locale: ptBR })})
                     </span>

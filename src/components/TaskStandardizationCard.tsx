@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { format, setHours, setMinutes, parseISO } from "date-fns";
+import { format, setHours, setMinutes, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, ExternalLink } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -47,8 +47,8 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
   onSkip,
   isLoading,
 }) => {
-  const initialDueDate = task.due?.date ? parseISO(task.due.date) : undefined;
-  const initialDueTime = task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "";
+  const initialDueDate = (typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : undefined;
+  const initialDueTime = (typeof task.due?.datetime === 'string' && task.due.datetime) ? format(parseISO(task.due.datetime), "HH:mm") : "";
 
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(initialDueDate);
   const [selectedDueTime, setSelectedDueTime] = useState<string>(initialDueTime);
@@ -63,10 +63,10 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
     let changed = false;
 
     // Handle Due Date and Time
-    if (selectedDueDate) {
+    if (selectedDueDate && isValid(selectedDueDate)) {
       let finalDate = selectedDueDate;
       if (selectedDueTime) {
-        const [hours, minutes] = (selectedDueTime || '').split(":").map(Number); // Adicionado (selectedDueTime || '').
+        const [hours, minutes] = (selectedDueTime || '').split(":").map(Number);
         finalDate = setMinutes(setHours(selectedDueDate, hours), minutes);
         updateData.due_datetime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
         updateData.due_date = null; // Clear due_date if due_datetime is set
@@ -76,8 +76,8 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
       }
 
       // Check if due date/time actually changed
-      const currentTaskDueDateTime = task.due?.datetime ? format(parseISO(task.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
-      const currentTaskDueDate = task.due?.date ? format(parseISO(task.due.date), "yyyy-MM-dd") : null;
+      const currentTaskDueDateTime = (typeof task.due?.datetime === 'string' && task.due.datetime) ? format(parseISO(task.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
+      const currentTaskDueDate = (typeof task.due?.date === 'string' && task.due.date) ? format(parseISO(task.due.date), "yyyy-MM-dd") : null;
 
       if (updateData.due_datetime && updateData.due_datetime !== currentTaskDueDateTime) {
         changed = true;
@@ -110,20 +110,24 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
   const renderCurrentDates = () => {
     const dateElements: JSX.Element[] = [];
 
-    // Removido: if (task.deadline?.date) { ... }
-
-    if (task.due?.datetime) {
-      dateElements.push(
-        <span key="due-datetime" className="block">
-          Vencimento: {format(new Date(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-        </span>
-      );
-    } else if (task.due?.date) { // Only show due.date if due.datetime is not present
-      dateElements.push(
-        <span key="due-date" className="block">
-          Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
-        </span>
-      );
+    if (typeof task.due?.datetime === 'string' && task.due.datetime) {
+      const parsedDate = parseISO(task.due.datetime);
+      if (isValid(parsedDate)) {
+        dateElements.push(
+          <span key="due-datetime" className="block">
+            Vencimento: {format(parsedDate, "dd/MM/yyyy HH:mm", { locale: ptBR })}
+          </span>
+        );
+      }
+    } else if (typeof task.due?.date === 'string' && task.due.date) {
+      const parsedDate = parseISO(task.due.date);
+      if (isValid(parsedDate)) {
+        dateElements.push(
+          <span key="due-date" className="block">
+            Vencimento: {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        );
+      }
     }
 
     if (dateElements.length === 0) {
@@ -170,7 +174,7 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
                 disabled={isLoading}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDueDate ? format(selectedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                {selectedDueDate && isValid(selectedDueDate) ? format(selectedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">

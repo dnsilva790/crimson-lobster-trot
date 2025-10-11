@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format } from "date-fns";
+import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface DailyCompletionData {
@@ -45,16 +45,18 @@ const TaskCompletionChart: React.FC<TaskCompletionChartProps> = ({ data }) => {
             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
             <XAxis
               dataKey="date"
-              tickFormatter={(value) =>
-                format(new Date(value), "dd/MM", { locale: ptBR })
-              }
+              tickFormatter={(value) => {
+                const parsedDate = (typeof value === 'string' && value) ? parseISO(value) : null;
+                return parsedDate && isValid(parsedDate) ? format(parsedDate, "dd/MM", { locale: ptBR }) : value;
+              }}
               className="text-sm text-gray-600"
             />
             <YAxis className="text-sm text-gray-600" />
             <Tooltip
-              labelFormatter={(label) =>
-                format(new Date(label), "dd/MM/yyyy", { locale: ptBR })
-              }
+              labelFormatter={(label) => {
+                const parsedDate = (typeof label === 'string' && label) ? parseISO(label) : null;
+                return parsedDate && isValid(parsedDate) ? format(parsedDate, "dd/MM/yyyy", { locale: ptBR }) : label;
+              }}
               formatter={(value: number) => [`${value} tarefas`, "Concluídas"]}
               wrapperClassName="rounded-md shadow-md border border-gray-200 bg-white p-2 text-sm"
             />

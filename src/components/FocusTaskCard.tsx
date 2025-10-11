@@ -4,7 +4,7 @@ import React from "react";
 import { Card } from "@/components/ui/card";
 import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { format, parseISO, isValid } from "date-fns"; // Adicionado parseISO e isValid
+import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ExternalLink } from "lucide-react";
 
@@ -32,7 +32,7 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
-    if (task.due?.datetime) {
+    if (typeof task.due?.datetime === 'string' && task.due.datetime) {
       const parsedDate = parseISO(task.due.datetime);
       if (isValid(parsedDate)) {
         dateElements.push(
@@ -41,7 +41,7 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
           </span>
         );
       }
-    } else if (task.due?.date) { // Only show due.date if due.datetime is not present
+    } else if (typeof task.due?.date === 'string' && task.due.date) {
       const parsedDate = parseISO(task.due.date);
       if (isValid(parsedDate)) {
         dateElements.push(

@@ -8,22 +8,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban } from "lucide-react"; // Adicionado Ban icon
-import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute, isValid } from "date-fns"; // Adicionado isValid
+import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban } from "lucide-react";
+import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project } from "@/lib/types"; // Importar Project
+import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project } from "@/lib/types";
 import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner";
 import { toast } from "sonner";
-import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
+import { cn, getTaskCategory } from "@/lib/utils";
 import { useTodoist } from "@/context/TodoistContext";
-import { getInternalTasks, updateInternalTask } from "@/utils/internalTaskStorage"; // Importar updateInternalTask
-import { getProjects } from "@/utils/projectStorage"; // Importar getProjects
+import { getInternalTasks, updateInternalTask } from "@/utils/internalTaskStorage";
+import { getProjects } from "@/utils/projectStorage";
 import LoadingSpinner from "@/components/ui/loading-spinner";
-import PlannerPromptEditor from "@/components/PlannerPromptEditor"; // Importar o novo editor de prompt
+import PlannerPromptEditor from "@/components/PlannerPromptEditor";
 
-const PLANNER_STORAGE_KEY = "planner_schedules_v2"; // Updated storage key for new structure
-const MEETING_PROJECT_NAME = "📅 Reuniões"; // Nome do projeto de reuniões
-const PLANNER_AI_PROMPT_STORAGE_KEY = "planner_ai_prompt"; // Nova chave para o prompt da IA do Planejador
+const PLANNER_STORAGE_KEY = "planner_schedules_v2";
+const MEETING_PROJECT_NAME = "📅 Reuniões";
+const PLANNER_AI_PROMPT_STORAGE_KEY = "planner_ai_prompt";
 
 const defaultPlannerAiPrompt = `**AGENTE DE SUGESTÃO DE SLOTS DO PLANEJADOR**
 **MISSÃO:** Sua missão é sugerir o melhor slot de 15 minutos para uma tarefa no calendário, considerando a categoria da tarefa (Pessoal/Profissional), sua prioridade, os blocos de tempo definidos (Trabalho, Pessoal, Pausa) e o horário atual.
@@ -73,26 +73,25 @@ const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
 };
 
 const Planejador = () => {
-  const { fetchTasks, fetchProjects, updateTask, fetchTaskById, isLoading: isLoadingTodoist } = useTodoist(); // Adicionar fetchTaskById
+  const { fetchTasks, fetchProjects, updateTask, fetchTaskById, isLoading: isLoadingTodoist } = useTodoist();
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
-  const [schedules, setSchedules] = useState<Record<string, DaySchedule>>({}); // Key: YYYY-MM-DD for date-specific blocks and scheduled tasks
-  const [recurringBlocks, setRecurringBlocks] = useState<RecurringTimeBlock[]>([]); // New state for recurring blocks
+  const [schedules, setSchedules] = useState<Record<string, DaySchedule>>({});
+  const [recurringBlocks, setRecurringBlocks] = useState<RecurringTimeBlock[]>([]);
   const [newBlockStart, setNewBlockStart] = useState("09:00");
   const [newBlockEnd, setNewBlockEnd] = useState("17:00");
   const [newBlockType, setNewBlockType] = useState<TimeBlockType>("work");
   const [newBlockLabel, setNewBlockLabel] = useState("");
-  const [newBlockRecurrence, setNewBlockRecurrence] = useState<"daily" | "dayOfWeek" | "weekdays" | "weekend">("daily"); // New state for recurrence type
-  const [newBlockDayOfWeek, setNewBlockDayOfWeek] = useState<DayOfWeek>("1"); // Default to Monday (1)
+  const [newBlockRecurrence, setNewBlockRecurrence] = useState<"daily" | "dayOfWeek" | "weekdays" | "weekend">("daily");
+  const [newBlockDayOfWeek, setNewBlockDayOfWeek] = useState<DayOfWeek>("1");
   const [backlogTasks, setBacklogTasks] = useState<(TodoistTask | InternalTask)[]>([]);
   const [selectedTaskToSchedule, setSelectedTaskToSchedule] = useState<(TodoistTask | InternalTask) | null>(null);
   const [isLoadingBacklog, setIsLoadingBacklog] = useState(false);
   const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string; date: string } | null>(null);
-  const [ignoredMeetingTaskIds, setIgnoredMeetingTaskIds] = useState<string[]>([]); // Novo estado para IDs de reuniões ignoradas
+  const [ignoredMeetingTaskIds, setIgnoredMeetingTaskIds] = useState<string[]>([]);
   
-  // Novos estados temporários para a tarefa selecionada
   const [tempEstimatedDuration, setTempEstimatedDuration] = useState<string>("15");
   const [tempSelectedCategory, setTempSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
-  const [tempSelectedPriority, setTempSelectedPriority] = useState<1 | 2 | 3 | 4>(1); // Default to P4
+  const [tempSelectedPriority, setTempSelectedPriority] = useState<1 | 2 | 3 | 4>(1);
 
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -104,26 +103,21 @@ const Planejador = () => {
   const [meetingProjectId, setMeetingProjectId] = useState<string | null>(null);
   const [isPreallocatingMeetings, setIsPreallocatingMeetings] = useState(false);
 
-  // Novos estados para o filtro de projetos Shitsuke
   const [shitsukeProjects, setShitsukeProjects] = useState<Project[]>([]);
   const [selectedShitsukeProjectId, setSelectedShitsukeProjectId] = useState<string | 'all'>('all');
 
-  // Estado para o prompt da IA do Planejador
   const [plannerAiPrompt, setPlannerAiPrompt] = useState<string>(defaultPlannerAiPrompt);
 
-  // Load Shitsuke projects on mount
   useEffect(() => {
     setShitsukeProjects(getProjects());
   }, []);
 
-  // Save filter to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('planejador_filter_input', filterInput);
     }
   }, [filterInput]);
 
-  // Load schedules and recurring blocks from localStorage
   useEffect(() => {
     try {
       const storedData = localStorage.getItem(PLANNER_STORAGE_KEY);
@@ -131,7 +125,7 @@ const Planejador = () => {
         const parsedData = JSON.parse(storedData);
         setSchedules(parsedData.schedules || {});
         setRecurringBlocks(parsedData.recurringBlocks || []);
-        setIgnoredMeetingTaskIds(parsedData.ignoredMeetingTaskIds || []); // Carregar IDs de reuniões ignoradas
+        setIgnoredMeetingTaskIds(parsedData.ignoredMeetingTaskIds || []);
       }
     } catch (error) {
       console.error("Failed to load planner schedules from localStorage", error);
@@ -139,12 +133,10 @@ const Planejador = () => {
     }
   }, []);
 
-  // Save schedules and recurring blocks to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify({ schedules, recurringBlocks, ignoredMeetingTaskIds })); // Salvar IDs de reuniões ignoradas
+    localStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify({ schedules, recurringBlocks, ignoredMeetingTaskIds }));
   }, [schedules, recurringBlocks, ignoredMeetingTaskIds]);
 
-  // Load/Save Planner AI Prompt
   useEffect(() => {
     const savedPrompt = localStorage.getItem(PLANNER_AI_PROMPT_STORAGE_KEY);
     if (savedPrompt) {
@@ -157,7 +149,6 @@ const Planejador = () => {
     localStorage.setItem(PLANNER_AI_PROMPT_STORAGE_KEY, newPrompt);
   }, []);
 
-  // Fetch projects and identify meeting project ID
   useEffect(() => {
     const getMeetingProjectId = async () => {
       const projects = await fetchProjects();
@@ -174,12 +165,11 @@ const Planejador = () => {
 
   const getCombinedTimeBlocksForDate = useCallback((date: Date): TimeBlock[] => {
     const dateKey = format(date, "yyyy-MM-dd");
-    const dayOfWeek = getDay(date).toString() as DayOfWeek; // 0 for Sunday, 1 for Monday, etc.
+    const dayOfWeek = getDay(date).toString() as DayOfWeek;
 
     const dateSpecificBlocks = schedules[dateKey]?.timeBlocks || [];
     const recurringBlocksForDay = recurringBlocks.filter(block => block.dayOfWeek === dayOfWeek);
 
-    // Combine and sort, giving priority to date-specific blocks if they overlap
     const combined = [...dateSpecificBlocks, ...recurringBlocksForDay];
     return combined.sort((a, b) => a.start.localeCompare(b.start));
   }, [schedules, recurringBlocks]);
@@ -194,7 +184,7 @@ const Planejador = () => {
     setIsLoadingBacklog(true);
     try {
       let todoistFilter = filterInput.trim() || undefined;
-      let includeSubtasksForTodoist = false; // Default
+      let includeSubtasksForTodoist = false;
 
       let shitsukeProjectMainTaskId: string | null = null;
       let shitsukeProjectTodoistProjectId: string | null = null;
@@ -206,9 +196,8 @@ const Planejador = () => {
           const mainTodoistTask = await fetchTaskById(shitsukeProjectMainTaskId);
           if (mainTodoistTask) {
             shitsukeProjectTodoistProjectId = mainTodoistTask.project_id;
-            includeSubtasksForTodoist = true; // Include subtasks for Shitsuke projects
+            includeSubtasksForTodoist = true;
             if (shitsukeProjectTodoistProjectId) {
-              // Add project_id filter to Todoist API call
               todoistFilter = todoistFilter ? `${todoistFilter} & #${shitsukeProjectTodoistProjectId}` : `#${shitsukeProjectTodoistProjectId}`;
             }
           } else {
@@ -233,17 +222,15 @@ const Planejador = () => {
         ...internalTasks.filter(task => !task.isCompleted)
       ];
 
-      // Apply Shitsuke project specific filtering if a project is selected
       if (selectedShitsukeProjectId !== 'all' && shitsukeProjectMainTaskId) {
         combinedBacklog = combinedBacklog.filter(task => {
-          if ('project_id' in task) { // It's a TodoistTask
+          if ('project_id' in task) {
             return task.id === shitsukeProjectMainTaskId || task.parent_id === shitsukeProjectMainTaskId;
           }
-          return false; // Internal tasks are not part of Todoist Shitsuke projects
+          return false;
         });
       }
 
-      // Filter out tasks that are already scheduled (Todoist tasks only)
       const allScheduledTodoistTaskIds = Object.values(schedules).flatMap(day => 
         day.scheduledTasks
           .filter(st => st.originalTask && 'project_id' in st.originalTask)
@@ -251,46 +238,38 @@ const Planejador = () => {
       );
 
       const filteredBacklog = combinedBacklog.filter(task => {
-        if ('project_id' in task) { // It's a TodoistTask
-          // Exclude tasks from the meeting project if they have a due_datetime
-          if (meetingProjectId && task.project_id === meetingProjectId && task.due?.datetime) {
-            // Also exclude if it's an ignored meeting task
+        if ('project_id' in task) {
+          if (meetingProjectId && task.project_id === meetingProjectId && (typeof task.due?.datetime === 'string' && task.due.datetime)) {
             return !ignoredMeetingTaskIds.includes(task.id);
           }
-          // Exclude tasks already scheduled
           return !allScheduledTodoistTaskIds.includes(task.id);
         }
-        return true; // Keep internal tasks unless completed
+        return true;
       });
 
-      // Nova lógica de ordenação
       const sortedBacklog = filteredBacklog.sort((a, b) => {
-        // 1. Tarefas iniciadas com "*" primeiro
         const isAStarred = a.content.startsWith("*");
         const isBStarred = b.content.startsWith("*");
         if (isAStarred && !isBStarred) return -1;
         if (!isAStarred && isBStarred) return 1;
 
-        // 2. Em seguida, por prioridade (P1 > P4)
-        const priorityA = 'priority' in a ? a.priority : 1; // Internal tasks default to P4
+        const priorityA = 'priority' in a ? a.priority : 1;
         const priorityB = 'priority' in b ? b.priority : 1;
         if (priorityA !== priorityB) return priorityB - priorityA;
 
-        // 3. Depois, por prazo (due date/time > due date)
         const getTaskDateValue = (task: TodoistTask | InternalTask) => {
-          if ('due' in task && task.due?.datetime) return parseISO(task.due.datetime).getTime();
-          if ('due' in task && task.due?.date) return parseISO(task.due.date).getTime();
-          return Infinity; // Tarefas sem prazo vão para o final
+          if ('due' in task && typeof task.due?.datetime === 'string' && task.due.datetime) return parseISO(task.due.datetime).getTime();
+          if ('due' in task && typeof task.due?.date === 'string' && task.due.date) return parseISO(task.due.date).getTime();
+          return Infinity;
         };
 
         const dateA = getTaskDateValue(a);
         const dateB = getTaskDateValue(b);
 
         if (dateA !== dateB) {
-          return dateA - dateB; // Mais próximo primeiro
+          return dateA - dateB;
         }
 
-        // 4. Desempate final: por data de criação (mais antiga primeiro)
         const createdAtA = 'createdAt' in a ? parseISO(a.createdAt).getTime() : ('created_at' in a ? parseISO(a.created_at).getTime() : Infinity);
         const createdAtB = 'createdAt' in b ? parseISO(b.createdAt).getTime() : ('created_at' in b ? parseISO(b.created_at).getTime() : Infinity);
         return createdAtA - createdAtB;
@@ -303,30 +282,28 @@ const Planejador = () => {
     } finally {
       setIsLoadingBacklog(false);
     }
-  }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingTaskIds, selectedShitsukeProjectId, shitsukeProjects, fetchTaskById]); // Adicionar selectedShitsukeProjectId e shitsukeProjects como dependências
+  }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingTaskIds, selectedShitsukeProjectId, shitsukeProjects, fetchTaskById]);
 
   useEffect(() => {
     fetchBacklogTasks();
   }, [fetchBacklogTasks]);
 
-  // Efeito para sincronizar selectedTaskToSchedule com backlogTasks
   useEffect(() => {
     if (selectedTaskToSchedule && backlogTasks.length > 0) {
       const updatedSelectedTask = backlogTasks.find(
         (task) => task.id === selectedTaskToSchedule.id
       );
       if (updatedSelectedTask && updatedSelectedTask !== selectedTaskToSchedule) {
-        // Se a tarefa foi atualizada no backlog, atualize selectedTaskToSchedule e seus estados temporários
         setSelectedTaskToSchedule(updatedSelectedTask);
         setTempEstimatedDuration(String(updatedSelectedTask.estimatedDurationMinutes || 15));
         const initialCategory = getTaskCategory(updatedSelectedTask);
         setTempSelectedCategory(initialCategory || "none");
-        const initialPriority = 'priority' in updatedSelectedTask ? updatedUpdatedTask.priority : 1;
+        const initialPriority = 'priority' in updatedSelectedTask ? updatedSelectedTask.priority : 1;
         setTempSelectedPriority(initialPriority);
         toast.info(`Detalhes da tarefa selecionada atualizados no planejador.`);
       }
     }
-  }, [backlogTasks, selectedTaskToSchedule]); // Depende de backlogTasks e selectedTaskToSchedule
+  }, [backlogTasks, selectedTaskToSchedule]);
 
   const handleAddBlock = useCallback(() => {
     if (!newBlockStart || !newBlockEnd) {
@@ -335,7 +312,7 @@ const Planejador = () => {
     }
 
     const baseBlock = {
-      id: Date.now().toString(), // Ensure unique ID for all blocks
+      id: Date.now().toString(),
       start: newBlockStart,
       end: newBlockEnd,
       type: newBlockType,
@@ -361,18 +338,18 @@ const Planejador = () => {
       setRecurringBlocks((prev) => [...prev, newRecurringBlock].sort((a, b) => a.dayOfWeek.localeCompare(b.dayOfWeek) || a.start.localeCompare(b.start)));
       toast.success(`Bloco de tempo recorrente para ${DayOfWeekNames[newBlockDayOfWeek]} adicionado!`);
     } else if (newBlockRecurrence === "weekdays") {
-      const weekdays: DayOfWeek[] = ["1", "2", "3", "4", "5"]; // Monday to Friday
+      const weekdays: DayOfWeek[] = ["1", "2", "3", "4", "5"];
       const newBlocks = weekdays.map(day => ({
-        id: `${Date.now()}-${day}`, // Unique ID for each block
+        id: `${Date.now()}-${day}`,
         ...baseBlock,
         dayOfWeek: day,
       }));
       setRecurringBlocks((prev) => [...prev, ...newBlocks].sort((a, b) => a.dayOfWeek.localeCompare(b.dayOfWeek) || a.start.localeCompare(b.start)));
       toast.success("Blocos de tempo adicionados para todos os dias de semana!");
     } else if (newBlockRecurrence === "weekend") {
-      const weekendDays: DayOfWeek[] = ["0", "6"]; // Sunday and Saturday
+      const weekendDays: DayOfWeek[] = ["0", "6"];
       const newBlocks = weekendDays.map(day => ({
-        id: `${Date.now()}-${day}`, // Unique ID for each block
+        id: `${Date.now()}-${day}`,
         ...baseBlock,
         dayOfWeek: day,
       }));
@@ -410,7 +387,6 @@ const Planejador = () => {
       setSelectedDate(startOfDay(date));
       setSelectedTaskToSchedule(null);
       setSuggestedSlot(null);
-      // Reset temporary states when date changes
       setTempEstimatedDuration("15");
       setTempSelectedCategory("none");
       setTempSelectedPriority(1);
@@ -422,11 +398,9 @@ const Planejador = () => {
     setTempEstimatedDuration(String(task.estimatedDurationMinutes || 15));
     setSuggestedSlot(null);
     
-    // Set initial category for temp state
     const initialCategory = getTaskCategory(task);
     setTempSelectedCategory(initialCategory || "none");
 
-    // Set initial priority for temp state
     const initialPriority = 'priority' in task ? task.priority : 1;
     setTempSelectedPriority(initialPriority);
 
@@ -448,8 +422,7 @@ const Planejador = () => {
     
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
 
-    // --- Atualizar a tarefa original no Todoist ou no armazenamento interno ---
-    if ('project_id' in task) { // É uma TodoistTask
+    if ('project_id' in task) {
       const newLabels: string[] = task.labels.filter(
         label => label !== "pessoal" && label !== "profissional"
       );
@@ -459,7 +432,6 @@ const Planejador = () => {
         newLabels.push("profissional");
       }
 
-      // Only update if not preallocated, or if preallocated but needs specific updates
       if (!isPreallocated) {
         const updatedTodoistTask = await updateTask(task.id, {
           priority: tempSelectedPriority,
@@ -474,21 +446,18 @@ const Planejador = () => {
           toast.error("Falha ao atualizar a tarefa no Todoist.");
           return;
         }
-        // Atualizar a tarefa no backlog local para refletir as mudanças
         setBacklogTasks(prev => prev.map(t => t.id === updatedTodoistTask.id ? updatedTodoistTask : t));
       }
 
-    } else { // É uma InternalTask
+    } else {
       const updatedInternalTask: InternalTask = {
         ...task,
         category: tempSelectedCategory === "none" ? task.category : tempSelectedCategory,
         estimatedDurationMinutes: durationMinutes,
       };
       updateInternalTask(updatedInternalTask);
-      // Atualizar a tarefa no backlog local para refletir as mudanças
       setBacklogTasks(prev => prev.map(t => t.id === updatedInternalTask.id ? updatedInternalTask : t));
     }
-    // --- Fim da atualização da tarefa original ---
 
     const newScheduledTask: ScheduledTask = {
       id: `${task.id}-${Date.now()}`,
@@ -519,10 +488,10 @@ const Planejador = () => {
     setTempEstimatedDuration("15");
     setTempSelectedCategory("none");
     setTempSelectedPriority(1);
-    fetchBacklogTasks(); // Re-fetch and re-sort the backlog after scheduling
+    fetchBacklogTasks();
   }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask, fetchBacklogTasks]);
 
-  const handleDeleteScheduledTask = useCallback(async (taskToDelete: ScheduledTask) => { // Tornar assíncrono
+  const handleDeleteScheduledTask = useCallback(async (taskToDelete: ScheduledTask) => {
     setSchedules((prevSchedules) => {
       const dateKey = format(selectedDate, "yyyy-MM-dd");
       const currentDay = prevSchedules[dateKey];
@@ -537,35 +506,32 @@ const Planejador = () => {
       };
     });
     
-    // Se a tarefa deletada for uma reunião pré-alocada, adicione-a à lista de ignorados
     if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask && taskToDelete.originalTask.project_id === meetingProjectId) {
       setIgnoredMeetingTaskIds(prev => [...new Set([...prev, taskToDelete.originalTask!.id])]);
       toast.info(`Reunião "${taskToDelete.content}" removida da agenda e não será pré-alocada novamente.`);
-      // Não selecionamos para o backlog automaticamente se for uma reunião ignorada
-    } else if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask) { // É uma TodoistTask normal
-      // Limpar a data de vencimento e o horário no Todoist
+    } else if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask) {
       await updateTask(taskToDelete.originalTask.id, {
         due_date: null,
         due_datetime: null,
       });
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e data de vencimento limpa no Todoist.`);
-      handleSelectBacklogTask(taskToDelete.originalTask); // Colocar de volta no backlog para reagendamento manual
-    } else if (taskToDelete.originalTask) { // É uma InternalTask
+      handleSelectBacklogTask(taskToDelete.originalTask);
+    } else if (taskToDelete.originalTask) {
       handleSelectBacklogTask(taskToDelete.originalTask);
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e pronta para ser reagendada.`);
     } else {
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda.`);
     }
-    fetchBacklogTasks(); // Refresh backlog to potentially show the task again if it was a Todoist task
-  }, [selectedDate, fetchBacklogTasks, handleSelectBacklogTask, meetingProjectId, ignoredMeetingTaskIds, updateTask]); // Adicionar updateTask como dependência
+    fetchBacklogTasks();
+  }, [selectedDate, fetchBacklogTasks, handleSelectBacklogTask, meetingProjectId, ignoredMeetingTaskIds, updateTask]);
 
   const handleClearIgnoredMeetings = useCallback(() => {
     setIgnoredMeetingTaskIds([]);
     toast.success("Lista de reuniões ignoradas limpa. Elas podem ser pré-alocadas novamente.");
-    fetchBacklogTasks(); // Refresh backlog to potentially show them again
+    fetchBacklogTasks();
   }, [fetchBacklogTasks]);
 
-  const handleSelectSlot = useCallback(async (time: string, type: TimeBlockType) => { // Tornar assíncrono
+  const handleSelectSlot = useCallback(async (time: string, type: TimeBlockType) => {
     if (!selectedTaskToSchedule) {
       toast.info("Selecione uma tarefa do backlog primeiro para agendar.");
       return;
@@ -574,28 +540,27 @@ const Planejador = () => {
     const now = new Date();
     const slotStartDateTime = parse(time, "HH:mm", selectedDate);
 
-    // Prevenir agendamento no passado
     if (isBefore(slotStartDateTime, now) && !isEqual(startOfDay(slotStartDateTime), startOfDay(now))) {
       toast.error("Não é possível agendar tarefas para um horário ou dia que já passou.");
       return;
     }
-    // Allow scheduling for current day, but not for past times on current day
     if (isEqual(startOfDay(slotStartDateTime), startOfDay(now)) && isBefore(slotStartDateTime, startOfMinute(now))) {
       toast.error("Não é possível agendar tarefas para um horário que já passou hoje.");
       return;
     }
 
-
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
     const slotStart = parse(time, "HH:mm", selectedDate);
-    let slotEnd = addMinutes(slotStart, durationMinutes); // `addMinutes` handles crossing midnight correctly
+    let slotEnd = addMinutes(slotStart, durationMinutes);
     const slotEndStr = format(slotEnd, "HH:mm");
 
     const dateKey = format(selectedDate, "yyyy-MM-dd");
     const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
     const hasConflict = currentDay.scheduledTasks.some(st => {
-      const stStart = parse(st.start, "HH:mm", selectedDate);
-      const stEnd = parse(st.end, "HH:mm", selectedDate);
+      const stStart = (typeof st.start === 'string' && st.start) ? parse(st.start, "HH:mm", selectedDate) : null;
+      const stEnd = (typeof st.end === 'string' && st.end) ? parse(st.end, "HH:mm", selectedDate) : null;
+      if (!stStart || !stEnd || !isValid(stStart) || !isValid(stEnd)) return false;
+
       return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
               isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
               (slotStart <= stStart && slotEnd >= stEnd));
@@ -606,7 +571,7 @@ const Planejador = () => {
       return;
     }
 
-    const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory; // Usar a categoria temporária
+    const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory;
     const combinedBlocks = getCombinedTimeBlocksForDate(selectedDate);
 
     let isOverlappingBreak = false;
@@ -614,8 +579,10 @@ const Planejador = () => {
 
     for (const block of combinedBlocks) {
       if (block.type === "break") {
-        const blockStart = parse(block.start, "HH:mm", selectedDate);
-        let blockEnd = parse(block.end, "HH:mm", selectedDate);
+        const blockStart = (typeof block.start === 'string' && block.start) ? parse(block.start, "HH:mm", selectedDate) : null;
+        let blockEnd = (typeof block.end === 'string' && block.end) ? parse(block.end, "HH:mm", selectedDate) : null;
+        if (!blockStart || !blockEnd || !isValid(blockStart) || !isValid(blockEnd)) continue;
+
         if (isBefore(blockEnd, blockStart)) {
           blockEnd = addDays(blockEnd, 1);
         }
@@ -635,33 +602,28 @@ const Planejador = () => {
 
     if (!fitsInAppropriateBlock && combinedBlocks.length > 0) {
       toast.warning("O slot selecionado não está dentro de um bloco de tempo adequado para a categoria da tarefa.");
-      // Allow scheduling if no appropriate block, but warn.
-      // For strictness, we could add 'return' here. For now, it's a warning.
     } else if (combinedBlocks.length === 0) {
-      fitsInAppropriateBlock = true; // If no blocks defined, any slot is considered appropriate
+      fitsInAppropriateBlock = true;
     }
 
-
-    await scheduleTask(selectedTaskToSchedule, time, slotEndStr, selectedDate); // Chamar scheduleTask assincronamente
-    fetchBacklogTasks(); // Refresh backlog after scheduling
+    await scheduleTask(selectedTaskToSchedule, time, slotEndStr, selectedDate);
+    fetchBacklogTasks();
   }, [selectedTaskToSchedule, tempEstimatedDuration, tempSelectedCategory, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate, fetchBacklogTasks]);
 
-  const suggestTimeSlot = useCallback(async () => { // Tornar assíncrono
+  const suggestTimeSlot = useCallback(async () => {
     if (!selectedTaskToSchedule) {
       toast.error("Selecione uma tarefa do backlog para sugerir um slot.");
       return;
     }
 
-    // --- Nova trava: Obrigar classificação antes de sugerir ---
     if (tempSelectedCategory === "none") {
       toast.error("Por favor, classifique a tarefa como 'Pessoal' ou 'Profissional' antes de sugerir um slot.");
       return;
     }
-    // --- Fim da trava ---
 
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
-    const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory; // Usar a categoria temporária
-    const taskPriority = tempSelectedPriority; // Usar a prioridade temporária
+    const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory;
+    const taskPriority = tempSelectedPriority;
 
     let bestSlot: { start: string; end: string; date: string } | null = null;
     let bestScore = -Infinity;
@@ -674,7 +636,6 @@ const Planejador = () => {
       const currentDayDate = addDays(selectedDate, dayOffset);
       const startOfCurrentDay = startOfDay(currentDayDate);
 
-      // Pular dias que já passaram
       if (isBefore(startOfCurrentDay, startOfToday)) {
         continue;
       }
@@ -687,7 +648,6 @@ const Planejador = () => {
       let startHour = 0;
       let startMinute = 0;
 
-      // Se for o dia atual, começar a partir do início do bloco de 15 minutos atual
       if (isEqual(startOfCurrentDay, startOfToday)) {
         const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
         startHour = Math.floor(currentTotalMinutes / 60);
@@ -697,21 +657,21 @@ const Planejador = () => {
       for (let hour = startHour; hour < 24; hour++) {
         for (let minute = (hour === startHour ? startMinute : 0); minute < 60; minute += 15) {
           const slotStart = setMinutes(setHours(currentDayDate, hour), minute);
-          let slotEnd = addMinutes(slotStart, durationMinutes); // `addMinutes` handles crossing midnight correctly
+          let slotEnd = addMinutes(slotStart, durationMinutes);
           const slotStartStr = format(slotStart, "HH:mm");
           const slotEndStr = format(slotEnd, "HH:mm");
 
-          // Pular slots que já passaram (considerando o final do slot)
           if (isBefore(slotEnd, now)) {
             continue;
           }
 
-          // --- Nova trava: Ignorar slots que se sobrepõem a blocos de pausa ---
           let isOverlappingBreak = false;
           for (const block of combinedBlocksForSuggestion) {
             if (block.type === "break") {
-              const blockStart = parse(block.start, "HH:mm", currentDayDate);
-              let blockEnd = parse(block.end, "HH:mm", currentDayDate);
+              const blockStart = (typeof block.start === 'string' && block.start) ? parse(block.start, "HH:mm", currentDayDate) : null;
+              let blockEnd = (typeof block.end === 'string' && block.end) ? parse(block.end, "HH:mm", currentDayDate) : null;
+              if (!blockStart || !blockEnd || !isValid(blockStart) || !isValid(blockEnd)) continue;
+
               if (isBefore(blockEnd, blockStart)) {
                 blockEnd = addDays(blockEnd, 1);
               }
@@ -724,13 +684,14 @@ const Planejador = () => {
             }
           }
           if (isOverlappingBreak) {
-            continue; // Pular este slot completamente
+            continue;
           }
-          // --- Fim da trava de pausa ---
 
           const hasConflict = scheduledTasksForSuggestion.some(st => {
-            const stStart = parse(st.start, "HH:mm", currentDayDate);
-            const stEnd = parse(st.end, "HH:mm", currentDayDate);
+            const stStart = (typeof st.start === 'string' && st.start) ? parse(st.start, "HH:mm", currentDayDate) : null;
+            const stEnd = (typeof st.end === 'string' && st.end) ? parse(st.end, "HH:mm", currentDayDate) : null;
+            if (!stStart || !stEnd || !isValid(stStart) || !isValid(stEnd)) return false;
+
             return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
                     isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
                     (slotStart <= stStart && slotEnd >= stEnd));
@@ -740,13 +701,13 @@ const Planejador = () => {
           let currentSlotScore = 0;
           let fitsInAppropriateBlock = false;
 
-          // --- Lógica de pontuação baseada no prompt da IA ---
-          // 1. Correspondência de Categoria/Tipo de Bloco (Base)
           for (const block of combinedBlocksForSuggestion) {
-            if (block.type === "break") continue; // Já filtramos blocos de pausa acima
+            if (block.type === "break") continue;
 
-            const blockStart = parse(block.start, "HH:mm", currentDayDate);
-            let blockEnd = parse(block.end, "HH:mm", currentDayDate);
+            const blockStart = (typeof block.start === 'string' && block.start) ? parse(block.start, "HH:mm", currentDayDate) : null;
+            let blockEnd = (typeof block.end === 'string' && block.end) ? parse(block.end, "HH:mm", currentDayDate) : null;
+            if (!blockStart || !blockEnd || !isValid(blockStart) || !isValid(blockEnd)) continue;
+
             if (isBefore(blockEnd, blockStart)) {
               blockEnd = addDays(blockEnd, 1);
             }
@@ -755,55 +716,49 @@ const Planejador = () => {
               let isCategoryMatch = false;
               if (taskCategory === "profissional" && block.type === "work") {
                 isCategoryMatch = true;
-                currentSlotScore += 10; // +10 pontos para Profissional em Trabalho
+                currentSlotScore += 10;
               } else if (taskCategory === "pessoal" && block.type === "personal") {
                 isCategoryMatch = true;
-                currentSlotScore += 10; // +10 pontos para Pessoal em Pessoal
+                currentSlotScore += 10;
               } else if (taskCategory === undefined && (block.type === "work" || block.type === "personal")) {
-                // Tarefa sem categoria definida em qualquer bloco de Trabalho/Pessoal
                 isCategoryMatch = true;
-                currentSlotScore += 5; // +5 pontos
+                currentSlotScore += 5;
               }
 
               if (isCategoryMatch) {
                 fitsInAppropriateBlock = true;
 
-                // 2. Horário de Pico de Produtividade (06h-10h)
                 if (block.type === "work" && taskCategory === "profissional" &&
                     slotStart.getHours() >= 6 && slotStart.getHours() < 10) {
-                  currentSlotScore += 5; // +5 pontos de bônus
+                  currentSlotScore += 5;
                 }
                 break;
               }
             }
           }
 
-          // Penalidade se não se encaixa em nenhum bloco adequado (se houver blocos definidos)
           if (!fitsInAppropriateBlock && combinedBlocksForSuggestion.length > 0) {
-            currentSlotScore -= 5; // -5 pontos
+            currentSlotScore -= 5;
           } else if (combinedBlocksForSuggestion.length === 0) {
-            fitsInAppropriateBlock = true; // Se nenhum bloco definido, qualquer slot é considerado adequado
-            currentSlotScore += 5; // Pequeno bônus se não há blocos definidos
+            fitsInAppropriateBlock = true;
+            currentSlotScore += 5;
           }
 
-          // 3. Prioridade da Tarefa
           switch (taskPriority) {
-            case 4: currentSlotScore += 8; break; // P1
-            case 3: currentSlotScore += 6; break; // P2
-            case 2: currentSlotScore += 4; break; // P3
-            case 1: currentSlotScore += 2; break; // P4
+            case 4: currentSlotScore += 8; break;
+            case 3: currentSlotScore += 6; break;
+            case 2: currentSlotScore += 4; break;
+            case 1: currentSlotScore += 2; break;
           }
 
-          // 4. Proximidade da Data
           if (isEqual(currentDayDate, startOfToday)) {
-            currentSlotScore += 200; // Hoje
+            currentSlotScore += 200;
           } else if (isEqual(currentDayDate, addDays(startOfToday, 1))) {
-            currentSlotScore += 100; // Amanhã
+            currentSlotScore += 100;
           } else {
-            currentSlotScore -= dayOffset * 10; // Cada dia adicional no futuro: -10 pontos
+            currentSlotScore -= dayOffset * 10;
           }
 
-          // 5. Horário do Dia (slots mais cedo são ligeiramente preferidos)
           currentSlotScore -= (hour * 60 + minute) / 100;
 
           if (currentSlotScore > bestScore) {
@@ -821,7 +776,7 @@ const Planejador = () => {
       setSuggestedSlot(null);
       toast.error("Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias.");
     }
-  }, [selectedTaskToSchedule, selectedDate, schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, plannerAiPrompt]); // Adicionar plannerAiPrompt como dependência
+  }, [selectedTaskToSchedule, selectedDate, schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, plannerAiPrompt]);
 
   useEffect(() => {
     if (selectedTaskToSchedule) {
@@ -842,39 +797,40 @@ const Planejador = () => {
     toast.loading("Pré-alocando reuniões...");
 
     try {
-      // Fetch all tasks, including subtasks and recurring, for meetings
       const allTodoistTasks = await fetchTasks(undefined, { includeSubtasks: true, includeRecurring: true }); 
       const meetingTasks = allTodoistTasks.filter(
-        task => task.project_id === meetingProjectId && task.due?.datetime && !ignoredMeetingTaskIds.includes(task.id) // Filtrar reuniões ignoradas
+        task => task.project_id === meetingProjectId && (typeof task.due?.datetime === 'string' && task.due.datetime) && !ignoredMeetingTaskIds.includes(task.id)
       );
 
       let allocatedCount = 0;
       const newSchedules = { ...schedules };
 
       for (const task of meetingTasks) {
-        const taskDueDateTime = parseISO(task.due!.datetime!);
-        if (!isValid(taskDueDateTime)) { // Adicionar verificação de validade
+        const taskDueDateTime = (typeof task.due?.datetime === 'string' && task.due.datetime) ? parseISO(task.due.datetime) : null;
+        if (!taskDueDateTime || !isValid(taskDueDateTime)) {
           console.warn(`Skipping invalid meeting task due date: ${task.content}`);
           continue;
         }
         const taskDateKey = format(taskDueDateTime, "yyyy-MM-dd");
         const taskStartTime = format(taskDueDateTime, "HH:mm");
-        const taskEndTime = format(addMinutes(taskDueDateTime, 30), "HH:mm"); // Default 30 min duration
+        const taskEndTime = format(addMinutes(taskDueDateTime, 30), "HH:mm");
 
-        // Check for conflicts before scheduling
         const currentDayScheduledTasks = newSchedules[taskDateKey]?.scheduledTasks || [];
         const hasConflict = currentDayScheduledTasks.some(st => {
-          const stStart = parse(st.start, "HH:mm", taskDueDateTime);
-          const stEnd = parse(st.end, "HH:mm", taskDueDateTime);
-          const proposedStart = parse(taskStartTime, "HH:mm", taskDueDateTime);
-          const proposedEnd = parse(taskEndTime, "HH:mm", taskDueDateTime);
+          const stStart = (typeof st.start === 'string' && st.start) ? parse(st.start, "HH:mm", taskDueDateTime) : null;
+          const stEnd = (typeof st.end === 'string' && st.end) ? parse(st.end, "HH:mm", taskDueDateTime) : null;
+          if (!stStart || !stEnd || !isValid(stStart) || !isValid(stEnd)) return false;
+
+          const proposedStart = (typeof taskStartTime === 'string' && taskStartTime) ? parse(taskStartTime, "HH:mm", taskDueDateTime) : null;
+          const proposedEnd = (typeof taskEndTime === 'string' && taskEndTime) ? parse(taskEndTime, "HH:mm", taskDueDateTime) : null;
+          if (!proposedStart || !proposedEnd || !isValid(proposedStart) || !isValid(proposedEnd)) return false;
+
 
           return (isWithinInterval(proposedStart, { start: stStart, end: stEnd }) ||
                   isWithinInterval(proposedEnd, { start: stStart, end: stEnd }) ||
                   (proposedStart <= stStart && proposedEnd >= stEnd));
         });
 
-        // Check if already scheduled
         const alreadyScheduled = currentDayScheduledTasks.some(st => st.originalTask?.id === task.id);
 
         if (!hasConflict && !alreadyScheduled) {
@@ -886,7 +842,7 @@ const Planejador = () => {
             start: taskStartTime,
             end: taskEndTime,
             priority: task.priority,
-            category: getTaskCategory(task) || "profissional", // Meetings are usually professional
+            category: getTaskCategory(task) || "profissional",
             estimatedDurationMinutes: 30,
             originalTask: task,
           };
@@ -901,14 +857,14 @@ const Planejador = () => {
       }
       setSchedules(newSchedules);
       toast.success(`Pré-alocadas ${allocatedCount} reuniões.`);
-      fetchBacklogTasks(); // Refresh backlog to remove allocated meetings
+      fetchBacklogTasks();
     } catch (error) {
       console.error("Erro ao pré-alocar reuniões:", error);
       toast.error("Falha ao pré-alocar reuniões.");
     } finally {
       setIsPreallocatingMeetings(false);
     }
-  }, [meetingProjectId, fetchTasks, schedules, fetchBacklogTasks, ignoredMeetingTaskIds]); // Adicionar ignoredMeetingTaskIds como dependência
+  }, [meetingProjectId, fetchTasks, schedules, fetchBacklogTasks, ignoredMeetingTaskIds]);
 
 
   const isLoading = isLoadingTodoist || isLoadingBacklog || isPreallocatingMeetings;
@@ -923,14 +879,12 @@ const Planejador = () => {
     "6": "Sábado",
   };
 
-  // Helper to set day of week for date-fns
   const setDay = (date: Date, day: number) => {
     const currentDay = date.getDay();
     const diff = day - currentDay;
     return addDays(date, diff);
   };
 
-  // Group recurring blocks for display
   const groupedRecurringBlocks = recurringBlocks.reduce((acc, block) => {
     const key = `${block.start}-${block.end}-${block.type}-${block.label || ''}`;
     if (!acc[key]) {
@@ -994,7 +948,7 @@ const Planejador = () => {
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                {selectedDate && isValid(selectedDate) ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
@@ -1116,8 +1070,7 @@ const Planejador = () => {
           {(currentDaySchedule.timeBlocks.length > 0 || recurringBlocks.length > 0) && (
             <div className="mt-6 space-y-2">
               <h3 className="text-lg font-semibold">Blocos Definidos:</h3>
-              {/* Display date-specific blocks */}
-              {schedules[format(selectedDate, "yyyy-MM-dd")]?.timeBlocks.map((block) => (
+              {currentDaySchedule.timeBlocks.map((block) => (
                 <div key={block.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md border">
                   <span className="text-sm">
                     {block.start} - {block.end} |{" "}
@@ -1132,7 +1085,6 @@ const Planejador = () => {
                   </Button>
                 </div>
               ))}
-              {/* Display grouped recurring blocks */}
               {Object.values(groupedRecurringBlocks).map(renderRecurringBlockDisplay)}
             </div>
           )}
@@ -1310,11 +1262,10 @@ const Planejador = () => {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        {/* Removido: {'deadline' in task && task.deadline?.date && ( ... )} */}
-                        {'due' in task && task.due?.datetime && isValid(parseISO(task.due.datetime)) && (
+                        {'due' in task && typeof task.due?.datetime === 'string' && task.due.datetime && isValid(parseISO(task.due.datetime)) && (
                           <span>Venc: {format(parseISO(task.due.datetime), "dd/MM HH:mm", { locale: ptBR })}</span>
                         )}
-                        {'due' in task && task.due?.date && !('due' in task && task.due?.datetime) && isValid(parseISO(task.due.date)) && (
+                        {'due' in task && typeof task.due?.date === 'string' && task.due.date && !(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.date)) && (
                           <span>Venc: {format(parseISO(task.due.date), "dd/MM", { locale: ptBR })}</span>
                         )}
                         <span className="flex items-center">

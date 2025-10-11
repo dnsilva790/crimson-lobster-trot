@@ -10,7 +10,7 @@ import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
-import { format, parseISO, isPast, isToday, isTomorrow, addDays, isValid } from "date-fns"; // Adicionado isValid
+import { format, parseISO, isPast, isToday, isTomorrow, addDays, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ArrowRight, Check, XCircle, Star, CalendarIcon, Clock, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -18,10 +18,10 @@ import { Badge } from "@/components/ui/badge";
 type ReviewState = "initial" | "reviewing" | "finished";
 
 interface OverdueCounts {
-  1: number; // P4
-  2: number; // P3
-  3: number; // P2
-  4: number; // P1
+  1: number;
+  2: number;
+  3: number;
+  4: number;
 }
 
 const SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY = "seiton_review_filter_input";
@@ -43,7 +43,6 @@ const SeitonReview = () => {
   const currentTask = tasksToReview[currentTaskIndex];
   const isLoading = isLoadingTodoist || reviewState === "loading";
 
-  // Save filter to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem(SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY, filterInput);
@@ -55,10 +54,9 @@ const SeitonReview = () => {
     const now = new Date();
 
     allTasks.forEach(task => {
-      if (task.due?.date || task.due?.datetime) {
-        const dueDate = task.due.datetime ? parseISO(task.due.datetime) : parseISO(task.due.date);
-        // A task is overdue if its due date is strictly in the past (não incluindo hoje)
-        if (isValid(dueDate) && isPast(dueDate) && !isToday(dueDate)) {
+      if ((typeof task.due?.date === 'string' && task.due.date) || (typeof task.due?.datetime === 'string' && task.due.datetime)) {
+        const dueDate = (typeof task.due?.datetime === 'string' && task.due.datetime) ? parseISO(task.due.datetime) : (typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : null;
+        if (dueDate && isValid(dueDate) && isPast(dueDate) && !isToday(dueDate)) {
           counts[task.priority]++;
         }
       }
@@ -68,21 +66,18 @@ const SeitonReview = () => {
 
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
-      // 1. Tarefas iniciadas com "*" primeiro
       const isAStarred = a.content.startsWith("*");
       const isBStarred = b.content.startsWith("*");
       if (isAStarred && !isBStarred) return -1;
       if (!isAStarred && isBStarred) return 1;
 
-      // 2. Prioridade atual (P1 > P4)
       if (b.priority !== a.priority) {
         return b.priority - a.priority;
       }
 
-      // 3. Deadline (mais próximo primeiro)
       const getDeadlineValue = (task: TodoistTask) => {
-        if (task.deadline) return parseISO(task.deadline).getTime();
-        return Infinity; // Tarefas sem deadline vão para o final
+        if (typeof task.deadline === 'string' && task.deadline) return parseISO(task.deadline).getTime();
+        return Infinity;
       };
       const deadlineA = getDeadlineValue(a);
       const deadlineB = getDeadlineValue(b);
@@ -90,11 +85,10 @@ const SeitonReview = () => {
         return deadlineA - deadlineB;
       }
 
-      // 4. Due date/time (mais próximo primeiro)
       const getDueDateValue = (task: TodoistTask) => {
-        if (task.due?.datetime) return parseISO(task.due.datetime).getTime();
-        if (task.due?.date) return parseISO(task.due.date).getTime();
-        return Infinity; // Tarefas sem due date/time vão para o final
+        if (typeof task.due?.datetime === 'string' && task.due.datetime) return parseISO(task.due.datetime).getTime();
+        if (typeof task.due?.date === 'string' && task.due.date) return parseISO(task.due.date).getTime();
+        return Infinity;
       };
       const dueDateA = getDueDateValue(a);
       const dueDateB = getDueDateValue(b);
@@ -102,8 +96,13 @@ const SeitonReview = () => {
         return dueDateA - dueDateB;
       }
 
-      // Desempate final: por data de criação (mais antiga primeiro)
-      return parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime();
+      const createdAtA = (typeof a.created_at === 'string' && a.created_at) ? parseISO(a.created_at) : null;
+      const createdAtB = (typeof b.created_at === 'string' && b.created_at) ? parseISO(b.created_at) : null;
+      
+      if (createdAtA && createdAtB && isValid(createdAtA) && isValid(createdAtB)) {
+        return createdAtA.getTime() - createdAtB.getTime();
+      }
+      return 0;
     });
   }, []);
 
@@ -125,7 +124,6 @@ const SeitonReview = () => {
       toast.info("Nenhuma tarefa encontrada para revisão de prioridade com o filtro atual.");
     }
 
-    // Always fetch all tasks to calculate overdue counts, regardless of the review filter
     const allActiveTasks = await fetchTasks(undefined, { includeSubtasks: false, includeRecurring: false });
     if (allActiveTasks) {
       calculateOverdueCounts(allActiveTasks);
@@ -133,7 +131,6 @@ const SeitonReview = () => {
   }, [fetchTasks, filterInput, calculateOverdueCounts, sortTasks]);
 
   useEffect(() => {
-    // Load overdue counts on initial render
     const fetchAllTasksForCounts = async () => {
       const allActiveTasks = await fetchTasks(undefined, { includeSubtasks: false, includeRecurring: false });
       if (allActiveTasks) {
@@ -151,7 +148,6 @@ const SeitonReview = () => {
       setReviewState("finished");
       toast.success("Revisão de prioridades concluída!");
     }
-    // Recalculate overdue counts after each action
     const fetchAllTasksForCounts = async () => {
       const allActiveTasks = await fetchTasks(undefined, { includeSubtasks: false, includeRecurring: false });
       if (allActiveTasks) {
@@ -179,13 +175,13 @@ const SeitonReview = () => {
   }, [advanceToNextTask]);
 
   const handleClearFilter = useCallback(() => {
-    setFilterInput(`no label:${GTD_PROCESSED_LABEL}`); // Reset to default filter
+    setFilterInput(`no label:${GTD_PROCESSED_LABEL}`);
   }, []);
 
   const renderTaskDates = (task: TodoistTask) => {
     const dateElements: JSX.Element[] = [];
 
-    if (task.due?.datetime) {
+    if (typeof task.due?.datetime === 'string' && task.due.datetime) {
       const parsedDate = parseISO(task.due.datetime);
       if (isValid(parsedDate)) {
         dateElements.push(
@@ -194,7 +190,7 @@ const SeitonReview = () => {
           </span>
         );
       }
-    } else if (task.due?.date) {
+    } else if (typeof task.due?.date === 'string' && task.due.date) {
       const parsedDate = parseISO(task.due.date);
       if (isValid(parsedDate)) {
         dateElements.push(
@@ -221,10 +217,10 @@ const SeitonReview = () => {
   };
 
   const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
-    4: "bg-red-500", // P1 - Urgente
-    3: "bg-orange-500", // P2 - Alto
-    2: "bg-yellow-500", // P3 - Médio
-    1: "bg-gray-400", // P4 - Baixo
+    4: "bg-red-500",
+    3: "bg-orange-500",
+    2: "bg-yellow-500",
+    1: "bg-gray-400",
   };
 
   const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {

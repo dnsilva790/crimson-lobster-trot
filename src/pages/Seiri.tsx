@@ -9,10 +9,10 @@ import { toast } from "sonner";
 import TaskReviewCard from "@/components/TaskReviewCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { XCircle } from "lucide-react"; // Importar ícones
-import { format, parseISO, isValid } from 'date-fns'; // Adicionado isValid
+import { XCircle } from "lucide-react";
+import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { calculateNext15MinInterval } from '@/utils/dateUtils'; // Importar do novo utilitário
+import { calculateNext15MinInterval } from '@/utils/dateUtils';
 
 type ReviewState = "initial" | "reviewing" | "finished";
 
@@ -28,51 +28,49 @@ const Seiri = () => {
     return "";
   });
 
-  // Save filter to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('seiri_filter_input', filterInput);
     }
   }, [filterInput]);
 
-  // Função para ordenar as tarefas com base nos critérios combinados, priorizando due date
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
-      // 1. Tarefas iniciadas com "*" primeiro
       const isAStarred = a.content.startsWith("*");
       const isBStarred = b.content.startsWith("*");
       if (isAStarred && !isBStarred) return -1;
       if (!isAStarred && isBStarred) return 1;
 
-      // 2. Em seguida, por prioridade (P1 > P4)
       if (b.priority !== a.priority) {
         return b.priority - a.priority;
       }
 
-      // 3. Depois, por prazo (due date/time > due date)
       const getTaskDate = (task: TodoistTask) => {
-        if (task.due?.datetime) {
+        if (typeof task.due?.datetime === 'string' && task.due.datetime) {
           const parsedDate = parseISO(task.due.datetime);
           return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
         }
-        if (task.due?.date) {
+        if (typeof task.due?.date === 'string' && task.due.date) {
           const parsedDate = parseISO(task.due.date);
           return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
         }
-        return Infinity; // Tarefas sem prazo vão para o final
+        return Infinity;
       };
 
       const dateA = getTaskDate(a);
       const dateB = getTaskDate(b);
 
       if (dateA !== dateB) {
-        return dateA - dateB; // Mais próximo primeiro
+        return dateA - dateB;
       }
 
-      // 4. Desempate final: por data de criação (mais antiga primeiro)
-      const createdAtA = parseISO(a.created_at);
-      const createdAtB = parseISO(b.created_at);
-      return isValid(createdAtA) && isValid(createdAtB) ? createdAtA.getTime() - createdAtB.getTime() : 0;
+      const createdAtA = (typeof a.created_at === 'string' && a.created_at) ? parseISO(a.created_at) : null;
+      const createdAtB = (typeof b.created_at === 'string' && b.created_at) ? parseISO(b.created_at) : null;
+      
+      if (createdAtA && createdAtB && isValid(createdAtA) && isValid(createdAtB)) {
+        return createdAtA.getTime() - createdAtB.getTime();
+      }
+      return 0;
     });
   }, []);
 
@@ -83,7 +81,6 @@ const Seiri = () => {
     const todoistFilter = filterInput.trim();
     const finalFilter = todoistFilter || undefined; 
     
-    // Alterado para usar as novas opções: excluir subtarefas e tarefas recorrentes
     const fetchedTasks = await fetchTasks(finalFilter, { includeSubtasks: false, includeRecurring: false }); 
     
     let filteredTasksAfterInternalLogic: TodoistTask[] = [];
@@ -93,7 +90,7 @@ const Seiri = () => {
 
     let sortedTasks: TodoistTask[] = [];
     if (filteredTasksAfterInternalLogic.length > 0) {
-      sortedTasks = sortTasks(filteredTasksAfterInternalLogic); // Aplicar ordenação combinada
+      sortedTasks = sortTasks(filteredTasksAfterInternalLogic);
       setTasksToReview(sortedTasks);
       setReviewState("reviewing");
       toast.info(`Encontradas ${sortedTasks.length} tarefas para revisar.`);
@@ -106,8 +103,6 @@ const Seiri = () => {
   }, [fetchTasks, sortTasks, filterInput]);
 
   useEffect(() => {
-    // Load tasks only when the component mounts or when explicitly triggered
-    // The initial state will show the "Iniciar Revisão" button
   }, []);
 
   const handleNextTask = useCallback(() => {
@@ -215,7 +210,7 @@ const Seiri = () => {
   const handleUpdateDuration = useCallback(async (taskId: string, duration: number | null) => {
     const updated = await updateTask(taskId, {
       duration: duration,
-      duration_unit: duration !== null ? "minute" : undefined, // Set unit if duration is provided, clear if null
+      duration_unit: duration !== null ? "minute" : undefined,
     });
     if (updated) {
       setTasksToReview(prevTasks =>
@@ -246,14 +241,11 @@ const Seiri = () => {
     } else {
       toast.error("Falha ao postergar a tarefa.");
     }
-  }, [calculateNext15MinInterval, updateTask, handleNextTask]);
+  }, [updateTask, handleNextTask]);
 
 
   const handleClearFilter = useCallback(() => {
-    setFilterInput(""); // Limpa o input do filtro
-    // loadTasks será chamado automaticamente pelo useEffect do filterInput,
-    // ou pode ser chamado explicitamente aqui se preferir um comportamento imediato.
-    // Por enquanto, deixaremos o useEffect lidar com isso.
+    setFilterInput("");
   }, []);
 
   const currentTask = tasksToReview[currentTaskIndex];
@@ -282,10 +274,10 @@ const Seiri = () => {
                 placeholder="Opcional: insira um filtro do Todoist (padrão: todas as tarefas)..."
                 value={filterInput}
                 onChange={(e) => setFilterInput(e.target.value)}
-                className="pr-10" // Adiciona padding para o botão
+                className="pr-10"
                 disabled={isLoading}
               />
-              {filterInput && ( // Mostra o botão apenas se houver texto no filtro
+              {filterInput && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -319,10 +311,10 @@ const Seiri = () => {
             onDelete={handleDelete}
             onUpdateCategory={handleUpdateCategory}
             onUpdatePriority={handleUpdatePriority}
-            onUpdateDeadline={handleUpdateDeadline} // Passando a nova função
+            onUpdateDeadline={handleUpdateDeadline}
             onUpdateFieldDeadline={handleUpdateFieldDeadline}
-            onPostpone={handlePostpone} // Passando a nova função de postergar
-            onUpdateDuration={handleUpdateDuration} // Passando a nova função de duração
+            onPostpone={handlePostpone}
+            onUpdateDuration={handleUpdateDuration}
             isLoading={isLoading}
           />
         </div>

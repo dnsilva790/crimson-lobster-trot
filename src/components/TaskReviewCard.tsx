@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { format, setHours, setMinutes, parseISO, isValid, parse } from "date-fns"; // Adicionado parse
+import { format, setHours, setMinutes, parseISO, isValid, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -59,17 +59,11 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   console.log(`TaskReviewCard: Rendering task ${task.id} (${task.content})`, task);
 
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
-  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(
-    task.due?.date ? parseISO(task.due.date) : undefined
-  );
-  const [selectedDueTime, setSelectedDueTime] = useState<string>(
-    task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : ""
-  );
+  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(undefined);
+  const [selectedDueTime, setSelectedDueTime] = useState<string>("");
   const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
 
-  const [selectedFieldDeadlineDate, setSelectedFieldDeadlineDate] = useState<Date | undefined>(
-    task.deadline ? parseISO(task.deadline) : undefined
-  );
+  const [selectedFieldDeadlineDate, setSelectedFieldDeadlineDate] = useState<Date | undefined>(undefined);
   const [isFieldDeadlinePopoverOpen, setIsFieldDeadlinePopoverOpen] = useState(false);
 
   const [selectedDuration, setSelectedDuration] = useState<string>(
@@ -90,76 +84,43 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       setSelectedCategory("none");
     }
     
-    let initialDueDate: Date | undefined;
+    let initialDueDate: Date | undefined = undefined;
     let initialDueTime: string = "";
 
-    if (task.due?.datetime) {
+    // 1. Prioritize task.due?.datetime
+    if (typeof task.due?.datetime === 'string' && task.due.datetime) {
       const parsed = parseISO(task.due.datetime);
       if (isValid(parsed)) {
         initialDueDate = parsed;
         initialDueTime = format(parsed, "HH:mm");
       }
-    } else if (task.due?.date) {
+    }
+
+    // 2. If due.datetime didn't set a valid date, try with due.date
+    if (initialDueDate === undefined && typeof task.due?.date === 'string' && task.due.date) {
       const parsed = parseISO(task.due.date);
       if (isValid(parsed)) {
         initialDueDate = parsed;
-      }
-    } else if (task.due?.string) {
-      // Adicionar verificação explícita de tipo para task.due.string
-      if (typeof task.due.string !== 'string') {
-        console.warn(`TaskReviewCard: task.due.string is not a string for task ${task.id}. Value:`, task.due.string);
-        initialDueDate = undefined;
-        initialDueTime = "";
-      } else {
-        // Tentar parsear due.string com um formato mais flexível
-        // Priorizar formatos com hora
-        let parsedWithTime = parse(task.due.string, "dd MMM HH:mm", new Date()); // Ex: "11 Oct 15:15"
-        if (isValid(parsedWithTime)) {
-          initialDueDate = parsedWithTime;
-          initialDueTime = format(parsedWithTime, "HH:mm");
-        } else {
-          // Tentar formatos apenas com data
-          let parsedDateOnly = parse(task.due.string, "dd MMM", new Date()); // Ex: "11 Oct"
-          if (isValid(parsedDateOnly)) {
-            initialDueDate = parsedDateOnly;
-            initialDueTime = ""; // Explicitly set to empty string if no time
-          } else {
-            // Tentar formatos ISO ou outros conhecidos
-            const parsedISO = parseISO(task.due.string);
-            if (isValid(parsedISO)) {
-              initialDueDate = parsedISO;
-              // Se a string ISO contém hora, extrair
-              if (task.due.string.includes('T') && task.due.string.includes(':')) { 
-                initialDueTime = format(parsedISO, "HH:mm");
-              } else {
-                initialDueTime = ""; // Explicitly set to empty string if no time
-              }
-            } else {
-              // Fallback para strings como "today", "tomorrow" que date-fns não parseia diretamente
-              // Se a tarefa tem due.string mas não due.date/datetime, e não é parsável,
-              // deixamos initialDueDate como undefined e initialDueTime como ""
-              console.warn(`TaskReviewCard: Could not parse due.string "${task.due.string}" for task ${task.id}. Setting to undefined.`);
-              initialDueDate = undefined;
-              initialDueTime = "";
-            }
-          }
-        }
+        // No time to extract from due.date
       }
     }
+
+    // 3. For editing fields, explicitly ignore task.due?.string if due.datetime and due.date were not valid.
+    // This prevents ambiguous formats like "11 Oct" from populating the date/time selectors.
 
     setSelectedDueDate(initialDueDate);
     setSelectedDueTime(initialDueTime);
     console.log(`DEBUG (useEffect init): Task ID: ${task.id}, initialDueTime = '${initialDueTime}', type = ${typeof initialDueTime}`);
 
-
-    setSelectedFieldDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined);
+    // For task.deadline, ensure it's a string before parsing
+    setSelectedFieldDeadlineDate((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
     setSelectedDuration(
       task.duration?.amount && task.duration.unit === "minute"
         ? String(task.duration.amount)
         : ""
     );
     console.log("TaskReviewCard: New task.deadline:", task.deadline);
-    console.log("TaskReviewCard: New selectedFieldDeadlineDate:", task.deadline ? parseISO(task.deadline) : undefined);
+    console.log("TaskReviewCard: New selectedFieldDeadlineDate:", (typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
   }, [task]);
 
   const handleCategoryChange = (newCategory: "pessoal" | "profissional" | "none") => {
@@ -252,8 +213,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
-    // Priorizar due.datetime
-    if (task.due?.datetime) {
+    // 1. Prioritize due.datetime
+    if (typeof task.due?.datetime === 'string' && task.due.datetime) {
       const parsedDate = parseISO(task.due.datetime);
       if (isValid(parsedDate)) {
         dateElements.push(
@@ -263,8 +224,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         );
       }
     } 
-    // Se não houver due.datetime, verificar due.date
-    else if (task.due?.date) {
+    // 2. If due.datetime didn't add an element, try with due.date
+    else if (typeof task.due?.date === 'string' && task.due.date) {
       const parsedDate = parseISO(task.due.date);
       if (isValid(parsedDate)) {
         dateElements.push(
@@ -274,62 +235,18 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         );
       }
     }
-    // Se não houver due.datetime nem due.date, tentar due.string com parse flexível
-    else if (task.due?.string) {
-      // Adicionar verificação explícita de tipo para task.due.string
-      if (typeof task.due.string !== 'string') {
-        dateElements.push(
-          <span key="due-string-raw" className="block">
-            Vencimento: {String(task.due.string)} (formato inválido/não string)
-          </span>
-        );
-        // Não retornar aqui, continuar para o deadline se houver
-      } else {
-        let parsedDate: Date | null = null;
-        // Tentar formatos com hora primeiro
-        let tempParsed = parse(task.due.string, "dd MMM HH:mm", new Date()); // Ex: "11 Oct 15:15"
-        if (isValid(tempParsed)) {
-          parsedDate = tempParsed;
-        } else {
-          // Tentar formatos apenas com data
-          tempParsed = parse(task.due.string, "dd MMM", new Date()); // Ex: "11 Oct"
-          if (isValid(tempParsed)) {
-            parsedDate = tempParsed;
-          } else {
-            // Tentar formatos ISO
-            tempParsed = parseISO(task.due.string);
-            if (isValid(tempParsed)) {
-              parsedDate = tempParsed;
-            }
-          }
-        }
-
-        if (parsedDate && isValid(parsedDate)) {
-          // Se a string original continha hora, mostrar com hora
-          if (task.due.string.includes(':')) {
-            dateElements.push(
-              <span key="due-string-datetime" className="block">
-                Vencimento: {format(parsedDate, "dd/MM/yyyy HH:mm", { locale: ptBR })} (estimado)
-              </span>
-            );
-          } else {
-            dateElements.push(
-              <span key="due-string-date" className="block">
-                Vencimento: {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })} (estimado)
-              </span>
-            );
-          }
-        } else {
-          dateElements.push(
-            <span key="due-string-raw" className="block">
-              Vencimento: {task.due.string} (formato desconhecido)
-            </span>
-          );
-        }
-      }
+    // 3. If neither due.datetime nor due.date added an element, and due.string exists, display it directly.
+    // This handles "11 Oct" without parsing.
+    else if (typeof task.due?.string === 'string' && task.due.string) {
+      dateElements.push(
+        <span key="due-string-raw" className="block">
+          Vencimento: {task.due.string}
+        </span>
+      );
     }
 
-    if (task.deadline) {
+    // 4. Always include task.deadline (if exists and is valid)
+    if (typeof task.deadline === 'string' && task.deadline) {
       const parsedDeadline = parseISO(task.deadline);
       if (isValid(parsedDeadline)) {
         dateElements.push(

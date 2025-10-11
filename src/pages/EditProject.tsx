@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Save, ArrowLeft } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Project } from "@/lib/types";
@@ -42,7 +42,7 @@ const EditProject = () => {
         setWhy(foundProject.why);
         setWho(foundProject.who);
         setWhere(foundProject.where);
-        setWhen(parseISO(foundProject.when));
+        setWhen((typeof foundProject.when === 'string' && foundProject.when) ? parseISO(foundProject.when) : undefined);
         setHow(foundProject.how);
         setHowMuch(foundProject.howMuch || "");
         setStatus(foundProject.status);
@@ -54,8 +54,8 @@ const EditProject = () => {
   }, [projectId, navigate]);
 
   const handleUpdateProject = useCallback(() => {
-    if (!project || !what.trim() || !why.trim() || !who.trim() || !when || !how.trim()) {
-      toast.error("Por favor, preencha todos os campos obrigatórios (O Quê, Por Quê, Quem, Quando, Como).");
+    if (!project || !what.trim() || !why.trim() || !who.trim() || !when || !isValid(when) || !how.trim()) {
+      toast.error("Por favor, preencha todos os campos obrigatórios (O Quê, Por Quê, Quem, Quando, Como) com dados válidos.");
       return;
     }
 
@@ -76,7 +76,7 @@ const EditProject = () => {
 
     updateProject(updatedProject);
     toast.success("Projeto 5W2H atualizado com sucesso!");
-    navigate(`/shitsuke/${project.id}`); // Voltar para os detalhes do projeto
+    navigate(`/shitsuke/${project.id}`);
   }, [project, what, why, who, when, how, howMuch, status, navigate]);
 
   if (!project) {
@@ -170,7 +170,7 @@ const EditProject = () => {
                   required
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {when ? format(when, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                  {when && isValid(when) ? format(when, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">

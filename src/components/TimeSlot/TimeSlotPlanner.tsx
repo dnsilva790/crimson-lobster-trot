@@ -1,18 +1,18 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react"; // Importar useRef
+import React, { useState, useEffect, useRef } from "react";
 import { DaySchedule, TimeBlock, ScheduledTask, TimeBlockType } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { format, parseISO, setHours, setMinutes, addMinutes, isWithinInterval, parse, isBefore, isAfter, isEqual, addDays, isToday } from "date-fns"; // Adicionar isToday
+import { format, parseISO, setHours, setMinutes, addMinutes, isWithinInterval, parse, isBefore, isAfter, isEqual, addDays, isToday, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface TimeSlotPlannerProps {
   daySchedule: DaySchedule;
   onSelectSlot?: (time: string, type: TimeBlockType) => void;
-  onSelectTask?: (task: ScheduledTask) => void; // Adicionada prop para selecionar tarefa agendada
-  suggestedSlotStart?: string | null; // Novo: Início do slot sugerido
-  suggestedSlotEnd?: string | null;   // Novo: Fim do slot sugerido
+  onSelectTask?: (task: ScheduledTask) => void;
+  suggestedSlotStart?: string | null;
+  suggestedSlotEnd?: string | null;
 }
 
 const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
@@ -23,19 +23,20 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
   suggestedSlotEnd,
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const scrollAreaRef = useRef<HTMLDivElement>(null); // Ref para a área de scroll
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
-    }, 60 * 1000); // Atualiza a cada minuto
+    }, 60 * 1000);
 
     return () => clearInterval(interval);
   }, []);
 
   // Calcula a posição da linha do horário atual
   const renderCurrentTimeLine = () => {
-    if (!isToday(parseISO(daySchedule.date))) {
+    const parsedDayScheduleDate = (typeof daySchedule.date === 'string' && daySchedule.date) ? parseISO(daySchedule.date) : null;
+    if (!parsedDayScheduleDate || !isValid(parsedDayScheduleDate) || !isToday(parsedDayScheduleDate)) {
       return null; // Apenas mostra para o dia atual
     }
 
@@ -60,7 +61,8 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
 
   // Efeito para rolar para a linha do tempo atual ao carregar
   useEffect(() => {
-    if (scrollAreaRef.current && isToday(parseISO(daySchedule.date))) {
+    const parsedDayScheduleDate = (typeof daySchedule.date === 'string' && daySchedule.date) ? parseISO(daySchedule.date) : null;
+    if (scrollAreaRef.current && parsedDayScheduleDate && isValid(parsedDayScheduleDate) && isToday(parsedDayScheduleDate)) {
       const now = new Date();
       const totalMinutesToday = now.getHours() * 60 + now.getMinutes();
       const pixelsPerMinute = 40 / 15;
@@ -72,38 +74,35 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
         behavior: 'smooth'
       });
     }
-  }, [daySchedule.date]); // Rola quando o dia muda
+  }, [daySchedule.date]);
 
   const renderTimeSlots = () => {
     const slots: JSX.Element[] = [];
-    const today = parseISO(daySchedule.date); // Use the date from daySchedule
+    const today = (typeof daySchedule.date === 'string' && daySchedule.date) ? parseISO(daySchedule.date) : new Date(); // Fallback to current date if invalid
 
-    const parsedSuggestedStart = suggestedSlotStart ? parse(suggestedSlotStart, "HH:mm", today) : null;
-    const parsedSuggestedEnd = suggestedSlotEnd ? parse(suggestedSlotEnd, "HH:mm", today) : null;
+    const parsedSuggestedStart = (typeof suggestedSlotStart === 'string' && suggestedSlotStart) ? parse(suggestedSlotStart, "HH:mm", today) : null;
+    const parsedSuggestedEnd = (typeof suggestedSlotEnd === 'string' && suggestedSlotEnd) ? parse(suggestedSlotEnd, "HH:mm", today) : null;
 
     for (let hour = 0; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 15) {
         const slotTime = setMinutes(setHours(today, hour), minute);
         const formattedTime = format(slotTime, "HH:mm");
-        const nextSlotTime = addMinutes(slotTime, 15); // Represents the end of the current 15-min slot
+        const nextSlotTime = addMinutes(slotTime, 15);
 
-        // Determine the type of time block for this slot
-        let blockType: TimeBlockType = "work"; // Default to work
+        let blockType: TimeBlockType = "work";
         let blockLabel: string | undefined;
         let blockColorClass = "bg-gray-50 hover:bg-gray-100";
 
-        // Check if this slot falls within any defined time blocks
         for (const block of daySchedule.timeBlocks) {
-          const blockStart = parse(block.start, "HH:mm", today);
-          let blockEnd = parse(block.end, "HH:mm", today);
-          // Adjust blockEnd if it crosses midnight (e.g., 23:00 to 00:00)
+          const blockStart = (typeof block.start === 'string' && block.start) ? parse(block.start, "HH:mm", today) : null;
+          let blockEnd = (typeof block.end === 'string' && block.end) ? parse(block.end, "HH:mm", today) : null;
+
+          if (!blockStart || !blockEnd || !isValid(blockStart) || !isValid(blockEnd)) continue;
+
           if (isBefore(blockEnd, blockStart)) {
             blockEnd = addDays(blockEnd, 1);
           }
 
-          // A block covers this 15-min slot if the slot's start is >= block's start
-          // AND the slot's end is <= block's end.
-          // Or, more simply, if the slot's start is within the block interval (inclusive start, exclusive end)
           if (isWithinInterval(slotTime, { start: blockStart, end: blockEnd }) &&
               (isBefore(nextSlotTime, blockEnd) || isEqual(nextSlotTime, blockEnd))) {
             blockType = block.type;
@@ -112,24 +111,21 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
               blockColorClass = "bg-blue-50 hover:bg-blue-100";
             } else if (block.type === "break") {
               blockColorClass = "bg-yellow-50 hover:bg-yellow-100";
-            } else { // work
+            } else {
               blockColorClass = "bg-green-50 hover:bg-green-100";
             }
-            break; // Found a matching block, no need to check further
+            break;
           }
         }
 
-        // Check for scheduled tasks that occupy this 15-minute slot
-        // A task occupies this slot if its start time is less than or equal to slotTime
-        // AND its end time is strictly greater than slotTime.
         const taskInSlot = daySchedule.scheduledTasks.find(task => {
-          const taskStart = parse(task.start, "HH:mm", today);
-          const taskEnd = parse(task.end, "HH:mm", today);
+          const taskStart = (typeof task.start === 'string' && task.start) ? parse(task.start, "HH:mm", today) : null;
+          const taskEnd = (typeof task.end === 'string' && task.end) ? parse(task.end, "HH:mm", today) : null;
+          if (!taskStart || !taskEnd || !isValid(taskStart) || !isValid(taskEnd)) return false;
           return (isBefore(taskStart, nextSlotTime) || isEqual(taskStart, slotTime)) && isAfter(taskEnd, slotTime);
         });
 
-        // Determine if this slot is part of the suggested slot
-        const isSuggestedSlot = parsedSuggestedStart && parsedSuggestedEnd &&
+        const isSuggestedSlot = parsedSuggestedStart && parsedSuggestedEnd && isValid(parsedSuggestedStart) && isValid(parsedSuggestedEnd) &&
                                 isWithinInterval(slotTime, { start: parsedSuggestedStart, end: parsedSuggestedEnd }) &&
                                 (isBefore(nextSlotTime, parsedSuggestedEnd) || isEqual(nextSlotTime, parsedSuggestedEnd));
 
@@ -140,7 +136,7 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
               "relative p-1 border-b border-gray-200 text-xs h-10 flex items-center justify-between",
               blockColorClass,
               onSelectSlot && "cursor-pointer",
-              isSuggestedSlot && "bg-yellow-200 border-yellow-500 ring-2 ring-yellow-500 z-10" // Highlight suggested slot
+              isSuggestedSlot && "bg-yellow-200 border-yellow-500 ring-2 ring-yellow-500 z-10"
             )}
             onClick={() => onSelectSlot?.(formattedTime, blockType)}
           >
@@ -162,17 +158,19 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
     return slots;
   };
 
+  const parsedDayScheduleDate = (typeof daySchedule.date === 'string' && daySchedule.date) ? parseISO(daySchedule.date) : new Date();
+
   return (
     <Card className="h-full">
       <CardHeader>
         <CardTitle className="text-xl font-bold text-gray-800">
-          Agenda para {format(parseISO(daySchedule.date), "EEEE, dd 'de' MMMM", { locale: ptBR })}
+          Agenda para {isValid(parsedDayScheduleDate) ? format(parsedDayScheduleDate, "EEEE, dd 'de' MMMM", { locale: ptBR }) : "Data Inválida"}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <div ref={scrollAreaRef} className="overflow-y-auto h-[calc(100vh-300px)] custom-scroll relative"> {/* Adicionar relative aqui */}
+        <div ref={scrollAreaRef} className="overflow-y-auto h-[calc(100vh-300px)] custom-scroll relative">
           {renderTimeSlots()}
-          {renderCurrentTimeLine()} {/* Renderizar a linha do tempo */}
+          {renderCurrentTimeLine()}
         </div>
       </CardContent>
     </Card>

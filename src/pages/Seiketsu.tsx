@@ -27,12 +27,12 @@ import {
   Hourglass,
   RotateCcw,
 } from "lucide-react";
-import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
-import { format, parseISO, setHours, setMinutes } from "date-fns";
+import { cn, getTaskCategory } from "@/lib/utils";
+import { format, parseISO, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge"; // Importar Badge
-import { useNavigate } from "react-router-dom"; // Importar useNavigate
+import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
 
 type GtdState =
   | "initial"
@@ -65,14 +65,13 @@ const GTD_PROCESSED_LABEL = "gtd_processada";
 const Seiketsu = () => {
   console.log("Seiketsu component rendered.");
   const { fetchTasks, closeTask, deleteTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
-  const navigate = useNavigate(); // Inicializar useNavigate
+  const navigate = useNavigate();
   const [gtdState, setGtdState] = useState<GtdState>("initial");
   const [actionableStep, setActionableStep] = useState<ActionableStep>("isActionable");
   const [tasksToProcess, setTasksToProcess] = useState<TodoistTask[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [inboxFilter, setInboxFilter] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      // Novo filtro padrão: sem data, sem projeto, e sem as etiquetas gtd_processada ou agenda
       return localStorage.getItem(INBOX_FILTER_STORAGE_KEY) || "no date & no project & !@gtd_processada & !@agenda";
     }
     return "no date & no project & !@gtd_processada & !@agenda";
@@ -115,7 +114,7 @@ const Seiketsu = () => {
           setTasksToProcess(parsedState.tasksToProcess || []);
           setCurrentTaskIndex(parsedState.currentTaskIndex);
           setInboxFilter(parsedState.inboxFilter);
-          setSelectedDueDate(parsedState.selectedDueDate ? parseISO(parsedState.selectedDueDate.toISOString()) : undefined);
+          setSelectedDueDate(parsedState.selectedDueDate && isValid(parsedState.selectedDueDate) ? parseISO(parsedState.selectedDueDate.toISOString()) : undefined);
           setSelectedDueTime(parsedState.selectedDueTime);
           setDelegateName(parsedState.delegateName);
           
@@ -150,8 +149,8 @@ const Seiketsu = () => {
 
   useEffect(() => {
     if (isSchedulingPopoverOpen && currentTask) {
-      setSelectedDueDate(currentTask.due?.date ? parseISO(currentTask.due.date) : undefined);
-      setSelectedDueTime(currentTask.due?.datetime ? format(parseISO(currentTask.due.datetime), "HH:mm") : "");
+      setSelectedDueDate((typeof currentTask.due?.date === 'string' && currentTask.due.date) ? parseISO(currentTask.due.date) : undefined);
+      setSelectedDueTime((typeof currentTask.due?.datetime === 'string' && currentTask.due.datetime) ? format(parseISO(currentTask.due.datetime), "HH:mm") : "");
     } else if (!isSchedulingPopoverOpen) {
       setSelectedDueDate(undefined);
       setSelectedDueTime("");
@@ -243,8 +242,8 @@ const Seiketsu = () => {
   }, [currentTask, updateTask, advanceToNextTask]);
 
   const handleSetSchedule = useCallback(async () => {
-    if (!currentTask || !selectedDueDate) {
-      toast.error("Por favor, selecione uma data para agendar.");
+    if (!currentTask || !selectedDueDate || !isValid(selectedDueDate)) {
+      toast.error("Por favor, selecione uma data válida para agendar.");
       return;
     }
 
@@ -291,15 +290,12 @@ const Seiketsu = () => {
 
   const handleMarkAsProject = useCallback(async () => {
     if (!currentTask) return;
-    // Navegar para a página de criação de projetos, passando os dados da tarefa
     navigate("/shitsuke/create", {
       state: {
         initialWhat: currentTask.content,
         initialTodoistTaskId: currentTask.id,
       },
     });
-    // Não avançar para a próxima tarefa aqui, pois o usuário ainda estará na tela de criação do projeto.
-    // A tarefa será marcada como processada ou removida do backlog do Seiketsu após a criação do projeto no Shitsuke.
   }, [currentTask, navigate]);
 
   const handleNextAction = useCallback(async () => {
@@ -330,7 +326,7 @@ const Seiketsu = () => {
 
   const renderTaskCard = (task: TodoistTask) => {
     const category = getTaskCategory(task);
-    const hasDueDate = task.due?.date || task.due?.datetime;
+    const hasDueDate = (typeof task.due?.date === 'string' && task.due.date) || (typeof task.due?.datetime === 'string' && task.due.datetime);
     const hasDuration = task.duration?.amount && task.duration.unit === "minute";
 
     return (
@@ -362,12 +358,12 @@ const Seiketsu = () => {
           <div className="flex flex-col gap-1">
             {hasDueDate ? (
               <>
-                {task.due?.datetime && (
+                {(typeof task.due?.datetime === 'string' && task.due.datetime) && (
                   <span className="flex items-center gap-1">
                     <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                   </span>
                 )}
-                {task.due?.date && !task.due?.datetime && (
+                {(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && (
                   <span className="flex items-center gap-1">
                     <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
                   </span>

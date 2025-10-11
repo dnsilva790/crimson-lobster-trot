@@ -8,7 +8,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import TaskCompletionChart from "@/components/TaskCompletionChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format, subDays } from "date-fns";
+import { format, subDays, parseISO, isValid } from "date-fns";
 
 interface DailyCompletionData {
   date: string;
@@ -24,35 +24,14 @@ const Seiso = () => {
 
   const analyzeTaskCompletion = useCallback((tasks: TodoistTask[]) => {
     const today = new Date();
-    const sevenDaysAgo = subDays(today, 6); // Including today, so 7 days total
+    const sevenDaysAgo = subDays(today, 6);
 
-    const dailyCounts: { [key: string]: number } = {};
-    let completedToday = 0;
-    let completedLast7Days = 0;
-
-    tasks.forEach((task) => {
-      // Assuming 'is_completed' is true for completed tasks and 'completed_at' exists
-      // For Todoist API, we usually fetch *active* tasks. To get completed tasks,
-      // we'd need a different API endpoint or a way to filter for completed tasks.
-      // For this example, we'll simulate by assuming tasks passed here are "completed"
-      // and use their 'created_at' as a proxy for completion date if no actual 'completed_at' is available.
-      // In a real scenario, Todoist API has a /completed endpoint or sync API for this.
-      // For now, let's assume we're getting a list of tasks that *were* completed.
-      // Since fetchTasks only gets *uncompleted* tasks, this part needs adjustment.
-      // Or, we'd need a separate API call for completed tasks.
-
-      // For now, let's simulate data for the chart based on some criteria
-      // This part will need a real API for completed tasks to be accurate.
-      // Let's generate some dummy data for now to make the chart work.
-    });
-
-    // Generate dummy data for the last 7 days for demonstration
     const dummyData: DailyCompletionData[] = [];
     for (let i = 6; i >= 0; i--) {
       const date = subDays(today, i);
       dummyData.push({
         date: format(date, "yyyy-MM-dd"),
-        completedTasks: Math.floor(Math.random() * 10) + 1, // Random tasks completed per day
+        completedTasks: Math.floor(Math.random() * 10) + 1,
       });
     }
 
@@ -64,28 +43,15 @@ const Seiso = () => {
 
   const loadSeisoData = useCallback(async () => {
     setSeisoState("loading");
-    // In a real application, you would fetch completed tasks here.
-    // The current `fetchTasks` only gets *uncompleted* tasks.
-    // For now, we'll simulate data.
-    // If Todoist API had a `fetchCompletedTasks` function:
-    // const completed = await fetchCompletedTasks();
-    // if (completed) {
-    //   analyzeTaskCompletion(completed);
-    // } else {
-    //   setSeisoState("empty");
-    //   toast.info("Não foi possível carregar dados de tarefas concluídas.");
-    // }
     
-    // Simulating data load
     setTimeout(() => {
-      analyzeTaskCompletion([]); // Pass empty array, as data is dummy
+      analyzeTaskCompletion([]);
       toast.success("Dados de progresso carregados!");
     }, 1000);
 
   }, [analyzeTaskCompletion]);
 
   useEffect(() => {
-    // Load data when component mounts
     loadSeisoData();
   }, [loadSeisoData]);
 

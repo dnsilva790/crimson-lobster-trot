@@ -5,25 +5,25 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select
-import { ArrowLeft, Edit, Trash2, ExternalLink, ListTodo, PlusCircle, RefreshCw } from "lucide-react"; // Importar RefreshCw
-import { format, parseISO, isValid } from "date-fns"; // Adicionado isValid
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Edit, Trash2, ExternalLink, ListTodo, PlusCircle, RefreshCw } from "lucide-react";
+import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Project } from "@/lib/types";
-import { getProjects, deleteProject, updateProject } from "@/utils/projectStorage"; // Importar updateProject
+import { getProjects, deleteProject, updateProject } from "@/utils/projectStorage";
 import { toast } from "sonner";
-import { useTodoist } from "@/context/TodoistContext"; // Importar useTodoist
-import LoadingSpinner from "@/components/ui/loading-spinner"; // Importar LoadingSpinner
+import { useTodoist } from "@/context/TodoistContext";
+import LoadingSpinner from "@/components/ui/loading-spinner";
 
 const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
-  const { createTodoistTask, fetchProjects, fetchTaskById, isLoading: isLoadingTodoist } = useTodoist(); // Usar createTodoistTask, fetchProjects e fetchTaskById
-  const [todoistProjects, setTodoistProjects] = useState<any[]>([]); // Para armazenar projetos do Todoist
-  const [selectedTodoistProject, setSelectedTodoistProject] = useState<string | undefined>(undefined); // Para selecionar o projeto do Todoist
-  const [isSyncingStatus, setIsSyncingStatus] = useState(false); // Novo estado para o loading do sync
+  const { createTodoistTask, fetchProjects, fetchTaskById, isLoading: isLoadingTodoist } = useTodoist();
+  const [todoistProjects, setTodoistProjects] = useState<any[]>([]);
+  const [selectedTodoistProject, setSelectedTodoistProject] = useState<string | undefined>(undefined);
+  const [isSyncingStatus, setIsSyncingStatus] = useState(false);
 
   const loadProject = useCallback(() => {
     if (projectId) {
@@ -69,24 +69,22 @@ const ProjectDetail = () => {
       return;
     }
 
-    // Se não houver uma tarefa principal vinculada, criar uma para o projeto 5W2H
     if (!parentTaskId) {
       toast.info("Criando tarefa principal para o projeto 5W2H no Todoist...");
       const mainTask = await createTodoistTask({
         content: project.what,
         description: `Projeto 5W2H: ${project.what}\n\n${project.why}\n\nLink Shitsuke: /shitsuke/${project.id}`,
         project_id: targetProjectId,
-        priority: 4, // P1 por padrão para o projeto principal
+        priority: 4,
         due_date: project.when,
         labels: ["projeto"],
       });
 
       if (mainTask) {
         parentTaskId = mainTask.id;
-        // Atualizar o projeto Shitsuke com o ID da nova tarefa principal
         const updatedProject = { ...project, todoistTaskId: parentTaskId };
         updateProject(updatedProject);
-        setProject(updatedProject); // Atualizar o estado local
+        setProject(updatedProject);
         toast.success(`Tarefa principal "${project.what}" criada no Todoist.`);
       } else {
         toast.error("Falha ao criar a tarefa principal do projeto no Todoist.");
@@ -106,7 +104,7 @@ const ProjectDetail = () => {
           content: subtaskContent.trim(),
           parent_id: parentTaskId,
           project_id: targetProjectId,
-          priority: 2, // P3 por padrão para subtarefas
+          priority: 2,
           labels: ["subtarefa"],
         });
         if (createdTask) {
@@ -135,10 +133,10 @@ const ProjectDetail = () => {
       const todoistTask = await fetchTaskById(project.todoistTaskId);
 
       let newStatus: Project['status'] = project.status;
-      if (todoistTask === undefined) { // Tarefa não encontrada (concluída ou excluída)
+      if (todoistTask === undefined) {
         newStatus = "concluido";
         toast.success("Tarefa principal do Todoist concluída. Status do projeto atualizado para 'Concluído'.");
-      } else { // Tarefa ainda existe e está ativa
+      } else {
         newStatus = "ativo";
         toast.info("Tarefa principal do Todoist ainda ativa. Status do projeto mantido como 'Ativo'.");
       }
@@ -146,7 +144,7 @@ const ProjectDetail = () => {
       if (newStatus !== project.status) {
         const updatedProject = { ...project, status: newStatus };
         updateProject(updatedProject);
-        setProject(updatedProject); // Atualizar o estado local
+        setProject(updatedProject);
       }
     } catch (error) {
       console.error("Erro ao sincronizar status com Todoist:", error);
@@ -182,8 +180,8 @@ const ProjectDetail = () => {
     );
   }
 
-  const parsedCreatedAt = parseISO(project.createdAt);
-  const parsedWhen = parseISO(project.when);
+  const parsedCreatedAt = (typeof project.createdAt === 'string' && project.createdAt) ? parseISO(project.createdAt) : null;
+  const parsedWhen = (typeof project.when === 'string' && project.when) ? parseISO(project.when) : null;
 
   return (
     <div className="p-4">
@@ -200,7 +198,7 @@ const ProjectDetail = () => {
               {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
             </span>
             <span className="text-sm text-gray-500">
-              Criado em: {isValid(parsedCreatedAt) ? format(parsedCreatedAt, "dd/MM/yyyy", { locale: ptBR }) : "Data inválida"}
+              Criado em: {parsedCreatedAt && isValid(parsedCreatedAt) ? format(parsedCreatedAt, "dd/MM/yyyy", { locale: ptBR }) : "Data inválida"}
             </span>
           </div>
         </CardHeader>
@@ -220,7 +218,7 @@ const ProjectDetail = () => {
           <div>
             <Label className="font-semibold text-base">Quando? (When - Data de Vencimento)</Label>
             <p className="mt-1 text-sm">
-              {isValid(parsedWhen) ? format(parsedWhen, "dd/MM/yyyy", { locale: ptBR }) : "Data inválida"}
+              {parsedWhen && isValid(parsedWhen) ? format(parsedWhen, "dd/MM/yyyy", { locale: ptBR }) : "Data inválida"}
             </p>
           </div>
           <div>
