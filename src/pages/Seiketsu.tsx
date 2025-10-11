@@ -95,6 +95,12 @@ const Seiketsu = () => {
           const parsedState: GtdProcessorState = JSON.parse(savedState);
           
           let newGtdState = parsedState.gtdState;
+          const validGtdStates: GtdState[] = ["initial", "loading", "reviewing", "finished"];
+          if (!validGtdStates.includes(newGtdState)) {
+            console.warn(`Invalid gtdState '${newGtdState}' loaded from localStorage. Resetting to 'initial'.`);
+            newGtdState = "initial";
+          }
+
           // Se estivermos no estado de revisão mas não houver tarefas, resetar para inicial
           if (newGtdState === "reviewing" && (!parsedState.tasksToProcess || parsedState.tasksToProcess.length === 0)) {
             newGtdState = "initial"; 
