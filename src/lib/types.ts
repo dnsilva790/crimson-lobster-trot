@@ -97,3 +97,19 @@ export interface DaySchedule {
   timeBlocks: TimeBlock[]; // Specific blocks for this date
   scheduledTasks: ScheduledTask[];
 }
+
+// Nova interface para Projetos (5W2H)
+export interface Project {
+  id: string;
+  what: string; // O Quê
+  why: string;  // Por Quê
+  who: string;  // Quem
+  where: string; // Onde
+  when: string; // Quando (data de vencimento, YYYY-MM-DD)
+  how: string;  // Como (passos, metodologia)
+  howMuch?: string; // Quanto (custo, recursos)
+  createdAt: string; // Data de criação (ISO string)
+  status: "ativo" | "concluido" | "arquivado" | "cancelado"; // Status do projeto
+  todoistTaskId?: string; // Opcional: ID da tarefa Todoist que originou o projeto
+  subtasks: string[]; // Subtarefas geradas a partir do campo 'how'
+}
