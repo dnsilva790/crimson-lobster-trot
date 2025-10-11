@@ -28,6 +28,18 @@ interface TodoistContextType {
     duration_unit?: "minute" | "day";
     deadline?: string | null; // Adicionado o campo deadline
   }) => Promise<TodoistTask | undefined>;
+  createTodoistTask: (data: { // Nova função para criar tarefas
+    content: string;
+    description?: string;
+    project_id?: string;
+    parent_id?: string;
+    due_date?: string;
+    due_datetime?: string;
+    priority?: 1 | 2 | 3 | 4;
+    labels?: string[];
+    duration?: number;
+    duration_unit?: "minute" | "day";
+  }) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
 
@@ -170,6 +182,24 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
     [makeApiCall],
   );
 
+  const createTodoistTask = useCallback(
+    async (data: {
+      content: string;
+      description?: string;
+      project_id?: string;
+      parent_id?: string;
+      due_date?: string;
+      due_datetime?: string;
+      priority?: 1 | 2 | 3 | 4;
+      labels?: string[];
+      duration?: number;
+      duration_unit?: "minute" | "day";
+    }) => {
+      return await makeApiCall(todoistService.createTask, data);
+    },
+    [makeApiCall],
+  );
+
   return (
     <TodoistContext.Provider
       value={{
@@ -181,6 +211,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         closeTask,
         deleteTask,
         updateTask,
+        createTodoistTask, // Adicionado ao contexto
         isLoading,
       }}
     >

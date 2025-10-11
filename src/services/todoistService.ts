@@ -218,4 +218,19 @@ export const todoistService = {
     console.log("TodoistService: updateTask final result:", finalResult);
     return finalResult;
   },
+
+  createTask: async (apiKey: string, data: {
+    content: string;
+    description?: string;
+    project_id?: string;
+    parent_id?: string; // Para criar subtarefas
+    due_date?: string;
+    due_datetime?: string;
+    priority?: 1 | 2 | 3 | 4;
+    labels?: string[];
+    duration?: number;
+    duration_unit?: "minute" | "day";
+  }): Promise<TodoistTask | undefined> => {
+    return todoistApiCall<TodoistTask>("/tasks", apiKey, "POST", data);
+  },
 };
