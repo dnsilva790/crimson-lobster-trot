@@ -492,102 +492,100 @@ const Seiton = () => {
       {!isLoading && tournamentState === "comparing" && currentTaskToPlace && comparisonCandidate && (
         <>
           {console.log("Rendering: Comparing state with tasks")}
-          <div className="mt-8">
-            <p className="text-center text-xl font-medium mb-6 text-gray-700">
-              Tarefas restantes para classificar: {tasksToProcess.length + 1}
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {renderTaskCard(currentTaskToPlace, true, true)}
-              {renderTaskCard(comparisonCandidate, true, true)}
-            </div>
-            <div className="flex justify-center gap-4 mt-6">
-              <Button
-                onClick={() => handleSelection(currentTaskToPlace)}
-                className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 text-lg"
-              >
-                Escolher Esquerda
-              </Button>
-              <Button
-                onClick={() => handleSelection(comparisonCandidate)}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 text-lg"
-              >
-                Escolher Direita
-              </Button>
-            </div>
-            <div className="flex justify-center gap-4 mt-6">
-              <Button
-                onClick={undoLastAction}
-                disabled={history.length === 0}
-                className="bg-gray-400 hover:bg-gray-500 text-white px-6 py-3 text-lg"
-              >
-                Desfazer
-              </Button>
-              <Button
-                onClick={() => startTournament(false)}
-                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 text-lg"
-              >
-                Resetar Ranking
-              </Button>
-            </div>
-
-            {rankedTasks.length > 0 && (
-              <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner">
-                <h3 className="text-2xl font-bold mb-4 text-center text-gray-800">
-                  Ranking Atual (Top {Math.min(rankedTasks.length, 24)})
-                </h3>
-                <div className="space-y-3">
-                  {rankedTasks.slice(0, 24).map((task, index) => {
-                    const category = getTaskCategory(task);
-                    return (
-                      <Card
-                        key={task.id}
-                        className={cn(
-                          "p-3 rounded-lg flex items-center gap-3 border",
-                          index === 0 && "bg-yellow-50 border-yellow-400",
-                          index === 1 && "bg-gray-50 border-gray-300",
-                          index === 2 && "bg-amber-50 border-amber-300",
-                        )}
-                      >
-                        <span className="text-xl font-bold text-gray-600 w-6 text-center">
-                          {index + 1}º
-                        </span>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-md font-semibold text-gray-700">{task.content}</h4>
-                            {category && (
-                              <Badge
-                                className={cn(
-                                  "text-xs font-medium",
-                                  category === "pessoal" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
-                                )}
-                              >
-                                {category === "pessoal" ? "Pessoal" : "Profissional"}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {renderTaskDates(task)}
-                          </div>
-                        </div>
-                        {index < 3 && (
-                          <span className="ml-auto text-2xl">
-                            {index === 0 && "🥇"}
-                            {index === 1 && "🥈"}
-                            {index === 2 && "🥉"}
-                          </span>
-                        )}
-                      </Card>
-                    );
-                  })}
-                </div>
-                {rankedTasks.length > 24 && (
-                  <p className="text-center text-sm text-gray-500 mt-4">
-                    ... e mais {rankedTasks.length - 24} tarefas ranqueadas (não exibidas).
-                  </p>
-                )}
-              </div>
-            )}
+          <p className="text-center text-xl font-medium mb-6 text-gray-700">
+            Tarefas restantes para classificar: {tasksToProcess.length + 1}
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {renderTaskCard(currentTaskToPlace, true, true)}
+            {renderTaskCard(comparisonCandidate, true, true)}
           </div>
+          <div className="flex justify-center gap-4 mt-6">
+            <Button
+              onClick={() => handleSelection(currentTaskToPlace)}
+              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 text-lg"
+            >
+              Escolher Esquerda
+            </Button>
+            <Button
+              onClick={() => handleSelection(comparisonCandidate)}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 text-lg"
+            >
+              Escolher Direita
+            </Button>
+          </div>
+          <div className="flex justify-center gap-4 mt-6">
+            <Button
+              onClick={undoLastAction}
+              disabled={history.length === 0}
+              className="bg-gray-400 hover:bg-gray-500 text-white px-6 py-3 text-lg"
+            >
+              Desfazer
+            </Button>
+            <Button
+              onClick={() => startTournament(false)}
+              className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 text-lg"
+            >
+              Resetar Ranking
+            </Button>
+          </div>
+
+          {rankedTasks.length > 0 && (
+            <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner">
+              <h3 className="text-2xl font-bold mb-4 text-center text-gray-800">
+                Ranking Atual (Top {Math.min(rankedTasks.length, 24)})
+              </h3>
+              <div className="space-y-3">
+                {rankedTasks.slice(0, 24).map((task, index) => {
+                  const category = getTaskCategory(task);
+                  return (
+                    <Card
+                      key={task.id}
+                      className={cn(
+                        "p-3 rounded-lg flex items-center gap-3 border",
+                        index === 0 && "bg-yellow-50 border-yellow-400",
+                        index === 1 && "bg-gray-50 border-gray-300",
+                        index === 2 && "bg-amber-50 border-amber-300",
+                      )}
+                    >
+                      <span className="text-xl font-bold text-gray-600 w-6 text-center">
+                        {index + 1}º
+                      </span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-md font-semibold text-gray-700">{task.content}</h4>
+                          {category && (
+                            <Badge
+                              className={cn(
+                                "text-xs font-medium",
+                                category === "pessoal" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                              )}
+                            >
+                              {category === "pessoal" ? "Pessoal" : "Profissional"}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {renderTaskDates(task)}
+                        </div>
+                      </div>
+                      {index < 3 && (
+                        <span className="ml-auto text-2xl">
+                          {index === 0 && "🥇"}
+                          {index === 1 && "🥈"}
+                          {index === 2 && "🥉"}
+                        </span>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+              {rankedTasks.length > 24 && (
+                <p className="text-center text-sm text-gray-500 mt-4">
+                  ... e mais {rankedTasks.length - 24} tarefas ranqueadas (não exibidas).
+                </p>
+              )}
+            </div>
+          )}
         </>
       )}
 
