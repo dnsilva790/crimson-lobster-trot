@@ -179,7 +179,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           toast.error("Formato de hora inválido. Use HH:mm.");
           return;
         }
-        const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes), minutes);
+        // CORREÇÃO: Removido o 'minutes' duplicado
+        const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
         finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
       } catch (error) {
         console.error(`Error processing selectedDueTime for task ${task.id} (${task.content}):`, selectedDueTime, error);
