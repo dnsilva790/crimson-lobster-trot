@@ -24,7 +24,7 @@ interface SeitonStateSnapshot {
   currentTaskToPlace: TodoistTask | null;
   comparisonCandidate: TodoistTask | null;
   comparisonIndex: number;
-  tournamentState: TournamentState;
+  tournamentState: TournamentState; // Mantido para salvar o estado completo, mas não usado para restaurar o `tournamentState` diretamente na montagem
 }
 
 const LOCAL_STORAGE_KEY = "seitonTournamentState";
@@ -176,7 +176,7 @@ const Seiton = () => {
         toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
         setTournamentState("finished");
       }
-    } else {
+    } else { // continueSaved is true and tasksToProcess is not empty (loaded from storage)
       setTournamentState("comparing");
     }
   }, [fetchTasks, sortTasks, tasksToProcess.length, filterInput, selectedCategoryFilter, resetTournamentState]);
@@ -221,7 +221,8 @@ const Seiton = () => {
         setCurrentTaskToPlace(parsedState.currentTaskToPlace);
         setComparisonCandidate(parsedState.comparisonCandidate);
         setComparisonIndex(parsedState.comparisonIndex);
-        setTournamentState(parsedState.tournamentState);
+        // Do NOT set tournamentState here. Let it remain "initial"
+        // setTournamentState(parsedState.tournamentState); // <-- REMOVED THIS LINE
         setHasSavedState(true);
         toast.info("Estado do torneio carregado. Clique em 'Continuar Torneio' para prosseguir.");
       } catch (e) {
