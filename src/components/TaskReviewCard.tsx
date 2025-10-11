@@ -105,36 +105,43 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         initialDueDate = parsed;
       }
     } else if (task.due?.string) {
-      // Tentar parsear due.string com um formato mais flexível
-      // Priorizar formatos com hora
-      let parsedWithTime = parse(task.due.string, "dd MMM HH:mm", new Date()); // Ex: "11 Oct 15:15"
-      if (isValid(parsedWithTime)) {
-        initialDueDate = parsedWithTime;
-        initialDueTime = format(parsedWithTime, "HH:mm");
+      // Adicionar verificação explícita de tipo para task.due.string
+      if (typeof task.due.string !== 'string') {
+        console.warn(`TaskReviewCard: task.due.string is not a string for task ${task.id}. Value:`, task.due.string);
+        initialDueDate = undefined;
+        initialDueTime = "";
       } else {
-        // Tentar formatos apenas com data
-        let parsedDateOnly = parse(task.due.string, "dd MMM", new Date()); // Ex: "11 Oct"
-        if (isValid(parsedDateOnly)) {
-          initialDueDate = parsedDateOnly;
-          initialDueTime = ""; // Explicitly set to empty string if no time
+        // Tentar parsear due.string com um formato mais flexível
+        // Priorizar formatos com hora
+        let parsedWithTime = parse(task.due.string, "dd MMM HH:mm", new Date()); // Ex: "11 Oct 15:15"
+        if (isValid(parsedWithTime)) {
+          initialDueDate = parsedWithTime;
+          initialDueTime = format(parsedWithTime, "HH:mm");
         } else {
-          // Tentar formatos ISO ou outros conhecidos
-          const parsedISO = parseISO(task.due.string);
-          if (isValid(parsedISO)) {
-            initialDueDate = parsedISO;
-            // Se a string ISO contém hora, extrair
-            if (task.due.string.includes('T') && task.due.string.includes(':')) { 
-              initialDueTime = format(parsedISO, "HH:mm");
-            } else {
-              initialDueTime = ""; // Explicitly set to empty string if no time
-            }
+          // Tentar formatos apenas com data
+          let parsedDateOnly = parse(task.due.string, "dd MMM", new Date()); // Ex: "11 Oct"
+          if (isValid(parsedDateOnly)) {
+            initialDueDate = parsedDateOnly;
+            initialDueTime = ""; // Explicitly set to empty string if no time
           } else {
-            // Fallback para strings como "today", "tomorrow" que date-fns não parseia diretamente
-            // Se a tarefa tem due.string mas não due.date/datetime, e não é parsável,
-            // deixamos initialDueDate como undefined e initialDueTime como ""
-            console.warn(`TaskReviewCard: Could not parse due.string "${task.due.string}" for task ${task.id}. Setting to undefined.`);
-            initialDueDate = undefined;
-            initialDueTime = "";
+            // Tentar formatos ISO ou outros conhecidos
+            const parsedISO = parseISO(task.due.string);
+            if (isValid(parsedISO)) {
+              initialDueDate = parsedISO;
+              // Se a string ISO contém hora, extrair
+              if (task.due.string.includes('T') && task.due.string.includes(':')) { 
+                initialDueTime = format(parsedISO, "HH:mm");
+              } else {
+                initialDueTime = ""; // Explicitly set to empty string if no time
+              }
+            } else {
+              // Fallback para strings como "today", "tomorrow" que date-fns não parseia diretamente
+              // Se a tarefa tem due.string mas não due.date/datetime, e não é parsável,
+              // deixamos initialDueDate como undefined e initialDueTime como ""
+              console.warn(`TaskReviewCard: Could not parse due.string "${task.due.string}" for task ${task.id}. Setting to undefined.`);
+              initialDueDate = undefined;
+              initialDueTime = "";
+            }
           }
         }
       }
@@ -269,46 +276,56 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     }
     // Se não houver due.datetime nem due.date, tentar due.string com parse flexível
     else if (task.due?.string) {
-      let parsedDate: Date | null = null;
-      // Tentar formatos com hora primeiro
-      let tempParsed = parse(task.due.string, "dd MMM HH:mm", new Date()); // Ex: "11 Oct 15:15"
-      if (isValid(tempParsed)) {
-        parsedDate = tempParsed;
+      // Adicionar verificação explícita de tipo para task.due.string
+      if (typeof task.due.string !== 'string') {
+        dateElements.push(
+          <span key="due-string-raw" className="block">
+            Vencimento: {String(task.due.string)} (formato inválido/não string)
+          </span>
+        );
+        // Não retornar aqui, continuar para o deadline se houver
       } else {
-        // Tentar formatos apenas com data
-        tempParsed = parse(task.due.string, "dd MMM", new Date()); // Ex: "11 Oct"
+        let parsedDate: Date | null = null;
+        // Tentar formatos com hora primeiro
+        let tempParsed = parse(task.due.string, "dd MMM HH:mm", new Date()); // Ex: "11 Oct 15:15"
         if (isValid(tempParsed)) {
           parsedDate = tempParsed;
         } else {
-          // Tentar formatos ISO
-          tempParsed = parseISO(task.due.string);
+          // Tentar formatos apenas com data
+          tempParsed = parse(task.due.string, "dd MMM", new Date()); // Ex: "11 Oct"
           if (isValid(tempParsed)) {
             parsedDate = tempParsed;
+          } else {
+            // Tentar formatos ISO
+            tempParsed = parseISO(task.due.string);
+            if (isValid(tempParsed)) {
+              parsedDate = tempParsed;
+            }
           }
         }
-      }
 
-      if (parsedDate && isValid(parsedDate)) {
-        // Se a string original continha hora, mostrar com hora
-        if (task.due.string.includes(':')) {
-          dateElements.push(
-            <span key="due-string-datetime" className="block">
-              Vencimento: {format(parsedDate, "dd/MM/yyyy HH:mm", { locale: ptBR })} (estimado)
-            </span>
-          );
+        if (parsedDate && isValid(parsedDate)) {
+          // Se a string original continha hora, mostrar com hora
+          if (task.due.string.includes(':')) {
+            dateElements.push(
+              <span key="due-string-datetime" className="block">
+                Vencimento: {format(parsedDate, "dd/MM/yyyy HH:mm", { locale: ptBR })} (estimado)
+              </span>
+            );
+          } else {
+            dateElements.push(
+              <span key="due-string-date" className="block">
+                Vencimento: {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })} (estimado)
+              </span>
+            );
+          }
         } else {
           dateElements.push(
-            <span key="due-string-date" className="block">
-              Vencimento: {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })} (estimado)
+            <span key="due-string-raw" className="block">
+              Vencimento: {task.due.string} (formato desconhecido)
             </span>
           );
         }
-      } else {
-        dateElements.push(
-          <span key="due-string-raw" className="block">
-            Vencimento: {task.due.string} (formato desconhecido)
-          </span>
-        );
       }
     }
 
