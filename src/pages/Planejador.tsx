@@ -467,7 +467,7 @@ const Planejador = () => {
           duration: durationMinutes,
           duration_unit: "minute",
           due_date: format(targetDate, "yyyy-MM-dd"),
-          due_datetime: format(parse(start, "HH:mm", targetDate), "yyyy-MM-dd'T'HH:mm:ss"),
+          due_datetime: format(parse((start || ''), "HH:mm", targetDate), "yyyy-MM-dd'T'HH:mm:ss"),
         });
 
         if (!updatedTodoistTask) {

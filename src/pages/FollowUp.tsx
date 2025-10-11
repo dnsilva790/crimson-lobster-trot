@@ -237,7 +237,7 @@ const FollowUp = () => {
     if (editedDueDate) {
       let finalDate = editedDueDate;
       if (editedDueTime) {
-        const [hours, minutes] = editedDueTime.split(":").map(Number);
+        const [hours, minutes] = (editedDueTime || '').split(":").map(Number);
         finalDate = setMinutes(setHours(editedDueDate, hours), minutes);
         updateData.due_datetime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
         updateData.due_date = null;

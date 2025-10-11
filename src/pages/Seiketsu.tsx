@@ -252,7 +252,7 @@ const Seiketsu = () => {
     let finalDueDateTime: string | null = null;
 
     if (selectedDueTime) {
-      const [hours, minutes] = selectedDueTime.split(":").map(Number);
+      const [hours, minutes] = (selectedDueTime || '').split(":").map(Number);
       const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
       finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
     } else {
