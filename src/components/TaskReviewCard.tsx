@@ -68,6 +68,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
 
 
   useEffect(() => {
+    console.log("TaskReviewCard: Task prop changed. Updating local states.");
     if (task.labels.includes("pessoal")) {
       setSelectedCategory("pessoal");
     } else if (task.labels.includes("profissional")) {
@@ -78,6 +79,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     setSelectedDueDate(task.due?.date ? parseISO(task.due.date) : undefined);
     setSelectedDueTime(task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "");
     setSelectedFieldDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined); // Atualiza o estado do deadline
+    console.log("TaskReviewCard: New task.deadline:", task.deadline);
+    console.log("TaskReviewCard: New selectedFieldDeadlineDate:", task.deadline ? parseISO(task.deadline) : undefined);
   }, [task]); // Depende da tarefa para atualizar os estados
 
   const handleCategoryChange = (newCategory: "pessoal" | "profissional" | "none") => {
@@ -115,18 +118,20 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
 
   // Funções para o novo campo 'deadline'
   const handleSetFieldDeadline = async () => {
+    console.log("TaskReviewCard: handleSetFieldDeadline called.");
     if (!selectedFieldDeadlineDate) {
       toast.error("Por favor, selecione uma data para o deadline.");
       return;
     }
     const formattedDeadline = format(selectedFieldDeadlineDate, "yyyy-MM-dd");
+    console.log("TaskReviewCard: Calling onUpdateFieldDeadline with taskId:", task.id, "deadlineDate:", formattedDeadline);
     await onUpdateFieldDeadline(task.id, formattedDeadline);
     setIsFieldDeadlinePopoverOpen(false);
   };
 
   const handleClearFieldDeadline = async () => {
+    console.log("TaskReviewCard: handleClearFieldDeadline called.");
     await onUpdateFieldDeadline(task.id, null);
-    setSelectedFieldDeadlineDate(undefined);
     setIsFieldDeadlinePopoverOpen(false);
   };
 

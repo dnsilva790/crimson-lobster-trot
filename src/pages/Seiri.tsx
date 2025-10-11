@@ -256,8 +256,10 @@ const Seiri = () => {
             onUpdatePriority={handleUpdatePriority}
             onUpdateDeadline={handleUpdateDeadline} // Passando a nova função
             onUpdateFieldDeadline={async (taskId, deadlineDate) => {
+              console.log("Seiri: onUpdateFieldDeadline called. Task ID:", taskId, "Deadline Date:", deadlineDate);
               const updated = await updateTask(taskId, { deadline: deadlineDate });
               if (updated) {
+                console.log("Seiri: Task updated successfully. New deadline from API:", updated.deadline);
                 setTasksToReview(prevTasks =>
                   prevTasks.map(task =>
                     task.id === taskId ? { ...task, deadline: updated.deadline } : task
@@ -265,6 +267,7 @@ const Seiri = () => {
                 );
                 toast.success("Deadline da tarefa atualizado com sucesso!");
               } else {
+                console.error("Seiri: Failed to update task deadline.");
                 toast.error("Falha ao atualizar o deadline da tarefa.");
               }
             }}

@@ -154,7 +154,7 @@ const Seiton = () => {
 
   const startTournament = useCallback(async (continueSaved: boolean = false) => {
     if (!continueSaved) {
-      resetTournamentState(); // Clears all state, including rankedTasks
+      resetTournamentState(); // Clears all state, including rankedTasks and tasksToProcess
     }
 
     const todoistFilterParts: string[] = [];
@@ -167,12 +167,39 @@ const Seiton = () => {
     const finalTodoistFilter = todoistFilterParts.join(" & ");
 
     let initialTasks: TodoistTask[] = [];
-    if (continueSaved && tasksToProcess.length > 0) {
-      // If continuing, use the tasksToProcess from the loaded state
-      initialTasks = tasksToProcess;
+    if (continueSaved) {
+      // If continuing, load tasks from saved state, but then re-filter them
+      const savedTasks = tasksToProcess; // tasksToProcess is already loaded from localStorage by useEffect
+      if (finalTodoistFilter) {
+        // Apply the current filter to the saved tasks
+        initialTasks = savedTasks.filter(task => {
+          const matchesFilterInput = !filterInput.trim() || 
+                                     task.content.toLowerCase().includes(filterInput.trim().toLowerCase()) ||
+                                     task.description.toLowerCase().includes(filterInput.trim().toLowerCase()) ||
+                                     task.labels.some(label => label.toLowerCase().includes(filterInput.trim().toLowerCase()));
+          
+          const matchesCategory = selectedCategoryFilter === "all" || 
+                                  (selectedCategoryFilter === "pessoal" && task.labels.includes("pessoal")) ||
+                                  (selectedCategoryFilter === "profissional" && task.labels.includes("profissional"));
+          
+          return matchesFilterInput && matchesCategory;
+        });
+        if (initialTasks.length === 0) {
+          toast.warning("Nenhuma tarefa salva corresponde ao novo filtro. Buscando novas tarefas com o filtro.");
+          initialTasks = await fetchTasks(finalTodoistFilter || undefined, { includeSubtasks: false, includeRecurring: false });
+        } else {
+          toast.info(`Continuando torneio com ${initialTasks.length} tarefas filtradas do estado salvo.`);
+        }
+      } else {
+        initialTasks = savedTasks; // No new filter, use saved tasks as is
+        toast.info(`Continuando torneio com ${initialTasks.length} tarefas do estado salvo.`);
+      }
     } else {
-      // Otherwise, fetch new tasks, excluding subtasks and recurring
+      // If starting a new tournament, always fetch fresh tasks based on the current filter
       initialTasks = await fetchTasks(finalTodoistFilter || undefined, { includeSubtasks: false, includeRecurring: false });
+      if (initialTasks.length > 0) {
+        toast.info(`Iniciando novo torneio com ${initialTasks.length} tarefas.`);
+      }
     }
 
     if (initialTasks && initialTasks.length > 0) {
@@ -186,7 +213,6 @@ const Seiton = () => {
         setRankedTasks([]); // Ensure ranked is empty for the first vote
         setComparisonIndex(-1); // Special value to indicate initial comparison
         setTournamentState("comparing");
-        toast.info(`Iniciando torneio com ${sortedTasks.length} tarefas.`);
       } else if (sortedTasks.length === 1) {
         setRankedTasks([sortedTasks[0]]); // Only one task, it's the ranking
         setTasksToProcess([]);
