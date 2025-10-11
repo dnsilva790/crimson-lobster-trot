@@ -12,8 +12,10 @@ import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom"; // Importar useNavigate
 
 const Shitsuke = () => {
+  const navigate = useNavigate(); // Inicializar useNavigate
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -40,8 +42,7 @@ const Shitsuke = () => {
   }, [searchTerm, projects]);
 
   const handleCreateNewProject = () => {
-    toast.info("Funcionalidade de criar novo projeto será implementada em breve!");
-    // TODO: Implement navigation to a project creation form
+    navigate("/shitsuke/create"); // Navegar para a nova página de criação
   };
 
   const getStatusBadgeClass = (status: Project['status']) => {
