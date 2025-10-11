@@ -13,7 +13,7 @@ export interface TodoistTask {
     date: string | null; // Alterado para permitir null
     string: string | null; // Alterado para permitir null
     lang: string;
-    is_recurring: boolean;
+    is_recurring: boolean | undefined; // Alterado para permitir undefined
     datetime: string | null;
     timezone: string | null;
   } | null;

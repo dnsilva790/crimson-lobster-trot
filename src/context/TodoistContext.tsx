@@ -108,13 +108,21 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
       // Sanitize 'due' object fields if they are the string "undefined"
       const sanitizedTasks = rawTasks.map(task => {
-        // Primeiro, verificar se task.due é a string literal "undefined"
-        if (task.due === "undefined") {
-          task.due = null; // Converter o objeto 'due' inteiro para null
-        } else if (task.due) { // Só prosseguir se task.due for um objeto válido
-          if (task.due.date === "undefined") task.due.date = null;
-          if (task.due.datetime === "undefined") task.due.datetime = null;
-          if (task.due.string === "undefined") task.due.string = null;
+        // Sanitize task.due object itself if it's the string "undefined"
+        if (typeof task.due === 'string' && task.due === 'undefined') {
+          task.due = null;
+        } else if (task.due && typeof task.due === 'object') { // If task.due is a valid object
+          // Sanitize properties within task.due
+          if (typeof task.due.date === 'string' && task.due.date === "undefined") task.due.date = null;
+          if (typeof task.due.datetime === 'string' && task.due.datetime === "undefined") task.due.datetime = null;
+          if (typeof task.due.string === 'string' && task.due.string === "undefined") task.due.string = null;
+          // Also sanitize is_recurring if it's undefined (primitive)
+          if (task.due.is_recurring === undefined) task.due.is_recurring = false; // Default to false if undefined
+        }
+
+        // Sanitize task.deadline
+        if (typeof task.deadline === 'string' && task.deadline === "undefined") {
+          task.deadline = null;
         }
         return task;
       });
