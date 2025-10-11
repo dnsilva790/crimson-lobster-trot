@@ -116,6 +116,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         let parsedDateOnly = parse(task.due.string, "dd MMM", new Date()); // Ex: "11 Oct"
         if (isValid(parsedDateOnly)) {
           initialDueDate = parsedDateOnly;
+          initialDueTime = ""; // Explicitly set to empty string if no time
         } else {
           // Tentar formatos ISO ou outros conhecidos
           const parsedISO = parseISO(task.due.string);
@@ -124,12 +125,16 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
             // Se a string ISO contém hora, extrair
             if (task.due.string.includes('T') && task.due.string.includes(':')) { 
               initialDueTime = format(parsedISO, "HH:mm");
+            } else {
+              initialDueTime = ""; // Explicitly set to empty string if no time
             }
           } else {
             // Fallback para strings como "today", "tomorrow" que date-fns não parseia diretamente
             // Se a tarefa tem due.string mas não due.date/datetime, e não é parsável,
             // deixamos initialDueDate como undefined e initialDueTime como ""
-            console.warn(`TaskReviewCard: Could not parse due.string "${task.due.string}" for task ${task.id}.`);
+            console.warn(`TaskReviewCard: Could not parse due.string "${task.due.string}" for task ${task.id}. Setting to undefined.`);
+            initialDueDate = undefined;
+            initialDueTime = "";
           }
         }
       }
@@ -154,8 +159,10 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   };
 
   const handleSetDeadline = async () => {
-    if (!selectedDueDate) {
-      toast.error("Por favor, selecione uma data para o prazo.");
+    console.log(`DEBUG (handleSetDeadline - before if): selectedDueTime = ${selectedDueTime}, type = ${typeof selectedDueTime}`);
+
+    if (!selectedDueDate || !isValid(selectedDueDate)) {
+      toast.error("Data de vencimento selecionada é inválida.");
       return;
     }
 
@@ -166,14 +173,26 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       console.log(`DEBUG (handleSetDeadline): Task ID: ${task.id}, Content: "${task.content}"`);
       console.log(`DEBUG (handleSetDeadline): Type of selectedDueTime: ${typeof selectedDueTime}, Value: ${selectedDueTime}`);
       try {
-        const timeString = String(selectedDueTime); // Garantir que selectedDueTime é uma string
+        const timeString = String(selectedDueTime || ''); // Added || '' for extra safety
+        
+        // Explicitly check if timeString is actually a string before splitting
+        if (typeof timeString !== 'string') {
+          console.error(`CRITICAL ERROR: timeString is not a string. Value: ${timeString}, Type: ${typeof timeString}`);
+          toast.error("Erro interno: O valor da hora não é uma string. Por favor, reporte.");
+          return;
+        }
+
         const [hours, minutes] = timeString.split(":").map(Number);
+        if (isNaN(hours) || isNaN(minutes)) { // Check if parsing to number failed
+          toast.error("Formato de hora inválido. Use HH:mm.");
+          return;
+        }
         const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
         finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
       } catch (error) {
         console.error(`Error processing selectedDueTime for task ${task.id} (${task.content}):`, selectedDueTime, error);
         toast.error("Erro ao processar a hora de vencimento. Verifique o formato.");
-        return; // Prevent further execution with bad data
+        return;
       }
     } else {
       finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
@@ -472,7 +491,10 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
                   id="due-time"
                   type="time"
                   value={selectedDueTime}
-                  onChange={(e) => setSelectedDueTime(e.target.value)}
+                  onChange={(e) => {
+                    console.log(`DEBUG (Input onChange): e.target.value = ${e.target.value}, type = ${typeof e.target.value}`);
+                    setSelectedDueTime(e.target.value);
+                  }}
                   className="mt-1"
                 />
               </div>
