@@ -106,24 +106,31 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}`);
       });
 
-      // Sanitize 'due' object fields if they are the string "undefined"
+      // Sanitize 'due' object fields if they are the string "undefined" or primitive undefined
       const sanitizedTasks = rawTasks.map(task => {
-        // Sanitize task.due object itself if it's the string "undefined"
-        if (typeof task.due === 'string' && task.due === 'undefined') {
+        // Helper function to sanitize a value
+        const sanitizeValue = (value: any): string | null | undefined => {
+          if (value === undefined || (typeof value === 'string' && value === 'undefined')) {
+            return null;
+          }
+          return value;
+        };
+
+        // Sanitize task.due object itself if it's the string "undefined" or primitive undefined
+        if (task.due === undefined || (typeof task.due === 'string' && task.due === 'undefined')) {
           task.due = null;
         } else if (task.due && typeof task.due === 'object') { // If task.due is a valid object
           // Sanitize properties within task.due
-          if (typeof task.due.date === 'string' && task.due.date === "undefined") task.due.date = null;
-          if (typeof task.due.datetime === 'string' && task.due.datetime === "undefined") task.due.datetime = null;
-          if (typeof task.due.string === 'string' && task.due.string === "undefined") task.due.string = null;
+          task.due.date = sanitizeValue(task.due.date);
+          task.due.datetime = sanitizeValue(task.due.datetime);
+          task.due.string = sanitizeValue(task.due.string);
           // Also sanitize is_recurring if it's undefined (primitive)
           if (task.due.is_recurring === undefined) task.due.is_recurring = false; // Default to false if undefined
         }
 
         // Sanitize task.deadline
-        if (typeof task.deadline === 'string' && task.deadline === "undefined") {
-          task.deadline = null;
-        }
+        task.deadline = sanitizeValue(task.deadline);
+        
         return task;
       });
 
