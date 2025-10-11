@@ -25,6 +25,7 @@ import {
   ChevronRight,
   FolderOpen,
   Hourglass,
+  RotateCcw, // Novo ícone para reiniciar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO, setHours, setMinutes } from "date-fns";
@@ -307,6 +308,19 @@ const Seiketsu = () => {
     advanceToNextTask();
   }, [currentTask, advanceToNextTask]);
 
+  // --- Nova função para reiniciar o processamento ---
+  const handleRestartProcessing = useCallback(() => {
+    setGtdState("initial");
+    setTasksToProcess([]);
+    setCurrentTaskIndex(0);
+    setActionableStep("isActionable");
+    setSelectedDueDate(undefined);
+    setSelectedDueTime("");
+    setDelegateName("");
+    localStorage.removeItem(GTD_STORAGE_KEY); // Limpa o estado salvo
+    toast.info("Processamento GTD reiniciado.");
+  }, []);
+
   const renderTaskCard = (task: TodoistTask) => (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
       <div className="flex-grow">
@@ -523,6 +537,17 @@ const Seiketsu = () => {
               </Button>
             </div>
           )}
+          {/* Novo botão para reiniciar o processamento */}
+          <div className="mt-8 text-center">
+            <Button
+              onClick={handleRestartProcessing}
+              disabled={isLoading}
+              variant="destructive"
+              className="px-6 py-3 text-md flex items-center justify-center mx-auto"
+            >
+              <RotateCcw className="mr-2 h-5 w-5" /> Reiniciar Processamento
+            </Button>
+          </div>
         </div>
       )}
 
