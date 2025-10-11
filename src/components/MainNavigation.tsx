@@ -31,12 +31,20 @@ const modules = [
     activeColor: "border-purple-600",
   },
   {
-    path: "/seiton",
+    path: "/seiton-review", // Nova rota para o Seiton de Revisão
+    icon: Star, // Usando Star para o novo Seiton
+    title: "SEITON",
+    description: "Revisão de Prioridades",
+    colorClass: "bg-yellow-100 hover:bg-yellow-200",
+    activeColor: "border-yellow-600",
+  },
+  {
+    path: "/seiton", // O Seiton original (Torneio)
     icon: Trophy,
     title: "SEITON",
     description: "Torneio de Priorização",
-    colorClass: "bg-yellow-100 hover:bg-yellow-200",
-    activeColor: "border-yellow-600",
+    colorClass: "bg-orange-100 hover:bg-orange-200", // Mudando a cor para diferenciar
+    activeColor: "border-orange-600",
   },
   {
     path: "/seiso",
@@ -75,8 +83,8 @@ const modules = [
     icon: Star, // Ícone para Shitsuke
     title: "SHITSUKE",
     description: "Projetos 5W2H",
-    colorClass: "bg-orange-100 hover:bg-orange-200",
-    activeColor: "border-orange-600",
+    colorClass: "bg-teal-100 hover:bg-teal-200", // Mudando a cor para Shitsuke
+    activeColor: "border-teal-600",
   },
   {
     path: "/follow-up", // Nova rota para Acompanhamento de Delegados

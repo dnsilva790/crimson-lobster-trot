@@ -21,7 +21,8 @@ import Shitsuke from "./pages/Shitsuke";
 import CreateProject from "./pages/CreateProject";
 import ProjectDetail from "./pages/ProjectDetail";
 import EditProject from "./pages/EditProject";
-import FollowUp from "./pages/FollowUp"; // Importar a nova página FollowUp
+import FollowUp from "./pages/FollowUp";
+import SeitonReview from "./pages/SeitonReview"; // Importar a nova página SeitonReview
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
             <Route element={<MainLayout />}>
               <Route path="/seiri" element={<Seiri />} />
               <Route path="/seiketsu" element={<Seiketsu />} /> {/* Rota atualizada para Seiketsu */}
+              <Route path="/seiton-review" element={<SeitonReview />} /> {/* Nova rota para SeitonReview */}
               <Route path="/seiton" element={<Seiton />} />
               <Route path="/seiso" element={<Seiso />} />
               <Route path="/execucao" element={<Execucao />} />
@@ -46,7 +48,7 @@ const App = () => (
               <Route path="/shitsuke/create" element={<CreateProject />} />
               <Route path="/shitsuke/:projectId" element={<ProjectDetail />} />
               <Route path="/shitsuke/edit/:projectId" element={<EditProject />} />
-              <Route path="/follow-up" element={<FollowUp />} /> {/* Nova rota para FollowUp */}
+              <Route path="/follow-up" element={<FollowUp />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>
