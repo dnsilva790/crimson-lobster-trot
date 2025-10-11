@@ -14,7 +14,7 @@ interface TodoistContextType {
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
   fetchTasks: (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean }) => Promise<TodoistTask[]>;
-  fetchTaskById: (taskId: string) => Promise<TodoistTask | undefined>; // Nova função
+  fetchTaskById: (taskId: string) => Promise<TodoistTask | undefined>;
   fetchProjects: () => Promise<TodoistProject[]>;
   closeTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
@@ -27,9 +27,9 @@ interface TodoistContextType {
     labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
-    deadline?: string | null; // Adicionado o campo deadline
+    deadline?: string | null;
   }) => Promise<TodoistTask | undefined>;
-  createTodoistTask: (data: { // Nova função para criar tarefas
+  createTodoistTask: (data: {
     content: string;
     description?: string;
     project_id?: string;
@@ -44,7 +44,6 @@ interface TodoistContextType {
   isLoading: boolean;
 }
 
-// Alterado o tipo de retorno para sempre T, assumindo que T é um array para funções de busca de lista
 type MakeApiCallFn = <T>(
   apiFunction: (key: string, ...args: any[]) => Promise<T>,
   ...args: any[]
@@ -70,7 +69,6 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
       if (!apiKey) {
         toast.error("API key não configurada.");
-        // Retorna um array vazio para funções que buscam listas, undefined para outras
         return isFetchingList ? [] as any : undefined as any; 
       }
       setIsLoading(true);
@@ -88,7 +86,6 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
           toast.error(`Erro na API: ${error.message || "Erro desconhecido"}`);
         }
         
-        // Retorna um array vazio em caso de erro para funções que buscam listas
         return isFetchingList ? [] as any : undefined as any; 
       } finally {
         setIsLoading(false);
@@ -106,38 +103,43 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}`);
       });
 
-      // Sanitize 'due' object fields if they are the string "undefined" or primitive undefined
+      // 🔧 CORREÇÃO: Sanitização completa das tarefas
       const sanitizedTasks = rawTasks.map(task => {
-        // Helper function to sanitize a value
-        const sanitizeValue = (value: any): string | null | undefined => {
-          if (value === undefined || (typeof value === 'string' && value === 'undefined')) {
-            return null;
-          }
-          return value;
-        };
-
-        // Sanitize task.due object itself if it's the string "undefined" or primitive undefined
+        // Sanitize task.due object
         if (task.due === undefined || (typeof task.due === 'string' && task.due === 'undefined')) {
           task.due = null;
-        } else if (task.due && typeof task.due === 'object') { // If task.due is a valid object
-          // Sanitize properties within task.due
-          task.due.date = sanitizeValue(task.due.date);
-          task.due.datetime = sanitizeValue(task.due.datetime);
-          task.due.string = sanitizeValue(task.due.string);
-          // Also sanitize is_recurring if it's undefined (primitive)
-          if (task.due.is_recurring === undefined) task.due.is_recurring = false; // Default to false if undefined
+        } else if (task.due && typeof task.due === 'object') {
+          // Explicitly handle 'undefined' string literal and primitive undefined for date fields
+          if (task.due.date === undefined || (typeof task.due.date === 'string' && task.due.date === "undefined")) {
+            task.due.date = null;
+          }
+          if (task.due.datetime === undefined || (typeof task.due.datetime === 'string' && task.due.datetime === "undefined")) {
+            task.due.datetime = null;
+          }
+          if (task.due.string === undefined || (typeof task.due.string === 'string' && task.due.string === "undefined")) {
+            task.due.string = null;
+          }
+          
+          // Ensure is_recurring is always a boolean
+          if (task.due.is_recurring === undefined) {
+            task.due.is_recurring = false;
+          }
         }
 
         // Sanitize task.deadline
-        task.deadline = sanitizeValue(task.deadline);
+        if (task.deadline === undefined || (typeof task.deadline === 'string' && task.deadline === "undefined")) {
+          task.deadline = null;
+        }
         
         return task;
       });
 
       // FILTRO UNIVERSAL: Remover tarefas recorrentes "every hour"
-      const filteredHourlyRecurring = sanitizedTasks.filter(task => // Use sanitizedTasks here
-        !(task.due?.is_recurring === true && task.due?.string?.toLowerCase().includes("every hour")) // Add optional chaining for .string
-      );
+      const filteredHourlyRecurring = sanitizedTasks.filter(task => {
+        // 🔧 Verificação adicional de segurança para task.due.string
+        // Agora que task.due.string é garantido como string | null, podemos usar optional chaining
+        return !(task.due?.is_recurring === true && task.due?.string?.toLowerCase().includes("every hour"));
+      });
 
       console.log("TodoistContext: Tarefas após filtro 'every hour'. Original:", rawTasks.length, "Filtrado:", filteredHourlyRecurring.length);
 
@@ -153,10 +155,10 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         return { ...task, estimatedDurationMinutes };
       });
 
-      // Aplicar filtragem com base nas novas opções
+      // Aplicar filtragem com base nas opções
       const finalOptions = {
-        includeSubtasks: options?.includeSubtasks ?? true, // Padrão: incluir subtarefas
-        includeRecurring: options?.includeRecurring ?? true, // Padrão: incluir recorrentes
+        includeSubtasks: options?.includeSubtasks ?? true,
+        includeRecurring: options?.includeRecurring ?? true,
       };
 
       let processedTasks = tasksWithDuration;
@@ -165,6 +167,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         processedTasks = processedTasks.filter(task => task.parent_id === null);
         console.log("TodoistContext: Filtrando subtarefas. Contagem:", processedTasks.length);
       }
+      
       if (!finalOptions.includeRecurring) {
         processedTasks = processedTasks.filter(task => task.due?.is_recurring !== true);
         console.log("TodoistContext: Filtrando tarefas recorrentes. Contagem:", processedTasks.length);
@@ -181,7 +184,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   }, [makeApiCall]);
 
   const fetchProjects = useCallback(async () => {
-    return await makeApiCall(todoistService.fetchProjects); // Sempre retornará um array
+    return await makeApiCall(todoistService.fetchProjects);
   }, [makeApiCall]);
 
   const closeTask = useCallback(
@@ -208,7 +211,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       labels?: string[];
       duration?: number;
       duration_unit?: "minute" | "day";
-      deadline?: string | null; // Adicionado o campo deadline
+      deadline?: string | null;
     }) => {
       return await makeApiCall(todoistService.updateTask, taskId, data);
     },
@@ -240,12 +243,12 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         setApiKey,
         clearApiKey,
         fetchTasks,
-        fetchTaskById, // Adicionado ao contexto
+        fetchTaskById,
         fetchProjects,
         closeTask,
         deleteTask,
         updateTask,
-        createTodoistTask, // Adicionado ao contexto
+        createTodoistTask,
         isLoading,
       }}
     >
