@@ -13,6 +13,7 @@ import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon } from 
 import { cn, getDelegateNameFromLabels } from "@/lib/utils";
 import { format, isPast, parseISO, isToday, isTomorrow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import FollowUpAIAssistant from "@/components/FollowUpAIAssistant"; // Importar o novo componente
 
 const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
   4: "bg-red-500", // P1 - Urgente
@@ -36,6 +37,7 @@ const FollowUp = () => {
   const [selectedDelegateFilter, setSelectedDelegateFilter] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "overdue" | "today" | "tomorrow">("all");
   const [isFetchingDelegatedTasks, setIsFetchingDelegatedTasks] = useState(false);
+  const [selectedTaskForAI, setSelectedTaskForAI] = useState<TodoistTask | null>(null); // Novo estado para a tarefa selecionada para a IA
 
   const fetchDelegatedTasks = useCallback(async () => {
     setIsFetchingDelegatedTasks(true);
@@ -97,8 +99,11 @@ const FollowUp = () => {
     if (success !== undefined) {
       toast.success("Tarefa delegada concluída!");
       fetchDelegatedTasks(); // Refresh the list
+      if (selectedTaskForAI?.id === taskId) {
+        setSelectedTaskForAI(null); // Clear selected task if it was completed
+      }
     }
-  }, [closeTask, fetchDelegatedTasks]);
+  }, [closeTask, fetchDelegatedTasks, selectedTaskForAI]);
 
   const handleRemoveDelegation = useCallback(async (task: TodoistTask) => {
     const delegateLabel = task.labels.find(label => label.startsWith("espera_de_"));
@@ -111,10 +116,13 @@ const FollowUp = () => {
     if (updated) {
       toast.success("Delegação removida da tarefa!");
       fetchDelegatedTasks(); // Refresh the list
+      if (selectedTaskForAI?.id === task.id) {
+        setSelectedTaskForAI(null); // Clear selected task if its delegation was removed
+      }
     } else {
       toast.error("Falha ao remover delegação.");
     }
-  }, [updateTask, fetchDelegatedTasks]);
+  }, [updateTask, fetchDelegatedTasks, selectedTaskForAI]);
 
   const filteredTasksToDisplay = useMemo(() => {
     let tasks = delegatedTasks;
@@ -185,8 +193,19 @@ const FollowUp = () => {
     return grouped;
   }, [filteredTasksToDisplay]);
 
+  const handleSelectTaskForAI = useCallback((task: TodoistTask) => {
+    setSelectedTaskForAI(prev => (prev?.id === task.id ? null : task)); // Toggle selection
+  }, []);
+
   const renderTaskItem = (task: TodoistTask) => (
-    <div key={task.id} className="p-4 border-b border-gray-200 last:border-b-0">
+    <div 
+      key={task.id} 
+      className={cn(
+        "p-4 border-b border-gray-200 last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors",
+        selectedTaskForAI?.id === task.id && "bg-indigo-50 border-indigo-400 ring-1 ring-indigo-400"
+      )}
+      onClick={() => handleSelectTaskForAI(task)}
+    >
       <div className="flex items-start justify-between">
         <div className="flex-grow pr-4">
           <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
@@ -214,13 +233,13 @@ const FollowUp = () => {
           </div>
         </div>
         <div className="flex flex-col gap-2 ml-4">
-          <Button variant="ghost" size="icon" onClick={() => handleCompleteTask(task.id)} disabled={isLoadingTodoist}>
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} disabled={isLoadingTodoist}>
             <Check className="h-4 w-4 text-green-500" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => handleRemoveDelegation(task)} disabled={isLoadingTodoist}>
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleRemoveDelegation(task); }} disabled={isLoadingTodoist}>
             <Trash2 className="h-4 w-4 text-red-500" />
           </Button>
-          <a href={task.url} target="_blank" rel="noopener noreferrer">
+          <a href={task.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
             <Button variant="ghost" size="icon">
               <ExternalLink className="h-4 w-4 text-blue-500" />
             </Button>
@@ -366,19 +385,12 @@ const FollowUp = () => {
         </Card>
       </div>
       <div className="lg:col-span-1">
-        {/* Placeholder for future AI Assistant or other sidebar content */}
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-800">
-              Informações Adicionais
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600">
-              Esta área pode ser usada para um assistente de IA ou outras ferramentas de apoio no futuro.
-            </p>
-          </CardContent>
-        </Card>
+        {/* Integração do FollowUpAIAssistant aqui */}
+        <FollowUpAIAssistant 
+          currentTask={selectedTaskForAI} 
+          updateTask={updateTask} 
+          isLoading={isLoadingTodoist}
+        />
       </div>
     </div>
   );
