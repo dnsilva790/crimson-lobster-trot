@@ -142,7 +142,8 @@ const Seiketsu = () => {
     setActionableStep("isActionable");
     setTasksToProcess([]);
 
-    const fetchedTasks = await fetchTasks(inboxFilter, true); // Fetch all tasks matching filter, including subtasks/recurring
+    // Passar 'false' para includeSubtasksAndRecurring para excluí-los por padrão
+    const fetchedTasks = await fetchTasks(inboxFilter, false); 
     if (fetchedTasks && fetchedTasks.length > 0) {
       setTasksToProcess(fetchedTasks);
       setGtdState("reviewing");
@@ -338,14 +339,14 @@ const Seiketsu = () => {
             <Input
               type="text"
               id="inbox-filter"
-              placeholder="Ex: 'no date & no project & no label' ou 'inbox'"
+              placeholder="Ex: 'no date & no project & no label' (subtarefas e recorrentes excluídas por padrão)"
               value={inboxFilter}
               onChange={(e) => setInboxFilter(e.target.value)}
               className="mt-1"
               disabled={isLoading}
             />
             <p className="text-xs text-gray-500 text-left mt-1">
-              Use filtros do Todoist para definir sua caixa de entrada. Ex: `no date & no project & no label` para tarefas sem prazo, projeto ou etiqueta.
+              Use filtros do Todoist para definir sua caixa de entrada. Subtarefas e tarefas recorrentes são excluídas automaticamente.
             </p>
           </div>
           <Button
