@@ -171,15 +171,21 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     let finalDueDate: string | null = null;
     let finalDueDateTime: string | null = null;
 
-    if (selectedDueTime && typeof selectedDueTime === 'string') {
+    if (selectedDueTime) {
       console.log(`DEBUG (handleSetDeadline - inside time block): selectedDueTime = '${selectedDueTime}', type = ${typeof selectedDueTime}`);
+      if (!selectedDueDate || !isValid(selectedDueDate)) { // Added check for selectedDueDate validity
+        toast.error("Data de vencimento selecionada é inválida para ajuste de hora.");
+        return;
+      }
       try {
-        const [hours, minutes] = selectedDueTime.split(":").map(Number);
+        const timeString = String(selectedDueTime); // Explicitly convert to string
+        
+        console.trace("About to split selectedDueTime:", timeString); // Add trace
+        const [hours, minutes] = timeString.split(":").map(Number);
         if (isNaN(hours) || isNaN(minutes)) {
           toast.error("Formato de hora inválido. Use HH:mm.");
           return;
         }
-        // CORREÇÃO: Removido o 'minutes' duplicado
         const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
         finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
       } catch (error) {
@@ -187,11 +193,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         toast.error("Erro ao processar a hora de vencimento. Verifique o formato.");
         return;
       }
-    } else if (selectedDueTime) { // If selectedDueTime is truthy but not a string
-        console.error(`CRITICAL ERROR: selectedDueTime is truthy but not a string. Value: ${selectedDueTime}, Type: ${typeof selectedDueTime}`);
-        toast.error("Erro interno: O valor da hora não é uma string. Por favor, reporte.");
-        return;
-    } else { // selectedDueTime is falsy (empty string, null, undefined)
+    } else {
       finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
     }
 
