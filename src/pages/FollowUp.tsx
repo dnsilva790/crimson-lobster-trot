@@ -5,15 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input"; // Importar Input
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Importar Popover
+import { Calendar } from "@/components/ui/calendar"; // Importar Calendar
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon } from "lucide-react";
+import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle } from "lucide-react"; // Importar Edit, Clock, XCircle
 import { cn, getDelegateNameFromLabels } from "@/lib/utils";
-import { format, isPast, parseISO, isToday, isTomorrow } from "date-fns";
+import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes } from "date-fns"; // Importar setHours, setMinutes
 import { ptBR } from "date-fns/locale";
-import FollowUpAIAssistant from "@/components/FollowUpAIAssistant"; // Importar o novo componente
+import FollowUpAIAssistant from "@/components/FollowUpAIAssistant";
 
 const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
   4: "bg-red-500", // P1 - Urgente
@@ -37,12 +40,18 @@ const FollowUp = () => {
   const [selectedDelegateFilter, setSelectedDelegateFilter] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "overdue" | "today" | "tomorrow">("all");
   const [isFetchingDelegatedTasks, setIsFetchingDelegatedTasks] = useState(false);
-  const [selectedTaskForAI, setSelectedTaskForAI] = useState<TodoistTask | null>(null); // Novo estado para a tarefa selecionada para a IA
+  const [selectedTaskForAI, setSelectedTaskForAI] = useState<TodoistTask | null>(null);
+
+  // Estados para edição rápida
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(undefined);
+  const [editedDueTime, setEditedDueTime] = useState<string>("");
+  const [editedPriority, setEditedPriority] = useState<1 | 2 | 3 | 4>(1);
+  const [editedDuration, setEditedDuration] = useState<string>("");
 
   const fetchDelegatedTasks = useCallback(async () => {
     setIsFetchingDelegatedTasks(true);
     try {
-      // Fetch tasks that have any 'espera_de_' label
       const tasks = await fetchTasks("label:espera_de_*", { includeSubtasks: false, includeRecurring: false });
       
       const grouped: Record<string, TodoistTask[]> = {};
@@ -59,18 +68,15 @@ const FollowUp = () => {
         }
       });
 
-      // Sort tasks within each delegate group by priority and then due date
       Object.keys(grouped).forEach(delegate => {
         grouped[delegate].sort((a, b) => {
-          // Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
           if (b.priority !== a.priority) {
             return b.priority - a.priority;
           }
-          // Due date: earliest first
           const getDateValue = (task: TodoistTask) => {
             if (task.due?.datetime) return parseISO(task.due.datetime).getTime();
             if (task.due?.date) return parseISO(task.due.date).getTime();
-            return Infinity; // Tasks without a due date go last
+            return Infinity;
           };
           const dateA = getDateValue(a);
           const dateB = getDateValue(b);
@@ -98,9 +104,9 @@ const FollowUp = () => {
     const success = await closeTask(taskId);
     if (success !== undefined) {
       toast.success("Tarefa delegada concluída!");
-      fetchDelegatedTasks(); // Refresh the list
+      fetchDelegatedTasks();
       if (selectedTaskForAI?.id === taskId) {
-        setSelectedTaskForAI(null); // Clear selected task if it was completed
+        setSelectedTaskForAI(null);
       }
     }
   }, [closeTask, fetchDelegatedTasks, selectedTaskForAI]);
@@ -115,9 +121,9 @@ const FollowUp = () => {
     const updated = await updateTask(task.id, { labels: updatedLabels });
     if (updated) {
       toast.success("Delegação removida da tarefa!");
-      fetchDelegatedTasks(); // Refresh the list
+      fetchDelegatedTasks();
       if (selectedTaskForAI?.id === task.id) {
-        setSelectedTaskForAI(null); // Clear selected task if its delegation was removed
+        setSelectedTaskForAI(null);
       }
     } else {
       toast.error("Falha ao remover delegação.");
@@ -135,12 +141,12 @@ const FollowUp = () => {
     return tasks.filter(task => {
       if (filterStatus === "all") return true;
 
-      if (!task.due?.date && !task.due?.datetime) return false; // Only tasks with due dates for status filters
+      if (!task.due?.date && !task.due?.datetime) return false;
 
       const dueDate = task.due.datetime ? parseISO(task.due.datetime) : parseISO(task.due.date);
 
       if (filterStatus === "overdue") {
-        return isPast(dueDate) && !isToday(dueDate); // Overdue but not today (today's past hours are handled by 'today')
+        return isPast(dueDate) && !isToday(dueDate);
       }
       if (filterStatus === "today") {
         return isToday(dueDate);
@@ -150,26 +156,23 @@ const FollowUp = () => {
       }
       return true;
     }).sort((a, b) => {
-      // Sort by status first: overdue > today > tomorrow > others
       const getStatusRank = (task: TodoistTask) => {
-        if (!task.due?.date && !task.due?.datetime) return 4; // No due date last
+        if (!task.due?.date && !task.due?.datetime) return 4;
         const dueDate = task.due.datetime ? parseISO(task.due.datetime) : parseISO(task.due.date);
-        if (isPast(dueDate) && !isToday(dueDate)) return 0; // Overdue first
+        if (isPast(dueDate) && !isToday(dueDate)) return 0;
         if (isToday(dueDate)) return 1;
         if (isTomorrow(dueDate)) return 2;
-        return 3; // Future dates
+        return 3;
       };
 
       const rankA = getStatusRank(a);
       const rankB = getStatusRank(b);
       if (rankA !== rankB) return rankA - rankB;
 
-      // Then by priority
       if (b.priority !== a.priority) {
         return b.priority - a.priority;
       }
 
-      // Then by due date
       const getDateValue = (task: TodoistTask) => {
         if (task.due?.datetime) return parseISO(task.due.datetime).getTime();
         if (task.due?.date) return parseISO(task.due.date).getTime();
@@ -194,8 +197,102 @@ const FollowUp = () => {
   }, [filteredTasksToDisplay]);
 
   const handleSelectTaskForAI = useCallback((task: TodoistTask) => {
-    setSelectedTaskForAI(prev => (prev?.id === task.id ? null : task)); // Toggle selection
+    setSelectedTaskForAI(prev => (prev?.id === task.id ? null : task));
   }, []);
+
+  const handleStartEditing = useCallback((task: TodoistTask) => {
+    setEditingTaskId(task.id);
+    setEditedDueDate(task.due?.date ? parseISO(task.due.date) : undefined);
+    setEditedDueTime(task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "");
+    setEditedPriority(task.priority);
+    setEditedDuration(task.duration?.amount && task.duration.unit === "minute" ? String(task.duration.amount) : "");
+  }, []);
+
+  const handleCancelEditing = useCallback(() => {
+    setEditingTaskId(null);
+    setEditedDueDate(undefined);
+    setEditedDueTime("");
+    setEditedPriority(1);
+    setEditedDuration("");
+  }, []);
+
+  const handleSaveEdit = useCallback(async () => {
+    if (!editingTaskId) return;
+
+    const taskToEdit = delegatedTasks.find(t => t.id === editingTaskId);
+    if (!taskToEdit) return;
+
+    const updateData: {
+      priority?: 1 | 2 | 3 | 4;
+      due_date?: string | null;
+      due_datetime?: string | null;
+      duration?: number | null;
+      duration_unit?: "minute" | "day" | undefined;
+    } = {};
+    let changed = false;
+
+    // Handle Due Date and Time
+    if (editedDueDate) {
+      let finalDate = editedDueDate;
+      if (editedDueTime) {
+        const [hours, minutes] = editedDueTime.split(":").map(Number);
+        finalDate = setMinutes(setHours(editedDueDate, hours), minutes);
+        updateData.due_datetime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
+        updateData.due_date = null;
+      } else {
+        updateData.due_date = format(finalDate, "yyyy-MM-dd");
+        updateData.due_datetime = null;
+      }
+
+      const currentTaskDueDateTime = taskToEdit.due?.datetime ? format(parseISO(taskToEdit.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
+      const currentTaskDueDate = taskToEdit.due?.date ? format(parseISO(taskToEdit.due.date), "yyyy-MM-dd") : null;
+
+      if (updateData.due_datetime && updateData.due_datetime !== currentTaskDueDateTime) {
+        changed = true;
+      } else if (updateData.due_date && updateData.due_date !== currentTaskDueDate && !currentTaskDueDateTime) {
+        changed = true;
+      } else if (!updateData.due_date && !updateData.due_datetime && (currentTaskDueDate || currentTaskDueDateTime)) {
+        changed = true;
+      }
+    } else if (!editedDueDate && (taskToEdit.due?.date || taskToEdit.due?.datetime)) {
+      updateData.due_date = null;
+      updateData.due_datetime = null;
+      changed = true;
+    }
+
+    // Handle Priority
+    if (editedPriority !== taskToEdit.priority) {
+      updateData.priority = editedPriority;
+      changed = true;
+    }
+
+    // Handle Duration
+    const newDurationAmount = parseInt(editedDuration, 10);
+    const currentDurationAmount = taskToEdit.duration?.amount;
+    const currentDurationUnit = taskToEdit.duration?.unit;
+
+    if (!isNaN(newDurationAmount) && newDurationAmount > 0) {
+      if (newDurationAmount !== currentDurationAmount || currentDurationUnit !== "minute") {
+        updateData.duration = newDurationAmount;
+        updateData.duration_unit = "minute";
+        changed = true;
+      }
+    } else if (editedDuration === "" && (currentDurationAmount !== undefined || currentDurationUnit !== undefined)) {
+      updateData.duration = null;
+      updateData.duration_unit = undefined;
+      changed = true;
+    }
+
+    if (changed) {
+      await updateTask(editingTaskId, updateData);
+      toast.success("Tarefa delegada atualizada!");
+      fetchDelegatedTasks(); // Refresh the list
+    } else {
+      toast.info("Nenhuma alteração detectada.");
+    }
+    handleCancelEditing();
+  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDuration, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
+
 
   const renderTaskItem = (task: TodoistTask) => (
     <div 
@@ -206,46 +303,137 @@ const FollowUp = () => {
       )}
       onClick={() => handleSelectTaskForAI(task)}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-grow pr-4">
+      {editingTaskId === task.id ? (
+        <div className="grid gap-2 p-2 bg-white rounded-md shadow-inner">
           <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
-          {task.description && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{task.description}</p>}
-          <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
-            {task.due?.datetime && (
-              <span className="flex items-center gap-1">
-                <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-              </span>
-            )}
-            {task.due?.date && !task.due?.datetime && (
-              <span className="flex items-center gap-1">
-                <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
-              </span>
-            )}
-            {!task.due && <span>Sem prazo</span>}
-            <span
-              className={cn(
-                "px-2 py-0.5 rounded-full text-white text-xs font-medium",
-                PRIORITY_COLORS[task.priority],
-              )}
+          <div>
+            <Label htmlFor={`edit-due-date-${task.id}`} className="text-sm">Data de Vencimento</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal mt-1",
+                    !editedDueDate && "text-muted-foreground"
+                  )}
+                  disabled={isLoadingTodoist}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {editedDueDate ? format(editedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={editedDueDate}
+                  onSelect={setEditedDueDate}
+                  initialFocus
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div>
+            <Label htmlFor={`edit-due-time-${task.id}`} className="text-sm">Hora de Vencimento (Opcional)</Label>
+            <Input
+              id={`edit-due-time-${task.id}`}
+              type="time"
+              value={editedDueTime}
+              onChange={(e) => setEditedDueTime(e.target.value)}
+              className="mt-1"
+              disabled={isLoadingTodoist}
+            />
+          </div>
+          <div>
+            <Label htmlFor={`edit-priority-${task.id}`} className="text-sm">Prioridade</Label>
+            <Select
+              value={String(editedPriority)}
+              onValueChange={(value) => setEditedPriority(Number(value) as 1 | 2 | 3 | 4)}
+              disabled={isLoadingTodoist}
             >
-              {PRIORITY_LABELS[task.priority]}
-            </span>
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Selecione a prioridade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="4">P1 - Urgente</SelectItem>
+                <SelectItem value="3">P2 - Alto</SelectItem>
+                <SelectItem value="2">P3 - Médio</SelectItem>
+                <SelectItem value="1">P4 - Baixo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor={`edit-duration-${task.id}`} className="text-sm">Duração Estimada (minutos)</Label>
+            <Input
+              id={`edit-duration-${task.id}`}
+              type="number"
+              value={editedDuration}
+              onChange={(e) => setEditedDuration(e.target.value)}
+              min="1"
+              placeholder="Ex: 30"
+              className="mt-1"
+              disabled={isLoadingTodoist}
+            />
+          </div>
+          <div className="flex gap-2 mt-2">
+            <Button onClick={handleSaveEdit} size="sm" className="flex-1" disabled={isLoadingTodoist}>
+              Salvar
+            </Button>
+            <Button onClick={handleCancelEditing} variant="outline" size="sm" className="flex-1" disabled={isLoadingTodoist}>
+              Cancelar
+            </Button>
           </div>
         </div>
-        <div className="flex flex-col gap-2 ml-4">
-          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} disabled={isLoadingTodoist}>
-            <Check className="h-4 w-4 text-green-500" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleRemoveDelegation(task); }} disabled={isLoadingTodoist}>
-            <Trash2 className="h-4 w-4 text-red-500" />
-          </Button>
-          <a href={task.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon">
-              <ExternalLink className="h-4 w-4 text-blue-500" />
+      ) : (
+        <div className="flex items-start justify-between">
+          <div className="flex-grow pr-4">
+            <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
+            {task.description && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{task.description}</p>}
+            <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
+              {task.due?.datetime && (
+                <span className="flex items-center gap-1">
+                  <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </span>
+              )}
+              {task.due?.date && !task.due?.datetime && (
+                <span className="flex items-center gap-1">
+                  <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
+                </span>
+              )}
+              {!task.due && <span>Sem prazo</span>}
+              {task.duration?.amount && task.duration.unit === "minute" && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> {task.duration.amount} min
+                </span>
+              )}
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-white text-xs font-medium",
+                  PRIORITY_COLORS[task.priority],
+                )}
+              >
+                {PRIORITY_LABELS[task.priority]}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 ml-4">
+            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleStartEditing(task); }} disabled={isLoadingTodoist}>
+              <Edit className="h-4 w-4" />
             </Button>
-          </a>
+            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} disabled={isLoadingTodoist}>
+              <Check className="h-4 w-4 text-green-500" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleRemoveDelegation(task); }} disabled={isLoadingTodoist}>
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </Button>
+            <a href={task.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="icon">
+                <ExternalLink className="h-4 w-4 text-blue-500" />
+              </Button>
+            </a>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -385,7 +573,6 @@ const FollowUp = () => {
         </Card>
       </div>
       <div className="lg:col-span-1">
-        {/* Integração do FollowUpAIAssistant aqui */}
         <FollowUpAIAssistant 
           currentTask={selectedTaskForAI} 
           updateTask={updateTask} 
