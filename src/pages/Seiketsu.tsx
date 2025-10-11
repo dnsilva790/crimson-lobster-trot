@@ -457,7 +457,7 @@ const Seiketsu = () => {
                 disabled={isLoading}
                 className="bg-purple-500 hover:bg-purple-600 text-white py-3 text-md flex items-center justify-center"
               >
-                <Check className="mr-2 h-5 w-5" /> Marcar com Foco
+                <Check className="mr-2 h-5 w-5" /> Fazer Agora (&lt; 2 min)
               </Button>
               <Popover open={isSchedulingPopoverOpen} onOpenChange={setIsSchedulingPopoverOpen}>
                 <PopoverTrigger asChild>
