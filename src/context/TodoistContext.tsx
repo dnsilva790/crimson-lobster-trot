@@ -51,7 +51,38 @@ type MakeApiCallFn = <T>(
 
 const TodoistContext = createContext<TodoistContextType | undefined>(undefined);
 
-export const TodoistProvider = ({ children }: { children: ReactNode }) => {
+// Função auxiliar para sanitizar uma única tarefa
+const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
+  // Sanitize task.due object
+  if (task.due === undefined || (typeof task.due === 'string' && task.due === 'undefined')) {
+    task.due = null;
+  } else if (task.due && typeof task.due === 'object') {
+    // Explicitly handle 'undefined' string literal and primitive undefined for date fields
+    if (task.due.date === undefined || (typeof task.due.date === 'string' && task.due.date === "undefined")) {
+      task.due.date = null;
+    }
+    if (task.due.datetime === undefined || (typeof task.due.datetime === 'string' && task.due.datetime === "undefined")) {
+      task.due.datetime = null;
+    }
+    if (task.due.string === undefined || (typeof task.due.string === 'string' && task.due.string === "undefined")) {
+      task.due.string = null;
+    }
+    
+    // Ensure is_recurring is always a boolean
+    if (task.due.is_recurring === undefined) {
+      task.due.is_recurring = false;
+    }
+  }
+
+  // Sanitize task.deadline
+  if (task.deadline === undefined || (typeof task.deadline === 'string' && task.deadline === "undefined")) {
+    task.deadline = null;
+  }
+  
+  return task;
+};
+
+export const TodoistProvider = ({ children }: { ReactNode }) => {
   const [apiKey, setApiKeyInternal] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -103,41 +134,11 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}`);
       });
 
-      // 🔧 CORREÇÃO: Sanitização completa das tarefas
-      const sanitizedTasks = rawTasks.map(task => {
-        // Sanitize task.due object
-        if (task.due === undefined || (typeof task.due === 'string' && task.due === 'undefined')) {
-          task.due = null;
-        } else if (task.due && typeof task.due === 'object') {
-          // Explicitly handle 'undefined' string literal and primitive undefined for date fields
-          if (task.due.date === undefined || (typeof task.due.date === 'string' && task.due.date === "undefined")) {
-            task.due.date = null;
-          }
-          if (task.due.datetime === undefined || (typeof task.due.datetime === 'string' && task.due.datetime === "undefined")) {
-            task.due.datetime = null;
-          }
-          if (task.due.string === undefined || (typeof task.due.string === 'string' && task.due.string === "undefined")) {
-            task.due.string = null;
-          }
-          
-          // Ensure is_recurring is always a boolean
-          if (task.due.is_recurring === undefined) {
-            task.due.is_recurring = false;
-          }
-        }
-
-        // Sanitize task.deadline
-        if (task.deadline === undefined || (typeof task.deadline === 'string' && task.deadline === "undefined")) {
-          task.deadline = null;
-        }
-        
-        return task;
-      });
+      // Sanitização completa das tarefas
+      const sanitizedTasks = rawTasks.map(sanitizeTodoistTask);
 
       // FILTRO UNIVERSAL: Remover tarefas recorrentes "every hour"
       const filteredHourlyRecurring = sanitizedTasks.filter(task => {
-        // 🔧 Verificação adicional de segurança para task.due.string
-        // Agora que task.due.string é garantido como string | null, podemos usar optional chaining
         return !(task.due?.is_recurring === true && task.due?.string?.toLowerCase().includes("every hour"));
       });
 
@@ -180,7 +181,11 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const fetchTaskById = useCallback(async (taskId: string) => {
-    return await makeApiCall(todoistService.fetchTaskById, taskId);
+    const rawTask = await makeApiCall(todoistService.fetchTaskById, taskId);
+    if (rawTask) {
+      return sanitizeTodoistTask(rawTask); // Aplicar sanitização aqui também
+    }
+    return undefined;
   }, [makeApiCall]);
 
   const fetchProjects = useCallback(async () => {
@@ -213,7 +218,11 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       duration_unit?: "minute" | "day";
       deadline?: string | null;
     }) => {
-      return await makeApiCall(todoistService.updateTask, taskId, data);
+      const updatedTask = await makeApiCall(todoistService.updateTask, taskId, data);
+      if (updatedTask) {
+        return sanitizeTodoistTask(updatedTask); // Sanitizar a tarefa retornada após a atualização
+      }
+      return undefined;
     },
     [makeApiCall],
   );
@@ -231,7 +240,11 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       duration?: number;
       duration_unit?: "minute" | "day";
     }) => {
-      return await makeApiCall(todoistService.createTask, data);
+      const newTask = await makeApiCall(todoistService.createTask, data);
+      if (newTask) {
+        return sanitizeTodoistTask(newTask); // Sanitizar a tarefa recém-criada
+      }
+      return undefined;
     },
     [makeApiCall],
   );
