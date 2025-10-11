@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format, parseISO, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Card } from "@/components/ui/card"; // Adicionado: Importação do componente Card
 
 type GtdState =
   | "initial" // User sets filter
@@ -284,7 +285,7 @@ const Seiketsu = () => {
     const updated = await updateTask(currentTask.id, { labels: updatedLabels });
     if (updated) {
       toast.info(`Tarefa "${currentTask.content}" marcada como projeto.`);
-      // REMOVIDO: window.open(currentTask.url, "_blank");
+      // REMOVIDO: window.open(currentTask.url, "_blank"); // Esta linha foi removida
       advanceToNextTask();
     }
   }, [currentTask, updateTask, advanceToNextTask]);
