@@ -142,8 +142,8 @@ const Seiketsu = () => {
     setActionableStep("isActionable");
     setTasksToProcess([]);
 
-    // Passar 'false' para includeSubtasksAndRecurring para excluí-los por padrão
-    const fetchedTasks = await fetchTasks(inboxFilter, false); 
+    // Passar as novas opções: excluir subtarefas e tarefas recorrentes
+    const fetchedTasks = await fetchTasks(inboxFilter, { includeSubtasks: false, includeRecurring: false }); 
     if (fetchedTasks && fetchedTasks.length > 0) {
       setTasksToProcess(fetchedTasks);
       setGtdState("reviewing");

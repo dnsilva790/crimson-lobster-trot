@@ -13,7 +13,7 @@ interface TodoistContextType {
   apiKey: string | null;
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
-  fetchTasks: (filter?: string, includeSubtasksAndRecurring?: boolean) => Promise<TodoistTask[]>;
+  fetchTasks: (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean }) => Promise<TodoistTask[]>;
   fetchProjects: () => Promise<TodoistProject[]>;
   closeTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
@@ -85,7 +85,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const fetchTasks = useCallback(
-    async (filter?: string, includeSubtasksAndRecurring: boolean = false) => {
+    async (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean }) => {
       const rawTasks = await makeApiCall(todoistService.fetchTasks, filter);
       
       console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
@@ -100,7 +100,6 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
       console.log("TodoistContext: Tarefas após filtro 'every hour'. Original:", rawTasks.length, "Filtrado:", filteredHourlyRecurring.length);
 
-
       const tasksWithDuration = filteredHourlyRecurring.map(task => {
         let estimatedDurationMinutes = 15;
         if (task.duration) {
@@ -113,20 +112,25 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         return { ...task, estimatedDurationMinutes };
       });
 
-      const shouldFilterOutSubtasksAndRecurring = includeSubtasksAndRecurring === false || (includeSubtasksAndRecurring === undefined && filter !== undefined);
+      // Aplicar filtragem com base nas novas opções
+      const finalOptions = {
+        includeSubtasks: options?.includeSubtasks ?? true, // Padrão: incluir subtarefas
+        includeRecurring: options?.includeRecurring ?? true, // Padrão: incluir recorrentes
+      };
 
-      console.log("TodoistContext: fetchTasks chamado com filter:", filter, "includeSubtasksAndRecurring:", includeSubtasksAndRecurring, "shouldFilterOutSubtasksAndRecurring:", shouldFilterOutSubtasksAndRecurring);
+      let processedTasks = tasksWithDuration;
 
-      if (shouldFilterOutSubtasksAndRecurring) {
-        const processedTasks = tasksWithDuration
-          .filter(task => task.parent_id === null && task.due?.is_recurring !== true);
-        
-        console.log("TodoistContext: Filtrando tarefas (subtarefas e recorrentes). Contagem original:", tasksWithDuration.length, "Contagem filtrada:", processedTasks.length);
-        return processedTasks;
-      } else {
-        console.log("TodoistContext: Não filtrando tarefas (subtarefas e recorrentes). Contagem:", tasksWithDuration.length);
-        return tasksWithDuration;
+      if (!finalOptions.includeSubtasks) {
+        processedTasks = processedTasks.filter(task => task.parent_id === null);
+        console.log("TodoistContext: Filtrando subtarefas. Contagem:", processedTasks.length);
       }
+      if (!finalOptions.includeRecurring) {
+        processedTasks = processedTasks.filter(task => task.due?.is_recurring !== true);
+        console.log("TodoistContext: Filtrando tarefas recorrentes. Contagem:", processedTasks.length);
+      }
+      
+      console.log("TodoistContext: fetchTasks finalizado. Contagem:", processedTasks.length);
+      return processedTasks;
     },
     [makeApiCall],
   );

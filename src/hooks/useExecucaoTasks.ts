@@ -53,15 +53,18 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     }
     const finalTodoistFilter = todoistFilterParts.join(" & ");
 
+    // Opções para fetchTasks: excluir subtarefas, mas incluir recorrentes
+    const fetchOptions = { includeSubtasks: false, includeRecurring: true };
+
     // 1. Carregar tarefas com base no filtro primeiro
     if (useFilter && finalTodoistFilter) {
-      tasksFromFilter = await fetchTasks(finalTodoistFilter, true); // Buscar todos os tipos de tarefas para o modo foco
+      tasksFromFilter = await fetchTasks(finalTodoistFilter, fetchOptions);
       if (tasksFromFilter.length > 0) {
         toast.info(`Encontradas ${tasksFromFilter.length} tarefas com o filtro.`);
       }
     } else {
       // Se nenhum filtro específico for fornecido, buscar todas as tarefas
-      tasksFromFilter = await fetchTasks(undefined, true);
+      tasksFromFilter = await fetchTasks(undefined, fetchOptions);
       if (tasksFromFilter.length > 0) {
         toast.info(`Encontradas ${tasksFromFilter.length} tarefas sem filtro específico.`);
       }
@@ -71,7 +74,7 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
     if (savedSeitonState) {
       try {
-        const parsedState: SeitonStateSnapshot = JSON.parse(savedSeitonState);
+        const parsedState: SeitonStateSnapshot = JSON.parse(savedState);
         if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
           const potentialTopSeitonTask = parsedState.rankedTasks[0];
           // Adicionar a tarefa do Seiton apenas se ela não estiver já na lista filtrada
@@ -96,7 +99,7 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     // 4. Se ainda não houver tarefas, fallback para buscar todas as tarefas (se um filtro foi aplicado e não retornou nada)
     if (combinedTasks.length === 0 && (useFilter && finalTodoistFilter)) {
         toast.info("Nenhuma tarefa encontrada com o filtro ou ranking Seiton. Tentando carregar todas as tarefas...");
-        combinedTasks = await fetchTasks(undefined, true);
+        combinedTasks = await fetchTasks(undefined, fetchOptions); // Usar as mesmas opções de filtro
     }
 
     // 5. Ordenar a lista combinada

@@ -132,8 +132,8 @@ const Planejador = () => {
   const fetchBacklogTasks = useCallback(async () => {
     setIsLoadingBacklog(true);
     try {
-      // Fetch Todoist tasks, explicitly filtering out recurring tasks
-      const todoistTasks = await fetchTasks(filterInput.trim() || undefined, false); // Changed to false
+      // Fetch Todoist tasks, explicitly filtering out subtasks and recurring tasks for backlog
+      const todoistTasks = await fetchTasks(filterInput.trim() || undefined, { includeSubtasks: false, includeRecurring: false }); 
       const internalTasks = getInternalTasks();
 
       const combinedBacklog = [
@@ -393,6 +393,7 @@ const Planejador = () => {
 
     const newScheduledTask: ScheduledTask = {
       id: `${task.id}-${Date.now()}`,
+      taskId: task.id,
       content: task.content,
       description: task.description,
       start: start,
@@ -508,6 +509,7 @@ const Planejador = () => {
     for (const block of combinedBlocks) {
       const blockStart = parse(block.start, "HH:mm", selectedDate);
       let blockEnd = parse(block.end, "HH:mm", selectedDate);
+      // Adjust blockEnd if it crosses midnight (e.g., 23:00 to 00:00)
       if (isBefore(blockEnd, blockStart)) {
         blockEnd = addDays(blockEnd, 1);
       }
@@ -727,7 +729,8 @@ const Planejador = () => {
     toast.loading("Pré-alocando reuniões...");
 
     try {
-      const allTodoistTasks = await fetchTasks(undefined, true); // Fetch all tasks, including subtasks and recurring
+      // Fetch all tasks, including subtasks and recurring, for meetings
+      const allTodoistTasks = await fetchTasks(undefined, { includeSubtasks: true, includeRecurring: true }); 
       const meetingTasks = allTodoistTasks.filter(
         task => task.project_id === meetingProjectId && task.due?.datetime && !ignoredMeetingTaskIds.includes(task.id) // Filtrar reuniões ignoradas
       );

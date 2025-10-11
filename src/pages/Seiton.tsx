@@ -171,8 +171,8 @@ const Seiton = () => {
       // If continuing, use the tasksToProcess from the loaded state
       initialTasks = tasksToProcess;
     } else {
-      // Otherwise, fetch new tasks
-      initialTasks = await fetchTasks(finalTodoistFilter || undefined);
+      // Otherwise, fetch new tasks, excluding subtasks and recurring
+      initialTasks = await fetchTasks(finalTodoistFilter || undefined, { includeSubtasks: false, includeRecurring: false });
     }
 
     if (initialTasks && initialTasks.length > 0) {

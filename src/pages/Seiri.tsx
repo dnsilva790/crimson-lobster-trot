@@ -72,8 +72,8 @@ const Seiri = () => {
     const todoistFilter = filterInput.trim();
     const finalFilter = todoistFilter || undefined; 
     
-    // Alterado para 'false' para excluir subtarefas e tarefas recorrentes
-    const fetchedTasks = await fetchTasks(finalFilter, false); 
+    // Alterado para usar as novas opções: excluir subtarefas e tarefas recorrentes
+    const fetchedTasks = await fetchTasks(finalFilter, { includeSubtasks: false, includeRecurring: false }); 
     
     let filteredTasksAfterInternalLogic: TodoistTask[] = [];
     if (fetchedTasks) {
@@ -255,6 +255,19 @@ const Seiri = () => {
             onUpdateCategory={handleUpdateCategory}
             onUpdatePriority={handleUpdatePriority}
             onUpdateDeadline={handleUpdateDeadline} // Passando a nova função
+            onUpdateFieldDeadline={async (taskId, deadlineDate) => {
+              const updated = await updateTask(taskId, { deadline: deadlineDate });
+              if (updated) {
+                setTasksToReview(prevTasks =>
+                  prevTasks.map(task =>
+                    task.id === taskId ? { ...task, deadline: updated.deadline } : task
+                  )
+                );
+                toast.success("Deadline da tarefa atualizado com sucesso!");
+              } else {
+                toast.error("Falha ao atualizar o deadline da tarefa.");
+              }
+            }}
             isLoading={isLoading}
           />
         </div>
