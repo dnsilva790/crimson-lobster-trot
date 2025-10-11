@@ -183,12 +183,12 @@ const Seiketsu = () => {
 
   const handleEliminate = useCallback(async () => {
     if (!currentTask) return;
-    const success = await deleteTask(currentTask.id);
+    const success = await closeTask(currentTask.id); // Alterado de deleteTask para closeTask
     if (success !== undefined) {
-      toast.success(`Tarefa "${currentTask.content}" eliminada.`);
+      toast.success(`Tarefa "${currentTask.content}" concluída.`); // Mensagem atualizada
       advanceToNextTask();
     }
-  }, [currentTask, deleteTask, advanceToNextTask]);
+  }, [currentTask, closeTask, advanceToNextTask]); // Atualizado para closeTask
 
   const handleIncubate = useCallback(async () => {
     if (!currentTask) return;
@@ -388,7 +388,7 @@ const Seiketsu = () => {
                 disabled={isLoading}
                 className="bg-red-500 hover:bg-red-600 text-white py-3 text-md flex items-center justify-center"
               >
-                <Trash2 className="mr-2 h-5 w-5" /> Eliminar
+                <Check className="mr-2 h-5 w-5" /> Concluir
               </Button>
               <Button
                 onClick={handleIncubate}
