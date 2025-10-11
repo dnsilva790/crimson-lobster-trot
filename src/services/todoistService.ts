@@ -1,10 +1,19 @@
 import { TodoistTask, TodoistProject } from "@/lib/types";
 
 const TODOIST_API_BASE_URL = "https://api.todoist.com/rest/v2";
+const TODOIST_SYNC_API_BASE_URL = "https://api.todoist.com/sync/v9"; // Nova URL para a Sync API
 
 interface TodoistError {
   status: number;
   message: string;
+}
+
+// Função para gerar UUIDs aleatórios, necessários para a Sync API
+function generateUuid(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
 async function todoistApiCall<T>(
@@ -66,6 +75,48 @@ async function todoistApiCall<T>(
   return jsonResponse as T;
 }
 
+// Nova função para chamadas à Sync API
+async function todoistSyncApiCall(
+  apiKey: string,
+  commands: any[],
+): Promise<any | undefined> {
+  const sanitizedApiKey = apiKey.replace(/[^\x20-\x7E]/g, '');
+
+  const headers: HeadersInit = {
+    Authorization: `Bearer ${sanitizedApiKey}`,
+    "Content-Type": "application/json",
+  };
+
+  const config: RequestInit = {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ commands }),
+  };
+
+  const url = `${TODOIST_SYNC_API_BASE_URL}/sync`;
+  console.log("Todoist Sync API Request URL:", url);
+  console.log("Todoist Sync API Request Body:", JSON.stringify({ commands }));
+
+  const response = await fetch(url, config);
+
+  console.log(`Todoist Sync API Response Status for ${url}:`, response.status);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Todoist Sync API Error Response Body for ${url}:`, errorText);
+    const errorData: TodoistError = {
+      status: response.status,
+      message: errorText,
+    };
+    throw errorData;
+  }
+
+  const jsonResponse = await response.json();
+  console.log(`Todoist Sync API Response Body for ${url}:`, jsonResponse);
+  return jsonResponse;
+}
+
+
 export const todoistService = {
   fetchTasks: async (apiKey: string, filter?: string): Promise<TodoistTask[]> => {
     const endpoint = filter ? `/tasks?filter=${encodeURIComponent(filter)}` : "/tasks";
@@ -95,7 +146,54 @@ export const todoistService = {
     labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
-  }): Promise<TodoistTask> => {
-    return todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", data);
+    deadline?: string | null; // Adicionado o campo deadline
+  }): Promise<TodoistTask | undefined> => {
+    const restApiData: any = {};
+    const syncApiCommands: any[] = [];
+    let needsRestApiCall = false;
+    let needsSyncApiCall = false;
+
+    // Processar campos para a REST API v2
+    if (data.content !== undefined) { restApiData.content = data.content; needsRestApiCall = true; }
+    if (data.description !== undefined) { restApiData.description = data.description; needsRestApiCall = true; }
+    if (data.priority !== undefined) { restApiData.priority = data.priority; needsRestApiCall = true; }
+    if (data.due_date !== undefined) { restApiData.due_date = data.due_date; needsRestApiCall = true; }
+    if (data.due_datetime !== undefined) { restApiData.due_datetime = data.due_datetime; needsRestApiCall = true; }
+    if (data.labels !== undefined) { restApiData.labels = data.labels; needsRestApiCall = true; }
+    if (data.duration !== undefined) { restApiData.duration = data.duration; needsRestApiCall = true; }
+    if (data.duration_unit !== undefined) { restApiData.duration_unit = data.duration_unit; needsRestApiCall = true; }
+
+    // Processar campo deadline para a Sync API v9
+    if (data.deadline !== undefined) {
+      syncApiCommands.push({
+        type: "item_update",
+        uuid: generateUuid(),
+        args: {
+          id: taskId,
+          deadline: data.deadline,
+        },
+      });
+      needsSyncApiCall = true;
+    }
+
+    let restApiResult: TodoistTask | undefined;
+    let syncApiResult: any;
+
+    if (needsRestApiCall) {
+      restApiResult = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", restApiData);
+    }
+
+    if (needsSyncApiCall) {
+      syncApiResult = await todoistSyncApiCall(apiKey, syncApiCommands);
+      // A Sync API não retorna o objeto atualizado, então precisamos re-buscar a tarefa
+      // para garantir que o estado local esteja consistente, especialmente para o deadline.
+      // Se já fizemos uma chamada REST, o restApiResult já é a tarefa mais recente (sem o deadline).
+      // Se não, buscamos a tarefa completa.
+      restApiResult = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "GET");
+    }
+
+    // Se apenas a Sync API foi chamada, ou se a REST API foi chamada e depois a Sync,
+    // o restApiResult final deve conter o estado mais atualizado da tarefa.
+    return restApiResult;
   },
 };

@@ -26,6 +26,7 @@ interface TodoistContextType {
     labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
+    deadline?: string | null; // Adicionado o campo deadline
   }) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
@@ -158,6 +159,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       labels?: string[];
       duration?: number;
       duration_unit?: "minute" | "day";
+      deadline?: string | null; // Adicionado o campo deadline
     }) => {
       return await makeApiCall(todoistService.updateTask, taskId, data);
     },

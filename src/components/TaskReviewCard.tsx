@@ -21,7 +21,8 @@ interface TaskReviewCardProps {
   onDelete: (taskId: string) => void;
   onUpdateCategory: (taskId: string, newCategory: "pessoal" | "profissional" | "none") => void;
   onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void;
-  onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>; // Nova prop
+  onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>;
+  onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>; // Nova prop para o campo deadline
   isLoading: boolean;
 }
 
@@ -46,7 +47,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onDelete,
   onUpdateCategory,
   onUpdatePriority,
-  onUpdateDeadline, // Nova prop
+  onUpdateDeadline,
+  onUpdateFieldDeadline, // Nova prop
   isLoading,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
@@ -58,6 +60,13 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   );
   const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
 
+  // Novos estados para o campo 'deadline'
+  const [selectedFieldDeadlineDate, setSelectedFieldDeadlineDate] = useState<Date | undefined>(
+    task.deadline ? parseISO(task.deadline) : undefined
+  );
+  const [isFieldDeadlinePopoverOpen, setIsFieldDeadlinePopoverOpen] = useState(false);
+
+
   useEffect(() => {
     if (task.labels.includes("pessoal")) {
       setSelectedCategory("pessoal");
@@ -68,6 +77,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     }
     setSelectedDueDate(task.due?.date ? parseISO(task.due.date) : undefined);
     setSelectedDueTime(task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "");
+    setSelectedFieldDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined); // Atualiza o estado do deadline
   }, [task]); // Depende da tarefa para atualizar os estados
 
   const handleCategoryChange = (newCategory: "pessoal" | "profissional" | "none") => {
@@ -103,6 +113,23 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     setIsDeadlinePopoverOpen(false);
   };
 
+  // Funções para o novo campo 'deadline'
+  const handleSetFieldDeadline = async () => {
+    if (!selectedFieldDeadlineDate) {
+      toast.error("Por favor, selecione uma data para o deadline.");
+      return;
+    }
+    const formattedDeadline = format(selectedFieldDeadlineDate, "yyyy-MM-dd");
+    await onUpdateFieldDeadline(task.id, formattedDeadline);
+    setIsFieldDeadlinePopoverOpen(false);
+  };
+
+  const handleClearFieldDeadline = async () => {
+    await onUpdateFieldDeadline(task.id, null);
+    setSelectedFieldDeadlineDate(undefined);
+    setIsFieldDeadlinePopoverOpen(false);
+  };
+
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
@@ -116,6 +143,14 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       dateElements.push(
         <span key="due-date" className="block">
           Vencimento: {format(new Date(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
+        </span>
+      );
+    }
+
+    if (task.deadline) {
+      dateElements.push(
+        <span key="field-deadline" className="block text-red-600 font-semibold">
+          Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
         </span>
       );
     }
@@ -231,7 +266,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           <Trash2 className="mr-2 h-5 w-5" /> Excluir
         </Button>
       </div>
-      <div className="mt-4">
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         <Popover open={isDeadlinePopoverOpen} onOpenChange={setIsDeadlinePopoverOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -279,6 +314,46 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
               </Button>
               <Button onClick={handleClearDeadline} variant="outline" className="w-full" disabled={isLoading}>
                 Limpar Prazo
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Novo Popover para o campo 'deadline' */}
+        <Popover open={isFieldDeadlinePopoverOpen} onOpenChange={setIsFieldDeadlinePopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              disabled={isLoading}
+              className="w-full py-3 text-md flex items-center justify-center text-red-600 border-red-600 hover:bg-red-50"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {selectedFieldDeadlineDate ? (
+                <span>Deadline: {format(selectedFieldDeadlineDate, "dd/MM/yyyy", { locale: ptBR })}</span>
+              ) : (
+                <span>Definir Deadline</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-4">
+            <h4 className="font-semibold text-lg mb-3">Definir Deadline (Campo Todoist)</h4>
+            <div className="grid gap-4">
+              <div>
+                <Label htmlFor="field-deadline-date">Data do Deadline</Label>
+                <Calendar
+                  mode="single"
+                  selected={selectedFieldDeadlineDate}
+                  onSelect={setSelectedFieldDeadlineDate}
+                  initialFocus
+                  locale={ptBR}
+                  className="rounded-md border shadow"
+                />
+              </div>
+              <Button onClick={handleSetFieldDeadline} className="w-full" disabled={isLoading}>
+                Salvar Deadline
+              </Button>
+              <Button onClick={handleClearFieldDeadline} variant="outline" className="w-full" disabled={isLoading}>
+                Limpar Deadline
               </Button>
             </div>
           </PopoverContent>
