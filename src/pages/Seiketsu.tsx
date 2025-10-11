@@ -149,6 +149,19 @@ const Seiketsu = () => {
     }
   }, [gtdState, actionableStep, tasksToProcess, currentTaskIndex, inboxFilter, selectedDueDate, selectedDueTime, delegateName]);
 
+  // Effect to pre-fill scheduling popover when it opens
+  useEffect(() => {
+    if (isSchedulingPopoverOpen && currentTask) {
+      setSelectedDueDate(currentTask.due?.date ? parseISO(currentTask.due.date) : undefined);
+      setSelectedDueTime(currentTask.due?.datetime ? format(parseISO(currentTask.due.datetime), "HH:mm") : "");
+    } else if (!isSchedulingPopoverOpen) {
+      // Clear temporary states when popover closes
+      setSelectedDueDate(undefined);
+      setSelectedDueTime("");
+    }
+  }, [isSchedulingPopoverOpen, currentTask]);
+
+
   const loadTasksForProcessing = useCallback(async () => {
     setGtdState("loading");
     setCurrentTaskIndex(0);
