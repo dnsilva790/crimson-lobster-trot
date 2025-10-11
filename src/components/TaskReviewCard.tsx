@@ -171,17 +171,14 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     let finalDueDate: string | null = null;
     let finalDueDateTime: string | null = null;
 
-    if (selectedDueTime) {
-      console.log(`DEBUG (handleSetDeadline - inside time block): selectedDueTime = '${selectedDueTime}', type = ${typeof selectedDueTime}`);
-      if (!selectedDueDate || !isValid(selectedDueDate)) { // Added check for selectedDueDate validity
-        toast.error("Data de vencimento selecionada é inválida para ajuste de hora.");
-        return;
-      }
+    // Usar o padrão (value || '') para garantir que .split() seja chamado em uma string
+    const timeToSplit = selectedDueTime || ''; 
+
+    if (timeToSplit) { // Se houver uma string de hora (mesmo que vazia, mas não null/undefined)
+      console.log(`DEBUG (handleSetDeadline - inside time block): timeToSplit = '${timeToSplit}', type = ${typeof timeToSplit}`);
       try {
-        const timeString = String(selectedDueTime); // Explicitly convert to string
-        
-        console.trace("About to split selectedDueTime:", timeString); // Add trace
-        const [hours, minutes] = timeString.split(":").map(Number);
+        console.trace("About to split timeToSplit:", timeToSplit, "Type:", typeof timeToSplit);
+        const [hours, minutes] = timeToSplit.split(":").map(Number);
         if (isNaN(hours) || isNaN(minutes)) {
           toast.error("Formato de hora inválido. Use HH:mm.");
           return;
@@ -193,7 +190,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         toast.error("Erro ao processar a hora de vencimento. Verifique o formato.");
         return;
       }
-    } else {
+    } else { // selectedDueTime era falsy (vazio, null, undefined)
       finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
     }
 
