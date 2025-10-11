@@ -19,9 +19,44 @@ import { useTodoist } from "@/context/TodoistContext";
 import { getInternalTasks, updateInternalTask } from "@/utils/internalTaskStorage"; // Importar updateInternalTask
 import { getProjects } from "@/utils/projectStorage"; // Importar getProjects
 import LoadingSpinner from "@/components/ui/loading-spinner";
+import PlannerPromptEditor from "@/components/PlannerPromptEditor"; // Importar o novo editor de prompt
 
 const PLANNER_STORAGE_KEY = "planner_schedules_v2"; // Updated storage key for new structure
 const MEETING_PROJECT_NAME = "📅 Reuniões"; // Nome do projeto de reuniões
+const PLANNER_AI_PROMPT_STORAGE_KEY = "planner_ai_prompt"; // Nova chave para o prompt da IA do Planejador
+
+const defaultPlannerAiPrompt = `**AGENTE DE SUGESTÃO DE SLOTS DO PLANEJADOR**
+**MISSÃO:** Sua missão é sugerir o melhor slot de 15 minutos para uma tarefa no calendário, considerando a categoria da tarefa (Pessoal/Profissional), sua prioridade, os blocos de tempo definidos (Trabalho, Pessoal, Pausa) e o horário atual.
+
+**REGRAS DE PONTUAÇÃO (Prioridade Alta = Pontuação Alta):**
+1.  **Correspondência de Categoria/Tipo de Bloco (Base):**
+    *   Tarefa Profissional em Bloco de Trabalho: +10 pontos
+    *   Tarefa Pessoal em Bloco Pessoal: +10 pontos
+    *   Tarefa sem categoria definida em qualquer bloco de Trabalho/Pessoal: +5 pontos
+2.  **Horário de Pico de Produtividade (06h-10h):**
+    *   Tarefa Profissional em Bloco de Trabalho durante 06h-10h: +5 pontos (bônus)
+3.  **Prioridade da Tarefa:**
+    *   P1 (Urgente): +8 pontos
+    *   P2 (Alto): +6 pontos
+    *   P3 (Médio): +4 pontos
+    *   P4 (Baixo): +2 pontos
+4.  **Proximidade da Data:**
+    *   Hoje: +200 pontos
+    *   Amanhã: +100 pontos
+    *   Cada dia adicional no futuro: -10 pontos
+5.  **Horário do Dia:**
+    *   Slots mais cedo no dia (após o horário atual) são ligeiramente preferidos.
+6.  **Penalidades:**
+    *   Slot que não se encaixa em nenhum bloco de tempo adequado (se houver blocos definidos): -5 pontos
+    *   Slots que se sobrepõem a blocos de "Pausa" são **estritamente proibidos** e devem ser ignorados.
+    *   Não sugerir slots no passado.
+
+**COMPORTAMENTO ADICIONAL:**
+*   Se a tarefa não tiver categoria definida, priorize blocos de trabalho por padrão.
+*   Sempre verifique conflitos com tarefas já agendadas. Slots conflitantes devem ser ignorados.
+*   Se nenhum bloco de tempo for definido para o dia, qualquer slot disponível é considerado "adequado" (com uma pequena pontuação base).
+*   A sugestão deve ser para o slot mais próximo possível no futuro que atenda aos critérios, começando pelo dia selecionado e avançando até 7 dias.
+`;
 
 const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
   4: "bg-red-500", // P1 - Urgente
@@ -73,6 +108,9 @@ const Planejador = () => {
   const [shitsukeProjects, setShitsukeProjects] = useState<Project[]>([]);
   const [selectedShitsukeProjectId, setSelectedShitsukeProjectId] = useState<string | 'all'>('all');
 
+  // Estado para o prompt da IA do Planejador
+  const [plannerAiPrompt, setPlannerAiPrompt] = useState<string>(defaultPlannerAiPrompt);
+
   // Load Shitsuke projects on mount
   useEffect(() => {
     setShitsukeProjects(getProjects());
@@ -105,6 +143,19 @@ const Planejador = () => {
   useEffect(() => {
     localStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify({ schedules, recurringBlocks, ignoredMeetingTaskIds })); // Salvar IDs de reuniões ignoradas
   }, [schedules, recurringBlocks, ignoredMeetingTaskIds]);
+
+  // Load/Save Planner AI Prompt
+  useEffect(() => {
+    const savedPrompt = localStorage.getItem(PLANNER_AI_PROMPT_STORAGE_KEY);
+    if (savedPrompt) {
+      setPlannerAiPrompt(savedPrompt);
+    }
+  }, []);
+
+  const handleSavePlannerAiPrompt = useCallback((newPrompt: string) => {
+    setPlannerAiPrompt(newPrompt);
+    localStorage.setItem(PLANNER_AI_PROMPT_STORAGE_KEY, newPrompt);
+  }, []);
 
   // Fetch projects and identify meeting project ID
   useEffect(() => {
@@ -701,13 +752,13 @@ const Planejador = () => {
           let currentSlotScore = 0;
           let fitsInAppropriateBlock = false;
 
+          // --- Lógica de pontuação baseada no prompt da IA ---
+          // 1. Correspondência de Categoria/Tipo de Bloco (Base)
           for (const block of combinedBlocksForSuggestion) {
-            // Já filtramos blocos de pausa acima, então aqui só consideramos work/personal
-            if (block.type === "break") continue; 
+            if (block.type === "break") continue; // Já filtramos blocos de pausa acima
 
             const blockStart = parse(block.start, "HH:mm", currentDayDate);
             let blockEnd = parse(block.end, "HH:mm", currentDayDate);
-            // Adjust blockEnd if it crosses midnight
             if (isBefore(blockEnd, blockStart)) {
               blockEnd = addDays(blockEnd, 1);
             }
@@ -716,36 +767,55 @@ const Planejador = () => {
               let isCategoryMatch = false;
               if (taskCategory === "profissional" && block.type === "work") {
                 isCategoryMatch = true;
+                currentSlotScore += 10; // +10 pontos para Profissional em Trabalho
               } else if (taskCategory === "pessoal" && block.type === "personal") {
                 isCategoryMatch = true;
+                currentSlotScore += 10; // +10 pontos para Pessoal em Pessoal
+              } else if (taskCategory === undefined && (block.type === "work" || block.type === "personal")) {
+                // Tarefa sem categoria definida em qualquer bloco de Trabalho/Pessoal
+                isCategoryMatch = true;
+                currentSlotScore += 5; // +5 pontos
               }
-              // Removido: else if (taskCategory === undefined && (block.type === "work" || block.type === "personal" || block.type === "break")) {
-              //   isCategoryMatch = true;
-              // }
 
               if (isCategoryMatch) {
                 fitsInAppropriateBlock = true;
-                currentSlotScore += 10; // Base score for fitting
 
-                // Add bonus for peak productivity hours for professional tasks in work blocks
+                // 2. Horário de Pico de Produtividade (06h-10h)
                 if (block.type === "work" && taskCategory === "profissional" &&
                     slotStart.getHours() >= 6 && slotStart.getHours() < 10) {
-                  currentSlotScore += 5;
+                  currentSlotScore += 5; // +5 pontos de bônus
                 }
                 break;
               }
             }
           }
 
+          // Penalidade se não se encaixa em nenhum bloco adequado (se houver blocos definidos)
           if (!fitsInAppropriateBlock && combinedBlocksForSuggestion.length > 0) {
-            currentSlotScore -= 5; // Penalize if it doesn't fit a specific block type
+            currentSlotScore -= 5; // -5 pontos
           } else if (combinedBlocksForSuggestion.length === 0) {
-            fitsInAppropriateBlock = true; // If no blocks defined, any slot is considered appropriate
-            currentSlotScore += 5; // Small bonus if no blocks are defined, so any slot is fine
+            fitsInAppropriateBlock = true; // Se nenhum bloco definido, qualquer slot é considerado adequado
+            currentSlotScore += 5; // Pequeno bônus se não há blocos definidos
           }
 
-          currentSlotScore += taskPriority * 2;
-          currentSlotScore -= dayOffset * 100;
+          // 3. Prioridade da Tarefa
+          switch (taskPriority) {
+            case 4: currentSlotScore += 8; break; // P1
+            case 3: currentSlotScore += 6; break; // P2
+            case 2: currentSlotScore += 4; break; // P3
+            case 1: currentSlotScore += 2; break; // P4
+          }
+
+          // 4. Proximidade da Data
+          if (isEqual(currentDayDate, startOfToday)) {
+            currentSlotScore += 200; // Hoje
+          } else if (isEqual(currentDayDate, addDays(startOfToday, 1))) {
+            currentSlotScore += 100; // Amanhã
+          } else {
+            currentSlotScore -= dayOffset * 10; // Cada dia adicional no futuro: -10 pontos
+          }
+
+          // 5. Horário do Dia (slots mais cedo são ligeiramente preferidos)
           currentSlotScore -= (hour * 60 + minute) / 100;
 
           if (currentSlotScore > bestScore) {
@@ -763,7 +833,7 @@ const Planejador = () => {
       setSuggestedSlot(null);
       toast.error("Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias.");
     }
-  }, [selectedTaskToSchedule, selectedDate, schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate]);
+  }, [selectedTaskToSchedule, selectedDate, schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, plannerAiPrompt]); // Adicionar plannerAiPrompt como dependência
 
   useEffect(() => {
     if (selectedTaskToSchedule) {
@@ -1086,6 +1156,13 @@ const Planejador = () => {
       </div>
 
       <div className="lg:col-span-1">
+        <div className="flex justify-end mb-4">
+          <PlannerPromptEditor
+            initialPrompt={plannerAiPrompt}
+            onSave={handleSavePlannerAiPrompt}
+            storageKey={PLANNER_AI_PROMPT_STORAGE_KEY}
+          />
+        </div>
         <Card className="h-full">
           <CardHeader>
             <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
