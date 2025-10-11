@@ -166,14 +166,18 @@ export const todoistService = {
     if (data.duration !== undefined) { restApiPayload.duration = data.duration; needsRestApiCall = true; }
     if (data.duration_unit !== undefined) { restApiPayload.duration_unit = data.duration_unit; needsRestApiCall = true; }
 
-    // 2. Identificar campo deadline para a Sync API v9
+    // 2. Identificar campo deadline para a Sync API v9 (como campo personalizado)
     if (data.deadline !== undefined) {
+      const fieldValues: { [key: string]: string | null } = {};
+      // Usando "Deadline" como a chave, conforme sugerido pelo seu documento
+      fieldValues["Deadline"] = data.deadline; 
+
       syncApiCommands.push({
         type: "item_update",
         uuid: generateUuid(),
         args: {
           id: taskId,
-          deadline: data.deadline,
+          field_values: fieldValues, // Enviar campos personalizados via field_values
         },
       });
       needsSyncApiCall = true;
@@ -205,12 +209,10 @@ export const todoistService = {
         finalResult = { ...(finalResult || {}), ...restApiUpdateResult } as TodoistTask;
     }
 
-    // Finalmente, definir explicitamente o deadline a partir dos dados originais (data) se ele foi fornecido.
-    // Isso garante que o frontend receba o valor exato que foi enviado, já que a API GET pode não retornar campos personalizados.
-    if (data.deadline !== undefined && finalResult) {
-        finalResult.deadline = data.deadline;
-    } else if (data.deadline === null && finalResult) { // Se o deadline foi explicitamente definido como null
-        finalResult.deadline = null;
+    // A API GET (REST v2) para tarefas NÃO retorna campos personalizados.
+    // Então, precisamos garantir que `finalResult.deadline` reflita o que acabamos de enviar via Sync API.
+    if (finalResult) {
+        finalResult.deadline = data.deadline; // Definir manualmente o deadline a partir dos dados de entrada
     }
 
     console.log("TodoistService: updateTask final result:", finalResult);
