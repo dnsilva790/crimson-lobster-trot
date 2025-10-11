@@ -14,6 +14,11 @@ import ExecucaoFinishedState from "@/components/execucao/ExecucaoFinishedState";
 import TaskActionButtons from "@/components/execucao/TaskActionButtons";
 import { useExecucaoTasks } from "@/hooks/useExecucaoTasks";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { calculateNext15MinInterval } from '@/utils/dateUtils'; // Importar do novo utilitário
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { toast } from "sonner";
+
 
 const AI_PROMPT_STORAGE_KEY = "ai_tutor_seiso_prompt";
 const EXECUCAO_FILTER_INPUT_STORAGE_KEY = "execucao_filter_input";
@@ -113,7 +118,7 @@ const Execucao = () => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(EXECUCAO_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all";
     }
-    return "all";
+    return "";
   });
   const [aiPrompt, setAiPrompt] = useState<string>(defaultAiPrompt);
 
@@ -184,6 +189,22 @@ const Execucao = () => {
     return updated;
   }, [updateTask, updateTaskInFocusList]);
 
+  const handlePostpone = useCallback(async (taskId: string) => {
+    const nextInterval = calculateNext15MinInterval(new Date());
+    const updated = await updateTask(taskId, {
+      due_date: nextInterval.date,
+      due_datetime: nextInterval.datetime,
+    });
+    if (updated) {
+      // Não precisamos atualizar a lista de tarefas em foco aqui, pois a tarefa será pulada
+      // e a próxima tarefa será carregada.
+      toast.success(`Tarefa postergada para ${format(new Date(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
+      advanceToNextTask(); // Avança para a próxima tarefa após postergar
+    } else {
+      toast.error("Falha ao postergar a tarefa.");
+    }
+  }, [calculateNext15MinInterval, updateTask, advanceToNextTask]);
+
   // States and handlers for keyboard shortcuts to open popovers
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
   // Removed isDeadlinePopoverOpen as it's no longer used
@@ -237,6 +258,7 @@ const Execucao = () => {
               onComplete={handleComplete}
               onSkip={handleSkip}
               onUpdateTask={handleUpdateTaskAndRefresh}
+              onPostpone={handlePostpone} // Passando a nova função de postergar
             />
 
             <div className="mt-8 text-center">

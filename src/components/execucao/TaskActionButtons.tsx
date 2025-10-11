@@ -26,6 +26,7 @@ interface TaskActionButtonsProps {
     duration?: number; // Adicionado
     duration_unit?: "minute" | "day"; // Adicionado
   }) => Promise<TodoistTask | undefined>;
+  onPostpone: (taskId: string) => Promise<void>; // Nova prop para postergar
 }
 
 const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
@@ -34,6 +35,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   onComplete,
   onSkip,
   onUpdateTask,
+  onPostpone, // Nova prop
 }) => {
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
   // const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false); // Removido, pois não está sendo usado
@@ -130,7 +132,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6"> {/* Ajustado para 4 colunas */}
       <Button
         onClick={() => onComplete(currentTask.id)}
         disabled={isLoading}
@@ -210,6 +212,13 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
           </div>
         </PopoverContent>
       </Popover>
+      <Button
+        onClick={() => onPostpone(currentTask.id)} // Usando a nova prop
+        disabled={isLoading}
+        className="bg-yellow-500 hover:bg-yellow-600 text-white py-3 text-md flex items-center justify-center"
+      >
+        <Clock className="mr-2 h-5 w-5" /> Postergue
+      </Button>
       <Button
         onClick={onSkip}
         disabled={isLoading}

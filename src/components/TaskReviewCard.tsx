@@ -7,12 +7,14 @@ import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format, setHours, setMinutes, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock } from "lucide-react"; // Adicionado Clock para o botão Postergue
+import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+// calculateNext15MinInterval não é mais usado diretamente aqui, mas a prop onPostpone sim.
+// import { calculateNext15MinInterval } from '@/utils/dateUtils'; // Removido pois a lógica está em Seiri
 
 interface TaskReviewCardProps {
   task: TodoistTask;
@@ -22,8 +24,8 @@ interface TaskReviewCardProps {
   onUpdateCategory: (taskId: string, newCategory: "pessoal" | "profissional" | "none") => void;
   onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void;
   onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>;
-  onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>; // Nova prop para o campo deadline
-  onPostpone: (taskId: string) => Promise<void>; // Nova prop para postergar
+  onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
+  onPostpone: (taskId: string) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -45,12 +47,12 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   task,
   onKeep,
   onComplete,
-  onDelete, // Mantido na interface, mas o botão será removido
+  onDelete,
   onUpdateCategory,
   onUpdatePriority,
   onUpdateDeadline,
   onUpdateFieldDeadline,
-  onPostpone, // Nova prop
+  onPostpone,
   isLoading,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
