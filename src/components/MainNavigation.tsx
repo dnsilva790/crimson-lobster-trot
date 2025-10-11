@@ -5,11 +5,11 @@ import {
   ClipboardList,
   Trophy,
   Sparkles,
-  BarChart, // Ícone para Seiketsu
+  BarChart,
   Zap,
   ListTodo,
   CalendarDays,
-  Inbox, // Ícone original do GTD Processor, agora não usado para Seiketsu
+  Star, // Ícone para Shitsuke
 } from "lucide-react";
 
 const modules = [
@@ -22,10 +22,10 @@ const modules = [
     activeColor: "border-green-600",
   },
   {
-    path: "/seiketsu", // Rota atualizada
-    icon: BarChart, // Ícone para Seiketsu
-    title: "SEIKETSU", // Título atualizado
-    description: "Padronização", // Descrição atualizada
+    path: "/seiketsu",
+    icon: BarChart,
+    title: "SEIKETSU",
+    description: "Padronização",
     colorClass: "bg-purple-100 hover:bg-purple-200",
     activeColor: "border-purple-600",
   },
@@ -68,6 +68,14 @@ const modules = [
     description: "Sequenciar Backlog",
     colorClass: "bg-indigo-100 hover:bg-indigo-200",
     activeColor: "border-indigo-600",
+  },
+  {
+    path: "/shitsuke", // Nova rota
+    icon: Star, // Ícone para Shitsuke
+    title: "SHITSUKE",
+    description: "Projetos 5W2H",
+    colorClass: "bg-orange-100 hover:bg-orange-200",
+    activeColor: "border-orange-600",
   },
 ];
 
