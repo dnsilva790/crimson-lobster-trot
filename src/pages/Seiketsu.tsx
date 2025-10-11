@@ -25,24 +25,25 @@ import {
   ChevronRight,
   FolderOpen,
   Hourglass,
-  RotateCcw, // Novo ícone para reiniciar
+  RotateCcw,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
 import { format, parseISO, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Card } from "@/components/ui/card"; // Adicionado: Importação do componente Card
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge"; // Importar Badge
 
 type GtdState =
-  | "initial" // User sets filter
-  | "loading" // Fetching tasks
-  | "reviewing" // Processing tasks one by one
-  | "finished"; // All tasks processed
+  | "initial"
+  | "loading"
+  | "reviewing"
+  | "finished";
 
 type ActionableStep =
-  | "isActionable" // Deciding if task is actionable
-  | "nextAction" // Deciding next action if actionable
-  | "scheduling" // Setting due date/time
-  | "delegating"; // Setting delegate info
+  | "isActionable"
+  | "nextAction"
+  | "scheduling"
+  | "delegating";
 
 interface GtdProcessorState {
   gtdState: GtdState;
@@ -57,11 +58,11 @@ interface GtdProcessorState {
 
 const GTD_STORAGE_KEY = "gtdProcessorState";
 const INBOX_FILTER_STORAGE_KEY = "gtdInboxFilter";
-const FOCO_LABEL_ID = "🎯 Foco"; // A etiqueta que será adicionada
-const GTD_PROCESSED_LABEL = "gtd_processada"; // Nova etiqueta para tarefas processadas
+const FOCO_LABEL_ID = "🎯 Foco";
+const GTD_PROCESSED_LABEL = "gtd_processada";
 
 const Seiketsu = () => {
-  console.log("Seiketsu component rendered."); // Log de depuração
+  console.log("Seiketsu component rendered.");
   const { fetchTasks, closeTask, deleteTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const [gtdState, setGtdState] = useState<GtdState>("initial");
   const [actionableStep, setActionableStep] = useState<ActionableStep>("isActionable");
@@ -69,16 +70,15 @@ const Seiketsu = () => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [inboxFilter, setInboxFilter] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(INBOX_FILTER_STORAGE_KEY) || "no date & no project & no label";
+      // Novo filtro padrão: sem data, sem projeto, e sem as etiquetas gtd_processada ou agenda
+      return localStorage.getItem(INBOX_FILTER_STORAGE_KEY) || "no date & no project & !@gtd_processada & !@agenda";
     }
-    return "no date & no project & no label";
+    return "no date & no project & !@gtd_processada & !@agenda";
   });
 
-  // States for popovers
   const [isSchedulingPopoverOpen, setIsSchedulingPopoverOpen] = useState(false);
   const [isDelegatingPopoverOpen, setIsDelegatingPopoverOpen] = useState(false);
 
-  // Temporary states for current task actions
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(undefined);
   const [selectedDueTime, setSelectedDueTime] = useState<string>("");
   const [delegateName, setDelegateName] = useState<string>("");
@@ -89,7 +89,6 @@ const Seiketsu = () => {
   console.log("Seiketsu - Current State: gtdState:", gtdState, "isLoading:", isLoading, "isLoadingTodoist:", isLoadingTodoist, "tasksToProcess.length:", tasksToProcess.length, "currentTaskIndex:", currentTaskIndex);
 
 
-  // Load state from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedState = localStorage.getItem(GTD_STORAGE_KEY);
@@ -104,7 +103,6 @@ const Seiketsu = () => {
             newGtdState = "initial";
           }
 
-          // Se estivermos no estado de revisão mas não houver tarefas, resetar para inicial
           if (newGtdState === "reviewing" && (!parsedState.tasksToProcess || parsedState.tasksToProcess.length === 0)) {
             newGtdState = "initial"; 
             toast.warning("Estado de revisão inválido detectado (sem tarefas). Reiniciando o processamento.");
@@ -112,7 +110,7 @@ const Seiketsu = () => {
 
           setGtdState(newGtdState);
           setActionableStep(parsedState.actionableStep);
-          setTasksToProcess(parsedState.tasksToProcess || []); // Garante que seja um array
+          setTasksToProcess(parsedState.tasksToProcess || []);
           setCurrentTaskIndex(parsedState.currentTaskIndex);
           setInboxFilter(parsedState.inboxFilter);
           setSelectedDueDate(parsedState.selectedDueDate ? parseISO(parsedState.selectedDueDate.toISOString()) : undefined);
@@ -131,7 +129,6 @@ const Seiketsu = () => {
     }
   }, []);
 
-  // Save state to localStorage whenever relevant state changes
   useEffect(() => {
     if (typeof window !== 'undefined' && gtdState !== "initial" && gtdState !== "loading") {
       const stateToSave: GtdProcessorState = {
@@ -149,13 +146,11 @@ const Seiketsu = () => {
     }
   }, [gtdState, actionableStep, tasksToProcess, currentTaskIndex, inboxFilter, selectedDueDate, selectedDueTime, delegateName]);
 
-  // Effect to pre-fill scheduling popover when it opens
   useEffect(() => {
     if (isSchedulingPopoverOpen && currentTask) {
       setSelectedDueDate(currentTask.due?.date ? parseISO(currentTask.due.date) : undefined);
       setSelectedDueTime(currentTask.due?.datetime ? format(parseISO(currentTask.due.datetime), "HH:mm") : "");
     } else if (!isSchedulingPopoverOpen) {
-      // Clear temporary states when popover closes
       setSelectedDueDate(undefined);
       setSelectedDueTime("");
     }
@@ -168,7 +163,6 @@ const Seiketsu = () => {
     setActionableStep("isActionable");
     setTasksToProcess([]);
 
-    // Passar as novas opções: excluir subtarefas e tarefas recorrentes
     const fetchedTasks = await fetchTasks(inboxFilter, { includeSubtasks: false, includeRecurring: false }); 
     if (fetchedTasks && fetchedTasks.length > 0) {
       setTasksToProcess(fetchedTasks);
@@ -182,28 +176,23 @@ const Seiketsu = () => {
 
   const advanceToNextTask = useCallback(() => {
     setTasksToProcess(prevTasks => {
-      const updatedTasks = prevTasks.filter(task => task.id !== currentTask?.id); // Remove current task
+      const updatedTasks = prevTasks.filter(task => task.id !== currentTask?.id);
       if (updatedTasks.length === 0) {
         setGtdState("finished");
-        setCurrentTaskIndex(0); // Reset index
+        setCurrentTaskIndex(0);
         toast.success("Todas as tarefas da caixa de entrada foram processadas!");
         return [];
       } else {
-        // If there are still tasks, and the current index is now out of bounds, reset to 0.
-        // Otherwise, keep the current index (as the task at that index has shifted).
         const newIndex = currentTaskIndex >= updatedTasks.length ? 0 : currentTaskIndex;
         setCurrentTaskIndex(newIndex);
         return updatedTasks;
       }
     });
-    setActionableStep("isActionable"); // Reset step for next task
-    // Reset temporary states for next task
+    setActionableStep("isActionable");
     setSelectedDueDate(undefined);
     setSelectedDueTime("");
     setDelegateName("");
-  }, [currentTaskIndex, currentTask]); // Added currentTask to dependencies
-
-  // --- Ações GTD ---
+  }, [currentTaskIndex, currentTask]);
 
   const handleEliminate = useCallback(async () => {
     if (!currentTask) return;
@@ -221,7 +210,7 @@ const Seiketsu = () => {
       labels: updatedLabels,
       due_date: null,
       due_datetime: null,
-      priority: 1, // Set to lowest priority
+      priority: 1,
     });
     if (updated) {
       toast.info(`Tarefa "${currentTask.content}" incubada (Um Dia/Talvez).`);
@@ -231,13 +220,9 @@ const Seiketsu = () => {
 
   const handleArchive = useCallback(async () => {
     if (!currentTask) return;
-    // For archiving, we can add a label and potentially move to a specific project
-    // For simplicity, let's just add an #arquivo label and mark as complete if it's a reference item
     const updatedLabels = [...currentTask.labels.filter(l => l !== "pessoal" && l !== "profissional"), "arquivo"];
     const updated = await updateTask(currentTask.id, { labels: updatedLabels });
     if (updated) {
-      // Optionally, if it's purely reference, you might close it.
-      // await closeTask(currentTask.id); // Uncomment if archiving means closing
       toast.info(`Tarefa "${currentTask.content}" arquivada.`);
       advanceToNextTask();
     }
@@ -245,8 +230,7 @@ const Seiketsu = () => {
 
   const handleDoNow = useCallback(async () => {
     if (!currentTask) return;
-    // Adicionar a etiqueta FOCO_LABEL_ID à tarefa
-    const updatedLabels = [...new Set([...currentTask.labels, FOCO_LABEL_ID])]; // Garante que a etiqueta não seja duplicada
+    const updatedLabels = [...new Set([...currentTask.labels, FOCO_LABEL_ID])];
     const updated = await updateTask(currentTask.id, { labels: updatedLabels });
     if (updated) {
       toast.success(`Tarefa "${currentTask.content}" marcada com a etiqueta de foco.`);
@@ -316,7 +300,6 @@ const Seiketsu = () => {
   const handleNextAction = useCallback(async () => {
     if (!currentTask) return;
     
-    // Adicionar a etiqueta GTD_PROCESSED_LABEL à tarefa
     const updatedLabels = [...new Set([...currentTask.labels, GTD_PROCESSED_LABEL])];
     const updated = await updateTask(currentTask.id, { labels: updatedLabels });
 
@@ -328,7 +311,6 @@ const Seiketsu = () => {
     }
   }, [currentTask, updateTask, advanceToNextTask]);
 
-  // --- Nova função para reiniciar o processamento ---
   const handleRestartProcessing = useCallback(() => {
     setGtdState("initial");
     setTasksToProcess([]);
@@ -337,39 +319,79 @@ const Seiketsu = () => {
     setSelectedDueDate(undefined);
     setSelectedDueTime("");
     setDelegateName("");
-    localStorage.removeItem(GTD_STORAGE_KEY); // Limpa o estado salvo
+    localStorage.removeItem(GTD_STORAGE_KEY);
     toast.info("Processamento GTD reiniciado.");
   }, []);
 
-  const renderTaskCard = (task: TodoistTask) => (
-    <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
-      <div className="flex-grow">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
-          <a href={task.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 hover:text-indigo-800">
-            <ExternalLink className="h-5 w-5" />
-          </a>
-        </div>
-        {task.description && (
-          <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>
-        )}
-      </div>
-      <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
-        <span>Criado em: {format(parseISO(task.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
-        <span
-          className={cn(
-            "px-2 py-1 rounded-full text-white text-xs font-medium",
-            task.priority === 4 && "bg-red-500",
-            task.priority === 3 && "bg-orange-500",
-            task.priority === 2 && "bg-yellow-500",
-            task.priority === 1 && "bg-gray-400",
+  const renderTaskCard = (task: TodoistTask) => {
+    const category = getTaskCategory(task);
+    const hasDueDate = task.due?.date || task.due?.datetime;
+    const hasDuration = task.duration?.amount && task.duration.unit === "minute";
+
+    return (
+      <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
+        <div className="flex-grow">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+              {category && (
+                <Badge
+                  className={cn(
+                    "text-xs font-medium",
+                    category === "pessoal" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                  )}
+                >
+                  {category === "pessoal" ? "Pessoal" : "Profissional"}
+                </Badge>
+              )}
+            </div>
+            <a href={task.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 hover:text-indigo-800">
+              <ExternalLink className="h-5 w-5" />
+            </a>
+          </div>
+          {task.description && (
+            <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>
           )}
-        >
-          P{task.priority}
-        </span>
-      </div>
-    </Card>
-  );
+        </div>
+        <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
+          <div className="flex flex-col gap-1">
+            {hasDueDate ? (
+              <>
+                {task.due?.datetime && (
+                  <span className="flex items-center gap-1">
+                    <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                  </span>
+                )}
+                {task.due?.date && !task.due?.datetime && (
+                  <span className="flex items-center gap-1">
+                    <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span>Sem prazo</span>
+            )}
+            {hasDuration && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Duração: {task.duration?.amount} min
+              </span>
+            )}
+          </div>
+          <span
+            className={cn(
+              "px-2 py-1 rounded-full text-white text-xs font-medium",
+              task.priority === 4 && "bg-red-500",
+              task.priority === 3 && "bg-orange-500",
+              task.priority === 2 && "bg-yellow-500",
+              task.priority === 1 && "bg-gray-400",
+            )}
+          >
+            P{task.priority}
+          </span>
+        </div>
+      </Card>
+    );
+  };
 
   return (
     <div className="p-4">
@@ -395,7 +417,7 @@ const Seiketsu = () => {
             <Input
               type="text"
               id="inbox-filter"
-              placeholder="Ex: 'no date & no project & no label' (subtarefas e recorrentes excluídas por padrão)"
+              placeholder="Ex: 'no date & no project & !@gtd_processada & !@agenda' (subtarefas e recorrentes excluídas por padrão)"
               value={inboxFilter}
               onChange={(e) => setInboxFilter(e.target.value)}
               className="mt-1"
@@ -557,7 +579,6 @@ const Seiketsu = () => {
               </Button>
             </div>
           )}
-          {/* Novo botão para reiniciar o processamento */}
           <div className="mt-8 text-center">
             <Button
               onClick={handleRestartProcessing}
