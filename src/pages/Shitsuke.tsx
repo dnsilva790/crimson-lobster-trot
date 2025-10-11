@@ -12,10 +12,10 @@ import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { useNavigate } from "react-router-dom"; // Importar useNavigate
+import { useNavigate } from "react-router-dom";
 
 const Shitsuke = () => {
-  const navigate = useNavigate(); // Inicializar useNavigate
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -42,7 +42,11 @@ const Shitsuke = () => {
   }, [searchTerm, projects]);
 
   const handleCreateNewProject = () => {
-    navigate("/shitsuke/create"); // Navegar para a nova página de criação
+    navigate("/shitsuke/create");
+  };
+
+  const handleViewProjectDetail = (projectId: string) => {
+    navigate(`/shitsuke/${projectId}`);
   };
 
   const getStatusBadgeClass = (status: Project['status']) => {
@@ -95,7 +99,11 @@ const Shitsuke = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => (
-            <Card key={project.id} className="flex flex-col">
+            <Card 
+              key={project.id} 
+              className="flex flex-col cursor-pointer hover:shadow-lg hover:scale-[1.01] transition-all duration-200"
+              onClick={() => handleViewProjectDetail(project.id)}
+            >
               <CardHeader>
                 <CardTitle className="text-xl font-bold text-gray-800">{project.what}</CardTitle>
               </CardHeader>
@@ -109,7 +117,6 @@ const Shitsuke = () => {
                   </span>
                 </div>
               </CardContent>
-              {/* TODO: Add buttons for View/Edit/Delete later */}
             </Card>
           ))}
         </div>
