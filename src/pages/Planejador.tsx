@@ -233,6 +233,7 @@ const Planejador = () => {
     }
 
     const baseBlock = {
+      id: Date.now().toString(), // Ensure unique ID for all blocks
       start: newBlockStart,
       end: newBlockEnd,
       type: newBlockType,
@@ -240,15 +241,10 @@ const Planejador = () => {
     };
 
     if (newBlockRecurrence === "daily") {
-      const newBlock: TimeBlock = {
-        id: Date.now().toString(),
-        ...baseBlock,
-      };
-
       setSchedules((prevSchedules) => {
         const dateKey = format(selectedDate, "yyyy-MM-dd");
         const currentDay = prevSchedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
-        const updatedBlocks = [...currentDay.timeBlocks, newBlock].sort((a, b) => a.start.localeCompare(b.start));
+        const updatedBlocks = [...currentDay.timeBlocks, baseBlock].sort((a, b) => a.start.localeCompare(b.start));
         return {
           ...prevSchedules,
           [dateKey]: { ...currentDay, timeBlocks: updatedBlocks },
@@ -257,7 +253,6 @@ const Planejador = () => {
       toast.success("Bloco de tempo diário adicionado!");
     } else if (newBlockRecurrence === "dayOfWeek") {
       const newRecurringBlock: RecurringTimeBlock = {
-        id: Date.now().toString(),
         ...baseBlock,
         dayOfWeek: newBlockDayOfWeek,
       };
@@ -369,6 +364,8 @@ const Planejador = () => {
           labels: newLabels,
           duration: durationMinutes,
           duration_unit: "minute",
+          due_date: format(targetDate, "yyyy-MM-dd"),
+          due_datetime: format(parse(start, "HH:mm", targetDate), "yyyy-MM-dd'T'HH:mm:ss"),
         });
 
         if (!updatedTodoistTask) {
