@@ -19,7 +19,7 @@ import InternalTasks from "./pages/InternalTasks";
 import Planejador from "./pages/Planejador";
 import Shitsuke from "./pages/Shitsuke";
 import CreateProject from "./pages/CreateProject";
-import ProjectDetail from "./pages/ProjectDetail";
+import ProjectDetail from "./pages/ProjectDetail"; // Importar a nova página ProjectDetail
 import EditProject from "./pages/EditProject";
 import FollowUp from "./pages/FollowUp";
 import SeitonReview from "./pages/SeitonReview"; // Importar a nova página SeitonReview
@@ -46,7 +46,7 @@ const App = () => (
               <Route path="/planejador" element={<Planejador />} />
               <Route path="/shitsuke" element={<Shitsuke />} />
               <Route path="/shitsuke/create" element={<CreateProject />} />
-              <Route path="/shitsuke/:projectId" element={<ProjectDetail />} />
+              <Route path="/shitsuke/:projectId" element={<ProjectDetail />} /> {/* Nova rota para detalhes do projeto */}
               <Route path="/shitsuke/edit/:projectId" element={<EditProject />} />
               <Route path="/follow-up" element={<FollowUp />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
