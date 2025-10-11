@@ -11,12 +11,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban } from "lucide-react"; // Adicionado Ban icon
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject } from "@/lib/types";
+import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project } from "@/lib/types"; // Importar Project
 import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
 import { useTodoist } from "@/context/TodoistContext";
 import { getInternalTasks, updateInternalTask } from "@/utils/internalTaskStorage"; // Importar updateInternalTask
+import { getProjects } from "@/utils/projectStorage"; // Importar getProjects
 import LoadingSpinner from "@/components/ui/loading-spinner";
 
 const PLANNER_STORAGE_KEY = "planner_schedules_v2"; // Updated storage key for new structure
@@ -37,7 +38,7 @@ const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
 };
 
 const Planejador = () => {
-  const { fetchTasks, fetchProjects, updateTask, isLoading: isLoadingTodoist } = useTodoist(); // Adicionar fetchProjects
+  const { fetchTasks, fetchProjects, updateTask, fetchTaskById, isLoading: isLoadingTodoist } = useTodoist(); // Adicionar fetchTaskById
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [schedules, setSchedules] = useState<Record<string, DaySchedule>>({}); // Key: YYYY-MM-DD for date-specific blocks and scheduled tasks
   const [recurringBlocks, setRecurringBlocks] = useState<RecurringTimeBlock[]>([]); // New state for recurring blocks
@@ -67,6 +68,15 @@ const Planejador = () => {
 
   const [meetingProjectId, setMeetingProjectId] = useState<string | null>(null);
   const [isPreallocatingMeetings, setIsPreallocatingMeetings] = useState(false);
+
+  // Novos estados para o filtro de projetos Shitsuke
+  const [shitsukeProjects, setShitsukeProjects] = useState<Project[]>([]);
+  const [selectedShitsukeProjectId, setSelectedShitsukeProjectId] = useState<string | 'all'>('all');
+
+  // Load Shitsuke projects on mount
+  useEffect(() => {
+    setShitsukeProjects(getProjects());
+  }, []);
 
   // Save filter to localStorage whenever it changes
   useEffect(() => {
@@ -132,14 +142,55 @@ const Planejador = () => {
   const fetchBacklogTasks = useCallback(async () => {
     setIsLoadingBacklog(true);
     try {
-      // Fetch Todoist tasks, explicitly filtering out subtasks and recurring tasks for backlog
-      const todoistTasks = await fetchTasks(filterInput.trim() || undefined, { includeSubtasks: false, includeRecurring: false }); 
+      let todoistFilter = filterInput.trim() || undefined;
+      let includeSubtasksForTodoist = false; // Default
+
+      let shitsukeProjectMainTaskId: string | null = null;
+      let shitsukeProjectTodoistProjectId: string | null = null;
+
+      if (selectedShitsukeProjectId !== 'all') {
+        const selectedProject = shitsukeProjects.find(p => p.id === selectedShitsukeProjectId);
+        if (selectedProject && selectedProject.todoistTaskId) {
+          shitsukeProjectMainTaskId = selectedProject.todoistTaskId;
+          const mainTodoistTask = await fetchTaskById(shitsukeProjectMainTaskId);
+          if (mainTodoistTask) {
+            shitsukeProjectTodoistProjectId = mainTodoistTask.project_id;
+            includeSubtasksForTodoist = true; // Include subtasks for Shitsuke projects
+            if (shitsukeProjectTodoistProjectId) {
+              // Add project_id filter to Todoist API call
+              todoistFilter = todoistFilter ? `${todoistFilter} & #${shitsukeProjectTodoistProjectId}` : `#${shitsukeProjectTodoistProjectId}`;
+            }
+          } else {
+            toast.error("Tarefa principal do projeto Shitsuke não encontrada no Todoist.");
+            setBacklogTasks([]);
+            setIsLoadingBacklog(false);
+            return;
+          }
+        } else {
+          toast.info("Projeto Shitsuke selecionado não tem tarefa principal vinculada no Todoist.");
+          setBacklogTasks([]);
+          setIsLoadingBacklog(false);
+          return;
+        }
+      }
+
+      const todoistTasks = await fetchTasks(todoistFilter, { includeSubtasks: includeSubtasksForTodoist, includeRecurring: false }); 
       const internalTasks = getInternalTasks();
 
-      const combinedBacklog = [
+      let combinedBacklog = [
         ...(todoistTasks || []),
         ...internalTasks.filter(task => !task.isCompleted)
       ];
+
+      // Apply Shitsuke project specific filtering if a project is selected
+      if (selectedShitsukeProjectId !== 'all' && shitsukeProjectMainTaskId) {
+        combinedBacklog = combinedBacklog.filter(task => {
+          if ('project_id' in task) { // It's a TodoistTask
+            return task.id === shitsukeProjectMainTaskId || task.parent_id === shitsukeProjectMainTaskId;
+          }
+          return false; // Internal tasks are not part of Todoist Shitsuke projects
+        });
+      }
 
       // Filter out tasks that are already scheduled (Todoist tasks only)
       const allScheduledTodoistTaskIds = Object.values(schedules).flatMap(day => 
@@ -201,7 +252,7 @@ const Planejador = () => {
     } finally {
       setIsLoadingBacklog(false);
     }
-  }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingTaskIds]); // Adicionar ignoredMeetingTaskIds como dependência
+  }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingTaskIds, selectedShitsukeProjectId, shitsukeProjects, fetchTaskById]); // Adicionar selectedShitsukeProjectId e shitsukeProjects como dependências
 
   useEffect(() => {
     fetchBacklogTasks();
@@ -1042,6 +1093,28 @@ const Planejador = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <Label htmlFor="shitsuke-project-filter" className="text-sm text-gray-600 font-medium">
+                Filtrar por Projeto Shitsuke
+              </Label>
+              <Select
+                value={selectedShitsukeProjectId}
+                onValueChange={(value: string | 'all') => setSelectedShitsukeProjectId(value)}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Todos os Projetos Shitsuke" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Projetos Shitsuke</SelectItem>
+                  {shitsukeProjects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.what}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="mb-4">
               <Label htmlFor="backlog-filter" className="sr-only">Filtrar Backlog</Label>
               <div className="relative">
