@@ -191,15 +191,17 @@ export const todoistService = {
 
     if (needsSyncApiCall) {
       syncApiResult = await todoistSyncApiCall(apiKey, syncApiCommands);
-      // A Sync API não retorna o objeto atualizado, então precisamos re-buscar a tarefa
-      // para garantir que o estado local esteja consistente, especialmente para o deadline.
-      // Se já fizemos uma chamada REST, o restApiResult já é a tarefa mais recente (sem o deadline).
-      // Se não, buscamos a tarefa completa.
-      // Se a chamada REST já foi feita, o restApiResult já contém os dados atualizados (exceto deadline).
-      // Se a Sync API foi chamada, precisamos buscar a tarefa novamente para obter o deadline atualizado.
-      // Se a REST API não foi chamada, mas a Sync API foi, precisamos buscar a tarefa completa.
-      // Se ambas foram chamadas, a busca final garantirá que o deadline esteja presente.
-      restApiResult = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "GET");
+      // Após a chamada da Sync API, re-buscamos a tarefa para obter o estado mais recente.
+      // No entanto, a REST API v2 pode não retornar campos personalizados.
+      // Então, garantimos que o deadline seja explicitamente definido se foi atualizado via Sync API.
+      const fetchedTask = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "GET");
+      restApiResult = fetchedTask; // Usamos a tarefa buscada como base
+
+      // Se um deadline foi fornecido nos dados e a chamada da Sync API foi feita,
+      // atualizamos manualmente o deadline no objeto retornado para consistência.
+      if (data.deadline !== undefined && restApiResult) {
+        restApiResult.deadline = data.deadline;
+      }
     }
 
     // Se apenas a Sync API foi chamada, ou se a REST API foi chamada e depois a Sync,
