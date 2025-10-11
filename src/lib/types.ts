@@ -27,6 +27,11 @@ export interface TodoistTask {
   creator_id: string;
   // Propriedade adicionada no front-end para facilitar o planejamento
   estimatedDurationMinutes?: number;
+  // Adicionado com base na saída do cURL, mesmo que não documentado para manipulação via REST API
+  deadline?: {
+    date: string;
+    lang: string;
+  } | null;
 }
 
 export interface TodoistProject {

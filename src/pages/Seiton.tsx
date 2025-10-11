@@ -154,7 +154,7 @@ const Seiton = () => {
 
   const startTournament = useCallback(async (continueSaved: boolean = false) => {
     if (!continueSaved) {
-      resetTournamentState(); // Ensure a clean slate if not continuing
+      resetTournamentState(); // Clears all state, including rankedTasks
     }
 
     const todoistFilterParts: string[] = [];
@@ -166,20 +166,41 @@ const Seiton = () => {
     }
     const finalTodoistFilter = todoistFilterParts.join(" & ");
 
-    if (!continueSaved || tasksToProcess.length === 0) {
-      const allTasks = await fetchTasks(finalTodoistFilter || undefined);
-      if (allTasks && allTasks.length > 0) {
-        const sortedTasks = sortTasks(allTasks);
-        setTasksToProcess(sortedTasks);
+    let initialTasks: TodoistTask[] = [];
+    if (continueSaved && tasksToProcess.length > 0) {
+      // If continuing, use the tasksToProcess from the loaded state
+      initialTasks = tasksToProcess;
+    } else {
+      // Otherwise, fetch new tasks
+      initialTasks = await fetchTasks(finalTodoistFilter || undefined);
+    }
+
+    if (initialTasks && initialTasks.length > 0) {
+      const sortedTasks = sortTasks(initialTasks);
+      
+      if (sortedTasks.length >= 2) {
+        // For the very first comparison, take two tasks
+        setCurrentTaskToPlace(sortedTasks[0]);
+        setComparisonCandidate(sortedTasks[1]);
+        setTasksToProcess(sortedTasks.slice(2)); // Remaining tasks
+        setRankedTasks([]); // Ensure ranked is empty for the first vote
+        setComparisonIndex(-1); // Special value to indicate initial comparison
         setTournamentState("comparing");
+        toast.info(`Iniciando torneio com ${sortedTasks.length} tarefas.`);
+      } else if (sortedTasks.length === 1) {
+        setRankedTasks([sortedTasks[0]]); // Only one task, it's the ranking
+        setTasksToProcess([]);
+        setTournamentState("finished");
+        toast.info("Apenas uma tarefa encontrada, adicionada ao ranking.");
       } else {
         toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
         setTournamentState("finished");
       }
-    } else { // continueSaved is true and tasksToProcess is not empty (loaded from storage)
-      setTournamentState("comparing");
+    } else {
+      toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
+      setTournamentState("finished");
     }
-  }, [fetchTasks, sortTasks, tasksToProcess.length, filterInput, selectedCategoryFilter, resetTournamentState]);
+  }, [fetchTasks, sortTasks, tasksToProcess, filterInput, selectedCategoryFilter, resetTournamentState]);
 
   const startNextPlacement = useCallback(() => {
     console.log("startNextPlacement called. tasksToProcess.length:", tasksToProcess.length, "rankedTasks.length:", rankedTasks.length);
@@ -196,19 +217,10 @@ const Seiton = () => {
     const nextTask = tasksToProcess[0];
     setTasksToProcess((prev) => prev.slice(1)); // Remove from tasksToProcess immediately
 
-    if (rankedTasks.length === 0) {
-      // If rankedTasks is empty, this is the very first task.
-      // It doesn't need a comparison, just add it to rankedTasks.
-      setRankedTasks([nextTask]);
-      setCurrentTaskToPlace(null); // Clear to trigger next placement
-      setComparisonCandidate(null);
-      setComparisonIndex(0);
-    } else {
-      // If rankedTasks has items, set up for comparison
-      setCurrentTaskToPlace(nextTask);
-      setComparisonIndex(rankedTasks.length - 1);
-      setComparisonCandidate(rankedTasks[rankedTasks.length - 1]);
-    }
+    setCurrentTaskToPlace(nextTask);
+    // Start comparison from the end of ranked tasks (assuming rankedTasks is already populated)
+    setComparisonIndex(rankedTasks.length - 1);
+    setComparisonCandidate(rankedTasks[rankedTasks.length - 1]);
   }, [tasksToProcess, rankedTasks, saveStateToHistory]);
 
   useEffect(() => {
@@ -249,12 +261,23 @@ const Seiton = () => {
 
 
   useEffect(() => {
-    // Debug log for useEffect that triggers placement
-    console.log("useEffect for placement triggered. tournamentState:", tournamentState, "currentTaskToPlace:", currentTaskToPlace);
+    console.log("useEffect for placement triggered. tournamentState:", tournamentState, "currentTaskToPlace:", currentTaskToPlace, "rankedTasks.length:", rankedTasks.length, "tasksToProcess.length:", tasksToProcess.length);
     if (tournamentState === "comparing" && !currentTaskToPlace) {
-      startNextPlacement();
+      // If currentTaskToPlace is null, it means the previous task was placed.
+      // Now, we need to get the next task from tasksToProcess to start its placement.
+      // This will call startNextPlacement, which will set currentTaskToPlace and comparisonCandidate.
+      // This condition should only trigger if rankedTasks is already populated (after the first vote).
+      if (rankedTasks.length > 0 || tasksToProcess.length > 0) { // Ensure there are tasks to process or ranked tasks to compare against
+        startNextPlacement();
+      } else {
+        // If no more tasks to process and rankedTasks is empty or all tasks placed
+        setTournamentState("finished");
+      }
+    } else if (tournamentState === "comparing" && tasksToProcess.length === 0 && !currentTaskToPlace && rankedTasks.length > 0) {
+        // All tasks processed, and currentTaskToPlace is null, so we are done.
+        setTournamentState("finished");
     }
-  }, [tournamentState, currentTaskToPlace, startNextPlacement]);
+  }, [tournamentState, currentTaskToPlace, tasksToProcess.length, rankedTasks.length, startNextPlacement]);
 
   const handleSelection = useCallback(
     (winner: TodoistTask) => {
@@ -264,6 +287,20 @@ const Seiton = () => {
 
       const isCurrentTaskToPlaceWinner = winner.id === currentTaskToPlace.id;
 
+      if (rankedTasks.length === 0 && comparisonIndex === -1) { // This is the very first comparison
+        if (isCurrentTaskToPlaceWinner) {
+          setRankedTasks([currentTaskToPlace, comparisonCandidate]);
+        } else {
+          setRankedTasks([comparisonCandidate, currentTaskToPlace]);
+        }
+        // After the first comparison, we need to get the next task to place into the now-populated ranked list
+        setCurrentTaskToPlace(null); // Signal to useEffect to get next task
+        setComparisonCandidate(null);
+        setComparisonIndex(0); // Reset index
+        return;
+      }
+
+      // Existing logic for inserting into an already ranked list
       if (isCurrentTaskToPlaceWinner) {
         const nextComparisonIndex = comparisonIndex - 1;
 
@@ -494,7 +531,7 @@ const Seiton = () => {
         <>
           {console.log("Rendering: Comparing state with tasks")}
           <p className="text-center text-xl font-medium mb-6 text-gray-700">
-            Tarefas restantes para classificar: {tasksToProcess.length + 1}
+            Tarefas restantes para classificar: {tasksToProcess.length + (currentTaskToPlace ? 1 : 0) + (comparisonCandidate ? 1 : 0) - (rankedTasks.length > 0 ? 2 : 0)}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {renderTaskCard(currentTaskToPlace, true, true)}
