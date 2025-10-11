@@ -55,6 +55,9 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onUpdateDuration,
   isLoading,
 }) => {
+  // Log da tarefa completa para depuração
+  console.log(`TaskReviewCard: Rendering task ${task.id} (${task.content})`, task);
+
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(
     task.due?.date ? parseISO(task.due.date) : undefined
@@ -113,9 +116,15 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     let finalDueDateTime: string | null = null;
 
     if (selectedDueTime) {
-      const [hours, minutes] = selectedDueTime.split(":").map(Number);
-      const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
-      finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
+      try {
+        const [hours, minutes] = selectedDueTime.split(":").map(Number);
+        const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
+        finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
+      } catch (error) {
+        console.error(`Error splitting selectedDueTime for task ${task.id} (${task.content}):`, selectedDueTime, error);
+        toast.error("Erro ao processar a hora de vencimento. Verifique o formato.");
+        return; // Prevent further execution with bad data
+      }
     } else {
       finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
     }
