@@ -420,7 +420,7 @@ const Planejador = () => {
     fetchBacklogTasks(); // Re-fetch and re-sort the backlog after scheduling
   }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask, fetchBacklogTasks]);
 
-  const handleDeleteScheduledTask = useCallback((taskToDelete: ScheduledTask) => {
+  const handleDeleteScheduledTask = useCallback(async (taskToDelete: ScheduledTask) => { // Tornar assíncrono
     setSchedules((prevSchedules) => {
       const dateKey = format(selectedDate, "yyyy-MM-dd");
       const currentDay = prevSchedules[dateKey];
@@ -440,15 +440,22 @@ const Planejador = () => {
       setIgnoredMeetingTaskIds(prev => [...new Set([...prev, taskToDelete.originalTask!.id])]);
       toast.info(`Reunião "${taskToDelete.content}" removida da agenda e não será pré-alocada novamente.`);
       // Não selecionamos para o backlog automaticamente se for uma reunião ignorada
-    } else if (taskToDelete.originalTask) {
-      // Se não for uma reunião ignorada, ou for uma tarefa normal, coloque no backlog para reagendamento manual
+    } else if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask) { // É uma TodoistTask normal
+      // Limpar a data de vencimento e o horário no Todoist
+      await updateTask(taskToDelete.originalTask.id, {
+        due_date: null,
+        due_datetime: null,
+      });
+      toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e data de vencimento limpa no Todoist.`);
+      handleSelectBacklogTask(taskToDelete.originalTask); // Colocar de volta no backlog para reagendamento manual
+    } else if (taskToDelete.originalTask) { // É uma InternalTask
       handleSelectBacklogTask(taskToDelete.originalTask);
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e pronta para ser reagendada.`);
     } else {
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda.`);
     }
     fetchBacklogTasks(); // Refresh backlog to potentially show the task again if it was a Todoist task
-  }, [selectedDate, fetchBacklogTasks, handleSelectBacklogTask, meetingProjectId]);
+  }, [selectedDate, fetchBacklogTasks, handleSelectBacklogTask, meetingProjectId, ignoredMeetingTaskIds, updateTask]); // Adicionar updateTask como dependência
 
   const handleClearIgnoredMeetings = useCallback(() => {
     setIgnoredMeetingTaskIds([]);
