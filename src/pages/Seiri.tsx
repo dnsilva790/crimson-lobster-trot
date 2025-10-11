@@ -204,6 +204,23 @@ const Seiri = () => {
     }
   }, [tasksToReview, updateTask]);
 
+  const handleUpdateDuration = useCallback(async (taskId: string, duration: number | null) => {
+    const updated = await updateTask(taskId, {
+      duration: duration,
+      duration_unit: duration !== null ? "minute" : undefined, // Set unit if duration is provided, clear if null
+    });
+    if (updated) {
+      setTasksToReview(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, duration: updated.duration } : task
+        )
+      );
+      toast.success(`Duração da tarefa atualizada para: ${duration !== null ? `${duration} minutos` : 'nenhuma'}!`);
+    } else {
+      toast.error("Falha ao atualizar a duração da tarefa.");
+    }
+  }, [tasksToReview, updateTask]);
+
   const handlePostpone = useCallback(async (taskId: string) => {
     const nextInterval = calculateNext15MinInterval(new Date());
     const updated = await updateTask(taskId, {
@@ -297,6 +314,7 @@ const Seiri = () => {
             onUpdateDeadline={handleUpdateDeadline} // Passando a nova função
             onUpdateFieldDeadline={handleUpdateFieldDeadline}
             onPostpone={handlePostpone} // Passando a nova função de postergar
+            onUpdateDuration={handleUpdateDuration} // Passando a nova função de duração
             isLoading={isLoading}
           />
         </div>

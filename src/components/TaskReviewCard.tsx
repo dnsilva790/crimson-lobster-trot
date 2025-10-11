@@ -13,8 +13,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-// calculateNext15MinInterval não é mais usado diretamente aqui, mas a prop onPostpone sim.
-// import { calculateNext15MinInterval } from '@/utils/dateUtils'; // Removido pois a lógica está em Seiri
 
 interface TaskReviewCardProps {
   task: TodoistTask;
@@ -26,6 +24,7 @@ interface TaskReviewCardProps {
   onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>;
   onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
   onPostpone: (taskId: string) => Promise<void>;
+  onUpdateDuration: (taskId: string, duration: number | null) => Promise<void>; // Nova prop
   isLoading: boolean;
 }
 
@@ -53,6 +52,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onUpdateDeadline,
   onUpdateFieldDeadline,
   onPostpone,
+  onUpdateDuration, // Nova prop
   isLoading,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
@@ -69,6 +69,12 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   );
   const [isFieldDeadlinePopoverOpen, setIsFieldDeadlinePopoverOpen] = useState(false);
 
+  const [selectedDuration, setSelectedDuration] = useState<string>(
+    task.duration?.amount && task.duration.unit === "minute"
+      ? String(task.duration.amount)
+      : ""
+  );
+
 
   useEffect(() => {
     console.log("TaskReviewCard: Task prop changed. Updating local states.");
@@ -82,6 +88,11 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     setSelectedDueDate(task.due?.date ? parseISO(task.due.date) : undefined);
     setSelectedDueTime(task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "");
     setSelectedFieldDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined);
+    setSelectedDuration(
+      task.duration?.amount && task.duration.unit === "minute"
+        ? String(task.duration.amount)
+        : ""
+    );
     console.log("TaskReviewCard: New task.deadline:", task.deadline);
     console.log("TaskReviewCard: New selectedFieldDeadlineDate:", task.deadline ? parseISO(task.deadline) : undefined);
   }, [task]);
@@ -136,6 +147,17 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     await onUpdateFieldDeadline(task.id, null);
     setSelectedFieldDeadlineDate(undefined);
     setIsFieldDeadlinePopoverOpen(false);
+  };
+
+  const handleDurationChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSelectedDuration(value);
+    const duration = parseInt(value, 10);
+    if (!isNaN(duration) && duration > 0) {
+      await onUpdateDuration(task.id, duration);
+    } else if (value === "") {
+      await onUpdateDuration(task.id, null); // Clear duration if input is empty
+    }
   };
 
   const renderDueDate = () => {
@@ -251,7 +273,21 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6"> {/* Ajustado para 3 colunas */}
+      <div className="mt-6">
+        <Label htmlFor="task-duration" className="text-gray-700">Duração Estimada (minutos)</Label>
+        <Input
+          id="task-duration"
+          type="number"
+          value={selectedDuration}
+          onChange={handleDurationChange}
+          min="1"
+          placeholder="Ex: 30"
+          className="mt-1"
+          disabled={isLoading}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
         <Button
           onClick={() => onKeep(task.id)}
           disabled={isLoading}
