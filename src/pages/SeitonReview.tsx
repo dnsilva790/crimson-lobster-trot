@@ -12,8 +12,8 @@ import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { format, parseISO, isPast, isToday, isTomorrow, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRight, Check, XCircle, Star, CalendarIcon, Clock } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowRight, Check, XCircle, Star, CalendarIcon, Clock, ExternalLink } from "lucide-react"; // Adicionado ExternalLink
+import { Badge } from "@/components/ui/badge"; // Importar Badge
 
 type ReviewState = "initial" | "reviewing" | "finished";
 
@@ -57,7 +57,7 @@ const SeitonReview = () => {
     allTasks.forEach(task => {
       if (task.due?.date || task.due?.datetime) {
         const dueDate = task.due.datetime ? parseISO(task.due.datetime) : parseISO(task.due.date);
-        // A task is overdue if its due date is strictly in the past (not including today)
+        // A task is overdue if its due date is strictly in the past (não incluindo hoje)
         if (isPast(dueDate) && !isToday(dueDate)) {
           counts[task.priority]++;
         }
@@ -223,7 +223,7 @@ const SeitonReview = () => {
                 <Input
                   type="text"
                   id="task-filter"
-                  placeholder={`Ex: 'no date & no project & no label:${GTD_PROCESSED_LABEL}'`}
+                  placeholder={`Ex: 'no date & no project & !@gtd_processada & !@agenda'`}
                   value={filterInput}
                   onChange={(e) => setFilterInput(e.target.value)}
                   className="pr-10"
