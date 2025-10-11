@@ -106,8 +106,6 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
-    // Removido: if (task.deadline?.date) { ... }
-
     if (task.due?.datetime) {
       dateElements.push(
         <span key="due-datetime" className="block">
@@ -241,7 +239,15 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
               disabled={isLoading}
               className="w-full py-3 text-md flex items-center justify-center"
             >
-              <CalendarIcon className="mr-2 h-4 w-4" /> Definir Prazo
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {selectedDueDate ? (
+                <span>
+                  {format(selectedDueDate, "dd/MM/yyyy", { locale: ptBR })}
+                  {selectedDueTime && ` às ${selectedDueTime}`}
+                </span>
+              ) : (
+                <span>Definir Prazo</span>
+              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-4">

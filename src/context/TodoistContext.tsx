@@ -85,15 +85,22 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchTasks = useCallback(
     async (filter?: string, includeSubtasksAndRecurring: boolean = false) => {
-      // rawTasks agora será sempre um array devido às mudanças em makeApiCall
       const rawTasks = await makeApiCall(todoistService.fetchTasks, filter);
       
       console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
-      rawTasks.forEach(task => { // rawTasks é garantido ser um array aqui
-        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, parent_id: ${task.parent_id}`);
+      rawTasks.forEach(task => {
+        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}`);
       });
 
-      const tasksWithDuration = rawTasks.map(task => {
+      // FILTRO UNIVERSAL: Remover tarefas recorrentes "every hour"
+      const filteredHourlyRecurring = rawTasks.filter(task => 
+        !(task.due?.is_recurring === true && task.due?.string.toLowerCase().includes("every hour"))
+      );
+
+      console.log("TodoistContext: Tarefas após filtro 'every hour'. Original:", rawTasks.length, "Filtrado:", filteredHourlyRecurring.length);
+
+
+      const tasksWithDuration = filteredHourlyRecurring.map(task => {
         let estimatedDurationMinutes = 15;
         if (task.duration) {
           if (task.duration.unit === "minute") {
