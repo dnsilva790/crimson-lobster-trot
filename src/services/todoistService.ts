@@ -56,6 +56,10 @@ async function todoistApiCall<T>(
   if (response.status === 204) {
     console.log(`Todoist API Response Body for ${url}:`, "No Content (204)");
     // For endpoints expecting an array (like /tasks or /projects), return an empty array
+    // For single item endpoints (like /tasks/{id}), return undefined
+    if (endpoint.startsWith("/tasks") && endpoint.split('/').length === 3) { // e.g., /tasks/{id}
+      return undefined;
+    }
     if (endpoint.startsWith("/tasks") || endpoint.startsWith("/projects")) {
       return [] as T;
     }
@@ -65,11 +69,13 @@ async function todoistApiCall<T>(
   const jsonResponse = await response.json();
   console.log(`Todoist API Response Body for ${url}:`, jsonResponse);
 
-  // This check is now mostly redundant for 204, but still useful if a 200 response
-  // somehow returns non-array for an endpoint expecting an array.
-  if ((endpoint.startsWith("/tasks") || endpoint.startsWith("/projects")) && !Array.isArray(jsonResponse)) {
-    console.warn(`Todoist API: Expected array for ${endpoint}, but received non-array. Returning empty array.`);
-    return [] as T;
+  // Corrected logic: only return empty array if an array is expected but a non-array is received
+  // and the endpoint is NOT for a single item.
+  if ((endpoint.startsWith("/tasks") && endpoint.split('/').length === 2) || endpoint.startsWith("/projects")) { // e.g., /tasks (list) or /projects
+    if (!Array.isArray(jsonResponse)) {
+      console.warn(`Todoist API: Expected array for ${endpoint}, but received non-array. Returning empty array.`);
+      return [] as T;
+    }
   }
 
   return jsonResponse as T;
@@ -189,6 +195,10 @@ export const todoistService = {
       // para garantir que o estado local esteja consistente, especialmente para o deadline.
       // Se já fizemos uma chamada REST, o restApiResult já é a tarefa mais recente (sem o deadline).
       // Se não, buscamos a tarefa completa.
+      // Se a chamada REST já foi feita, o restApiResult já contém os dados atualizados (exceto deadline).
+      // Se a Sync API foi chamada, precisamos buscar a tarefa novamente para obter o deadline atualizado.
+      // Se a REST API não foi chamada, mas a Sync API foi, precisamos buscar a tarefa completa.
+      // Se ambas foram chamadas, a busca final garantirá que o deadline esteja presente.
       restApiResult = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "GET");
     }
 

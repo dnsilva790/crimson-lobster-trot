@@ -153,8 +153,10 @@ const Seiton = () => {
   }, []);
 
   const startTournament = useCallback(async (continueSaved: boolean = false) => {
+    console.log("startTournament called. continueSaved:", continueSaved);
+    // If starting a new tournament, clear everything
     if (!continueSaved) {
-      resetTournamentState(); // Clears all state, including rankedTasks and tasksToProcess
+      resetTournamentState(); // This clears tasksToProcess and rankedTasks
     }
 
     const todoistFilterParts: string[] = [];
@@ -165,14 +167,18 @@ const Seiton = () => {
       todoistFilterParts.push(`#${selectedCategoryFilter}`);
     }
     const finalTodoistFilter = todoistFilterParts.join(" & ");
+    console.log("Final Todoist Filter:", finalTodoistFilter);
 
-    let initialTasks: TodoistTask[] = [];
+    let tasksToLoad: TodoistTask[] = [];
+    let currentRankedTasks = continueSaved ? rankedTasks : []; // Use existing ranked tasks if continuing
+
     if (continueSaved) {
-      // If continuing, load tasks from saved state, but then re-filter them
-      const savedTasks = tasksToProcess; // tasksToProcess is already loaded from localStorage by useEffect
+      const savedTasksToProcess = tasksToProcess; // This is the tasksToProcess state from localStorage
+      console.log("Continuing saved state. savedTasksToProcess.length:", savedTasksToProcess.length);
+
       if (finalTodoistFilter) {
-        // Apply the current filter to the saved tasks
-        initialTasks = savedTasks.filter(task => {
+        // Apply the current filter to the saved tasks to process
+        const filteredSavedTasks = savedTasksToProcess.filter(task => {
           const matchesFilterInput = !filterInput.trim() || 
                                      task.content.toLowerCase().includes(filterInput.trim().toLowerCase()) ||
                                      task.description.toLowerCase().includes(filterInput.trim().toLowerCase()) ||
@@ -184,49 +190,75 @@ const Seiton = () => {
           
           return matchesFilterInput && matchesCategory;
         });
-        if (initialTasks.length === 0) {
+
+        if (filteredSavedTasks.length > 0) {
+          tasksToLoad = filteredSavedTasks;
+          toast.info(`Continuando torneio com ${tasksToLoad.length} tarefas filtradas do estado salvo.`);
+        } else if (savedTasksToProcess.length > 0) {
+          // Saved tasks existed but none match the new filter, so fetch new ones
           toast.warning("Nenhuma tarefa salva corresponde ao novo filtro. Buscando novas tarefas com o filtro.");
-          initialTasks = await fetchTasks(finalTodoistFilter || undefined, { includeSubtasks: false, includeRecurring: false });
+          tasksToLoad = await fetchTasks(finalTodoistFilter || undefined, { includeSubtasks: false, includeRecurring: false });
         } else {
-          toast.info(`Continuando torneio com ${initialTasks.length} tarefas filtradas do estado salvo.`);
+          // Saved tasks were already empty, just fetch new ones
+          tasksToLoad = await fetchTasks(finalTodoistFilter || undefined, { includeSubtasks: false, includeRecurring: false });
+          if (tasksToLoad.length > 0) {
+            toast.info(`Iniciando novo torneio com ${tasksToLoad.length} tarefas com o filtro.`);
+          }
         }
       } else {
-        initialTasks = savedTasks; // No new filter, use saved tasks as is
-        toast.info(`Continuando torneio com ${initialTasks.length} tarefas do estado salvo.`);
+        // No new filter, use saved tasks as is
+        tasksToLoad = savedTasksToProcess;
+        toast.info(`Continuando torneio com ${tasksToLoad.length} tarefas do estado salvo.`);
       }
     } else {
       // If starting a new tournament, always fetch fresh tasks based on the current filter
-      initialTasks = await fetchTasks(finalTodoistFilter || undefined, { includeSubtasks: false, includeRecurring: false });
-      if (initialTasks.length > 0) {
-        toast.info(`Iniciando novo torneio com ${initialTasks.length} tarefas.`);
+      tasksToLoad = await fetchTasks(finalTodoistFilter || undefined, { includeSubtasks: false, includeRecurring: false });
+      if (tasksToLoad.length > 0) {
+        toast.info(`Iniciando novo torneio com ${tasksToLoad.length} tarefas.`);
       }
     }
 
-    if (initialTasks && initialTasks.length > 0) {
-      const sortedTasks = sortTasks(initialTasks);
-      
-      if (sortedTasks.length >= 2) {
-        // For the very first comparison, take two tasks
-        setCurrentTaskToPlace(sortedTasks[0]);
-        setComparisonCandidate(sortedTasks[1]);
-        setTasksToProcess(sortedTasks.slice(2)); // Remaining tasks
-        setRankedTasks([]); // Ensure ranked is empty for the first vote
-        setComparisonIndex(-1); // Special value to indicate initial comparison
-        setTournamentState("comparing");
-      } else if (sortedTasks.length === 1) {
-        setRankedTasks([sortedTasks[0]]); // Only one task, it's the ranking
-        setTasksToProcess([]);
-        setTournamentState("finished");
-        toast.info("Apenas uma tarefa encontrada, adicionada ao ranking.");
-      } else {
-        toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
-        setTournamentState("finished");
-      }
-    } else {
-      toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
+    const sortedTasksToLoad = sortTasks(tasksToLoad);
+    setTasksToProcess(sortedTasksToLoad); // This is the new set of tasks to process
+    setRankedTasks(currentRankedTasks); // Ensure rankedTasks is set to the loaded state if continuing
+
+    console.log("Sorted tasks to load:", sortedTasksToLoad.length);
+    console.log("Current ranked tasks (after setting):", currentRankedTasks.length);
+    
+    // --- Determine the initial comparison state ---
+    if (currentRankedTasks.length === 0 && sortedTasksToLoad.length >= 2) {
+      // Fresh start, or ranked was empty, and we have at least two tasks to compare
+      setCurrentTaskToPlace(sortedTasksToLoad[0]);
+      setComparisonCandidate(sortedTasksToLoad[1]);
+      setTasksToProcess(sortedTasksToLoad.slice(2));
+      setComparisonIndex(-1); // Special value for initial head-to-head
+      setTournamentState("comparing");
+    } else if (currentRankedTasks.length > 0 && sortedTasksToLoad.length >= 1) {
+      // Continuing with existing ranked tasks, and there's a new task to place
+      setCurrentTaskToPlace(sortedTasksToLoad[0]);
+      setTasksToProcess(sortedTasksToLoad.slice(1));
+      setComparisonIndex(currentRankedTasks.length - 1); // Start comparison from the end of the existing ranked list
+      setComparisonCandidate(currentRankedTasks[currentRankedTasks.length - 1]);
+      setTournamentState("comparing");
+    } else if (currentRankedTasks.length === 0 && sortedTasksToLoad.length === 1) {
+      // Only one task, and no existing ranked tasks
+      setRankedTasks((prev) => [...prev, sortedTasksToLoad[0]]); // Add the single task to ranked
+      setTasksToProcess([]);
       setTournamentState("finished");
+      toast.info("Apenas uma tarefa encontrada, adicionada ao ranking.");
+    } else if (currentRankedTasks.length > 0 && sortedTasksToLoad.length === 0) {
+      // No more tasks to process, but there's an existing ranking
+      setTasksToProcess([]); // Ensure tasksToProcess is empty
+      setTournamentState("finished");
+      toast.info("Todas as tarefas foram classificadas. Exibindo ranking final.");
+    } else {
+      // No tasks at all
+      setTasksToProcess([]);
+      setRankedTasks([]);
+      setTournamentState("finished");
+      toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
     }
-  }, [fetchTasks, sortTasks, tasksToProcess, filterInput, selectedCategoryFilter, resetTournamentState]);
+  }, [fetchTasks, sortTasks, tasksToProcess, rankedTasks, filterInput, selectedCategoryFilter, resetTournamentState]);
 
   const startNextPlacement = useCallback(() => {
     console.log("startNextPlacement called. tasksToProcess.length:", tasksToProcess.length, "rankedTasks.length:", rankedTasks.length);
@@ -244,7 +276,7 @@ const Seiton = () => {
     setTasksToProcess((prev) => prev.slice(1)); // Remove from tasksToProcess immediately
 
     setCurrentTaskToPlace(nextTask);
-    // Start comparison from the end of ranked tasks (assuming rankedTasks is already populated)
+    // Always compare against the last ranked task for insertion
     setComparisonIndex(rankedTasks.length - 1);
     setComparisonCandidate(rankedTasks[rankedTasks.length - 1]);
   }, [tasksToProcess, rankedTasks, saveStateToHistory]);
@@ -259,8 +291,6 @@ const Seiton = () => {
         setCurrentTaskToPlace(parsedState.currentTaskToPlace);
         setComparisonCandidate(parsedState.comparisonCandidate);
         setComparisonIndex(parsedState.comparisonIndex);
-        // Do NOT set tournamentState here. Let it remain "initial"
-        // setTournamentState(parsedState.tournamentState); // <-- REMOVED THIS LINE
         setHasSavedState(true);
         toast.info("Estado do torneio carregado. Clique em 'Continuar Torneio' para prosseguir.");
       } catch (e) {
@@ -289,18 +319,12 @@ const Seiton = () => {
   useEffect(() => {
     console.log("useEffect for placement triggered. tournamentState:", tournamentState, "currentTaskToPlace:", currentTaskToPlace, "rankedTasks.length:", rankedTasks.length, "tasksToProcess.length:", tasksToProcess.length);
     if (tournamentState === "comparing" && !currentTaskToPlace) {
-      // If currentTaskToPlace is null, it means the previous task was placed.
-      // Now, we need to get the next task from tasksToProcess to start its placement.
-      // This will call startNextPlacement, which will set currentTaskToPlace and comparisonCandidate.
-      // This condition should only trigger if rankedTasks is already populated (after the first vote).
-      if (rankedTasks.length > 0 || tasksToProcess.length > 0) { // Ensure there are tasks to process or ranked tasks to compare against
+      if (rankedTasks.length > 0 || tasksToProcess.length > 0) {
         startNextPlacement();
       } else {
-        // If no more tasks to process and rankedTasks is empty or all tasks placed
         setTournamentState("finished");
       }
     } else if (tournamentState === "comparing" && tasksToProcess.length === 0 && !currentTaskToPlace && rankedTasks.length > 0) {
-        // All tasks processed, and currentTaskToPlace is null, so we are done.
         setTournamentState("finished");
     }
   }, [tournamentState, currentTaskToPlace, tasksToProcess.length, rankedTasks.length, startNextPlacement]);
@@ -313,13 +337,12 @@ const Seiton = () => {
 
       const isCurrentTaskToPlaceWinner = winner.id === currentTaskToPlace.id;
 
-      if (rankedTasks.length === 0 && comparisonIndex === -1) { // This is the very first comparison
+      if (rankedTasks.length === 0 && comparisonIndex === -1) { // This is the very first comparison (head-to-head)
         if (isCurrentTaskToPlaceWinner) {
           setRankedTasks([currentTaskToPlace, comparisonCandidate]);
         } else {
           setRankedTasks([comparisonCandidate, currentTaskToPlace]);
         }
-        // After the first comparison, we need to get the next task to place into the now-populated ranked list
         setCurrentTaskToPlace(null); // Signal to useEffect to get next task
         setComparisonCandidate(null);
         setComparisonIndex(0); // Reset index
@@ -378,8 +401,6 @@ const Seiton = () => {
 
   const renderTaskDates = (task: TodoistTask) => {
     const dateElements: JSX.Element[] = [];
-
-    // Removido: if (task.deadline?.date) { ... }
 
     if (task.due?.datetime) {
       dateElements.push(
