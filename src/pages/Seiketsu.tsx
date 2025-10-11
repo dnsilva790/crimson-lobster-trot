@@ -58,6 +58,7 @@ interface GtdProcessorState {
 const GTD_STORAGE_KEY = "gtdProcessorState";
 const INBOX_FILTER_STORAGE_KEY = "gtdInboxFilter";
 const FOCO_LABEL_ID = "🎯 Foco"; // A etiqueta que será adicionada
+const GTD_PROCESSED_LABEL = "gtd_processada"; // Nova etiqueta para tarefas processadas
 
 const Seiketsu = () => {
   console.log("Seiketsu component rendered."); // Log de depuração
@@ -301,12 +302,18 @@ const Seiketsu = () => {
 
   const handleNextAction = useCallback(async () => {
     if (!currentTask) return;
-    // Ensure it has a project (if not inbox), a priority, and maybe a context label
-    // For simplicity, let's just ensure it's not in the inbox filter anymore and advance.
-    // The user is expected to assign project/priority/labels in Todoist after this step.
-    toast.success(`Tarefa "${currentTask.content}" movida para Próximas Ações.`);
-    advanceToNextTask();
-  }, [currentTask, advanceToNextTask]);
+    
+    // Adicionar a etiqueta GTD_PROCESSED_LABEL à tarefa
+    const updatedLabels = [...new Set([...currentTask.labels, GTD_PROCESSED_LABEL])];
+    const updated = await updateTask(currentTask.id, { labels: updatedLabels });
+
+    if (updated) {
+      toast.success(`Tarefa "${currentTask.content}" movida para Próximas Ações e marcada como processada.`);
+      advanceToNextTask();
+    } else {
+      toast.error("Falha ao mover a tarefa para Próximas Ações e marcar como processada.");
+    }
+  }, [currentTask, updateTask, advanceToNextTask]);
 
   // --- Nova função para reiniciar o processamento ---
   const handleRestartProcessing = useCallback(() => {
