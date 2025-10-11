@@ -50,6 +50,11 @@ async function todoistApiCall<T>(
       status: response.status,
       message: errorText,
     };
+    // Se for 404 (Not Found) para uma tarefa específica, significa que ela foi concluída ou excluída.
+    // Não lançamos um erro para que o contexto possa tratar isso como 'não encontrada'.
+    if (response.status === 404 && endpoint.startsWith("/tasks/") && endpoint.split('/').length === 3) {
+      return undefined;
+    }
     throw errorData; // Re-throw para ser capturado pelo makeApiCall no contexto
   }
 
@@ -125,6 +130,10 @@ export const todoistService = {
     const endpoint = filter ? `/tasks?filter=${encodeURIComponent(filter)}` : "/tasks";
     const result = await todoistApiCall<TodoistTask[]>(endpoint, apiKey);
     return result || []; // Garante que sempre seja um array, mesmo se todoistApiCall retornar undefined (para 204)
+  },
+
+  fetchTaskById: async (apiKey: string, taskId: string): Promise<TodoistTask | undefined> => {
+    return todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "GET");
   },
 
   fetchProjects: async (apiKey: string): Promise<TodoistProject[]> => {

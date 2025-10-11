@@ -5,7 +5,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Edit, Trash2, ExternalLink, ListTodo, PlusCircle } from "lucide-react"; // Importar ExternalLink, ListTodo, PlusCircle
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select
+import { ArrowLeft, Edit, Trash2, ExternalLink, ListTodo, PlusCircle, RefreshCw } from "lucide-react"; // Importar RefreshCw
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -13,14 +14,16 @@ import { Project } from "@/lib/types";
 import { getProjects, deleteProject, updateProject } from "@/utils/projectStorage"; // Importar updateProject
 import { toast } from "sonner";
 import { useTodoist } from "@/context/TodoistContext"; // Importar useTodoist
+import LoadingSpinner from "@/components/ui/loading-spinner"; // Importar LoadingSpinner
 
 const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
-  const { createTodoistTask, fetchProjects, isLoading: isLoadingTodoist } = useTodoist(); // Usar createTodoistTask e fetchProjects
+  const { createTodoistTask, fetchProjects, fetchTaskById, isLoading: isLoadingTodoist } = useTodoist(); // Usar createTodoistTask, fetchProjects e fetchTaskById
   const [todoistProjects, setTodoistProjects] = useState<any[]>([]); // Para armazenar projetos do Todoist
   const [selectedTodoistProject, setSelectedTodoistProject] = useState<string | undefined>(undefined); // Para selecionar o projeto do Todoist
+  const [isSyncingStatus, setIsSyncingStatus] = useState(false); // Novo estado para o loading do sync
 
   const loadProject = useCallback(() => {
     if (projectId) {
@@ -120,6 +123,38 @@ const ProjectDetail = () => {
       toast.info("Nenhuma subtarefa foi criada (verifique se há passos definidos).");
     }
   }, [project, createTodoistTask, updateProject, selectedTodoistProject]);
+
+  const handleSyncStatusWithTodoist = useCallback(async () => {
+    if (!project || !project.todoistTaskId) {
+      toast.info("Este projeto não possui uma tarefa principal vinculada no Todoist para sincronizar.");
+      return;
+    }
+
+    setIsSyncingStatus(true);
+    try {
+      const todoistTask = await fetchTaskById(project.todoistTaskId);
+
+      let newStatus: Project['status'] = project.status;
+      if (todoistTask === undefined) { // Tarefa não encontrada (concluída ou excluída)
+        newStatus = "concluido";
+        toast.success("Tarefa principal do Todoist concluída. Status do projeto atualizado para 'Concluído'.");
+      } else { // Tarefa ainda existe e está ativa
+        newStatus = "ativo";
+        toast.info("Tarefa principal do Todoist ainda ativa. Status do projeto mantido como 'Ativo'.");
+      }
+
+      if (newStatus !== project.status) {
+        const updatedProject = { ...project, status: newStatus };
+        updateProject(updatedProject);
+        setProject(updatedProject); // Atualizar o estado local
+      }
+    } catch (error) {
+      console.error("Erro ao sincronizar status com Todoist:", error);
+      toast.error("Falha ao sincronizar status com Todoist.");
+    } finally {
+      setIsSyncingStatus(false);
+    }
+  }, [project, fetchTaskById, updateProject]);
 
   const getStatusBadgeClass = (status: Project['status']) => {
     switch (status) {
@@ -251,6 +286,21 @@ const ProjectDetail = () => {
                 Adicione passos na seção "Como?" para gerar tarefas.
               </p>
             )}
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-4 mt-4">
+            <Button
+              onClick={handleSyncStatusWithTodoist}
+              disabled={!project.todoistTaskId || isSyncingStatus}
+              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center"
+            >
+              {isSyncingStatus ? (
+                <LoadingSpinner size={20} className="text-white" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Sincronizar Status com Todoist
+            </Button>
           </div>
 
           <div className="flex flex-col md:flex-row gap-4 mt-4">

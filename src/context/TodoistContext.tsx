@@ -14,6 +14,7 @@ interface TodoistContextType {
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
   fetchTasks: (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean }) => Promise<TodoistTask[]>;
+  fetchTaskById: (taskId: string) => Promise<TodoistTask | undefined>; // Nova função
   fetchProjects: () => Promise<TodoistProject[]>;
   closeTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
@@ -147,6 +148,10 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
     [makeApiCall],
   );
 
+  const fetchTaskById = useCallback(async (taskId: string) => {
+    return await makeApiCall(todoistService.fetchTaskById, taskId);
+  }, [makeApiCall]);
+
   const fetchProjects = useCallback(async () => {
     return await makeApiCall(todoistService.fetchProjects); // Sempre retornará um array
   }, [makeApiCall]);
@@ -207,6 +212,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         setApiKey,
         clearApiKey,
         fetchTasks,
+        fetchTaskById, // Adicionado ao contexto
         fetchProjects,
         closeTask,
         deleteTask,
