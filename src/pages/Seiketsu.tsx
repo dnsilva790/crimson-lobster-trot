@@ -56,6 +56,7 @@ interface GtdProcessorState {
 
 const GTD_STORAGE_KEY = "gtdProcessorState";
 const INBOX_FILTER_STORAGE_KEY = "gtdInboxFilter";
+const FOCO_LABEL_ID = "foco-2178267950"; // A etiqueta que será adicionada
 
 const Seiketsu = () => {
   console.log("Seiketsu component rendered."); // Log de depuração
@@ -220,12 +221,16 @@ const Seiketsu = () => {
 
   const handleDoNow = useCallback(async () => {
     if (!currentTask) return;
-    const success = await closeTask(currentTask.id);
-    if (success !== undefined) {
-      toast.success(`Tarefa "${currentTask.content}" concluída (Regra dos 2 Minutos).`);
+    // Adicionar a etiqueta FOCO_LABEL_ID à tarefa
+    const updatedLabels = [...new Set([...currentTask.labels, FOCO_LABEL_ID])]; // Garante que a etiqueta não seja duplicada
+    const updated = await updateTask(currentTask.id, { labels: updatedLabels });
+    if (updated) {
+      toast.success(`Tarefa "${currentTask.content}" marcada com a etiqueta de foco.`);
       advanceToNextTask();
+    } else {
+      toast.error("Falha ao adicionar a etiqueta de foco à tarefa.");
     }
-  }, [currentTask, closeTask, advanceToNextTask]);
+  }, [currentTask, updateTask, advanceToNextTask]);
 
   const handleSetSchedule = useCallback(async () => {
     if (!currentTask || !selectedDueDate) {
@@ -452,7 +457,7 @@ const Seiketsu = () => {
                 disabled={isLoading}
                 className="bg-purple-500 hover:bg-purple-600 text-white py-3 text-md flex items-center justify-center"
               >
-                <Check className="mr-2 h-5 w-5" /> Fazer Agora (&lt; 2 min)
+                <Check className="mr-2 h-5 w-5" /> Marcar com Foco
               </Button>
               <Popover open={isSchedulingPopoverOpen} onOpenChange={setIsSchedulingPopoverOpen}>
                 <PopoverTrigger asChild>
