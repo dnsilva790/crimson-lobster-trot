@@ -321,7 +321,7 @@ const Planejador = () => {
         setTempEstimatedDuration(String(updatedSelectedTask.estimatedDurationMinutes || 15));
         const initialCategory = getTaskCategory(updatedSelectedTask);
         setTempSelectedCategory(initialCategory || "none");
-        const initialPriority = 'priority' in updatedSelectedTask ? updatedSelectedTask.priority : 1;
+        const initialPriority = 'priority' in updatedSelectedTask ? updatedUpdatedTask.priority : 1;
         setTempSelectedPriority(initialPriority);
         toast.info(`Detalhes da tarefa selecionada atualizados no planejador.`);
       }
@@ -613,29 +613,17 @@ const Planejador = () => {
     let fitsInAppropriateBlock = false;
 
     for (const block of combinedBlocks) {
-      const blockStart = parse(block.start, "HH:mm", selectedDate);
-      let blockEnd = parse(block.end, "HH:mm", selectedDate);
-      // Adjust blockEnd if it crosses midnight (e.g., 23:00 to 00:00)
-      if (isBefore(blockEnd, blockStart)) {
-        blockEnd = addDays(blockEnd, 1);
-      }
-
-      // Check for overlap with ANY break block
-      if (block.type === "break" && (
-          isWithinInterval(slotStart, { start: blockStart, end: blockEnd }) ||
-          isWithinInterval(slotEnd, { start: blockStart, end: blockEnd }) ||
-          (slotStart <= blockStart && slotEnd >= blockEnd)
-      )) {
-        isOverlappingBreak = true;
-        break; // Found an overlapping break, no need to check further blocks
-      }
-
-      // Check for fit in appropriate category block
-      if (slotStart >= blockStart && slotEnd <= blockEnd) {
-        if (taskCategory === "profissional" && block.type === "work") {
-          fitsInAppropriateBlock = true;
-        } else if (taskCategory === "pessoal" && block.type === "personal") {
-          fitsInAppropriateBlock = true;
+      if (block.type === "break") {
+        const blockStart = parse(block.start, "HH:mm", selectedDate);
+        let blockEnd = parse(block.end, "HH:mm", selectedDate);
+        if (isBefore(blockEnd, blockStart)) {
+          blockEnd = addDays(blockEnd, 1);
+        }
+        if (isWithinInterval(slotStart, { start: blockStart, end: blockEnd }) ||
+            isWithinInterval(slotEnd, { start: blockStart, end: blockEnd }) ||
+            (slotStart <= blockStart && slotEnd >= blockEnd)) {
+          isOverlappingBreak = true;
+          break;
         }
       }
     }
