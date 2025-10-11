@@ -58,6 +58,7 @@ const GTD_STORAGE_KEY = "gtdProcessorState";
 const INBOX_FILTER_STORAGE_KEY = "gtdInboxFilter";
 
 const Seiketsu = () => {
+  console.log("Seiketsu component rendered."); // Log de depuração
   const { fetchTasks, closeTask, deleteTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const [gtdState, setGtdState] = useState<GtdState>("initial");
   const [actionableStep, setActionableStep] = useState<ActionableStep>("isActionable");
@@ -81,6 +82,9 @@ const Seiketsu = () => {
 
   const currentTask = tasksToProcess[currentTaskIndex];
   const isLoading = isLoadingTodoist || gtdState === "loading";
+
+  console.log("Seiketsu - Current State: gtdState:", gtdState, "isLoading:", isLoading, "isLoadingTodoist:", isLoadingTodoist, "tasksToProcess.length:", tasksToProcess.length, "currentTaskIndex:", currentTaskIndex);
+
 
   // Load state from localStorage on mount
   useEffect(() => {

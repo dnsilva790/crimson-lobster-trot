@@ -55,27 +55,24 @@ async function todoistApiCall<T>(
 
   if (response.status === 204) {
     console.log(`Todoist API Response Body for ${url}:`, "No Content (204)");
-    // For endpoints expecting an array (like /tasks or /projects), return an empty array
-    // For single item endpoints (like /tasks/{id}), return undefined
-    if (endpoint.startsWith("/tasks") && endpoint.split('/').length === 3) { // e.g., /tasks/{id}
+    // Para endpoints de item único (como /tasks/{id}), retorna undefined
+    if (endpoint.startsWith("/tasks") && endpoint.split('/').length === 3) {
       return undefined;
     }
+    // Para endpoints de lista, retorna um array vazio
     if (endpoint.startsWith("/tasks") || endpoint.startsWith("/projects")) {
       return [] as T;
     }
-    return undefined; // For other endpoints (like closeTask, deleteTask)
+    return undefined; // Para outros endpoints (como closeTask, deleteTask)
   }
 
   const jsonResponse = await response.json();
   console.log(`Todoist API Response Body for ${url}:`, jsonResponse);
 
-  // Corrected logic: only return empty array if an array is expected but a non-array is received
-  // and the endpoint is NOT for a single item.
-  if ((endpoint.startsWith("/tasks") && endpoint.split('/').length === 2) || endpoint.startsWith("/projects")) { // e.g., /tasks (list) or /projects
-    if (!Array.isArray(jsonResponse)) {
-      console.warn(`Todoist API: Expected array for ${endpoint}, but received non-array. Returning empty array.`);
-      return [] as T;
-    }
+  // Se for um endpoint de lista e a resposta não for um array, retorna um array vazio
+  if (((endpoint.startsWith("/tasks") && endpoint.split('/').length === 2) || endpoint.startsWith("/projects")) && !Array.isArray(jsonResponse)) {
+    console.warn(`Todoist API: Expected array for ${endpoint}, but received non-array. Returning empty array.`);
+    return [] as T;
   }
 
   return jsonResponse as T;
@@ -182,30 +179,35 @@ export const todoistService = {
       needsSyncApiCall = true;
     }
 
-    let restApiResult: TodoistTask | undefined;
-    let syncApiResult: any;
+    let finalTaskResult: TodoistTask | undefined;
 
     if (needsRestApiCall) {
-      restApiResult = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", restApiData);
+      finalTaskResult = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", restApiData);
     }
 
     if (needsSyncApiCall) {
-      syncApiResult = await todoistSyncApiCall(apiKey, syncApiCommands);
-      // Após a chamada da Sync API, re-buscamos a tarefa para obter o estado mais recente.
-      // No entanto, a REST API v2 pode não retornar campos personalizados.
-      // Então, garantimos que o deadline seja explicitamente definido se foi atualizado via Sync API.
-      const fetchedTask = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "GET");
-      restApiResult = fetchedTask; // Usamos a tarefa buscada como base
+      await todoistSyncApiCall(apiKey, syncApiCommands);
+      // Após a chamada da Sync API, buscamos a tarefa novamente para obter o estado mais recente.
+      // Isso é crucial porque a REST API v2 pode não retornar campos personalizados como 'deadline'.
+      const fetchedTaskAfterSync = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "GET");
+      
+      // Mesclamos o resultado da REST API (se houver) com a tarefa recém-buscada.
+      // Isso garante que todos os campos padrão e o 'deadline' (se presente na busca) sejam combinados.
+      finalTaskResult = { ...(finalTaskResult || {}), ...(fetchedTaskAfterSync || {}) } as TodoistTask;
 
-      // Se um deadline foi fornecido nos dados e a chamada da Sync API foi feita,
-      // atualizamos manualmente o deadline no objeto retornado para consistência.
-      if (data.deadline !== undefined && restApiResult) {
-        restApiResult.deadline = data.deadline;
+      // Se o 'deadline' foi explicitamente fornecido nos dados e a tarefa existe,
+      // garantimos que ele esteja no objeto final, pois a REST API pode não retorná-lo.
+      if (data.deadline !== undefined && finalTaskResult) {
+        finalTaskResult.deadline = data.deadline;
       }
     }
+    
+    // Se apenas a Sync API foi chamada e não houve uma chamada REST anterior,
+    // e um deadline foi definido, criamos um objeto de tarefa mínimo para garantir que o deadline seja retornado.
+    if (needsSyncApiCall && !finalTaskResult && data.deadline !== undefined) {
+        finalTaskResult = { id: taskId, deadline: data.deadline } as TodoistTask; // Objeto de tarefa mínimo
+    }
 
-    // Se apenas a Sync API foi chamada, ou se a REST API foi chamada e depois a Sync,
-    // o restApiResult final deve conter o estado mais atualizado da tarefa.
-    return restApiResult;
+    return finalTaskResult;
   },
 };
