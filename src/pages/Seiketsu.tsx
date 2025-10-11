@@ -234,18 +234,12 @@ const Seiketsu = () => {
     const updatedLabels = [...new Set([...currentTask.labels, FOCO_LABEL_ID])]; // Garante que a etiqueta não seja duplicada
     const updated = await updateTask(currentTask.id, { labels: updatedLabels });
     if (updated) {
-      // If "Do Now" means complete, then close the task.
-      const success = await closeTask(currentTask.id);
-      if (success !== undefined) {
-        toast.success(`Tarefa "${currentTask.content}" marcada com a etiqueta de foco e concluída.`);
-        advanceToNextTask();
-      } else {
-        toast.error("Falha ao concluir a tarefa 'Fazer Agora'.");
-      }
+      toast.success(`Tarefa "${currentTask.content}" marcada com a etiqueta de foco.`);
+      advanceToNextTask();
     } else {
       toast.error("Falha ao adicionar a etiqueta de foco à tarefa.");
     }
-  }, [currentTask, updateTask, closeTask, advanceToNextTask]);
+  }, [currentTask, updateTask, advanceToNextTask]);
 
   const handleSetSchedule = useCallback(async () => {
     if (!currentTask || !selectedDueDate) {
