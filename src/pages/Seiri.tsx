@@ -82,7 +82,8 @@ const Seiri = () => {
     const todoistFilter = filterInput.trim();
     const finalFilter = todoistFilter || undefined; 
     
-    const fetchedTasks = await fetchTasks(finalFilter, true); 
+    // Alterado para 'false' para excluir subtarefas e tarefas recorrentes
+    const fetchedTasks = await fetchTasks(finalFilter, false); 
     
     let filteredTasksAfterInternalLogic: TodoistTask[] = [];
     if (fetchedTasks) {
