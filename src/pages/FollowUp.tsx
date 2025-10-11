@@ -12,7 +12,7 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle } from "lucide-react"; // Importar Edit, Clock, XCircle
+import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo } from "lucide-react"; // Importar Edit, Clock, XCircle, ListTodo
 import { cn, getDelegateNameFromLabels } from "@/lib/utils";
 import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes } from "date-fns"; // Importar setHours, setMinutes
 import { ptBR } from "date-fns/locale";
