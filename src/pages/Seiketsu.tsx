@@ -166,29 +166,38 @@ const Seiketsu = () => {
   }, [fetchTasks, inboxFilter]);
 
   const advanceToNextTask = useCallback(() => {
-    if (currentTaskIndex < tasksToProcess.length - 1) {
-      setCurrentTaskIndex((prev) => prev + 1);
-      setActionableStep("isActionable"); // Reset step for next task
-      // Reset temporary states for next task
-      setSelectedDueDate(undefined);
-      setSelectedDueTime("");
-      setDelegateName("");
-    } else {
-      setGtdState("finished");
-      toast.success("Todas as tarefas da caixa de entrada foram processadas!");
-    }
-  }, [currentTaskIndex, tasksToProcess.length]);
+    setTasksToProcess(prevTasks => {
+      const updatedTasks = prevTasks.filter(task => task.id !== currentTask?.id); // Remove current task
+      if (updatedTasks.length === 0) {
+        setGtdState("finished");
+        setCurrentTaskIndex(0); // Reset index
+        toast.success("Todas as tarefas da caixa de entrada foram processadas!");
+        return [];
+      } else {
+        // If there are still tasks, and the current index is now out of bounds, reset to 0.
+        // Otherwise, keep the current index (as the task at that index has shifted).
+        const newIndex = currentTaskIndex >= updatedTasks.length ? 0 : currentTaskIndex;
+        setCurrentTaskIndex(newIndex);
+        return updatedTasks;
+      }
+    });
+    setActionableStep("isActionable"); // Reset step for next task
+    // Reset temporary states for next task
+    setSelectedDueDate(undefined);
+    setSelectedDueTime("");
+    setDelegateName("");
+  }, [currentTaskIndex, currentTask]); // Added currentTask to dependencies
 
   // --- Ações GTD ---
 
   const handleEliminate = useCallback(async () => {
     if (!currentTask) return;
-    const success = await closeTask(currentTask.id); // Alterado de deleteTask para closeTask
+    const success = await closeTask(currentTask.id);
     if (success !== undefined) {
-      toast.success(`Tarefa "${currentTask.content}" concluída.`); // Mensagem atualizada
+      toast.success(`Tarefa "${currentTask.content}" concluída.`);
       advanceToNextTask();
     }
-  }, [currentTask, closeTask, advanceToNextTask]); // Atualizado para closeTask
+  }, [currentTask, closeTask, advanceToNextTask]);
 
   const handleIncubate = useCallback(async () => {
     if (!currentTask) return;
@@ -225,12 +234,18 @@ const Seiketsu = () => {
     const updatedLabels = [...new Set([...currentTask.labels, FOCO_LABEL_ID])]; // Garante que a etiqueta não seja duplicada
     const updated = await updateTask(currentTask.id, { labels: updatedLabels });
     if (updated) {
-      toast.success(`Tarefa "${currentTask.content}" marcada com a etiqueta de foco.`);
-      advanceToNextTask();
+      // If "Do Now" means complete, then close the task.
+      const success = await closeTask(currentTask.id);
+      if (success !== undefined) {
+        toast.success(`Tarefa "${currentTask.content}" marcada com a etiqueta de foco e concluída.`);
+        advanceToNextTask();
+      } else {
+        toast.error("Falha ao concluir a tarefa 'Fazer Agora'.");
+      }
     } else {
       toast.error("Falha ao adicionar a etiqueta de foco à tarefa.");
     }
-  }, [currentTask, updateTask, advanceToNextTask]);
+  }, [currentTask, updateTask, closeTask, advanceToNextTask]);
 
   const handleSetSchedule = useCallback(async () => {
     if (!currentTask || !selectedDueDate) {
@@ -285,7 +300,6 @@ const Seiketsu = () => {
     const updated = await updateTask(currentTask.id, { labels: updatedLabels });
     if (updated) {
       toast.info(`Tarefa "${currentTask.content}" marcada como projeto.`);
-      // REMOVIDO: window.open(currentTask.url, "_blank"); // Esta linha foi removida
       advanceToNextTask();
     }
   }, [currentTask, updateTask, advanceToNextTask]);
