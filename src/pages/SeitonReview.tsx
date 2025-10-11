@@ -12,8 +12,8 @@ import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { format, parseISO, isPast, isToday, isTomorrow, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRight, Check, XCircle, Star, CalendarIcon, Clock, ExternalLink } from "lucide-react"; // Adicionado ExternalLink
-import { Badge } from "@/components/ui/badge"; // Importar Badge
+import { ArrowRight, Check, XCircle, Star, CalendarIcon, Clock, ExternalLink } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type ReviewState = "initial" | "reviewing" | "finished";
 
@@ -25,7 +25,7 @@ interface OverdueCounts {
 }
 
 const SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY = "seiton_review_filter_input";
-const GTD_PROCESSED_LABEL = "gtd_processada"; // Etiqueta do Seiketsu
+const GTD_PROCESSED_LABEL = "gtd_processada";
 
 const SeitonReview = () => {
   const { fetchTasks, updateTask, isLoading: isLoadingTodoist } = useTodoist();
@@ -66,6 +66,47 @@ const SeitonReview = () => {
     setOverdueCounts(counts);
   }, []);
 
+  const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
+    return [...tasks].sort((a, b) => {
+      // 1. Tarefas iniciadas com "*" primeiro
+      const isAStarred = a.content.startsWith("*");
+      const isBStarred = b.content.startsWith("*");
+      if (isAStarred && !isBStarred) return -1;
+      if (!isAStarred && isBStarred) return 1;
+
+      // 2. Prioridade atual (P1 > P4)
+      if (b.priority !== a.priority) {
+        return b.priority - a.priority;
+      }
+
+      // 3. Deadline (mais próximo primeiro)
+      const getDeadlineValue = (task: TodoistTask) => {
+        if (task.deadline) return parseISO(task.deadline).getTime();
+        return Infinity; // Tarefas sem deadline vão para o final
+      };
+      const deadlineA = getDeadlineValue(a);
+      const deadlineB = getDeadlineValue(b);
+      if (deadlineA !== deadlineB) {
+        return deadlineA - deadlineB;
+      }
+
+      // 4. Due date/time (mais próximo primeiro)
+      const getDueDateValue = (task: TodoistTask) => {
+        if (task.due?.datetime) return parseISO(task.due.datetime).getTime();
+        if (task.due?.date) return parseISO(task.due.date).getTime();
+        return Infinity; // Tarefas sem due date/time vão para o final
+      };
+      const dueDateA = getDueDateValue(a);
+      const dueDateB = getDueDateValue(b);
+      if (dueDateA !== dueDateB) {
+        return dueDateA - dueDateB;
+      }
+
+      // Desempate final: por data de criação (mais antiga primeiro)
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+  }, []);
+
   const loadTasksForReview = useCallback(async () => {
     setReviewState("loading");
     setCurrentTaskIndex(0);
@@ -74,17 +115,7 @@ const SeitonReview = () => {
     const fetchedTasks = await fetchTasks(filterInput, { includeSubtasks: false, includeRecurring: false });
 
     if (fetchedTasks && fetchedTasks.length > 0) {
-      // Sort tasks for review: P4 first (to get them out of the inbox), then P3, P2, P1
-      // Within each priority, sort by creation date (oldest first)
-      const sortedTasks = [...fetchedTasks].sort((a, b) => {
-        // Prioritize tasks that are currently P4 (lowest priority) to get them classified
-        if (a.priority === 1 && b.priority !== 1) return -1;
-        if (b.priority === 1 && a.priority !== 1) return 1;
-
-        // For other priorities, or if both are P4, sort by creation date (oldest first)
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      });
-
+      const sortedTasks = sortTasks(fetchedTasks);
       setTasksToReview(sortedTasks);
       setReviewState("reviewing");
       toast.success(`Encontradas ${sortedTasks.length} tarefas para revisão de prioridade.`);
@@ -99,7 +130,7 @@ const SeitonReview = () => {
     if (allActiveTasks) {
       calculateOverdueCounts(allActiveTasks);
     }
-  }, [fetchTasks, filterInput, calculateOverdueCounts]);
+  }, [fetchTasks, filterInput, calculateOverdueCounts, sortTasks]);
 
   useEffect(() => {
     // Load overdue counts on initial render
