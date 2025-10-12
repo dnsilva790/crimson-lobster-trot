@@ -233,7 +233,10 @@ const Planejador = () => {
       const internalTasks = getInternalTasks();
 
       let combinedBacklog = [
-        ...(todoistTasks || []).map(task => ({ ...task, isMeeting: task.content.startsWith('*') })), // Identify meetings
+        ...(todoistTasks || []).map(task => ({ 
+          ...task, 
+          isMeeting: task.content.startsWith('*') || (meetingProjectId !== null && task.project_id === meetingProjectId) 
+        })), // Identify meetings
         ...internalTasks.filter(task => !task.isCompleted)
       ];
 
@@ -246,18 +249,19 @@ const Planejador = () => {
         });
       }
 
-      const allScheduledTodoistTaskIds = Object.values(schedules).flatMap(day => 
-        day.scheduledTasks
-          .filter(st => st.originalTask && 'project_id' in st.originalTask)
-          .map(st => st.originalTask?.id)
+      // Collect ALL scheduled task IDs (Todoist and Internal)
+      const allScheduledTaskIds = Object.values(schedules).flatMap(day => 
+        day.scheduledTasks.map(st => st.taskId)
       );
 
       const filteredBacklog = combinedBacklog.filter(task => {
-        if ('project_id' in task) {
-          if (meetingProjectId && task.project_id === meetingProjectId && (typeof task.due?.datetime === 'string' && task.due.datetime)) {
-            return !ignoredMeetingTaskIds.includes(task.id);
-          }
-          return !allScheduledTodoistTaskIds.includes(task.id);
+        // Filter out tasks that are already scheduled
+        if (allScheduledTaskIds.includes(task.id)) {
+          return false;
+        }
+        // Special handling for ignored meeting tasks
+        if ('project_id' in task && meetingProjectId && task.project_id === meetingProjectId) {
+          return !ignoredMeetingTaskIds.includes(task.id);
         }
         return true;
       });
@@ -297,7 +301,7 @@ const Planejador = () => {
     } finally {
       setIsLoadingBacklog(false);
     }
-  }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingTaskIds, selectedShitsukeProjectId, shitsukeProjects, fetchTaskById]);
+  }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingIds, selectedShitsukeProjectId, shitsukeProjects, fetchTaskById]);
 
   // NEW: Function to sync scheduled tasks with Todoist status
   const syncScheduledTasks = useCallback(async () => {
@@ -485,6 +489,9 @@ const Planejador = () => {
     
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
 
+    // Determine if the task is a meeting based on project_id or content prefix
+    const isTaskMeeting = ('project_id' in task && meetingProjectId !== null && task.project_id === meetingProjectId) || task.content.startsWith('*');
+
     if ('project_id' in task) { // This block handles Todoist tasks
       const newLabels: string[] = task.labels.filter(
         label => label !== "pessoal" && label !== "profissional"
@@ -549,7 +556,7 @@ const Planejador = () => {
       category: tempSelectedCategory === "none" ? (getTaskCategory(task) || "pessoal") : tempSelectedCategory,
       estimatedDurationMinutes: durationMinutes,
       originalTask: task,
-      isMeeting: task.content.startsWith('*'), // Set isMeeting property
+      isMeeting: isTaskMeeting, // Use the determined isTaskMeeting flag
     };
 
     setSchedules((prevSchedules) => {
@@ -568,8 +575,8 @@ const Planejador = () => {
     setTempEstimatedDuration("15");
     setTempSelectedCategory("none");
     setTempSelectedPriority(1);
-    fetchBacklogTasks();
-  }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask, fetchBacklogTasks]);
+    fetchBacklogTasks(); // Re-fetch backlog to remove the scheduled task
+  }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask, fetchBacklogTasks, meetingProjectId]);
 
   const handleDeleteScheduledTask = useCallback(async (taskToDelete: ScheduledTask, shouldReaddToBacklog: boolean = true) => {
     setSchedules((prevSchedules) => {
@@ -629,7 +636,10 @@ const Planejador = () => {
         }
 
         // Ensure it's a meeting and has a valid due date/datetime
-        if (task.isMeeting && task.due?.datetime && isValid(parseISO(task.due.datetime))) {
+        // The isMeeting check here should also use the project_id
+        const isCurrentTaskMeeting = task.content.startsWith('*') || (meetingProjectId !== null && task.project_id === meetingProjectId);
+
+        if (isCurrentTaskMeeting && task.due?.datetime && isValid(parseISO(task.due.datetime))) {
           const originalDueDateTime = parseISO(task.due.datetime);
           const originalDueDate = startOfDay(originalDueDateTime);
           const originalStartTime = format(originalDueDateTime, "HH:mm");
