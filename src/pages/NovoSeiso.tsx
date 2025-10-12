@@ -23,6 +23,7 @@ import { toast } from "sonner";
 const AI_PROMPT_STORAGE_KEY = "ai_tutor_novoseiso_prompt"; // Atualizado
 const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input"; // Atualizado
 const NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY = "novoseiso_category_filter"; // Atualizado
+const NOVO_SEISO_TASK_SOURCE_STORAGE_KEY = "novoseiso_task_source"; // Nova chave de armazenamento
 
 const defaultAiPrompt = `**TUTOR IA SEISO - COACH DE EXECUÇÃO ESTRATÉGICA E PRODUTIVIDADE**
 **MISSÃO PRINCIPAL**
@@ -118,6 +119,12 @@ const NovoSeiso = () => { // Renomeado o componente
     }
     return "all";
   });
+  const [selectedTaskSource, setSelectedTaskSource] = useState<"filter" | "planner" | "ranking" | "all">(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(NOVO_SEISO_TASK_SOURCE_STORAGE_KEY) as "filter" | "planner" | "ranking" | "all") || "filter"; // Novo estado
+    }
+    return "filter";
+  });
   const [aiPrompt, setAiPrompt] = useState<string>(defaultAiPrompt);
 
   useEffect(() => {
@@ -132,6 +139,12 @@ const NovoSeiso = () => { // Renomeado o componente
     }
   }, [selectedCategoryFilter]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(NOVO_SEISO_TASK_SOURCE_STORAGE_KEY, selectedTaskSource); // Salvar novo estado
+    }
+  }, [selectedTaskSource]);
+
   const {
     focusTasks,
     initialTotalTasks,
@@ -141,7 +154,7 @@ const NovoSeiso = () => { // Renomeado o componente
     loadTasksForFocus,
     advanceToNextTask,
     updateTaskInFocusList,
-  } = useExecucaoTasks(filterInput, selectedCategoryFilter);
+  } = useExecucaoTasks(filterInput, selectedCategoryFilter, selectedTaskSource); // Passar selectedTaskSource
 
   const currentTask = focusTasks[currentTaskIndex];
 
@@ -233,7 +246,9 @@ const NovoSeiso = () => { // Renomeado o componente
             setFilterInput={setFilterInput}
             selectedCategoryFilter={selectedCategoryFilter}
             setSelectedCategoryFilter={setSelectedCategoryFilter}
-            onStartFocus={() => loadTasksForFocus(true)}
+            selectedTaskSource={selectedTaskSource} // Nova prop
+            setSelectedTaskSource={setSelectedTaskSource} // Nova prop
+            onStartFocus={() => loadTasksForFocus(selectedTaskSource)} // Passar selectedTaskSource
             isLoading={isLoading}
           />
         )}
@@ -263,7 +278,7 @@ const NovoSeiso = () => { // Renomeado o componente
         {!isLoading && execucaoState === "finished" && (
           <ExecucaoFinishedState
             originalTasksCount={initialTotalTasks}
-            onStartNewFocus={() => loadTasksForFocus(true)}
+            onStartNewFocus={() => loadTasksForFocus(selectedTaskSource)} // Passar selectedTaskSource
           />
         )}
       </div>

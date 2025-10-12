@@ -11,7 +11,11 @@ type ExecucaoState = "initial" | "focusing" | "finished";
 const SEITON_RANKING_STORAGE_KEY = "seitonTournamentState";
 const PLANNER_STORAGE_KEY = "planner_schedules_v2"; // Definido aqui para uso no hook
 
-export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "all" | "pessoal" | "profissional") => {
+export const useExecucaoTasks = (
+  filterInput: string,
+  selectedCategoryFilter: "all" | "pessoal" | "profissional",
+  selectedTaskSource: "filter" | "planner" | "ranking" | "all" // Novo parâmetro
+) => {
   const { fetchTasks, fetchTaskById, isLoading: isLoadingTodoist } = useTodoist();
   const [focusTasks, setFocusTasks] = useState<TodoistTask[]>([]);
   const [initialTotalTasks, setInitialTotalTasks] = useState<number>(0); // Total tasks at the start of the session
@@ -96,7 +100,7 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     });
   }, []);
 
-  const loadTasksForFocus = useCallback(async () => {
+  const loadTasksForFocus = useCallback(async (source: "filter" | "planner" | "ranking" | "all") => {
     setExecucaoState("initial");
     setCurrentTaskIndex(0);
     
@@ -136,142 +140,155 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
       deadline: null,
     });
 
-    // --- Determine the initial filter source ---
-    const todoistFilterParts: string[] = [];
-    if (filterInput.trim()) {
-      todoistFilterParts.push(filterInput.trim());
-    }
-    if (selectedCategoryFilter !== "all") {
-      todoistFilterParts.push(`#${selectedCategoryFilter}`);
-    }
-    const userProvidedFilter = todoistFilterParts.join(" & ");
-    const isUserFilterActive = userProvidedFilter !== "";
+    // --- Helper functions for loading from different sources ---
 
-    // --- Step 1: Load tasks based on user-provided filter (if active) ---
-    if (isUserFilterActive) {
-      let userFilteredTasks = await fetchTasks(userProvidedFilter, fetchOptions);
-      userFilteredTasks = sortTasksForFocus(userFilteredTasks);
-      userFilteredTasks.forEach(task => {
-        if (!seenTaskIds.has(task.id)) {
-          finalCombinedTasks.push(task);
-          seenTaskIds.add(task.id);
+    const _loadFromUserFilter = async (): Promise<TodoistTask[]> => {
+        const todoistFilterParts: string[] = [];
+        if (filterInput.trim()) {
+            todoistFilterParts.push(filterInput.trim());
         }
-      });
-      if (userFilteredTasks.length > 0) {
-        toast.info(`Carregadas ${userFilteredTasks.length} tarefas do filtro de Execução.`);
-      } else {
-        toast.info("Nenhuma tarefa encontrada para o filtro de Execução. Buscando em outras fontes...");
-      }
-    }
-
-    // --- Step 2: If no user filter or user filter returned no tasks, use default smart filter ---
-    if (finalCombinedTasks.length === 0 && !isUserFilterActive) {
-      const defaultSmartFilter = `(%23%F0%9F%93%85%20Reuni%C3%B5es%20%26%20due%20before%3A%20in%205%20min)%20%7C%20%40%F0%9F%8E%AF%20Foco%20%7C%20((%40%F0%9F%93%86%20Cronograma%20de%20hoje%20%26%20due%20before%3A%20in%203%20min)%20%7C%20(%40%F0%9F%93%86%20Cronograma%20de%20hoje%20%26%20today%20%26%20no%20time))%20%7C%20((%40%E2%9A%A1%20R%C3%A1pida%20%7C%20%40r%C3%A1pida)%20%26%20due%20before%3A%20in%200%20min)`;
-      let smartFilteredTasks = await fetchTasks(defaultSmartFilter, fetchOptions);
-      smartFilteredTasks = sortTasksForFocus(smartFilteredTasks);
-      smartFilteredTasks.forEach(task => {
-        if (!seenTaskIds.has(task.id)) {
-          finalCombinedTasks.push(task);
-          seenTaskIds.add(task.id);
+        if (selectedCategoryFilter !== "all") {
+            todoistFilterParts.push(`#${selectedCategoryFilter}`);
         }
-      });
-      if (smartFilteredTasks.length > 0) {
-        toast.info(`Adicionadas ${smartFilteredTasks.length} tarefas do filtro inteligente padrão.`);
-      }
-    }
+        const userProvidedFilter = todoistFilterParts.join(" & ");
+        if (!userProvidedFilter) {
+          toast.info("Nenhum filtro de usuário fornecido.");
+          return []; // No filter provided, no tasks from this source
+        }
 
-    // --- Step 3: Collect tasks from Planner (Overdue first, then Today/Tomorrow) ---
-    if (finalCombinedTasks.length === 0 || !isUserFilterActive) { // Only add planner tasks if user filter is not active OR if it returned no tasks
+        let tasks = await fetchTasks(userProvidedFilter, fetchOptions);
+        tasks = sortTasksForFocus(tasks);
+        if (tasks.length > 0) {
+          toast.info(`Carregadas ${tasks.length} tarefas do filtro de Execução.`);
+        } else {
+          toast.info("Nenhuma tarefa encontrada para o filtro de Execução.");
+        }
+        return tasks;
+    };
+
+    const _loadFromDefaultSmartFilter = async (): Promise<TodoistTask[]> => {
+        const defaultSmartFilter = `(%23%F0%9F%93%85%20Reuni%C3%B5es%20%26%20due%20before%3A%20in%205%20min)%20%7C%20%40%F0%9F%8E%AF%20Foco%20%7C%20((%40%F0%9F%93%86%20Cronograma%20de%20hoje%20%26%20due%20before%3A%20in%203%20min)%20%7C%20(%40%F0%9F%93%86%20Cronograma%20de%20hoje%20%26%20today%20%26%20no%20time))%20%7C%20((%40%E2%9A%A1%20R%C3%A1pida%20%7C%20%40r%C3%A1pida)%20%26%20due%20before%3A%20in%200%20min)`;
+        let tasks = await fetchTasks(defaultSmartFilter, fetchOptions);
+        tasks = sortTasksForFocus(tasks);
+        if (tasks.length > 0) {
+          toast.info(`Adicionadas ${tasks.length} tarefas do filtro inteligente padrão.`);
+        } else {
+          toast.info("Nenhuma tarefa encontrada para o filtro inteligente padrão.");
+        }
+        return tasks;
+    };
+
+    const _loadFromPlanner = async (): Promise<TodoistTask[]> => {
         const plannerStorage = localStorage.getItem(PLANNER_STORAGE_KEY);
-        if (plannerStorage) {
-            const { schedules: storedSchedules } = JSON.parse(plannerStorage);
-            const now = new Date();
-            const allRelevantScheduledTasks: ScheduledTask[] = [];
+        if (!plannerStorage) {
+          toast.info("Nenhum dado do Planejador encontrado.");
+          return [];
+        }
 
-            for (const dateKey in storedSchedules) {
-                if (storedSchedules[dateKey] && storedSchedules[dateKey].scheduledTasks) {
-                    storedSchedules[dateKey].scheduledTasks.forEach((st: ScheduledTask) => {
-                        const taskStartDateTime = parse(st.start, "HH:mm", parseISO(dateKey));
-                        if (isValid(taskStartDateTime)) {
-                            allRelevantScheduledTasks.push({ ...st, scheduledDateTime: taskStartDateTime });
-                        }
-                    });
+        const { schedules: storedSchedules } = JSON.parse(plannerStorage);
+        const now = new Date();
+        const allRelevantScheduledTasks: ScheduledTask[] = [];
+
+        for (const dateKey in storedSchedules) {
+            if (storedSchedules[dateKey] && storedSchedules[dateKey].scheduledTasks) {
+                storedSchedules[dateKey].scheduledTasks.forEach((st: ScheduledTask) => {
+                    const taskStartDateTime = parse(st.start, "HH:mm", parseISO(dateKey));
+                    if (isValid(taskStartDateTime)) {
+                        allRelevantScheduledTasks.push({ ...st, scheduledDateTime: taskStartDateTime });
+                    }
+                });
+            }
+        }
+
+        const overdueScheduledTasks = allRelevantScheduledTasks.filter(st => isBefore(st.scheduledDateTime, now));
+        const futureOrCurrentScheduledTasks = allRelevantScheduledTasks.filter(st => !isBefore(st.scheduledDateTime, now));
+
+        overdueScheduledTasks.sort((a, b) => a.scheduledDateTime.getTime() - b.scheduledDateTime.getTime());
+        futureOrCurrentScheduledTasks.sort((a, b) => a.scheduledDateTime.getTime() - b.scheduledDateTime.getTime());
+
+        const combinedPlannerTasks = [...overdueScheduledTasks, ...futureOrCurrentScheduledTasks];
+        let tasks: TodoistTask[] = [];
+
+        for (const st of combinedPlannerTasks) {
+            if (seenTaskIds.has(st.taskId)) continue;
+
+            let actualTask: TodoistTask | InternalTask | undefined = st.originalTask;
+
+            if (actualTask && 'project_id' in actualTask) { // It's a Todoist task
+                const latestTodoistTask = await fetchTaskById(actualTask.id);
+                if (latestTodoistTask && !latestTodoistTask.is_completed) {
+                    tasks.push(latestTodoistTask);
+                }
+            } else if (actualTask && 'category' in actualTask) { // It's an InternalTask
+                if (!actualTask.isCompleted) {
+                    tasks.push(convertInternalTaskToTodoistTask(actualTask));
                 }
             }
-
-            const overdueScheduledTasks = allRelevantScheduledTasks.filter(st => isBefore(st.scheduledDateTime, now));
-            const futureOrCurrentScheduledTasks = allRelevantScheduledTasks.filter(st => !isBefore(st.scheduledDateTime, now));
-
-            overdueScheduledTasks.sort((a, b) => a.scheduledDateTime.getTime() - b.scheduledDateTime.getTime());
-            futureOrCurrentScheduledTasks.sort((a, b) => a.scheduledDateTime.getTime() - b.scheduledDateTime.getTime());
-
-            const combinedPlannerTasks = [...overdueScheduledTasks, ...futureOrCurrentScheduledTasks];
-            let plannerTasksAddedCount = 0;
-
-            for (const st of combinedPlannerTasks) {
-                if (seenTaskIds.has(st.taskId)) continue;
-
-                let actualTask: TodoistTask | InternalTask | undefined = st.originalTask;
-
-                if (actualTask && 'project_id' in actualTask) { // It's a Todoist task
-                    const latestTodoistTask = await fetchTaskById(actualTask.id);
-                    if (latestTodoistTask && !latestTodoistTask.is_completed) {
-                        finalCombinedTasks.push(latestTodoistTask);
-                        seenTaskIds.add(latestTodoistTask.id);
-                        plannerTasksAddedCount++;
-                    }
-                } else if (actualTask && 'category' in actualTask) { // It's an InternalTask
-                    if (!actualTask.isCompleted) {
-                        finalCombinedTasks.push(convertInternalTaskToTodoistTask(actualTask));
-                        seenTaskIds.add(actualTask.id);
-                        plannerTasksAddedCount++;
-                    }
-                }
-            }
-            if (plannerTasksAddedCount > 0) {
-                toast.info(`Adicionadas ${plannerTasksAddedCount} tarefas agendadas do Planejador (incluindo atrasadas).`);
-            }
         }
+        tasks = sortTasksForFocus(tasks);
+        if (tasks.length > 0) {
+          toast.info(`Adicionadas ${tasks.length} tarefas agendadas do Planejador (incluindo atrasadas).`);
+        } else {
+          toast.info("Nenhuma tarefa encontrada no Planejador.");
+        }
+        return tasks;
+    };
+
+    const _loadFromSeitonRanking = async (): Promise<TodoistTask[]> => {
+        let tasks: TodoistTask[] = [...seitonRankedTasks];
+        tasks = sortTasksForFocus(tasks);
+        if (tasks.length > 0) {
+          toast.info(`Adicionadas ${tasks.length} tarefas do ranking do Seiton.`);
+        } else {
+          toast.info("Nenhuma tarefa encontrada no Ranking Seiton.");
+        }
+        return tasks;
+    };
+
+    const _loadFromAllTodoist = async (): Promise<TodoistTask[]> => {
+        let tasks: TodoistTask[] = await fetchTasks(undefined, fetchOptions);
+        tasks = sortTasksForFocus(tasks);
+        if (tasks.length > 0) {
+          toast.info(`Adicionadas ${tasks.length} tarefas restantes do Todoist.`);
+        } else {
+          toast.info("Nenhuma tarefa restante do Todoist encontrada.");
+        }
+        return tasks;
+    };
+
+    // --- Main loading logic based on selected source ---
+    if (source === "filter") {
+        finalCombinedTasks = await _loadFromUserFilter();
+    } else if (source === "planner") {
+        finalCombinedTasks = await _loadFromPlanner();
+    } else if (source === "ranking") {
+        finalCombinedTasks = await _loadFromSeitonRanking();
+    } else if (source === "all") {
+        // Sequential fallback for "all" option
+        let tasks = await _loadFromUserFilter(); // Try user filter first
+        tasks.forEach(task => { if (!seenTaskIds.has(task.id)) { finalCombinedTasks.push(task); seenTaskIds.add(task.id); } });
+
+        if (finalCombinedTasks.length === 0) { // If user filter yielded nothing, try smart filter
+            tasks = await _loadFromDefaultSmartFilter();
+            tasks.forEach(task => { if (!seenTaskIds.has(task.id)) { finalCombinedTasks.push(task); seenTaskIds.add(task.id); } });
+        }
+
+        tasks = await _loadFromPlanner(); // Always try planner after initial filters
+        tasks.forEach(task => { if (!seenTaskIds.has(task.id)) { finalCombinedTasks.push(task); seenTaskIds.add(task.id); } });
+
+        tasks = await _loadFromSeitonRanking(); // Always try seiton after planner
+        tasks.forEach(task => { if (!seenTaskIds.has(task.id)) { finalCombinedTasks.push(task); seenTaskIds.add(task.id); } });
+
+        tasks = await _loadFromAllTodoist(); // Finally, all other todoist tasks
+        tasks.forEach(task => { if (!seenTaskIds.has(task.id)) { finalCombinedTasks.push(task); seenTaskIds.add(task.id); } });
     }
 
-    // --- Step 4: Add tasks from Seiton ranking ---
-    if (finalCombinedTasks.length === 0 || !isUserFilterActive) { // Only add Seiton tasks if user filter is not active OR if it returned no tasks
-        let currentSeitonRankedTasks = [...seitonRankedTasks];
-        currentSeitonRankedTasks = sortTasksForFocus(currentSeitonRankedTasks);
-        const uniqueSeitonTasks = currentSeitonRankedTasks.filter(task => !seenTaskIds.has(task.id));
-        let seitonTasksAddedCount = 0;
-        uniqueSeitonTasks.forEach(task => {
-            finalCombinedTasks.push(task);
-            seenTaskIds.add(task.id);
-            seitonTasksAddedCount++;
-        });
-        if (seitonTasksAddedCount > 0) {
-            toast.info(`Adicionadas ${seitonTasksAddedCount} tarefas do ranking do Seiton.`);
-        }
-    }
-
-    // --- Step 5: Finally, add all other Todoist tasks (if any) ---
-    if (finalCombinedTasks.length === 0 || !isUserFilterActive) { // Only add all other tasks if user filter is not active OR if it returned no tasks
-        let allTodoistTasks: TodoistTask[] = await fetchTasks(undefined, fetchOptions); 
-        allTodoistTasks = sortTasksForFocus(allTodoistTasks);
-        const uniqueOtherTasks = allTodoistTasks.filter(task => !seenTaskIds.has(task.id));
-        let otherTodoistTasksAddedCount = 0;
-        uniqueOtherTasks.forEach(task => {
-            finalCombinedTasks.push(task);
-            seenTaskIds.add(task.id);
-            otherTodoistTasksAddedCount++;
-        });
-        if (otherTodoistTasksAddedCount > 0) {
-            toast.info(`Adicionadas ${otherTodoistTasksAddedCount} tarefas restantes do Todoist.`);
-        }
-    }
-
-    // Remove duplicates and sort the final combined list (already done, but re-sorting for good measure)
+    // Filter out duplicates and sort the final combined list
     const uniqueFinalCombinedTasks = Array.from(new Set(finalCombinedTasks.map(task => task.id)))
                                         .map(id => finalCombinedTasks.find(task => task.id === id)!);
     const sortedFinalTasks = sortTasksForFocus(uniqueFinalCombinedTasks);
 
-    // 6. Final state update
+    // 5. Final state update
     if (sortedFinalTasks.length > 0) {
       setFocusTasks(sortedFinalTasks);
       setInitialTotalTasks(sortedFinalTasks.length);
@@ -283,7 +300,7 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
       setExecucaoState("finished");
       toast.info("Nenhuma tarefa encontrada para focar. Bom trabalho!");
     }
-  }, [fetchTasks, fetchTaskById, filterInput, selectedCategoryFilter, sortTasksForFocus, seitonRankedTasks]);
+}, [fetchTasks, fetchTaskById, filterInput, selectedCategoryFilter, sortTasksForFocus, seitonRankedTasks]);
 
   // Esta função será chamada quando uma tarefa for concluída ou pulada
   const advanceToNextTask = useCallback(() => {
