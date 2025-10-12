@@ -2,16 +2,17 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTodoist } from "@/context/TodoistContext";
-import { TodoistTask, SeitonStateSnapshot } from "@/lib/types";
+import { TodoistTask, SeitonStateSnapshot, ScheduledTask, InternalTask } from "@/lib/types";
 import { toast } from "sonner";
-import { parseISO, isValid } from "date-fns";
+import { parseISO, isValid, format, startOfDay, addDays, isAfter, isEqual, startOfMinute, parse } from "date-fns";
 
 type ExecucaoState = "initial" | "focusing" | "finished";
 
 const SEITON_RANKING_STORAGE_KEY = "seitonTournamentState";
+const PLANNER_STORAGE_KEY = "planner_schedules_v2"; // Definido aqui para uso no hook
 
 export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "all" | "pessoal" | "profissional") => {
-  const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
+  const { fetchTasks, fetchTaskById, isLoading: isLoadingTodoist } = useTodoist();
   const [focusTasks, setFocusTasks] = useState<TodoistTask[]>([]);
   const [initialTotalTasks, setInitialTotalTasks] = useState<number>(0); // Total tasks at the start of the session
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
@@ -46,7 +47,7 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     loadSeitonRanking();
     // Listen for changes in localStorage from other tabs/windows (e.g., Seiton module)
     window.addEventListener('storage', loadSeitonRanking);
-    return () => window.removeEventListener('storage', loadSeitonRanking);
+    return () => window.removeEventListener('change', loadSeitonRanking); // Changed to 'change' for localStorage events
   }, []); // Run once on mount
 
   const sortTasksForFocus = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
@@ -132,29 +133,119 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
       }
     }
 
-    // 2. If no tasks from the explicit filter, or if we want to add more, try Seiton ranking
-    let currentSeitonRankedTasks = [...seitonRankedTasks];
-    currentSeitonRankedTasks = sortTasksForFocus(currentSeitonRankedTasks);
-    const uniqueSeitonTasks = currentSeitonRankedTasks.filter(task => !seenTaskIds.has(task.id));
-    uniqueSeitonTasks.forEach(task => {
-      finalCombinedTasks.push(task);
-      seenTaskIds.add(task.id);
-    });
-    if (uniqueSeitonTasks.length > 0) {
-        toast.info(`Adicionadas ${uniqueSeitonTasks.length} tarefas do ranking do Seiton.`);
+    // 2. If no tasks from the explicit filter, try to load tasks from the Planner
+    if (finalCombinedTasks.length === 0) {
+        const plannerStorage = localStorage.getItem(PLANNER_STORAGE_KEY);
+        if (plannerStorage) {
+            const { schedules: storedSchedules } = JSON.parse(plannerStorage);
+            const now = new Date();
+            const todayKey = format(startOfDay(now), "yyyy-MM-dd");
+            const tomorrowKey = format(addDays(startOfDay(now), 1), "yyyy-MM-dd");
+
+            const relevantScheduledTasks: ScheduledTask[] = [];
+
+            // Collect tasks for today and tomorrow
+            [todayKey, tomorrowKey].forEach(dateKey => {
+                if (storedSchedules[dateKey] && storedSchedules[dateKey].scheduledTasks) {
+                    storedSchedules[dateKey].scheduledTasks.forEach((st: ScheduledTask) => {
+                        const taskStartDateTime = parse(st.start, "HH:mm", parseISO(dateKey));
+                        // Only consider tasks that start now or in the future
+                        if (isValid(taskStartDateTime) && (isAfter(taskStartDateTime, now) || isEqual(taskStartDateTime, startOfMinute(now)))) {
+                            relevantScheduledTasks.push(st);
+                        }
+                    });
+                }
+            });
+
+            // Sort by start time
+            relevantScheduledTasks.sort((a, b) => {
+                const dateA = parse(a.start, "HH:mm", startOfDay(now));
+                const dateB = parse(b.start, "HH:mm", startOfDay(now));
+                return dateA.getTime() - dateB.getTime();
+            });
+
+            for (const st of relevantScheduledTasks) {
+                if (seenTaskIds.has(st.taskId)) continue;
+
+                let actualTask: TodoistTask | InternalTask | undefined = st.originalTask;
+
+                if (actualTask && 'project_id' in actualTask) { // It's a Todoist task
+                    const latestTodoistTask = await fetchTaskById(actualTask.id);
+                    if (latestTodoistTask && !latestTodoistTask.is_completed) {
+                        finalCombinedTasks.push(latestTodoistTask);
+                        seenTaskIds.add(latestTodoistTask.id);
+                    }
+                } else if (actualTask && 'category' in actualTask) { // It's an InternalTask
+                    if (!actualTask.isCompleted) {
+                        // Convert InternalTask to TodoistTask format for consistency in focusTasks
+                        const mockTodoistTask: TodoistTask = {
+                            id: actualTask.id,
+                            content: actualTask.content,
+                            description: actualTask.description || '',
+                            is_completed: actualTask.isCompleted,
+                            labels: [actualTask.category],
+                            priority: 1, // Default priority for internal tasks
+                            due: actualTask.dueDate ? {
+                                date: actualTask.dueDate,
+                                string: actualTask.dueDate,
+                                lang: 'pt',
+                                is_recurring: false,
+                                datetime: actualTask.dueTime ? `${actualTask.dueDate}T${actualTask.dueTime}:00` : null,
+                                timezone: null,
+                            } : null,
+                            duration: actualTask.estimatedDurationMinutes ? {
+                                amount: actualTask.estimatedDurationMinutes,
+                                unit: 'minute'
+                            } : null,
+                            url: '#', // Placeholder URL
+                            comment_count: 0,
+                            created_at: actualTask.createdAt,
+                            creator_id: 'internal',
+                            project_id: 'internal', // Placeholder
+                            section_id: null,
+                            parent_id: null,
+                            order: 0,
+                            estimatedDurationMinutes: actualTask.estimatedDurationMinutes,
+                            deadline: null,
+                        };
+                        finalCombinedTasks.push(mockTodoistTask);
+                        seenTaskIds.add(mockTodoistTask.id);
+                    }
+                }
+            }
+            if (finalCombinedTasks.length > 0) {
+                toast.info(`Adicionadas ${finalCombinedTasks.length} tarefas agendadas do Planejador.`);
+            }
+        }
     }
 
-    // 3. Finally, if still more tasks are needed, get all other Todoist tasks
+    // 3. If still no tasks, try Seiton ranking
+    if (finalCombinedTasks.length === 0) {
+        let currentSeitonRankedTasks = [...seitonRankedTasks];
+        currentSeitonRankedTasks = sortTasksForFocus(currentSeitonRankedTasks);
+        const uniqueSeitonTasks = currentSeitonRankedTasks.filter(task => !seenTaskIds.has(task.id));
+        uniqueSeitonTasks.forEach(task => {
+            finalCombinedTasks.push(task);
+            seenTaskIds.add(task.id);
+        });
+        if (uniqueSeitonTasks.length > 0) {
+            toast.info(`Adicionadas ${uniqueSeitonTasks.length} tarefas do ranking do Seiton.`);
+        }
+    }
+
+    // 4. Finally, if still more tasks are needed, get all other Todoist tasks
     // Pass undefined as filter to fetch all active tasks if no specific filter is needed
-    let allTodoistTasks: TodoistTask[] = await fetchTasks(undefined, fetchOptions); 
-    allTodoistTasks = sortTasksForFocus(allTodoistTasks);
-    const uniqueOtherTasks = allTodoistTasks.filter(task => !seenTaskIds.has(task.id));
-    uniqueOtherTasks.forEach(task => {
-      finalCombinedTasks.push(task);
-      seenTaskIds.add(task.id);
-    });
-    if (uniqueOtherTasks.length > 0) {
-        toast.info(`Adicionadas ${uniqueOtherTasks.length} tarefas restantes do Todoist.`);
+    if (finalCombinedTasks.length === 0) { // Only fetch all other tasks if previous steps yielded nothing
+        let allTodoistTasks: TodoistTask[] = await fetchTasks(undefined, fetchOptions); 
+        allTodoistTasks = sortTasksForFocus(allTodoistTasks);
+        const uniqueOtherTasks = allTodoistTasks.filter(task => !seenTaskIds.has(task.id));
+        uniqueOtherTasks.forEach(task => {
+            finalCombinedTasks.push(task);
+            seenTaskIds.add(task.id);
+        });
+        if (uniqueOtherTasks.length > 0) {
+            toast.info(`Adicionadas ${uniqueOtherTasks.length} tarefas restantes do Todoist.`);
+        }
     }
 
     // Remove duplicates and sort the final combined list
@@ -162,7 +253,7 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
                                         .map(id => finalCombinedTasks.find(task => task.id === id)!);
     const sortedFinalTasks = sortTasksForFocus(uniqueFinalCombinedTasks);
 
-    // 4. Final state update
+    // 5. Final state update
     if (sortedFinalTasks.length > 0) {
       setFocusTasks(sortedFinalTasks);
       setInitialTotalTasks(sortedFinalTasks.length);
@@ -174,7 +265,7 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
       setExecucaoState("finished");
       toast.info("Nenhuma tarefa encontrada para focar. Bom trabalho!");
     }
-  }, [fetchTasks, filterInput, selectedCategoryFilter, sortTasksForFocus, seitonRankedTasks]);
+  }, [fetchTasks, fetchTaskById, filterInput, selectedCategoryFilter, sortTasksForFocus, seitonRankedTasks]);
 
   // Esta função será chamada quando uma tarefa for concluída ou pulada
   const advanceToNextTask = useCallback(() => {

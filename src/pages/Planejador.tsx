@@ -69,8 +69,8 @@ const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
 const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
   4: "P1",
   3: "P2",
-  1: "P3",
-  2: "P4",
+  2: "P3", // Corrected from P4
+  1: "P4", // Corrected from P3
 };
 
 const DayOfWeekNames: Record<DayOfWeek, string> = {
@@ -358,7 +358,7 @@ const Planejador = () => {
         setTempEstimatedDuration(String(updatedSelectedTask.estimatedDurationMinutes || 15));
         const initialCategory = getTaskCategory(updatedSelectedTask);
         setTempSelectedCategory(initialCategory || "none");
-        const initialPriority = 'priority' in updatedSelectedTask ? updatedUpdatedTask.priority : 1;
+        const initialPriority = 'priority' in updatedSelectedTask ? updatedSelectedTask.priority : 1;
         setTempSelectedPriority(initialPriority);
         toast.info(`Detalhes da tarefa selecionada atualizados no planejador.`);
       }
