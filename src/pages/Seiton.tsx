@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
@@ -10,11 +12,18 @@ import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink, Check } from "lucide-react";
+import { ArrowRight, Star, Scale, Zap, UserCheck, XCircle, ExternalLink, CalendarIcon, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type EvaluationState = "initial" | "evaluating" | "finished";
+
+interface EvaluatedTask extends TodoistTask {
+  urgencyScore?: number;
+  dependenceScore?: number;
+}
+
+const SEITON_KRALJIC_STORAGE_KEY = "seitonKraljicEvaluationState";
+const SEITON_KRALJIC_FILTER_INPUT_STORAGE_KEY = "seitonKraljicFilterInput";
 
 type TournamentState = "initial" | "comparing" | "finished";
 
@@ -33,7 +42,7 @@ const SEITON_CATEGORY_FILTER_STORAGE_KEY = "seiton_category_filter";
 
 const Seiton = () => {
   console.log("Seiton component rendering...");
-  const { fetchTasks, closeTask, isLoading } = useTodoist();
+  const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist(); // Adicionado updateTask
   const [tournamentState, setTournamentState] = useState<TournamentState>("initial");
   const [tasksToProcess, setTasksToProcess] = useState<TodoistTask[]>([]);
   const [rankedTasks, setRankedTasks] = useState<TodoistTask[]>([]);
@@ -316,9 +325,38 @@ const Seiton = () => {
     }
   }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState]);
 
+  // Nova função para aplicar a regra P1
+  const applyP1Rule = useCallback(async () => {
+    if (rankedTasks.length === 0) return;
+
+    let updatedRankedTasks = [...rankedTasks];
+    let changesMade = false;
+
+    for (let i = 0; i < Math.min(4, rankedTasks.length); i++) {
+      const task = rankedTasks[i];
+      if (task.priority !== 4) {
+        console.log(`Seiton: Promovendo tarefa "${task.content}" (ID: ${task.id}) de P${task.priority} para P1.`);
+        const updatedTodoistTask = await updateTask(task.id, { priority: 4 });
+        if (updatedTodoistTask) {
+          updatedRankedTasks[i] = updatedTodoistTask; // Atualiza com a tarefa retornada da API
+          changesMade = true;
+        } else {
+          toast.error(`Falha ao promover a tarefa "${task.content}" para P1 no Todoist.`);
+        }
+      }
+    }
+
+    if (changesMade) {
+      setRankedTasks(updatedRankedTasks);
+      toast.success("Regra P1 aplicada: As 4 primeiras tarefas foram ajustadas para P1, se necessário.");
+    } else {
+      toast.info("Regra P1 aplicada: Nenhuma alteração necessária nas 4 primeiras tarefas.");
+    }
+  }, [rankedTasks, updateTask]);
+
 
   useEffect(() => {
-    console.log("useEffect for placement triggered. tournamentState:", tournamentState, "currentTaskToPlace:", currentTaskToPlace, "rankedTasks.length:", rankedTasks.length, "tasksToProcess.length:", tasksToProcess.length);
+    console.log("useEffect for tournamentState triggered. Current state:", tournamentState);
     if (tournamentState === "comparing" && !currentTaskToPlace) {
       if (rankedTasks.length > 0 || tasksToProcess.length > 0) {
         startNextPlacement();
@@ -327,8 +365,10 @@ const Seiton = () => {
       }
     } else if (tournamentState === "comparing" && tasksToProcess.length === 0 && !currentTaskToPlace && rankedTasks.length > 0) {
         setTournamentState("finished");
+    } else if (tournamentState === "finished") { // <--- Adicionado este bloco
+        applyP1Rule();
     }
-  }, [tournamentState, currentTaskToPlace, tasksToProcess.length, rankedTasks.length, startNextPlacement]);
+  }, [tournamentState, currentTaskToPlace, tasksToProcess.length, rankedTasks.length, startNextPlacement, applyP1Rule]); // Adicionado applyP1Rule às dependências
 
   const handleSelection = useCallback(
     (winner: TodoistTask) => {
@@ -478,7 +518,7 @@ const Seiton = () => {
             </a>
             <Button
               onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }}
-              disabled={isLoading}
+              disabled={isLoadingTodoist}
               variant="secondary"
               className="w-full py-2 text-sm flex items-center justify-center bg-green-500 hover:bg-green-600 text-white"
             >
@@ -498,10 +538,10 @@ const Seiton = () => {
       </p>
 
       <div className="text-center text-sm text-gray-400 mb-4 p-2 bg-gray-100 rounded-md border border-gray-200">
-        Debug State: <span className="font-semibold">{tournamentState}</span> | Current Task: <span className="font-semibold">{currentTaskToPlace?.content || "N/A"}</span> | Candidate: <span className="font-semibold">{comparisonCandidate?.content || "N/A"}</span> | Tasks to Process: <span className="font-semibold">{tasksToProcess.length}</span> | Ranked Tasks: <span className="font-semibold">{rankedTasks.length}</span> | Is Loading: <span className="font-semibold">{isLoading ? "Yes" : "No"}</span>
+        Debug State: <span className="font-semibold">{tournamentState}</span> | Current Task: <span className="font-semibold">{currentTaskToPlace?.content || "N/A"}</span> | Candidate: <span className="font-semibold">{comparisonCandidate?.content || "N/A"}</span> | Tasks to Process: <span className="font-semibold">{tasksToProcess.length}</span> | Ranked Tasks: <span className="font-semibold">{rankedTasks.length}</span> | Is Loading: <span className="font-semibold">{isLoadingTodoist ? "Yes" : "No"}</span>
       </div>
 
-      {isLoading && (
+      {isLoadingTodoist && (
         <>
           {console.log("Rendering: Loading spinner")}
           <div className="flex justify-center items-center h-48">
@@ -510,7 +550,7 @@ const Seiton = () => {
         </>
       )}
 
-      {!isLoading && tournamentState === "initial" && (
+      {!isLoadingTodoist && tournamentState === "initial" && (
         <>
           {console.log("Rendering: Initial state")}
           <div className="text-center mt-10">
@@ -525,7 +565,7 @@ const Seiton = () => {
                 value={filterInput}
                 onChange={(e) => setFilterInput(e.target.value)}
                 className="mt-1"
-                disabled={isLoading}
+                disabled={isLoadingTodoist}
               />
             </div>
             <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">
@@ -535,7 +575,7 @@ const Seiton = () => {
               <Select
                 value={selectedCategoryFilter}
                 onValueChange={(value: "all" | "pessoal" | "profissional") => setSelectedCategoryFilter(value)}
-                disabled={isLoading}
+                disabled={isLoadingTodoist}
               >
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder="Todas as Categorias" />
@@ -575,7 +615,7 @@ const Seiton = () => {
         </>
       )}
 
-      {!isLoading && tournamentState === "comparing" && currentTaskToPlace && comparisonCandidate && (
+      {!isLoadingTodoist && tournamentState === "comparing" && currentTaskToPlace && comparisonCandidate && (
         <>
           {console.log("Rendering: Comparing state with tasks")}
           <p className="text-center text-xl font-medium mb-6 text-gray-700">
@@ -675,7 +715,7 @@ const Seiton = () => {
         </>
       )}
 
-      {!isLoading && tournamentState === "finished" && (
+      {!isLoadingTodoist && tournamentState === "finished" && (
         <>
           {console.log("Rendering: Finished state")}
           <div className="mt-8">
@@ -761,7 +801,7 @@ const Seiton = () => {
         </>
       )}
 
-      {!isLoading && tournamentState === "comparing" && (!currentTaskToPlace || !comparisonCandidate) && (
+      {!isLoadingTodoist && tournamentState === "comparing" && (!currentTaskToPlace || !comparisonCandidate) && (
         <>
           {console.log("Rendering: Comparing state, waiting for next task (with reset option)")}
           <div className="text-center mt-10">
@@ -778,7 +818,7 @@ const Seiton = () => {
         </>
       )}
 
-      {!isLoading && !["initial", "comparing", "finished"].includes(tournamentState) && (
+      {!isLoadingTodoist && !["initial", "comparing", "finished"].includes(tournamentState) && (
         <>
           {console.log("Rendering: Unexpected state fallback")}
           <div className="text-center mt-10">
