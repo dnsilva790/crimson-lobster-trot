@@ -27,9 +27,9 @@ interface OverdueCounts {
 const SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY = "seiton_review_filter_input";
 const GTD_PROCESSED_LABEL = "gtd_processada";
 
-// Ratios Fibonacci para P1:P2:P3:P4 (1:2:3:5)
-const FIBONACCI_RATIOS = { 4: 1, 3: 2, 2: 3, 1: 5 };
-const TOTAL_FIBONACCI_UNITS = Object.values(FIBONACCI_RATIOS).reduce((sum, ratio) => sum + ratio, 0); // 1 + 2 + 3 + 5 = 11
+// Ratios Fibonacci para P1:P2:P3 (1:2:3) - P4 é excluído da distribuição
+const FIBONACCI_RATIOS_FOR_SUGGESTION = { 4: 1, 3: 2, 2: 3 }; // P1:1, P2:2, P3:3
+const TOTAL_FIBONACCI_UNITS_FOR_SUGGESTION = Object.values(FIBONACCI_RATIOS_FOR_SUGGESTION).reduce((sum, ratio) => sum + ratio, 0); // 1 + 2 + 3 = 6
 
 const SeitonReview = () => {
   const { fetchTasks, updateTask, isLoading: isLoadingTodoist } = useTodoist();
@@ -240,28 +240,32 @@ const SeitonReview = () => {
 
   const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
     4: "P1 - Urgente",
-    3: "P2 - Alto",
-    2: "P3 - Médio",
-    1: "P4 - Baixo",
+    3: "P2 - Importante",
+    2: "P3 - Rotina",
+    1: "P4 - Inbox",
   };
 
-  const totalTasksInReview = tasksToReview.length;
   const fibonacciSuggestion = useMemo(() => {
-      if (totalTasksInReview === 0) return null;
+      // Filtrar tarefas P4 da contagem total para a distribuição Fibonacci
+      const tasksForFibonacci = tasksToReview.filter(task => task.priority !== 1);
+      const totalTasksForFibonacci = tasksForFibonacci.length;
 
-      const targetCounts: OverdueCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+      if (totalTasksForFibonacci === 0) return null;
+
+      const targetCounts: OverdueCounts = { 1: 0, 2: 0, 3: 0, 4: 0 }; // P4 target will remain 0
       let suggestionText = "";
       let bestPriorityToSuggest: 1 | 2 | 3 | 4 | null = null;
       let maxDeficit = 0;
 
-      // Calculate target counts based on Fibonacci ratios
-      for (const p of [4, 3, 2, 1] as (1 | 2 | 3 | 4)[]) {
-          targetCounts[p] = Math.round(totalTasksInReview * (FIBONACCI_RATIOS[p] / TOTAL_FIBONACCI_UNITS));
+      // Calcular contagens alvo com base nos ratios Fibonacci, apenas para P1, P2, P3
+      for (const p of [4, 3, 2] as (1 | 2 | 3 | 4)[]) { // Iterar apenas P1, P2, P3
+          targetCounts[p] = Math.round(totalTasksForFibonacci * (FIBONACCI_RATIOS_FOR_SUGGESTION[p] / TOTAL_FIBONACCI_UNITS_FOR_SUGGESTION));
       }
 
-      // Find the priority with the largest deficit (under target)
-      for (const p of [4, 3, 2, 1] as (1 | 2 | 3 | 4)[]) { // Check P1 first
-          const deficit = targetCounts[p] - allTaskCountsByPriority[p];
+      // Encontrar a prioridade com o maior déficit (abaixo do alvo), apenas para P1, P2, P3
+      for (const p of [4, 3, 2] as (1 | 2 | 3 | 4)[]) { // Iterar apenas P1, P2, P3
+          const currentCount = allTaskCountsByPriority[p];
+          const deficit = targetCounts[p] - currentCount;
           if (deficit > maxDeficit) {
               maxDeficit = deficit;
               bestPriorityToSuggest = p;
@@ -269,13 +273,13 @@ const SeitonReview = () => {
       }
 
       if (bestPriorityToSuggest) {
-          suggestionText = `Considere atribuir P${bestPriorityToSuggest} (${PRIORITY_LABELS[bestPriorityToSuggest]}) para balancear o ranking.`;
+          suggestionText = `Considere atribuir P${bestPriorityToSuggest} (${PRIORITY_LABELS[bestPriorityToSuggest]}) para balancear o ranking (excluindo P4).`;
       } else {
-          suggestionText = "Sua distribuição de prioridades está bem equilibrada ou acima dos alvos Fibonacci.";
+          suggestionText = "Sua distribuição de prioridades (excluindo P4) está bem equilibrada ou acima dos alvos Fibonacci.";
       }
 
       return { targetCounts, suggestionText };
-  }, [totalTasksInReview, allTaskCountsByPriority]);
+  }, [tasksToReview, allTaskCountsByPriority]);
 
 
   return (
@@ -470,9 +474,9 @@ const SeitonReview = () => {
               {fibonacciSuggestion ? (
                   <>
                       <p className="text-sm text-gray-600">
-                          Distribuição ideal (Fibonacci 1:2:3:5 para P1:P2:P3:P4) para {totalTasksInReview} tarefas:
+                          Distribuição ideal (Fibonacci 1:2:3 para P1:P2:P3) para {fibonacciSuggestion.totalTasksForFibonacci} tarefas:
                       </p>
-                      {Object.entries(FIBONACCI_RATIOS).sort(([pA], [pB]) => parseInt(pB) - parseInt(pA)).map(([priority, ratio]) => {
+                      {Object.entries(FIBONACCI_RATIOS_FOR_SUGGESTION).sort(([pA], [pB]) => parseInt(pB) - parseInt(pA)).map(([priority, ratio]) => {
                           const p = parseInt(priority) as 1 | 2 | 3 | 4;
                           const currentCount = allTaskCountsByPriority[p];
                           const targetCount = fibonacciSuggestion.targetCounts[p];
