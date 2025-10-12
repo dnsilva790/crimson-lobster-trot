@@ -179,6 +179,7 @@ export const useExecucaoTasks = (
     };
 
     const _loadFromPlanner = async (): Promise<TodoistTask[]> => {
+        // ALWAYS re-read from localStorage to get the latest state
         const plannerStorage = localStorage.getItem(PLANNER_STORAGE_KEY);
         if (!plannerStorage) {
           toast.info("Nenhum dado do Planejador encontrado.");
