@@ -9,7 +9,7 @@ import { Send, Bot, User, Lightbulb, CalendarCheck } from "lucide-react";
 import { TodoistTask, InternalTask, DaySchedule, RecurringTimeBlock, TimeBlockType, ScheduledTask } from "@/lib/types";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
-import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addDays, isEqual, isBefore, startOfMinute, isValid } from "date-fns";
+import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addDays, isEqual, isBefore, startOfMinute, isValid, getDay } from "date-fns"; // Adicionado getDay
 import { ptBR } from "date-fns/locale";
 
 interface PlannerAIAssistantProps {
