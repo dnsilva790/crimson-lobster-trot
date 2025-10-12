@@ -20,9 +20,9 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from "sonner";
 
 
-const AI_PROMPT_STORAGE_KEY = "ai_tutor_seiso_prompt";
-const EXECUCAO_FILTER_INPUT_STORAGE_KEY = "execucao_filter_input";
-const EXECUCAO_CATEGORY_FILTER_STORAGE_KEY = "execucao_category_filter";
+const AI_PROMPT_STORAGE_KEY = "ai_tutor_novoseiso_prompt"; // Atualizado
+const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input"; // Atualizado
+const NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY = "novoseiso_category_filter"; // Atualizado
 
 const defaultAiPrompt = `**TUTOR IA SEISO - COACH DE EXECUÇÃO ESTRATÉGICA E PRODUTIVIDADE**
 **MISSÃO PRINCIPAL**
@@ -104,17 +104,17 @@ Clara, Objetiva e Focada na Ação: Sua comunicação é direta e prática.
 Positiva e Encorajadora: Apesar da firmeza, sua linguagem é positiva e construtiva, para construir disciplina sem gerar sobrecarga emocional. Você reconhece o esforço e celebra as vitórias.
 Anti-Procrastinação: Você é especialista em quebrar a inércia, transformando tarefas vagas em ações concretas e imediatas.`;
 
-const Execucao = () => {
+const NovoSeiso = () => { // Renomeado o componente
   const { closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(EXECUCAO_FILTER_INPUT_STORAGE_KEY) || "";
+      return localStorage.getItem(NOVO_SEISO_FILTER_INPUT_STORAGE_KEY) || ""; // Atualizado
     }
     return "";
   });
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<"all" | "pessoal" | "profissional">(() => {
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem(EXECUCAO_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all";
+      return (localStorage.getItem(NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all"; // Atualizado
     }
     return "all";
   });
@@ -122,13 +122,13 @@ const Execucao = () => {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(EXECUCAO_FILTER_INPUT_STORAGE_KEY, filterInput);
+      localStorage.setItem(NOVO_SEISO_FILTER_INPUT_STORAGE_KEY, filterInput); // Atualizado
     }
   }, [filterInput]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(EXECUCAO_CATEGORY_FILTER_STORAGE_KEY, selectedCategoryFilter);
+      localStorage.setItem(NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY, selectedCategoryFilter); // Atualizado
     }
   }, [selectedCategoryFilter]);
 
@@ -218,7 +218,7 @@ const Execucao = () => {
   return (
     <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2">
-        <h2 className="text-3xl font-bold mb-2 text-gray-800">⚡ EXECUÇÃO - Modo Foco Total</h2>
+        <h2 className="text-3xl font-bold mb-2 text-gray-800">✨ NOVO SEISO - Modo Foco Total</h2> {/* Título atualizado */}
         <p className="text-lg text-gray-600 mb-6">Concentre-se em uma tarefa por vez.</p>
 
         {isLoading && (
@@ -288,4 +288,4 @@ const Execucao = () => {
   );
 };
 
-export default Execucao;
+export default NovoSeiso;

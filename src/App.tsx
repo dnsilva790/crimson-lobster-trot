@@ -13,8 +13,7 @@ import { TodoistProvider } from "./context/TodoistContext";
 import Seiri from "./pages/Seiri";
 import Seiketsu from "./pages/Seiketsu"; // Renomeado de GTDProcessor
 import Seiton from "./pages/Seiton";
-import Seiso from "./pages/Seiso";
-import Execucao from "./pages/Execucao";
+import NovoSeiso from "./pages/NovoSeiso"; // Renomeado de Execucao
 import InternalTasks from "./pages/InternalTasks";
 import Planejador from "./pages/Planejador";
 import Shitsuke from "./pages/Shitsuke";
@@ -40,8 +39,7 @@ const App = () => (
               <Route path="/seiketsu" element={<Seiketsu />} /> {/* Rota atualizada para Seiketsu */}
               <Route path="/seiton-review" element={<SeitonReview />} /> {/* Nova rota para SeitonReview */}
               <Route path="/seiton" element={<Seiton />} />
-              <Route path="/seiso" element={<Seiso />} />
-              <Route path="/execucao" element={<Execucao />} />
+              <Route path="/novoseiso" element={<NovoSeiso />} /> {/* Rota atualizada para NovoSeiso */}
               <Route path="/internal-tasks" element={<InternalTasks />} />
               <Route path="/planejador" element={<Planejador />} />
               <Route path="/shitsuke" element={<Shitsuke />} />

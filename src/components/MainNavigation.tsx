@@ -4,12 +4,11 @@ import ModuleCard from "@/components/ui/module-card";
 import {
   ClipboardList,
   Trophy,
-  Sparkles,
+  Sparkles, // Ícone para Novo Seiso
   BarChart,
-  Zap,
   ListTodo,
   CalendarDays,
-  Star, // Ícone para Shitsuke
+  Star, // Ícone para Shitsuke e Seiton Review
   Users, // Ícone para Follow-Up
 } from "lucide-react";
 
@@ -47,20 +46,12 @@ const modules = [
     activeColor: "border-orange-600",
   },
   {
-    path: "/seiso",
-    icon: Sparkles,
-    title: "SEISO",
-    description: "Limpeza e Revisão",
-    colorClass: "bg-blue-100 hover:bg-blue-200",
+    path: "/novoseiso", // Rota atualizada para Novo Seiso
+    icon: Sparkles, // Ícone para Novo Seiso
+    title: "NOVO SEISO", // Título atualizado
+    description: "Modo Foco Total", // Descrição mantida
+    colorClass: "bg-blue-100 hover:bg-blue-200", // Cor atualizada
     activeColor: "border-blue-600",
-  },
-  {
-    path: "/execucao",
-    icon: Zap,
-    title: "EXECUÇÃO",
-    description: "Modo Foco Total",
-    colorClass: "bg-red-100 hover:bg-red-200",
-    activeColor: "border-red-600",
   },
   {
     path: "/internal-tasks",
