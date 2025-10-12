@@ -23,35 +23,42 @@ export const useExecucaoTasks = (
   const [execucaoState, setExecucaoState] = useState<ExecucaoState>("initial");
   const [seitonRankedTasks, setSeitonRankedTasks] = useState<TodoistTask[]>([]); // New state for Seiton ranked tasks
 
+  // Define a default state object for Seiton
+  const defaultSeitonState: SeitonStateSnapshot = {
+    tasksToProcess: [],
+    rankedTasks: [],
+    currentTaskToPlace: null,
+    comparisonCandidate: null,
+    comparisonIndex: 0,
+    tournamentState: "initial",
+  };
+
   // Load Seiton ranked tasks once on mount or when relevant state changes
   useEffect(() => {
     const loadSeitonRanking = () => {
+      let loadedState: SeitonStateSnapshot = defaultSeitonState;
       try {
         const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
-        // Ensure parsedState always has a default structure if savedSeitonState is null or invalid JSON
-        const parsedState: SeitonStateSnapshot = savedSeitonState 
-          ? JSON.parse(savedSeitonState) 
-          : {
-              tasksToProcess: [],
-              rankedTasks: [],
-              currentTaskToPlace: null,
-              comparisonCandidate: null,
-              comparisonIndex: 0,
-              tournamentState: "initial",
-            };
+        
+        if (savedSeitonState) {
+          const parsed = JSON.parse(savedSeitonState);
+          // Merge with default to ensure all properties exist, even if not in saved JSON
+          loadedState = { ...defaultSeitonState, ...parsed };
+        }
+        // If savedSeitonState is null, loadedState remains defaultSeitonState
 
-        if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
-          setSeitonRankedTasks(parsedState.rankedTasks);
-          console.log("useExecucaoTasks: Loaded Seiton ranked tasks from localStorage:", parsedState.rankedTasks.length);
+        if (loadedState.rankedTasks && loadedState.rankedTasks.length > 0) {
+          setSeitonRankedTasks(loadedState.rankedTasks);
+          console.log("useExecucaoTasks: Loaded Seiton ranked tasks from localStorage:", loadedState.rankedTasks.length);
         } else {
           setSeitonRankedTasks([]);
           console.log("useExecucaoTasks: Seiton ranked tasks in localStorage are empty or invalid.");
         }
       } catch (e) {
-        console.error("useExecucaoTasks: Failed to load or parse Seiton state from localStorage", e);
+        console.error("useExecucaoTasks: Failed to load or parse Seiton state from localStorage. Error:", e);
         localStorage.removeItem(SEITON_RANKING_STORAGE_KEY);
         toast.error("Erro ao carregar ranking do Seiton. Dados corrompidos foram removidos.");
-        setSeitonRankedTasks([]);
+        setSeitonRankedTasks([]); // Ensure state is cleared on error
       }
     };
     loadSeitonRanking();
