@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban } from "lucide-react";
+import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban, RotateCcw } from "lucide-react";
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project } from "@/lib/types";
@@ -596,18 +596,20 @@ const Planejador = () => {
     if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask && taskToDelete.originalTask.project_id === meetingProjectId) {
       setIgnoredMeetingTaskIds(prev => [...new Set([...prev, taskToDelete.originalTask!.id])]);
       toast.info(`Reunião "${taskToDelete.content}" removida da agenda e não será pré-alocada novamente.`);
+      setSelectedTaskToSchedule(null); // Clear selection for ignored meetings
     } else if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask && shouldReaddToBacklog) {
       await updateTask(taskToDelete.originalTask.id, {
         due_date: null,
         due_datetime: null,
       });
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e data de vencimento limpa no Todoist.`);
-      handleSelectBacklogTask(taskToDelete.originalTask);
+      handleSelectBacklogTask(taskToDelete.originalTask); // This selects it
     } else if (taskToDelete.originalTask && shouldReaddToBacklog) {
-      handleSelectBacklogTask(taskToDelete.originalTask);
+      handleSelectBacklogTask(taskToDelete.originalTask); // This selects it
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e pronta para ser reagendada.`);
-    } else {
+    } else { // shouldReaddToBacklog is false, or no originalTask
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda.`);
+      setSelectedTaskToSchedule(null); // Clear selection if not re-adding to backlog or no original task
     }
     fetchBacklogTasks();
   }, [selectedDate, fetchBacklogTasks, handleSelectBacklogTask, meetingProjectId, ignoredMeetingTaskIds, updateTask]);
@@ -1054,6 +1056,9 @@ const Planejador = () => {
                 </Button>
               </div>
             </div>
+            <Button onClick={fetchBacklogTasks} disabled={isLoading} className="w-full mt-2 flex items-center justify-center">
+              <RotateCcw className="h-4 w-4 mr-2" /> Recarregar Backlog
+            </Button>
 
             {selectedTaskToSchedule && (
               <div className="mb-4 p-3 border border-indigo-400 bg-indigo-50 rounded-md flex flex-col gap-2">
