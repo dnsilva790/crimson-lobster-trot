@@ -202,6 +202,9 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     let bestScore = -Infinity;
     let explanation = ""; // A explicação será usada para um toast, não para o chat
 
+    console.log("PlannerAIAssistant: generateAISuggestion started."); // Log de depuração
+    console.log("PlannerAIAssistant: Task:", task.content, "Duration:", durationMinutes, "Category:", taskCategory, "Priority:", taskPriority); // Log de depuração
+
     const NUM_DAYS_TO_LOOK_AHEAD = 7;
     const now = new Date();
     const startOfToday = startOfDay(now);
@@ -257,23 +260,29 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     if (bestSlot) {
       toast.info(explanation); // Exibir a sugestão como um toast
       onSuggestSlot(bestSlot);
+      console.log("PlannerAIAssistant: Best slot found and suggested:", bestSlot); // Log de depuração
     } else {
       toast.error("Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias.");
       onSuggestSlot(null);
+      console.log("PlannerAIAssistant: No suitable slot found."); // Log de depuração
     }
     setIsLoadingAI(false);
   }, [selectedTaskToSchedule, selectedDate, schedules, recurringBlocks, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, scoreSlot, onSuggestSlot, setIsLoadingAI]);
 
 
   const handleTriggerSuggestion = useCallback(async () => {
+    console.log("PlannerAIAssistant: handleTriggerSuggestion called."); // Log de depuração
     if (!selectedTaskToSchedule) {
       toast.error("Por favor, selecione uma tarefa do backlog para eu poder sugerir um slot.");
+      console.log("PlannerAIAssistant: No task selected."); // Log de depuração
       return;
     }
     if (tempSelectedCategory === "none") {
       toast.error("Por favor, classifique a tarefa como 'Pessoal' ou 'Profissional' antes de sugerir um slot.");
+      console.log("PlannerAIAssistant: Category is 'none'."); // Log de depuração
       return;
     }
+    console.log("PlannerAIAssistant: Preconditions met, calling generateAISuggestion."); // Log de depuração
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
     const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory;
     const taskPriority = tempSelectedPriority;

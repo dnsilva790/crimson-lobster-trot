@@ -19,12 +19,12 @@ import { useTodoist } from "@/context/TodoistContext";
 import { getInternalTasks, updateInternalTask } from "@/utils/internalTaskStorage";
 import { getProjects } from "@/utils/projectStorage";
 import LoadingSpinner from "@/components/ui/loading-spinner";
-import PlannerPromptEditor from "@/components/PlannerPromptEditor"; // Reintroduzido
-import PlannerAIAssistant, { PlannerAIAssistantRef } from "@/components/PlannerAIAssistant"; // Reintroduzido
+import PlannerPromptEditor from "@/components/PlannerPromptEditor";
+import PlannerAIAssistant, { PlannerAIAssistantRef } from "@/components/PlannerAIAssistant";
 
 const PLANNER_STORAGE_KEY = "planner_schedules_v2";
 const MEETING_PROJECT_NAME = "📅 Reuniões";
-const PLANNER_AI_PROMPT_STORAGE_KEY = "planner_ai_prompt"; // Reintroduzido
+const PLANNER_AI_PROMPT_STORAGE_KEY = "planner_ai_prompt";
 
 const defaultPlannerAiPrompt = `**AGENTE DE SUGESTÃO DE SLOTS DO PLANEJADOR**
 **MISSÃO:** Sua missão é sugerir o melhor slot de 15 minutos para uma tarefa no calendário, considerando a categoria da tarefa (Pessoal/Profissional), sua prioridade, os blocos de tempo definidos (Trabalho, Pessoal, Pausa) e o horário atual.
@@ -107,10 +107,10 @@ const Planejador = () => {
   const [shitsukeProjects, setShitsukeProjects] = useState<Project[]>([]);
   const [selectedShitsukeProjectId, setSelectedShitsukeProjectId] = useState<string | 'all'>('all');
 
-  const [plannerAiPrompt, setPlannerAiPrompt] = useState<string>(defaultPlannerAiPrompt); // Reintroduzido
+  const [plannerAiPrompt, setPlannerAiPrompt] = useState<string>(defaultPlannerAiPrompt);
 
   // Ref para o componente PlannerAIAssistant para chamar métodos
-  const plannerAIAssistantRef = useRef<PlannerAIAssistantRef>(null); // Reintroduzido
+  const plannerAIAssistantRef = useRef<PlannerAIAssistantRef>(null);
 
   useEffect(() => {
     setShitsukeProjects(getProjects());
@@ -142,16 +142,16 @@ const Planejador = () => {
   }, [schedules, recurringBlocks, ignoredMeetingTaskIds]);
 
   useEffect(() => {
-    const savedPrompt = localStorage.getItem(PLANNER_AI_PROMPT_STORAGE_KEY); // Reintroduzido
+    const savedPrompt = localStorage.getItem(PLANNER_AI_PROMPT_STORAGE_KEY);
     if (savedPrompt) {
       setPlannerAiPrompt(savedPrompt);
     }
-  }, []); // Reintroduzido
+  }, []);
 
-  const handleSavePlannerAiPrompt = useCallback((newPrompt: string) => { // Reintroduzido
+  const handleSavePlannerAiPrompt = useCallback((newPrompt: string) => {
     setPlannerAiPrompt(newPrompt);
     localStorage.setItem(PLANNER_AI_PROMPT_STORAGE_KEY, newPrompt);
-  }, []); // Reintroduzido
+  }, []);
 
   useEffect(() => {
     const getMeetingProjectId = async () => {
@@ -644,13 +644,14 @@ const Planejador = () => {
     }
   }, [meetingProjectId, fetchTasks, ignoredMeetingTaskIds, getCombinedTimeBlocksForDate, schedules, scheduleTask, tempSelectedCategory, tempSelectedPriority, tempEstimatedDuration, fetchBacklogTasks]);
 
-  const handleSuggestSlot = useCallback(() => { // Reintroduzido
+  const handleSuggestSlot = useCallback(() => {
+    console.log("Planejador: handleSuggestSlot called."); // Log de depuração
     if (plannerAIAssistantRef.current) {
       plannerAIAssistantRef.current.triggerSuggestion();
     } else {
       toast.error("O assistente de IA não está pronto. Tente novamente.");
     }
-  }, []); // Reintroduzido
+  }, []);
 
   const handleSelectSlot = useCallback((time: string, type: TimeBlockType) => {
     if (!selectedTaskToSchedule) {
@@ -936,7 +937,7 @@ const Planejador = () => {
 
       <div className="lg:col-span-1">
         <div className="flex justify-end mb-4">
-          <PlannerPromptEditor // Reintroduzido
+          <PlannerPromptEditor
             initialPrompt={plannerAiPrompt}
             onSave={handleSavePlannerAiPrompt}
             storageKey={PLANNER_AI_PROMPT_STORAGE_KEY}
@@ -1121,7 +1122,7 @@ const Planejador = () => {
         </Card>
         {/* PlannerAIAssistant component */}
         <div className="mt-6">
-          <PlannerAIAssistant // Reintroduzido
+          <PlannerAIAssistant
             ref={plannerAIAssistantRef}
             plannerAiPrompt={plannerAiPrompt}
             selectedTaskToSchedule={selectedTaskToSchedule}
