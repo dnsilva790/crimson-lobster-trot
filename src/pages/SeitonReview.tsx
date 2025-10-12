@@ -175,11 +175,15 @@ const SeitonReview = () => {
   const handleAssignPriority = useCallback(async (newPriority: 1 | 2 | 3 | 4) => {
     if (!currentTask) return;
 
+    console.log(`SeitonReview: Tentando atualizar a tarefa ${currentTask.id} para a prioridade numérica: ${newPriority}`);
     const updated = await updateTask(currentTask.id, { priority: newPriority });
+    
     if (updated) {
-      toast.success(`Prioridade da tarefa "${currentTask.content}" atualizada para P${newPriority}!`);
+      console.log(`SeitonReview: Tarefa ${updated.id} atualizada. Nova prioridade da API: ${updated.priority}`);
+      toast.success(`Prioridade da tarefa "${currentTask.content}" atualizada para ${PRIORITY_LABELS[newPriority]}!`);
       advanceToNextTask();
     } else {
+      console.error(`SeitonReview: Falha ao atualizar a prioridade da tarefa ${currentTask.id}.`);
       toast.error("Falha ao atualizar a prioridade da tarefa.");
     }
   }, [currentTask, updateTask, advanceToNextTask]);
