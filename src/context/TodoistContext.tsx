@@ -13,7 +13,7 @@ interface TodoistContextType {
   apiKey: string | null;
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
-  fetchTasks: (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean }) => Promise<TodoistTask[]>;
+  fetchTasks: (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean; includeCompleted?: boolean }) => Promise<TodoistTask[]>;
   fetchTaskById: (taskId: string) => Promise<TodoistTask | undefined>;
   fetchProjects: () => Promise<TodoistProject[]>;
   closeTask: (taskId: string) => Promise<void>;
@@ -132,12 +132,23 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
   );
 
   const fetchTasks = useCallback(
-    async (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean }) => {
-      const rawTasks = await makeApiCall(todoistService.fetchTasks, filter);
+    async (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean; includeCompleted?: boolean }) => {
+      const finalOptions = {
+        includeSubtasks: options?.includeSubtasks ?? false, // Default to false for subtasks
+        includeRecurring: options?.includeRecurring ?? false, // Default to false for recurring
+        includeCompleted: options?.includeCompleted ?? false, // Default to false for completed
+      };
+
+      let todoistApiFilter = filter || "";
+      if (!finalOptions.includeCompleted) {
+        todoistApiFilter = todoistApiFilter ? `${todoistApiFilter} & !is_completed` : "!is_completed";
+      }
+
+      const rawTasks = await makeApiCall(todoistService.fetchTasks, todoistApiFilter);
       
       console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
       rawTasks.forEach(task => {
-        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}`);
+        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}, is_completed: ${task.is_completed}`);
       });
 
       // Sanitização completa das tarefas
@@ -161,12 +172,6 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
         }
         return { ...task, estimatedDurationMinutes };
       });
-
-      // Aplicar filtragem com base nas opções
-      const finalOptions = {
-        includeSubtasks: options?.includeSubtasks ?? true,
-        includeRecurring: options?.includeRecurring ?? true,
-      };
 
       let processedTasks = tasksWithDuration;
 

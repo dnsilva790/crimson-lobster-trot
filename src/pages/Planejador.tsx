@@ -228,6 +228,7 @@ const Planejador = () => {
         }
       }
 
+      // fetchTasks now defaults to !is_completed, so no explicit filter needed here
       const todoistTasks = await fetchTasks(todoistFilter, { includeSubtasks: includeSubtasksForTodoist, includeRecurring: false }); 
       const internalTasks = getInternalTasks();
 
@@ -298,9 +299,54 @@ const Planejador = () => {
     }
   }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingTaskIds, selectedShitsukeProjectId, shitsukeProjects, fetchTaskById]);
 
+  // NEW: Function to sync scheduled tasks with Todoist status
+  const syncScheduledTasks = useCallback(async () => {
+    console.log("Planejador: Iniciando sincronização de tarefas agendadas com o Todoist.");
+    let updatedSchedules = { ...schedules };
+    let changesMade = false;
+
+    for (const dateKey in updatedSchedules) {
+      const daySchedule = updatedSchedules[dateKey];
+      const originalScheduledTasks = [...daySchedule.scheduledTasks];
+      const newScheduledTasks: ScheduledTask[] = [];
+
+      for (const scheduledTask of originalScheduledTasks) {
+        if (scheduledTask.originalTask && 'project_id' in scheduledTask.originalTask) { // It's a Todoist task
+          const todoistTask = await fetchTaskById(scheduledTask.originalTask.id);
+          if (todoistTask === undefined || todoistTask.is_completed) {
+            console.log(`Planejador: Tarefa Todoist agendada "${scheduledTask.content}" (ID: ${scheduledTask.taskId}) está concluída ou não existe mais. Removendo da agenda.`);
+            changesMade = true;
+          } else {
+            newScheduledTasks.push(scheduledTask);
+          }
+        } else { // Internal task, keep as is (completion handled internally)
+          newScheduledTasks.push(scheduledTask);
+        }
+      }
+      if (newScheduledTasks.length !== originalScheduledTasks.length) {
+        updatedSchedules[dateKey] = { ...daySchedule, scheduledTasks: newScheduledTasks };
+        changesMade = true;
+      }
+    }
+
+    if (changesMade) {
+      setSchedules(updatedSchedules);
+      toast.info("Agenda sincronizada com o status das tarefas do Todoist.");
+    }
+    console.log("Planejador: Sincronização de tarefas agendadas concluída.");
+  }, [schedules, fetchTaskById]);
+
+
   useEffect(() => {
     fetchBacklogTasks();
-  }, [fetchBacklogTasks]);
+    // Call syncScheduledTasks after fetching backlog to ensure schedule is up-to-date
+    syncScheduledTasks();
+  }, [fetchBacklogTasks, syncScheduledTasks]); // Add syncScheduledTasks to dependency array
+
+  // Also call syncScheduledTasks when selectedDate changes to ensure the current view is fresh
+  useEffect(() => {
+    syncScheduledTasks();
+  }, [selectedDate, syncScheduledTasks]);
 
   useEffect(() => {
     if (selectedTaskToSchedule && backlogTasks.length > 0) {
