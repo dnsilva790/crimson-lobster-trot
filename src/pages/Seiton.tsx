@@ -292,6 +292,7 @@ const Seiton = () => {
         setComparisonIndex(parsedState.comparisonIndex);
         setHasSavedState(true);
         toast.info("Estado do torneio carregado. Clique em 'Continuar Torneio' para prosseguir.");
+        console.log("Seiton: Successfully parsed saved state from localStorage:", parsedState);
       } catch (e) {
         console.error("Failed to parse saved state from localStorage", e);
         localStorage.removeItem(LOCAL_STORAGE_KEY);
@@ -310,6 +311,7 @@ const Seiton = () => {
         tournamentState,
       };
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+      console.log("Seiton: State saved to localStorage:", stateToSave); // Added console.log here
       setHasSavedState(true);
     }
   }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState]);
