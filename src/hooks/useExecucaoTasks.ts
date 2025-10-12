@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask, SeitonStateSnapshot, ScheduledTask, InternalTask } from "@/lib/types";
 import { toast } from "sonner";
-import { parseISO, isValid, format, startOfDay, addDays, isAfter, isEqual, startOfMinute, parse } from "date-fns";
+import { parseISO, isValid, format, startOfDay, addDays, isAfter, isEqual, startOfMinute, parse, isBefore } from "date-fns";
 
 type ExecucaoState = "initial" | "focusing" | "finished";
 
@@ -47,7 +47,7 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     loadSeitonRanking();
     // Listen for changes in localStorage from other tabs/windows (e.g., Seiton module)
     window.addEventListener('storage', loadSeitonRanking);
-    return () => window.removeEventListener('change', loadSeitonRanking); // Changed to 'change' for localStorage events
+    return () => window.removeEventListener('storage', loadSeitonRanking);
   }, []); // Run once on mount
 
   const sortTasksForFocus = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
@@ -116,6 +116,38 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     let finalCombinedTasks: TodoistTask[] = [];
     const seenTaskIds = new Set<string>();
 
+    // Helper to convert InternalTask to TodoistTask format
+    const convertInternalTaskToTodoistTask = (internalTask: InternalTask): TodoistTask => ({
+      id: internalTask.id,
+      content: internalTask.content,
+      description: internalTask.description || '',
+      is_completed: internalTask.isCompleted,
+      labels: [internalTask.category],
+      priority: 1, // Default priority for internal tasks
+      due: internalTask.dueDate ? {
+          date: internalTask.dueDate,
+          string: internalTask.dueDate,
+          lang: 'pt',
+          is_recurring: false,
+          datetime: internalTask.dueTime ? `${internalTask.dueDate}T${internalTask.dueTime}:00` : null,
+          timezone: null,
+      } : null,
+      duration: internalTask.estimatedDurationMinutes ? {
+          amount: internalTask.estimatedDurationMinutes,
+          unit: 'minute'
+      } : null,
+      url: '#', // Placeholder URL
+      comment_count: 0,
+      created_at: internalTask.createdAt,
+      creator_id: 'internal',
+      project_id: 'internal', // Placeholder
+      section_id: null,
+      parent_id: null,
+      order: 0,
+      estimatedDurationMinutes: internalTask.estimatedDurationMinutes,
+      deadline: null,
+    });
+
     // 1. First, try to load tasks based on the explicit execution filter (if active)
     if (isExecucaoFilterActive) {
       let execucaoFilteredTasks = await fetchTasks(finalExecucaoFilter, fetchOptions);
@@ -133,89 +165,59 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
       }
     }
 
-    // 2. If no tasks from the explicit filter, try to load tasks from the Planner
-    if (finalCombinedTasks.length === 0) {
-        const plannerStorage = localStorage.getItem(PLANNER_STORAGE_KEY);
-        if (plannerStorage) {
-            const { schedules: storedSchedules } = JSON.parse(plannerStorage);
-            const now = new Date();
-            const todayKey = format(startOfDay(now), "yyyy-MM-dd");
-            const tomorrowKey = format(addDays(startOfDay(now), 1), "yyyy-MM-dd");
+    // 2. Collect tasks from Planner (Overdue first, then Today/Tomorrow)
+    const plannerStorage = localStorage.getItem(PLANNER_STORAGE_KEY);
+    if (plannerStorage) {
+        const { schedules: storedSchedules } = JSON.parse(plannerStorage);
+        const now = new Date();
+        const todayKey = format(startOfDay(now), "yyyy-MM-dd");
+        const tomorrowKey = format(addDays(startOfDay(now), 1), "yyyy-MM-dd");
 
-            const relevantScheduledTasks: ScheduledTask[] = [];
+        const allRelevantScheduledTasks: ScheduledTask[] = [];
 
-            // Collect tasks for today and tomorrow
-            [todayKey, tomorrowKey].forEach(dateKey => {
-                if (storedSchedules[dateKey] && storedSchedules[dateKey].scheduledTasks) {
-                    storedSchedules[dateKey].scheduledTasks.forEach((st: ScheduledTask) => {
-                        const taskStartDateTime = parse(st.start, "HH:mm", parseISO(dateKey));
-                        // Only consider tasks that start now or in the future
-                        if (isValid(taskStartDateTime) && (isAfter(taskStartDateTime, now) || isEqual(taskStartDateTime, startOfMinute(now)))) {
-                            relevantScheduledTasks.push(st);
-                        }
-                    });
+        // Collect tasks for all days in schedules
+        for (const dateKey in storedSchedules) {
+            if (storedSchedules[dateKey] && storedSchedules[dateKey].scheduledTasks) {
+                storedSchedules[dateKey].scheduledTasks.forEach((st: ScheduledTask) => {
+                    const taskStartDateTime = parse(st.start, "HH:mm", parseISO(dateKey));
+                    if (isValid(taskStartDateTime)) {
+                        allRelevantScheduledTasks.push({ ...st, scheduledDateTime: taskStartDateTime });
+                    }
+                });
+            }
+        }
+
+        // Separate overdue tasks from future/current tasks
+        const overdueScheduledTasks = allRelevantScheduledTasks.filter(st => isBefore(st.scheduledDateTime, now));
+        const futureOrCurrentScheduledTasks = allRelevantScheduledTasks.filter(st => !isBefore(st.scheduledDateTime, now));
+
+        // Sort overdue tasks by how long ago they were due (earliest overdue first)
+        overdueScheduledTasks.sort((a, b) => a.scheduledDateTime.getTime() - b.scheduledDateTime.getTime());
+        // Sort future/current tasks by their scheduled time (earliest first)
+        futureOrCurrentScheduledTasks.sort((a, b) => a.scheduledDateTime.getTime() - b.scheduledDateTime.getTime());
+
+        const combinedPlannerTasks = [...overdueScheduledTasks, ...futureOrCurrentScheduledTasks];
+
+        for (const st of combinedPlannerTasks) {
+            if (seenTaskIds.has(st.taskId)) continue;
+
+            let actualTask: TodoistTask | InternalTask | undefined = st.originalTask;
+
+            if (actualTask && 'project_id' in actualTask) { // It's a Todoist task
+                const latestTodoistTask = await fetchTaskById(actualTask.id);
+                if (latestTodoistTask && !latestTodoistTask.is_completed) {
+                    finalCombinedTasks.push(latestTodoistTask);
+                    seenTaskIds.add(latestTodoistTask.id);
                 }
-            });
-
-            // Sort by start time
-            relevantScheduledTasks.sort((a, b) => {
-                const dateA = parse(a.start, "HH:mm", startOfDay(now));
-                const dateB = parse(b.start, "HH:mm", startOfDay(now));
-                return dateA.getTime() - dateB.getTime();
-            });
-
-            for (const st of relevantScheduledTasks) {
-                if (seenTaskIds.has(st.taskId)) continue;
-
-                let actualTask: TodoistTask | InternalTask | undefined = st.originalTask;
-
-                if (actualTask && 'project_id' in actualTask) { // It's a Todoist task
-                    const latestTodoistTask = await fetchTaskById(actualTask.id);
-                    if (latestTodoistTask && !latestTodoistTask.is_completed) {
-                        finalCombinedTasks.push(latestTodoistTask);
-                        seenTaskIds.add(latestTodoistTask.id);
-                    }
-                } else if (actualTask && 'category' in actualTask) { // It's an InternalTask
-                    if (!actualTask.isCompleted) {
-                        // Convert InternalTask to TodoistTask format for consistency in focusTasks
-                        const mockTodoistTask: TodoistTask = {
-                            id: actualTask.id,
-                            content: actualTask.content,
-                            description: actualTask.description || '',
-                            is_completed: actualTask.isCompleted,
-                            labels: [actualTask.category],
-                            priority: 1, // Default priority for internal tasks
-                            due: actualTask.dueDate ? {
-                                date: actualTask.dueDate,
-                                string: actualTask.dueDate,
-                                lang: 'pt',
-                                is_recurring: false,
-                                datetime: actualTask.dueTime ? `${actualTask.dueDate}T${actualTask.dueTime}:00` : null,
-                                timezone: null,
-                            } : null,
-                            duration: actualTask.estimatedDurationMinutes ? {
-                                amount: actualTask.estimatedDurationMinutes,
-                                unit: 'minute'
-                            } : null,
-                            url: '#', // Placeholder URL
-                            comment_count: 0,
-                            created_at: actualTask.createdAt,
-                            creator_id: 'internal',
-                            project_id: 'internal', // Placeholder
-                            section_id: null,
-                            parent_id: null,
-                            order: 0,
-                            estimatedDurationMinutes: actualTask.estimatedDurationMinutes,
-                            deadline: null,
-                        };
-                        finalCombinedTasks.push(mockTodoistTask);
-                        seenTaskIds.add(mockTodoistTask.id);
-                    }
+            } else if (actualTask && 'category' in actualTask) { // It's an InternalTask
+                if (!actualTask.isCompleted) {
+                    finalCombinedTasks.push(convertInternalTaskToTodoistTask(actualTask));
+                    seenTaskIds.add(actualTask.id);
                 }
             }
-            if (finalCombinedTasks.length > 0) {
-                toast.info(`Adicionadas ${finalCombinedTasks.length} tarefas agendadas do Planejador.`);
-            }
+        }
+        if (combinedPlannerTasks.length > 0) {
+            toast.info(`Adicionadas ${combinedPlannerTasks.length} tarefas agendadas do Planejador (incluindo atrasadas).`);
         }
     }
 
