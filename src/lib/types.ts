@@ -62,6 +62,8 @@ export interface InternalTask {
   isCompleted: boolean;
   createdAt: string;
   estimatedDurationMinutes?: number; // Adicionado para tarefas internas
+  dueDate?: string | null; // Novo campo para data de vencimento (YYYY-MM-DD)
+  dueTime?: string | null; // Novo campo para hora de vencimento (HH:mm)
 }
 
 // Novas interfaces para o Planejador
