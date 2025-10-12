@@ -103,11 +103,12 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     if (filterInput.trim()) {
       todoistFilterParts.push(filterInput.trim());
     }
+    // Only add category filter if it's not "all"
     if (selectedCategoryFilter !== "all") {
       todoistFilterParts.push(`#${selectedCategoryFilter}`);
     }
     const finalExecucaoFilter = todoistFilterParts.join(" & ");
-    const isExecucaoFilterActive = filterInput.trim() !== "" || selectedCategoryFilter !== "all";
+    const isExecucaoFilterActive = finalExecucaoFilter !== ""; // Check if any filter is active
 
     const fetchOptions = { includeSubtasks: false, includeRecurring: true };
 
@@ -144,7 +145,8 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     }
 
     // 3. Finally, if still more tasks are needed, get all other Todoist tasks
-    let allTodoistTasks: TodoistTask[] = await fetchTasks(undefined, fetchOptions);
+    // Pass undefined as filter to fetch all active tasks if no specific filter is needed
+    let allTodoistTasks: TodoistTask[] = await fetchTasks(undefined, fetchOptions); 
     allTodoistTasks = sortTasksForFocus(allTodoistTasks);
     const uniqueOtherTasks = allTodoistTasks.filter(task => !seenTaskIds.has(task.id));
     uniqueOtherTasks.forEach(task => {
