@@ -20,6 +20,7 @@ import { getInternalTasks, updateInternalTask } from "@/utils/internalTaskStorag
 import { getProjects } from "@/utils/projectStorage";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import PlannerPromptEditor from "@/components/PlannerPromptEditor";
+import PlannerAIAssistant from "@/components/PlannerAIAssistant"; // Import the new component
 
 const PLANNER_STORAGE_KEY = "planner_schedules_v2";
 const MEETING_PROJECT_NAME = "📅 Reuniões";
@@ -107,6 +108,9 @@ const Planejador = () => {
   const [selectedShitsukeProjectId, setSelectedShitsukeProjectId] = useState<string | 'all'>('all');
 
   const [plannerAiPrompt, setPlannerAiPrompt] = useState<string>(defaultPlannerAiPrompt);
+
+  // Ref para o componente PlannerAIAssistant para chamar métodos
+  const plannerAIAssistantRef = useRef<{ triggerSuggestion: () => void }>(null);
 
   useEffect(() => {
     setShitsukeProjects(getProjects());
@@ -610,268 +614,12 @@ const Planejador = () => {
     fetchBacklogTasks();
   }, [selectedTaskToSchedule, tempEstimatedDuration, tempSelectedCategory, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate, fetchBacklogTasks]);
 
-  const suggestTimeSlot = useCallback(async () => {
-    if (!selectedTaskToSchedule) {
-      toast.error("Selecione uma tarefa do backlog para sugerir um slot.");
-      return;
+  // A função suggestTimeSlot agora será chamada pelo PlannerAIAssistant
+  const handleSuggestSlot = useCallback(() => {
+    if (plannerAIAssistantRef.current) {
+      plannerAIAssistantRef.current.triggerSuggestion();
     }
-
-    if (tempSelectedCategory === "none") {
-      toast.error("Por favor, classifique a tarefa como 'Pessoal' ou 'Profissional' antes de sugerir um slot.");
-      return;
-    }
-
-    const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
-    const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory;
-    const taskPriority = tempSelectedPriority;
-
-    let bestSlot: { start: string; end: string; date: string } | null = null;
-    let bestScore = -Infinity;
-
-    const NUM_DAYS_TO_LOOK_AHEAD = 7;
-    const now = new Date();
-    const startOfToday = startOfDay(now);
-
-    for (let dayOffset = 0; dayOffset < NUM_DAYS_TO_LOOK_AHEAD; dayOffset++) {
-      const currentDayDate = addDays(selectedDate, dayOffset);
-      const startOfCurrentDay = startOfDay(currentDayDate);
-
-      if (isBefore(startOfCurrentDay, startOfToday)) {
-        continue;
-      }
-
-      const currentDayDateKey = format(currentDayDate, "yyyy-MM-dd");
-      
-      const combinedBlocksForSuggestion = getCombinedTimeBlocksForDate(currentDayDate);
-      const scheduledTasksForSuggestion = schedules[currentDayDateKey]?.scheduledTasks || [];
-
-      let startHour = 0;
-      let startMinute = 0;
-
-      if (isEqual(startOfCurrentDay, startOfToday)) {
-        const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-        // Round up to the next 15-minute interval if current minute is not exactly on an interval
-        startHour = Math.floor(currentTotalMinutes / 60);
-        startMinute = Math.ceil((currentTotalMinutes % 60) / 15) * 15;
-        if (startMinute === 60) { // If rounding up to 60 minutes, increment hour and reset minutes
-          startHour++;
-          startMinute = 0;
-        }
-      }
-
-      for (let hour = startHour; hour < 24; hour++) {
-        for (let minute = (hour === startHour ? startMinute : 0); minute < 60; minute += 15) {
-          const slotStart = setMinutes(setHours(currentDayDate, hour), minute);
-          let slotEnd = addMinutes(slotStart, durationMinutes);
-          const slotStartStr = format(slotStart, "HH:mm");
-          const slotEndStr = format(slotEnd, "HH:mm");
-
-          // Ensure the start of the slot is not in the past relative to 'now'
-          if (isBefore(slotStart, now)) {
-            continue;
-          }
-
-          let isOverlappingBreak = false;
-          for (const block of combinedBlocksForSuggestion) {
-            if (block.type === "break") {
-              const blockStart = (typeof block.start === 'string' && block.start) ? parse(block.start, "HH:mm", currentDayDate) : null;
-              let blockEnd = (typeof block.end === 'string' && block.end) ? parse(block.end, "HH:mm", currentDayDate) : null;
-              if (!blockStart || !blockEnd || !isValid(blockStart) || !isValid(blockEnd)) continue;
-
-              if (isBefore(blockEnd, blockStart)) {
-                blockEnd = addDays(blockEnd, 1);
-              }
-              if (isWithinInterval(slotStart, { start: blockStart, end: blockEnd }) ||
-                  isWithinInterval(slotEnd, { start: blockStart, end: blockEnd }) ||
-                  (slotStart <= blockStart && slotEnd >= blockEnd)) {
-                isOverlappingBreak = true;
-                break;
-              }
-            }
-          }
-          if (isOverlappingBreak) {
-            continue;
-          }
-
-          const hasConflict = scheduledTasksForSuggestion.some(st => {
-            const stStart = (typeof st.start === 'string' && st.start) ? parse(st.start, "HH:mm", currentDayDate) : null;
-            const stEnd = (typeof st.end === 'string' && st.end) ? parse(st.end, "HH:mm", currentDayDate) : null;
-            if (!stStart || !stEnd || !isValid(stStart) || !isValid(stEnd)) return false;
-
-            return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
-                    isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
-                    (slotStart <= stStart && slotEnd >= stEnd));
-          });
-          if (hasConflict) continue;
-
-          let currentSlotScore = 0;
-          let fitsInAppropriateBlock = false;
-
-          for (const block of combinedBlocksForSuggestion) {
-            if (block.type === "break") continue;
-
-            const blockStart = (typeof block.start === 'string' && block.start) ? parse(block.start, "HH:mm", currentDayDate) : null;
-            let blockEnd = (typeof block.end === 'string' && block.end) ? parse(block.end, "HH:mm", currentDayDate) : null;
-            if (!blockStart || !blockEnd || !isValid(blockStart) || !isValid(blockEnd)) continue;
-
-            if (isBefore(blockEnd, blockStart)) {
-              blockEnd = addDays(blockEnd, 1);
-            }
-
-            if (slotStart >= blockStart && slotEnd <= blockEnd) {
-              let isCategoryMatch = false;
-              if (taskCategory === "profissional" && block.type === "work") {
-                isCategoryMatch = true;
-                currentSlotScore += 10;
-              } else if (taskCategory === "pessoal" && block.type === "personal") {
-                isCategoryMatch = true;
-                currentSlotScore += 10;
-              } else if (taskCategory === undefined && (block.type === "work" || block.type === "personal")) {
-                isCategoryMatch = true;
-                currentSlotScore += 5;
-              }
-
-              if (isCategoryMatch) {
-                fitsInAppropriateBlock = true;
-
-                if (block.type === "work" && taskCategory === "profissional" &&
-                    slotStart.getHours() >= 6 && slotStart.getHours() < 10) {
-                  currentSlotScore += 5;
-                }
-                break;
-              }
-            }
-          }
-
-          if (!fitsInAppropriateBlock && combinedBlocksForSuggestion.length > 0) {
-            currentSlotScore -= 5;
-          } else if (combinedBlocksForSuggestion.length === 0) {
-            fitsInAppropriateBlock = true;
-            currentSlotScore += 5;
-          }
-
-          switch (taskPriority) {
-            case 4: currentSlotScore += 8; break;
-            case 3: currentSlotScore += 6; break;
-            case 2: currentSlotScore += 4; break;
-            case 1: currentSlotScore += 2; break;
-          }
-
-          if (isEqual(currentDayDate, startOfToday)) {
-            currentSlotScore += 200;
-          } else if (isEqual(currentDayDate, addDays(startOfToday, 1))) {
-            currentSlotScore += 100;
-          } else {
-            currentSlotScore -= dayOffset * 10;
-          }
-
-          currentSlotScore -= (hour * 60 + minute) / 100;
-
-          if (currentSlotScore > bestScore) {
-            bestScore = currentSlotScore;
-            bestSlot = { start: slotStartStr, end: slotEndStr, date: currentDayDateKey };
-          }
-        }
-      }
-    }
-
-    if (bestSlot) {
-      setSuggestedSlot(bestSlot);
-      toast.success(`Slot sugerido: ${bestSlot.start} - ${bestSlot.end} em ${format(parseISO(bestSlot.date), "dd/MM", { locale: ptBR })}`);
-    } else {
-      setSuggestedSlot(null);
-      toast.error("Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias.");
-    }
-  }, [selectedTaskToSchedule, selectedDate, schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, plannerAiPrompt]);
-
-  useEffect(() => {
-    if (selectedTaskToSchedule) {
-      setTempEstimatedDuration(String(selectedTaskToSchedule.estimatedDurationMinutes || 15));
-      const initialCategory = getTaskCategory(selectedTaskToSchedule);
-      setTempSelectedCategory(initialCategory || "none");
-      const initialPriority = 'priority' in selectedTaskToSchedule ? selectedTaskToSchedule.priority : 1;
-      setTempSelectedPriority(initialPriority);
-    }
-  }, [selectedTaskToSchedule]);
-
-  const preallocateMeetingTasks = useCallback(async () => {
-    if (!meetingProjectId) {
-      toast.error(`Projeto "${MEETING_PROJECT_NAME}" não encontrado. Não é possível pré-alocar reuniões.`);
-      return;
-    }
-    setIsPreallocatingMeetings(true);
-    toast.loading("Pré-alocando reuniões...");
-
-    try {
-      const allTodoistTasks = await fetchTasks(undefined, { includeSubtasks: true, includeRecurring: true }); 
-      const meetingTasks = allTodoistTasks.filter(
-        task => task.project_id === meetingProjectId && (typeof task.due?.datetime === 'string' && task.due.datetime) && !ignoredMeetingTaskIds.includes(task.id)
-      );
-
-      let allocatedCount = 0;
-      const newSchedules = { ...schedules };
-
-      for (const task of meetingTasks) {
-        const taskDueDateTime = (typeof task.due?.datetime === 'string' && task.due.datetime) ? parseISO(task.due.datetime) : null;
-        if (!taskDueDateTime || !isValid(taskDueDateTime)) {
-          console.warn(`Skipping invalid meeting task due date: ${task.content}`);
-          continue;
-        }
-        const taskDateKey = format(taskDueDateTime, "yyyy-MM-dd");
-        const taskStartTime = format(taskDueDateTime, "HH:mm");
-        const taskEndTime = format(addMinutes(taskDueDateTime, 30), "HH:mm");
-
-        const currentDayScheduledTasks = newSchedules[taskDateKey]?.scheduledTasks || [];
-        const hasConflict = currentDayScheduledTasks.some(st => {
-          const stStart = (typeof st.start === 'string' && st.start) ? parse(st.start, "HH:mm", taskDueDateTime) : null;
-          const stEnd = (typeof st.end === 'string' && st.end) ? parse(st.end, "HH:mm", taskDueDateTime) : null;
-          if (!stStart || !stEnd || !isValid(stStart) || !isValid(stEnd)) return false;
-
-          const proposedStart = (typeof taskStartTime === 'string' && taskStartTime) ? parse(taskStartTime, "HH:mm", taskDueDateTime) : null;
-          const proposedEnd = (typeof taskEndTime === 'string' && taskEndTime) ? parse(taskEndTime, "HH:mm", taskDueDateTime) : null;
-          if (!proposedStart || !proposedEnd || !isValid(proposedStart) || !isValid(proposedEnd)) return false;
-
-
-          return (isWithinInterval(proposedStart, { start: stStart, end: stEnd }) ||
-                  isWithinInterval(proposedEnd, { start: stStart, end: stEnd }) ||
-                  (proposedStart <= stStart && proposedEnd >= stEnd));
-        });
-
-        const alreadyScheduled = currentDayScheduledTasks.some(st => st.originalTask?.id === task.id);
-
-        if (!hasConflict && !alreadyScheduled) {
-          const newScheduledTask: ScheduledTask = {
-            id: `${task.id}-${Date.now()}`,
-            taskId: task.id,
-            content: task.content,
-            description: task.description,
-            start: taskStartTime,
-            end: taskEndTime,
-            priority: task.priority,
-            category: getTaskCategory(task) || "profissional",
-            estimatedDurationMinutes: 30,
-            originalTask: task,
-          };
-
-          if (!newSchedules[taskDateKey]) {
-            newSchedules[taskDateKey] = { date: taskDateKey, timeBlocks: [], scheduledTasks: [] };
-          }
-          newSchedules[taskDateKey].scheduledTasks.push(newScheduledTask);
-          newSchedules[taskDateKey].scheduledTasks.sort((a, b) => a.start.localeCompare(b.start));
-          allocatedCount++;
-        }
-      }
-      setSchedules(newSchedules);
-      toast.success(`Pré-alocadas ${allocatedCount} reuniões.`);
-      fetchBacklogTasks();
-    } catch (error) {
-      console.error("Erro ao pré-alocar reuniões:", error);
-      toast.error("Falha ao pré-alocar reuniões.");
-    } finally {
-      setIsPreallocatingMeetings(false);
-    }
-  }, [meetingProjectId, fetchTasks, schedules, fetchBacklogTasks, ignoredMeetingTaskIds]);
-
+  }, []);
 
   const isLoading = isLoadingTodoist || isLoadingBacklog || isPreallocatingMeetings;
 
@@ -1041,7 +789,7 @@ const Planejador = () => {
             </div>
             <div className="md:col-span-2">
               <Label htmlFor="block-recurrence">Recorrência</Label>
-              <Select value={newBlockRecurrence} onValueChange={(value: "daily" | "dayOfWeek" | "weekdays" | "weekend") => setNewBlockRecurrence(value)}>
+              <Select value={newBlockRecurrence} onValueChange={(value: "daily" | "dayOfWeek" | "daily" | "weekdays" | "weekend") => setNewBlockRecurrence(value)}>
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder="Recorrência" />
                 </SelectTrigger>
@@ -1220,7 +968,7 @@ const Planejador = () => {
                     min="1"
                     className="w-20 text-sm"
                   />
-                  <Button onClick={suggestTimeSlot} className="flex-grow bg-yellow-500 hover:bg-yellow-600 text-white">
+                  <Button onClick={handleSuggestSlot} className="flex-grow bg-yellow-500 hover:bg-yellow-600 text-white">
                     <Lightbulb className="h-4 w-4 mr-2" /> Sugerir Slot
                   </Button>
                 </div>
