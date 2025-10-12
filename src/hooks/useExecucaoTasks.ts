@@ -114,11 +114,10 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     let finalCombinedTasks: TodoistTask[] = [];
     const seenTaskIds = new Set<string>();
 
-    // 1. Get tasks from Execucao filter (highest priority)
-    let execucaoFilteredTasks: TodoistTask[] = [];
     if (isExecucaoFilterActive) {
-      execucaoFilteredTasks = await fetchTasks(finalExecucaoFilter, fetchOptions);
-      execucaoFilteredTasks = sortTasksForFocus(execucaoFilteredTasks); // Sort internally
+      // If an execution filter is active, only load tasks matching that filter.
+      let execucaoFilteredTasks = await fetchTasks(finalExecucaoFilter, fetchOptions);
+      execucaoFilteredTasks = sortTasksForFocus(execucaoFilteredTasks);
       execucaoFilteredTasks.forEach(task => {
         if (!seenTaskIds.has(task.id)) {
           finalCombinedTasks.push(task);
@@ -126,35 +125,37 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
         }
       });
       if (execucaoFilteredTasks.length > 0) {
-        toast.info(`Priorizando ${execucaoFilteredTasks.length} tarefas do filtro de Execução.`);
+        toast.info(`Carregadas ${execucaoFilteredTasks.length} tarefas do filtro de Execução.`);
+      } else {
+        toast.info("Nenhuma tarefa encontrada para o filtro de Execução.");
+      }
+    } else {
+      // If no execution filter is active, combine tasks from Seiton ranking and all other Todoist tasks.
+
+      // 1. Get tasks from Seiton ranking (highest priority in this fallback scenario)
+      let currentSeitonRankedTasks = [...seitonRankedTasks];
+      currentSeitonRankedTasks = sortTasksForFocus(currentSeitonRankedTasks);
+      const uniqueSeitonTasks = currentSeitonRankedTasks.filter(task => !seenTaskIds.has(task.id));
+      uniqueSeitonTasks.forEach(task => {
+        finalCombinedTasks.push(task);
+        seenTaskIds.add(task.id);
+      });
+      if (uniqueSeitonTasks.length > 0) {
+          toast.info(`Adicionadas ${uniqueSeitonTasks.length} tarefas do ranking do Seiton.`);
+      }
+
+      // 2. Get all other tasks (lowest priority in this fallback scenario)
+      let allTodoistTasks: TodoistTask[] = await fetchTasks(undefined, fetchOptions);
+      allTodoistTasks = sortTasksForFocus(allTodoistTasks);
+      const uniqueOtherTasks = allTodoistTasks.filter(task => !seenTaskIds.has(task.id));
+      uniqueOtherTasks.forEach(task => {
+        finalCombinedTasks.push(task);
+        seenTaskIds.add(task.id);
+      });
+      if (uniqueOtherTasks.length > 0) {
+          toast.info(`Adicionadas ${uniqueOtherTasks.length} tarefas restantes do Todoist.`);
       }
     }
-
-    // 2. Get tasks from Seiton ranking (second priority)
-    let currentSeitonRankedTasks = [...seitonRankedTasks]; // Use a copy
-    currentSeitonRankedTasks = sortTasksForFocus(currentSeitonRankedTasks); // Sort internally
-    const uniqueSeitonTasks = currentSeitonRankedTasks.filter(task => !seenTaskIds.has(task.id));
-    uniqueSeitonTasks.forEach(task => {
-      finalCombinedTasks.push(task);
-      seenTaskIds.add(task.id);
-    });
-    if (uniqueSeitonTasks.length > 0) {
-        toast.info(`Adicionadas ${uniqueSeitonTasks.length} tarefas do ranking do Seiton.`);
-    }
-
-
-    // 3. Get all other tasks (lowest priority)
-    let allTodoistTasks: TodoistTask[] = await fetchTasks(undefined, fetchOptions);
-    allTodoistTasks = sortTasksForFocus(allTodoistTasks); // Sort internally
-    const uniqueOtherTasks = allTodoistTasks.filter(task => !seenTaskIds.has(task.id));
-    uniqueOtherTasks.forEach(task => {
-      finalCombinedTasks.push(task);
-      seenTaskIds.add(task.id);
-    });
-    if (uniqueOtherTasks.length > 0) {
-        toast.info(`Adicionadas ${uniqueOtherTasks.length} tarefas restantes do Todoist.`);
-    }
-
 
     // 4. Final state update
     if (finalCombinedTasks.length > 0) {
