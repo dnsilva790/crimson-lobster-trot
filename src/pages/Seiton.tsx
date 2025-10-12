@@ -563,9 +563,9 @@ const Seiton = () => {
         Compare 2 tarefas por vez. Qual é mais importante agora?
       </p>
 
-      <div className="text-center text-sm text-gray-400 mb-4 p-2 bg-gray-100 rounded-md border border-gray-200">
+      {/* <div className="text-center text-sm text-gray-400 mb-4 p-2 bg-gray-100 rounded-md border border-gray-200">
         Debug State: <span className="font-semibold">{tournamentState}</span> | Current Task: <span className="font-semibold">{currentTaskToPlace?.content || "N/A"}</span> | Candidate: <span className="font-semibold">{comparisonCandidate?.content || "N/A"}</span> | Tasks to Process: <span className="font-semibold">{tasksToProcess.length}</span> | Ranked Tasks: <span className="font-semibold">{rankedTasks.length}</span> | Is Loading: <span className="font-semibold">{isLoadingTodoist ? "Yes" : "No"}</span>
-      </div>
+      </div> */}
 
       {isLoadingTodoist && (
         <>
