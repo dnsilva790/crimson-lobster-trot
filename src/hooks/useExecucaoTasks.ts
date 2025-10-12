@@ -114,8 +114,8 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
     let finalCombinedTasks: TodoistTask[] = [];
     const seenTaskIds = new Set<string>();
 
+    // 1. First, try to load tasks based on the explicit execution filter (if active)
     if (isExecucaoFilterActive) {
-      // If an execution filter is active, only load tasks matching that filter.
       let execucaoFilteredTasks = await fetchTasks(finalExecucaoFilter, fetchOptions);
       execucaoFilteredTasks = sortTasksForFocus(execucaoFilteredTasks);
       execucaoFilteredTasks.forEach(task => {
@@ -129,40 +129,43 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
       } else {
         toast.info("Nenhuma tarefa encontrada para o filtro de Execução.");
       }
-    } else {
-      // If no execution filter is active, combine tasks from Seiton ranking and all other Todoist tasks.
-
-      // 1. Get tasks from Seiton ranking (highest priority in this fallback scenario)
-      let currentSeitonRankedTasks = [...seitonRankedTasks];
-      currentSeitonRankedTasks = sortTasksForFocus(currentSeitonRankedTasks);
-      const uniqueSeitonTasks = currentSeitonRankedTasks.filter(task => !seenTaskIds.has(task.id));
-      uniqueSeitonTasks.forEach(task => {
-        finalCombinedTasks.push(task);
-        seenTaskIds.add(task.id);
-      });
-      if (uniqueSeitonTasks.length > 0) {
-          toast.info(`Adicionadas ${uniqueSeitonTasks.length} tarefas do ranking do Seiton.`);
-      }
-
-      // 2. Get all other tasks (lowest priority in this fallback scenario)
-      let allTodoistTasks: TodoistTask[] = await fetchTasks(undefined, fetchOptions);
-      allTodoistTasks = sortTasksForFocus(allTodoistTasks);
-      const uniqueOtherTasks = allTodoistTasks.filter(task => !seenTaskIds.has(task.id));
-      uniqueOtherTasks.forEach(task => {
-        finalCombinedTasks.push(task);
-        seenTaskIds.add(task.id);
-      });
-      if (uniqueOtherTasks.length > 0) {
-          toast.info(`Adicionadas ${uniqueOtherTasks.length} tarefas restantes do Todoist.`);
-      }
     }
 
+    // 2. If no tasks from the explicit filter, or if we want to add more, try Seiton ranking
+    let currentSeitonRankedTasks = [...seitonRankedTasks];
+    currentSeitonRankedTasks = sortTasksForFocus(currentSeitonRankedTasks);
+    const uniqueSeitonTasks = currentSeitonRankedTasks.filter(task => !seenTaskIds.has(task.id));
+    uniqueSeitonTasks.forEach(task => {
+      finalCombinedTasks.push(task);
+      seenTaskIds.add(task.id);
+    });
+    if (uniqueSeitonTasks.length > 0) {
+        toast.info(`Adicionadas ${uniqueSeitonTasks.length} tarefas do ranking do Seiton.`);
+    }
+
+    // 3. Finally, if still more tasks are needed, get all other Todoist tasks
+    let allTodoistTasks: TodoistTask[] = await fetchTasks(undefined, fetchOptions);
+    allTodoistTasks = sortTasksForFocus(allTodoistTasks);
+    const uniqueOtherTasks = allTodoistTasks.filter(task => !seenTaskIds.has(task.id));
+    uniqueOtherTasks.forEach(task => {
+      finalCombinedTasks.push(task);
+      seenTaskIds.add(task.id);
+    });
+    if (uniqueOtherTasks.length > 0) {
+        toast.info(`Adicionadas ${uniqueOtherTasks.length} tarefas restantes do Todoist.`);
+    }
+
+    // Remove duplicates and sort the final combined list
+    const uniqueFinalCombinedTasks = Array.from(new Set(finalCombinedTasks.map(task => task.id)))
+                                        .map(id => finalCombinedTasks.find(task => task.id === id)!);
+    const sortedFinalTasks = sortTasksForFocus(uniqueFinalCombinedTasks);
+
     // 4. Final state update
-    if (finalCombinedTasks.length > 0) {
-      setFocusTasks(finalCombinedTasks); // Already sorted within groups and concatenated
-      setInitialTotalTasks(finalCombinedTasks.length);
+    if (sortedFinalTasks.length > 0) {
+      setFocusTasks(sortedFinalTasks);
+      setInitialTotalTasks(sortedFinalTasks.length);
       setExecucaoState("focusing");
-      toast.success(`Iniciando foco com um total de ${finalCombinedTasks.length} tarefas.`);
+      toast.success(`Iniciando foco com um total de ${sortedFinalTasks.length} tarefas.`);
     } else {
       setFocusTasks([]);
       setInitialTotalTasks(0);
