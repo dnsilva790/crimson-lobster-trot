@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRight, Star, Scale, Zap, UserCheck, XCircle, ExternalLink, CalendarIcon, Clock } from "lucide-react";
+import { ArrowRight, Star, Scale, Zap, UserCheck, XCircle, ExternalLink, CalendarIcon, Clock, Check } from "lucide-react"; // Adicionado Check
 import { Badge } from "@/components/ui/badge";
 
 type EvaluationState = "initial" | "evaluating" | "finished";
