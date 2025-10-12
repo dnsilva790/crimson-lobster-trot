@@ -49,20 +49,25 @@ const SeitonReview = () => {
     }
   }, [filterInput]);
 
-  const calculateOverdueCounts = useCallback((allTasks: TodoistTask[]) => {
+  const calculateOverdueCounts = useCallback(async (currentFilter: string) => {
     const counts: OverdueCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
     const now = new Date();
 
-    allTasks.forEach(task => {
-      if ((typeof task.due?.date === 'string' && task.due.date) || (typeof task.due?.datetime === 'string' && task.due.datetime)) {
-        const dueDate = (typeof task.due?.datetime === 'string' && task.due.datetime) ? parseISO(task.due.datetime) : (typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : null;
-        if (dueDate && isValid(dueDate) && isPast(dueDate) && !isToday(dueDate)) {
-          counts[task.priority]++;
+    // Fetch tasks using the currentFilter
+    const tasksForCounts = await fetchTasks(currentFilter, { includeSubtasks: false, includeRecurring: false });
+
+    if (tasksForCounts) {
+      tasksForCounts.forEach(task => {
+        if ((typeof task.due?.date === 'string' && task.due.date) || (typeof task.due?.datetime === 'string' && task.due.datetime)) {
+          const dueDate = (typeof task.due?.datetime === 'string' && task.due.datetime) ? parseISO(task.due.datetime) : (typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : null;
+          if (dueDate && isValid(dueDate) && isPast(dueDate) && !isToday(dueDate)) {
+            counts[task.priority]++;
+          }
         }
-      }
-    });
+      });
+    }
     setOverdueCounts(counts);
-  }, []);
+  }, [fetchTasks]); // Add fetchTasks to dependencies
 
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
@@ -124,21 +129,15 @@ const SeitonReview = () => {
       toast.info("Nenhuma tarefa encontrada para revisão de prioridade com o filtro atual.");
     }
 
-    const allActiveTasks = await fetchTasks(undefined, { includeSubtasks: false, includeRecurring: false });
-    if (allActiveTasks) {
-      calculateOverdueCounts(allActiveTasks);
-    }
+    // Call calculateOverdueCounts with the current filterInput
+    await calculateOverdueCounts(filterInput);
   }, [fetchTasks, filterInput, calculateOverdueCounts, sortTasks]);
 
   useEffect(() => {
-    const fetchAllTasksForCounts = async () => {
-      const allActiveTasks = await fetchTasks(undefined, { includeSubtasks: false, includeRecurring: false });
-      if (allActiveTasks) {
-        calculateOverdueCounts(allActiveTasks);
-      }
-    };
-    fetchAllTasksForCounts();
-  }, [fetchTasks, calculateOverdueCounts]);
+    // This useEffect should now call calculateOverdueCounts with the current filterInput
+    // when the component mounts or filterInput changes.
+    calculateOverdueCounts(filterInput);
+  }, [filterInput, calculateOverdueCounts]); // Depend on filterInput
 
 
   const advanceToNextTask = useCallback(() => {
@@ -148,14 +147,9 @@ const SeitonReview = () => {
       setReviewState("finished");
       toast.success("Revisão de prioridades concluída!");
     }
-    const fetchAllTasksForCounts = async () => {
-      const allActiveTasks = await fetchTasks(undefined, { includeSubtasks: false, includeRecurring: false });
-      if (allActiveTasks) {
-        calculateOverdueCounts(allActiveTasks);
-      }
-    };
-    fetchAllTasksForCounts();
-  }, [currentTaskIndex, tasksToReview.length, calculateOverdueCounts, fetchTasks]);
+    // Recalculate overdue counts with the current filter
+    calculateOverdueCounts(filterInput);
+  }, [currentTaskIndex, tasksToReview.length, calculateOverdueCounts, filterInput]);
 
   const handleAssignPriority = useCallback(async (newPriority: 1 | 2 | 3 | 4) => {
     if (!currentTask) return;
