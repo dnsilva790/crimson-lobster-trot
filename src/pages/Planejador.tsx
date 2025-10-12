@@ -570,11 +570,15 @@ const Planejador = () => {
     if (!isPreallocated) {
       toast.success(`Tarefa "${task.content}" agendada para ${start}-${end} em ${format(targetDate, "dd/MM", { locale: ptBR })} e atualizada!`);
     }
-    setSelectedTaskToSchedule(null);
-    setSuggestedSlot(null);
-    setTempEstimatedDuration("15");
-    setTempSelectedCategory("none");
-    setTempSelectedPriority(1);
+    // Do NOT clear selectedTaskToSchedule here if it's a displaced task,
+    // as we want to re-select it for a new suggestion.
+    if (!isPreallocated && !isTaskMeeting) { // Only clear if not preallocated and not a meeting
+      setSelectedTaskToSchedule(null);
+      setSuggestedSlot(null);
+      setTempEstimatedDuration("15");
+      setTempSelectedCategory("none");
+      setTempSelectedPriority(1);
+    }
     fetchBacklogTasks(); // Re-fetch backlog to remove the scheduled task
   }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask, fetchBacklogTasks, meetingProjectId]);
 
@@ -753,10 +757,15 @@ const Planejador = () => {
       return;
     }
 
-    if (suggestedSlot.displacedTask) {
+    const displacedTask = suggestedSlot.displacedTask;
+    let originalTaskOfDisplaced: TodoistTask | InternalTask | undefined = undefined;
+
+    if (displacedTask) {
+      // Store the original task of the displaced one before deleting it from schedule
+      originalTaskOfDisplaced = displacedTask.originalTask;
       // Remove the displaced task from its current slot without clearing Todoist due date
-      await handleDeleteScheduledTask(suggestedSlot.displacedTask, false); // false: don't re-add to backlog, it's already there
-      toast.info(`Tarefa "${suggestedSlot.displacedTask.content}" remanejada para o backlog.`);
+      await handleDeleteScheduledTask(displacedTask, false); // false: don't re-add to backlog, it's already there
+      toast.info(`Tarefa "${displacedTask.content}" remanejada para o backlog.`);
     }
 
     // Schedule the new task
@@ -766,7 +775,23 @@ const Planejador = () => {
       suggestedSlot.end,
       parseISO(suggestedSlot.date)
     );
-  }, [selectedTaskToSchedule, suggestedSlot, handleDeleteScheduledTask, scheduleTask]);
+
+    // AFTER scheduling the new task, if there was a displaced task,
+    // automatically select it and trigger a new AI suggestion for it.
+    if (originalTaskOfDisplaced) {
+      // Ensure the originalTaskOfDisplaced is still in the backlogTasks before selecting
+      const foundInBacklog = backlogTasks.find(t => t.id === originalTaskOfDisplaced!.id);
+      if (foundInBacklog) {
+        handleSelectBacklogTask(foundInBacklog);
+        // Trigger AI suggestion for the newly selected (displaced) task
+        if (plannerAIAssistantRef.current) {
+          plannerAIAssistantRef.current.triggerSuggestion();
+        }
+      } else {
+        toast.warning(`A tarefa remanejada "${originalTaskOfDisplaced.content}" não foi encontrada no backlog para nova sugestão.`);
+      }
+    }
+  }, [selectedTaskToSchedule, suggestedSlot, handleDeleteScheduledTask, scheduleTask, backlogTasks, handleSelectBacklogTask]);
 
 
   const isLoading = isLoadingTodoist || isLoadingBacklog || isPreallocatingMeetings;
