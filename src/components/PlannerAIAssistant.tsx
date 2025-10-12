@@ -210,7 +210,8 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
   }, [schedules, recurringBlocks]);
 
 
-  const generateAISuggestion = useCallback(async (
+  // REMOVIDO useCallback para depuração
+  const generateAISuggestion = async (
     task: (TodoistTask | InternalTask),
     currentSelectedDate: Date,
     durationMinutes: number,
@@ -332,9 +333,10 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       onSuggestSlot(null);
     }
     setIsLoadingAI(false);
-  }, [selectedTaskToSchedule, selectedDate, schedules, recurringBlocks, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, scoreSlot, onSuggestSlot]);
+  };
 
 
+  // REMOVIDO useCallback para depuração
   const handleSendMessage = async (initialSuggestion: boolean = false) => {
     if (!initialSuggestion && inputMessage.trim() === "") return;
 
@@ -374,7 +376,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       addMessage("ai", aiResponse);
       setIsLoadingAI(false);
     }
-  }, [inputMessage, selectedTaskToSchedule, selectedDate, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, generateAISuggestion, plannerAiPrompt]);
+  };
 
   // Expose a method to trigger suggestion from parent
   useImperativeHandle(ref, () => ({
