@@ -23,6 +23,7 @@ interface PlannerAIAssistantProps {
   tempSelectedPriority: 1 | 2 | 3 | 4;
   onSuggestSlot: (slot: { start: string; end: string; date: string; displacedTask?: ScheduledTask } | null) => void;
   onScheduleSuggestedTask: (task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date) => Promise<void>;
+  getCombinedTimeBlocksForDate: (date: Date) => TimeBlock[]; // Adicionado
 }
 
 export interface PlannerAIAssistantRef {
@@ -48,11 +49,20 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
   tempSelectedPriority,
   onSuggestSlot,
   onScheduleSuggestedTask,
+  getCombinedTimeBlocksForDate, // Adicionado
 }, ref) => {
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [lastSuggestionDetails, setLastSuggestionDetails] = useState<{
+    slot: { start: string; end: string; date: string; displacedTask?: ScheduledTask } | null;
+    explanationText: string; // Renomeado para evitar conflito com a variável local 'explanation'
+    taskCategory: "pessoal" | "profissional" | undefined;
+    taskPriority: 1 | 2 | 3 | 4;
+    durationMinutes: number;
+    suggestedDate: Date;
+  } | null>(null);
 
   const getChatHistoryKey = (date: Date) => `${PLANNER_AI_CHAT_HISTORY_KEY_PREFIX}${format(date, "yyyy-MM-dd")}`;
 
@@ -65,6 +75,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       setMessages([]);
       addMessage("ai", `Olá! Sou o Tutor IA do Planejador. Como posso te ajudar a organizar seu dia ${format(selectedDate, "dd/MM", { locale: ptBR })}?`);
     }
+    setLastSuggestionDetails(null); // Clear last suggestion when date changes
   }, [selectedDate]); // Reload chat history when selectedDate changes
 
   // Save messages whenever they change
@@ -83,17 +94,6 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
   const addMessage = useCallback((sender: "user" | "ai", text: string) => {
     setMessages((prev) => [...prev, { id: Date.now().toString(), sender, text }]);
   }, []);
-
-  const getCombinedTimeBlocksForDate = useCallback((date: Date): TimeBlock[] => {
-    const dateKey = format(date, "yyyy-MM-dd");
-    const dayOfWeek = getDay(date).toString() as DayOfWeek;
-
-    const dateSpecificBlocks = schedules[dateKey]?.timeBlocks || [];
-    const recurringBlocksForDay = recurringBlocks.filter(block => block.dayOfWeek === dayOfWeek);
-
-    const combined = [...dateSpecificBlocks, ...recurringBlocksForDay];
-    return combined.sort((a, b) => a.start.localeCompare(b.start));
-  }, [schedules, recurringBlocks]);
 
   const getTaskImportanceScore = useCallback((task: TodoistTask | InternalTask): number => {
     let score = 0;
@@ -353,9 +353,18 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     if (bestSlot) {
       addMessage("ai", explanation); // Add to chat
       onSuggestSlot(bestSlot);
+      setLastSuggestionDetails({
+        slot: bestSlot,
+        explanationText: explanation,
+        taskCategory: taskCategory,
+        taskPriority: taskPriority,
+        durationMinutes: durationMinutes,
+        suggestedDate: parseISO(bestSlot.date),
+      });
     } else {
       addMessage("ai", "Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias."); // Add to chat
       onSuggestSlot(null);
+      setLastSuggestionDetails(null); // Clear last suggestion
     }
     setIsLoadingAI(false);
   }, [selectedTaskToSchedule, selectedDate, schedules, recurringBlocks, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, scoreSlot, onSuggestSlot, setIsLoadingAI, getTaskImportanceScore, addMessage]);
@@ -379,6 +388,99 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     triggerSuggestion: () => handleTriggerSuggestion(),
   }));
 
+  const simulateAIResponse = useCallback(async (userMessage: string) => {
+    setIsLoadingAI(true);
+    let responseText = "Não entendi sua solicitação. Por favor, tente novamente.";
+
+    if (!selectedTaskToSchedule) {
+      responseText = "Por favor, selecione uma tarefa para que eu possa te ajudar com o planejamento.";
+      addMessage("ai", responseText);
+      setIsLoadingAI(false);
+      return;
+    }
+
+    const lowerCaseMessage = userMessage.toLowerCase();
+
+    if (lowerCaseMessage.includes("por que") || lowerCaseMessage.includes("razão") || lowerCaseMessage.includes("explicar")) {
+      if (lastSuggestionDetails && lastSuggestionDetails.slot) {
+        const { slot, taskCategory, taskPriority, suggestedDate, displacedTask, durationMinutes } = lastSuggestionDetails;
+        const taskContent = selectedTaskToSchedule.content;
+        const formattedSuggestedDate = format(suggestedDate, "dd/MM/yyyy", { locale: ptBR });
+        const formattedSuggestedTime = `${slot.start} - ${slot.end}`;
+
+        let explanationDetail = `A sugestão de agendar "${taskContent}" (P${taskPriority}, ${taskCategory === undefined ? 'sem categoria' : taskCategory}) para ${formattedSuggestedTime} em ${formattedSuggestedDate} foi baseada em:`;
+        
+        const combinedBlocksForSuggestedDate = getCombinedTimeBlocksForDate(suggestedDate);
+        const slotStart = parse(slot.start, "HH:mm", suggestedDate);
+        const slotEnd = parse(slot.end, "HH:mm", suggestedDate);
+
+        let blockMatchFound = false;
+        for (const block of combinedBlocksForSuggestedDate) {
+          const blockStart = parse(block.start, "HH:mm", suggestedDate);
+          const blockEnd = parse(block.end, "HH:mm", suggestedDate);
+          if (isValid(blockStart) && isValid(blockEnd) && slotStart >= blockStart && slotEnd <= blockEnd) {
+            if (block.type === "work" && taskCategory === "profissional") {
+              explanationDetail += "\n- **Correspondência de Categoria:** O slot está em um bloco de 'Trabalho', ideal para tarefas 'Profissionais'.";
+              blockMatchFound = true;
+              break;
+            } else if (block.type === "personal" && taskCategory === "pessoal") {
+              explanationDetail += "\n- **Correspondência de Categoria:** O slot está em um bloco 'Pessoal', ideal para tarefas 'Pessoais'.";
+              blockMatchFound = true;
+              break;
+            } else if (taskCategory === undefined && (block.type === "work" || block.type === "personal")) {
+              explanationDetail += "\n- **Correspondência de Categoria:** O slot estava em um bloco de 'Trabalho' ou 'Pessoal', adequado para tarefas sem categoria definida.";
+              blockMatchFound = true;
+              break;
+            }
+          }
+        }
+        if (!blockMatchFound) {
+            explanationDetail += "\n- **Disponibilidade:** O slot estava disponível e se encaixava na sua agenda, mesmo sem um bloco de categoria específica.";
+        }
+
+        explanationDetail += "\n- **Prioridade da Tarefa:** Tarefas P" + taskPriority + " recebem uma pontuação mais alta na avaliação.";
+        
+        const now = new Date();
+        const startOfToday = startOfDay(now);
+        if (isEqual(suggestedDate, startOfToday)) {
+          explanationDetail += "\n- **Proximidade da Data:** Slots para 'Hoje' recebem um bônus significativo.";
+        } else if (isEqual(suggestedDate, addDays(startOfToday, 1))) {
+          explanationDetail += "\n- **Proximidade da Data:** Slots para 'Amanhã' também são altamente valorizados.";
+        } else {
+          const daysUntilSuggested = (suggestedDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24);
+          explanationDetail += `\n- **Proximidade da Data:** O slot foi encontrado em ${Math.round(daysUntilSuggested)} dias, com uma leve penalidade por ser mais distante.`;
+        }
+
+        if (slotStart.getHours() >= 6 && slotStart.getHours() < 10 && taskCategory === "profissional") {
+          explanationDetail += "\n- **Horário de Pico de Produtividade:** O slot está dentro do horário de pico (06h-10h) para tarefas profissionais.";
+        } else {
+          explanationDetail += "\n- **Horário do Dia:** Slots mais cedo no dia são ligeiramente preferidos para otimizar o fluxo de trabalho.";
+        }
+
+        if (displacedTask) {
+          explanationDetail += `\n- **Remanejamento:** Uma tarefa menos importante ("${displacedTask.content}") foi remanejada para abrir espaço para esta tarefa mais prioritária.`;
+        }
+        
+        responseText = explanationDetail;
+
+      } else {
+        responseText = "Não tenho uma sugestão recente para explicar. Por favor, peça uma sugestão primeiro.";
+      }
+    } else if (lowerCaseMessage.includes("sugestão") || lowerCaseMessage.includes("slot")) {
+      await handleTriggerSuggestion();
+      return; // handleTriggerSuggestion will add its own message
+    } else if (lowerCaseMessage.includes("refinar")) {
+      responseText = "Para refinar a sugestão, você pode me dar mais detalhes sobre suas preferências, como 'mais cedo', 'outro dia', ou 'mais longo'. (Funcionalidade de refinar sugestão em desenvolvimento)";
+    } else {
+      responseText = "Entendi. Como posso refinar a sugestão ou te ajudar de outra forma?";
+    }
+
+    setTimeout(() => {
+      addMessage("ai", responseText);
+      setIsLoadingAI(false);
+    }, 1000);
+  }, [addMessage, selectedTaskToSchedule, lastSuggestionDetails, handleTriggerSuggestion, getCombinedTimeBlocksForDate]);
+
   const handleSendMessage = async () => {
     if (inputMessage.trim() === "" || isLoadingAI) return;
 
@@ -386,20 +488,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     const userMsg = inputMessage;
     setInputMessage("");
 
-    // Simulate AI processing user's chat message
-    setIsLoadingAI(true);
-    setTimeout(() => {
-      let aiResponse = "Entendi. Como posso refinar a sugestão ou te ajudar de outra forma?";
-      if (userMsg.toLowerCase().includes("mais cedo")) {
-        aiResponse = "Ok, vou tentar encontrar um slot mais cedo. (Funcionalidade de refinar sugestão em desenvolvimento)";
-      } else if (userMsg.toLowerCase().includes("outro dia")) {
-        aiResponse = "Certo, vou procurar em outro dia. (Funcionalidade de refinar sugestão em desenvolvimento)";
-      } else if (userMsg.toLowerCase().includes("mais longo")) {
-        aiResponse = "Entendido, vou considerar um slot mais longo. (Funcionalidade de refinar sugestão em desenvolvimento)";
-      }
-      addMessage("ai", aiResponse);
-      setIsLoadingAI(false);
-    }, 1000);
+    await simulateAIResponse(userMsg);
   };
 
   return (

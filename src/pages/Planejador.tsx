@@ -1118,6 +1118,7 @@ const Planejador = () => {
             tempSelectedPriority={tempSelectedPriority}
             onSuggestSlot={setSuggestedSlot}
             onScheduleSuggestedTask={scheduleTask}
+            getCombinedTimeBlocksForDate={getCombinedTimeBlocksForDate}
           />
         </div>
       </div>
