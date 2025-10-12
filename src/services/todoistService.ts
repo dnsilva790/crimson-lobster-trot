@@ -190,6 +190,7 @@ export const todoistService = {
         },
       });
       needsSyncApiCall = true;
+      console.log("todoistService: Sync API command for deadline:", syncApiCommands); // Debug log
     }
 
     let restApiUpdateResult: TodoistTask | undefined;

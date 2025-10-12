@@ -79,6 +79,7 @@ const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
     task.deadline = null;
   }
   
+  console.log(`TodoistContext: Sanitized task ${task.id} (${task.content}) deadline: ${task.deadline}`); // Debug log
   return task;
 };
 

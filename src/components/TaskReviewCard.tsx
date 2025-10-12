@@ -76,6 +76,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
 
   useEffect(() => {
     console.log("TaskReviewCard: Task prop changed. Updating local states.");
+    console.log(`TaskReviewCard: Task ID: ${task.id}, current task.deadline: ${task.deadline}`); // Debug log
     if (task.labels.includes("pessoal")) {
       setSelectedCategory("pessoal");
     } else if (task.labels.includes("profissional")) {

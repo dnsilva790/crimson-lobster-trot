@@ -61,6 +61,7 @@ const GTD_STORAGE_KEY = "gtdProcessorState";
 const INBOX_FILTER_STORAGE_KEY = "gtdInboxFilter";
 const FOCO_LABEL_ID = "🎯 Foco";
 const GTD_PROCESSED_LABEL = "gtd_processada";
+const AGENDA_LABEL = "agenda"; // New constant for the agenda label
 
 const Seiketsu = () => {
   console.log("Seiketsu component rendered.");
@@ -72,9 +73,9 @@ const Seiketsu = () => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [inboxFilter, setInboxFilter] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(INBOX_FILTER_STORAGE_KEY) || "no date & no project & !@gtd_processada & !@agenda";
+      return localStorage.getItem(INBOX_FILTER_STORAGE_KEY) || `no date & no project & !@${GTD_PROCESSED_LABEL} & !@${AGENDA_LABEL}`;
     }
-    return "no date & no project & !@gtd_processada & !@agenda";
+    return `no date & no project & !@${GTD_PROCESSED_LABEL} & !@${AGENDA_LABEL}`;
   });
 
   const [isSchedulingPopoverOpen, setIsSchedulingPopoverOpen] = useState(false);
@@ -258,9 +259,12 @@ const Seiketsu = () => {
       finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
     }
 
+    const updatedLabels = [...new Set([...currentTask.labels, GTD_PROCESSED_LABEL, AGENDA_LABEL])]; // Add both labels
+
     const updated = await updateTask(currentTask.id, {
       due_date: finalDueDate,
       due_datetime: finalDueDateTime,
+      labels: updatedLabels, // Pass updated labels
     });
     if (updated) {
       toast.success(`Tarefa "${currentTask.content}" agendada.`);
