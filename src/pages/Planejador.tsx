@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban, RotateCcw } from "lucide-react";
+import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban, RotateCcw, Eraser } from "lucide-react";
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project } from "@/lib/types";
@@ -793,6 +793,17 @@ const Planejador = () => {
     }
   }, [selectedTaskToSchedule, suggestedSlot, handleDeleteScheduledTask, scheduleTask, backlogTasks, handleSelectBacklogTask]);
 
+  const handleResetPlanner = useCallback(() => {
+    if (confirm("Tem certeza que deseja resetar o planejador? Isso apagará todos os blocos de tempo e tarefas agendadas (diárias e recorrentes) do seu navegador.")) {
+      setSchedules({});
+      setRecurringBlocks([]);
+      setIgnoredMeetingTaskIds([]);
+      localStorage.removeItem(PLANNER_STORAGE_KEY);
+      toast.success("Planejador resetado com sucesso!");
+      fetchBacklogTasks(); // Recarregar backlog após reset
+    }
+  }, [fetchBacklogTasks]);
+
 
   const isLoading = isLoadingTodoist || isLoadingBacklog || isPreallocatingMeetings;
 
@@ -899,6 +910,13 @@ const Planejador = () => {
               <Ban className="h-4 w-4" /> Limpar Ignorados ({ignoredMeetingTaskIds.length})
             </Button>
           )}
+          <Button
+            onClick={handleResetPlanner}
+            variant="destructive"
+            className="flex items-center gap-2"
+          >
+            <Eraser className="h-4 w-4" /> Resetar Planejador
+          </Button>
         </div>
 
         <Card className="mb-6 p-6">
