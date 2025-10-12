@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Bot, User, Lightbulb, CalendarCheck } from "lucide-react";
+import { Send, Bot, User, Lightbulb, CalendarCheck, MessageSquare } from "lucide-react";
 import { TodoistTask, InternalTask, DaySchedule, RecurringTimeBlock, TimeBlockType, ScheduledTask } from "@/lib/types";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
-import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addDays, isEqual, isBefore, startOfMinute, isValid, getDay } from "date-fns"; // Adicionado getDay
+import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addDays, isEqual, isBefore, startOfMinute, isValid, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface PlannerAIAssistantProps {
@@ -29,6 +29,14 @@ export interface PlannerAIAssistantRef {
   triggerSuggestion: () => void;
 }
 
+interface Message {
+  id: string;
+  sender: "user" | "ai";
+  text: string;
+}
+
+const PLANNER_AI_CHAT_HISTORY_KEY_PREFIX = "planner_ai_chat_history_";
+
 const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssistantProps>(({
   plannerAiPrompt,
   selectedTaskToSchedule,
@@ -42,6 +50,39 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
   onScheduleSuggestedTask,
 }, ref) => {
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputMessage, setInputMessage] = useState("");
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const getChatHistoryKey = (date: Date) => `${PLANNER_AI_CHAT_HISTORY_KEY_PREFIX}${format(date, "yyyy-MM-dd")}`;
+
+  // Load messages for the selected date
+  useEffect(() => {
+    const savedHistory = localStorage.getItem(getChatHistoryKey(selectedDate));
+    if (savedHistory) {
+      setMessages(JSON.parse(savedHistory));
+    } else {
+      setMessages([]);
+      addMessage("ai", `Olá! Sou o Tutor IA do Planejador. Como posso te ajudar a organizar seu dia ${format(selectedDate, "dd/MM", { locale: ptBR })}?`);
+    }
+  }, [selectedDate]); // Reload chat history when selectedDate changes
+
+  // Save messages whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(getChatHistoryKey(selectedDate), JSON.stringify(messages));
+    }
+  }, [messages, selectedDate]);
+
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const addMessage = useCallback((sender: "user" | "ai", text: string) => {
+    setMessages((prev) => [...prev, { id: Date.now().toString(), sender, text }]);
+  }, []);
 
   const getCombinedTimeBlocksForDate = useCallback((date: Date): TimeBlock[] => {
     const dateKey = format(date, "yyyy-MM-dd");
@@ -126,9 +167,8 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       const stEnd = (typeof st.end === 'string' && st.end) ? parse(st.end, "HH:mm", currentDayDate) : null;
       if (!stStart || !stEnd || !isValid(stStart) || !isValid(stEnd)) continue;
 
-      if ((isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
-           isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
-           (slotStart <= stStart && slotEnd >= stEnd))) {
+      // Standard overlap check: (start1 < end2 && end1 > start2)
+      if (slotStart < stEnd && slotEnd > stStart) {
         
         if (st.isMeeting) { // Meetings cannot be displaced
           return { score: -Infinity, displacedTask: undefined };
@@ -157,9 +197,8 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
         if (isBefore(blockEnd, blockStart)) {
           blockEnd = addDays(blockEnd, 1);
         }
-        if (isWithinInterval(slotStart, { start: blockStart, end: blockEnd }) ||
-            isWithinInterval(slotEnd, { start: blockStart, end: blockEnd }) ||
-            (slotStart <= blockStart && slotEnd >= blockEnd)) {
+        // Standard overlap check: (start1 < end2 && end1 > start2)
+        if (slotStart < blockEnd && slotEnd > blockStart) {
           isOverlappingBreak = true;
           break;
         }
@@ -252,8 +291,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     let bestScore = -Infinity;
     let explanation = "";
 
-    console.log("PlannerAIAssistant: generateAISuggestion started.");
-    console.log("PlannerAIAssistant: Task:", task.content, "Duration:", durationMinutes, "Category:", taskCategory, "Priority:", taskPriority);
+    addMessage("ai", "Analisando sua agenda e a tarefa...");
 
     const NUM_DAYS_TO_LOOK_AHEAD = 7;
     const now = new Date();
@@ -313,44 +351,117 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     }
 
     if (bestSlot) {
-      toast.info(explanation);
+      addMessage("ai", explanation); // Add to chat
       onSuggestSlot(bestSlot);
-      console.log("PlannerAIAssistant: Best slot found and suggested:", bestSlot);
     } else {
-      toast.error("Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias.");
+      addMessage("ai", "Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias."); // Add to chat
       onSuggestSlot(null);
-      console.log("PlannerAIAssistant: No suitable slot found.");
     }
     setIsLoadingAI(false);
-  }, [selectedTaskToSchedule, selectedDate, schedules, recurringBlocks, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, scoreSlot, onSuggestSlot, setIsLoadingAI, getTaskImportanceScore]);
-
+  }, [selectedTaskToSchedule, selectedDate, schedules, recurringBlocks, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, scoreSlot, onSuggestSlot, setIsLoadingAI, getTaskImportanceScore, addMessage]);
 
   const handleTriggerSuggestion = useCallback(async () => {
-    console.log("PlannerAIAssistant: handleTriggerSuggestion called.");
     if (!selectedTaskToSchedule) {
-      toast.error("Por favor, selecione uma tarefa do backlog para eu poder sugerir um slot.");
-      console.log("PlannerAIAssistant: No task selected.");
+      addMessage("ai", "Por favor, selecione uma tarefa do backlog para eu poder sugerir um slot.");
       return;
     }
     if (tempSelectedCategory === "none") {
-      toast.error("Por favor, classifique a tarefa como 'Pessoal' ou 'Profissional' antes de sugerir um slot.");
-      console.log("PlannerAIAssistant: Category is 'none'.");
+      addMessage("ai", "Por favor, classifique a tarefa como 'Pessoal' ou 'Profissional' antes de sugerir um slot.");
       return;
     }
-    console.log("PlannerAIAssistant: Preconditions met, calling generateAISuggestion.");
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
     const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory;
     const taskPriority = tempSelectedPriority;
     await generateAISuggestion(selectedTaskToSchedule, selectedDate, durationMinutes, taskCategory, taskPriority);
-  }, [selectedTaskToSchedule, selectedDate, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, generateAISuggestion]);
+  }, [selectedTaskToSchedule, selectedDate, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, generateAISuggestion, addMessage]);
 
-  // Expose a method to trigger suggestion from parent
   useImperativeHandle(ref, () => ({
     triggerSuggestion: () => handleTriggerSuggestion(),
   }));
 
-  // O componente não renderiza nada visualmente, apenas expõe a funcionalidade via ref
-  return null;
+  const handleSendMessage = async () => {
+    if (inputMessage.trim() === "" || isLoadingAI) return;
+
+    addMessage("user", inputMessage);
+    const userMsg = inputMessage;
+    setInputMessage("");
+
+    // Simulate AI processing user's chat message
+    setIsLoadingAI(true);
+    setTimeout(() => {
+      let aiResponse = "Entendi. Como posso refinar a sugestão ou te ajudar de outra forma?";
+      if (userMsg.toLowerCase().includes("mais cedo")) {
+        aiResponse = "Ok, vou tentar encontrar um slot mais cedo. (Funcionalidade de refinar sugestão em desenvolvimento)";
+      } else if (userMsg.toLowerCase().includes("outro dia")) {
+        aiResponse = "Certo, vou procurar em outro dia. (Funcionalidade de refinar sugestão em desenvolvimento)";
+      } else if (userMsg.toLowerCase().includes("mais longo")) {
+        aiResponse = "Entendido, vou considerar um slot mais longo. (Funcionalidade de refinar sugestão em desenvolvimento)";
+      }
+      addMessage("ai", aiResponse);
+      setIsLoadingAI(false);
+    }, 1000);
+  };
+
+  return (
+    <Card className="h-[calc(100vh-100px)] flex flex-col">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Bot className="h-5 w-5 text-indigo-600" /> Tutor IA do Planejador
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex-grow flex flex-col p-0">
+        <ScrollArea className="h-[calc(100vh-300px)] p-4" viewportRef={scrollAreaRef}>
+          <div className="space-y-4">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex ${
+                  msg.sender === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                <div
+                  className={cn(
+                    "max-w-[80%] p-3 rounded-lg shadow-sm",
+                    msg.sender === "user"
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-800 border border-gray-200",
+                  )}
+                >
+                  {msg.sender === "ai" && <span className="font-semibold text-indigo-600 block mb-1">Tutor IA:</span>}
+                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                </div>
+              </div>
+            ))}
+            {isLoadingAI && (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] p-3 rounded-lg shadow-sm bg-gray-100 text-gray-800 border border-gray-200">
+                  <span className="font-semibold text-indigo-600 block mb-1">Tutor IA:</span>
+                  <span className="animate-pulse">Pensando...</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+        <div className="p-4 border-t flex items-center gap-2">
+          <Input
+            placeholder="Converse com o Tutor IA..."
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === "Enter") {
+                handleSendMessage();
+              }
+            }}
+            disabled={isLoadingAI || !selectedTaskToSchedule}
+            className="flex-grow"
+          />
+          <Button onClick={handleSendMessage} disabled={isLoadingAI || !selectedTaskToSchedule}>
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 });
 
 PlannerAIAssistant.displayName = "PlannerAIAssistant";

@@ -312,7 +312,7 @@ const Planejador = () => {
         setTempEstimatedDuration(String(updatedSelectedTask.estimatedDurationMinutes || 15));
         const initialCategory = getTaskCategory(updatedSelectedTask);
         setTempSelectedCategory(initialCategory || "none");
-        const initialPriority = 'priority' in updatedSelectedTask ? updatedSelectedTask.priority : 1;
+        const initialPriority = 'priority' in updatedSelectedTask ? updatedUpdatedTask.priority : 1;
         setTempSelectedPriority(initialPriority);
         toast.info(`Detalhes da tarefa selecionada atualizados no planejador.`);
       }
@@ -568,7 +568,7 @@ const Planejador = () => {
           const originalDueDateTime = parseISO(task.due.datetime);
           const originalDueDate = startOfDay(originalDueDateTime);
           const originalStartTime = format(originalDueDateTime, "HH:mm");
-          const durationMinutes = task.estimatedDurationMinutes || 60; // Default to 60 min for meetings if not set
+          const durationMinutes = task.estimatedDurationMinutes || 30; // Default to 30 min for meetings if not set
           const originalEndTime = format(addMinutes(originalDueDateTime, durationMinutes), "HH:mm");
           const originalDateKey = format(originalDueDate, "yyyy-MM-dd");
 
@@ -638,9 +638,9 @@ const Planejador = () => {
       const stStart = parse(st.start, "HH:mm", selectedDate);
       const stEnd = parse(st.end, "HH:mm", selectedDate);
       if (!isValid(stStart) || !isValid(stEnd)) return false; // Ensure parsed dates are valid
-      return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
-              isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
-              (slotStart <= stStart && slotEnd >= stEnd));
+      
+      // Standard overlap check: (start1 < end2 && end1 > start2)
+      return (slotStart < stEnd && slotEnd > stStart);
     });
 
     if (hasConflict) {
@@ -655,9 +655,9 @@ const Planejador = () => {
         const blockStart = parse(block.start, "HH:mm", selectedDate);
         const blockEnd = parse(block.end, "HH:mm", selectedDate);
         if (!isValid(blockStart) || !isValid(blockEnd)) return false; // Ensure parsed dates are valid
-        return (isWithinInterval(slotStart, { start: blockStart, end: blockEnd }) ||
-                isWithinInterval(slotEnd, { start: blockStart, end: blockEnd }) ||
-                (slotStart <= blockStart && slotEnd >= blockEnd));
+        
+        // Standard overlap check: (start1 < end2 && end1 > start2)
+        return (slotStart < blockEnd && slotEnd > blockStart);
       }
       return false;
     });
