@@ -201,7 +201,7 @@ export const useExecucaoTasks = (
 
         const { schedules: storedSchedules } = JSON.parse(plannerStorage);
         const now = new Date();
-        const allRelevantScheduledTasks: ScheduledTask[] = [];
+        const allRelevantScheduledTasks: (ScheduledTask & { scheduledDateTime: Date })[] = [];
 
         for (const dateKey in storedSchedules) {
             if (storedSchedules[dateKey] && storedSchedules[dateKey].scheduledTasks) {
@@ -239,7 +239,7 @@ export const useExecucaoTasks = (
                 }
             }
         }
-        tasks = sortTasksForFocus(tasks);
+        // IMPORTANT: Do NOT re-sort tasks here. The planner order is already established.
         if (tasks.length > 0) {
           toast.info(`Adicionadas ${tasks.length} tarefas agendadas do Planejador (incluindo atrasadas).`);
         } else {
@@ -274,6 +274,7 @@ export const useExecucaoTasks = (
     if (source === "filter") {
         finalCombinedTasks = await _loadFromUserFilter();
     } else if (source === "planner") {
+        // For 'planner' source, use the order directly from _loadFromPlanner
         finalCombinedTasks = await _loadFromPlanner();
     } else if (source === "ranking") {
         finalCombinedTasks = await _loadFromSeitonRanking();
@@ -297,10 +298,19 @@ export const useExecucaoTasks = (
         tasks.forEach(task => { if (!seenTaskIds.has(task.id)) { finalCombinedTasks.push(task); seenTaskIds.add(task.id); } });
     }
 
-    // Filter out duplicates and sort the final combined list
+    // Filter out duplicates
     const uniqueFinalCombinedTasks = Array.from(new Set(finalCombinedTasks.map(task => task.id)))
                                         .map(id => finalCombinedTasks.find(task => task.id === id)!);
-    const sortedFinalTasks = sortTasksForFocus(uniqueFinalCombinedTasks);
+    
+    let sortedFinalTasks: TodoistTask[];
+    if (source === "planner") {
+        // If the source is 'planner', the tasks are already sorted by _loadFromPlanner
+        // We just need to ensure uniqueness.
+        sortedFinalTasks = uniqueFinalCombinedTasks;
+    } else {
+        // For other sources or 'all', apply the default focus sorting
+        sortedFinalTasks = sortTasksForFocus(uniqueFinalCombinedTasks);
+    }
 
     // 5. Final state update
     if (sortedFinalTasks.length > 0) {
