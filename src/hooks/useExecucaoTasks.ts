@@ -1,11 +1,10 @@
-ranking do Seiton > todas as outras tarefas.">
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask, SeitonStateSnapshot } from "@/lib/types";
 import { toast } from "sonner";
-// import { format } from "date-fns"; // Not used here
+import { parseISO, isValid } from "date-fns";
 
 type ExecucaoState = "initial" | "focusing" | "finished";
 
@@ -52,22 +51,47 @@ export const useExecucaoTasks = (filterInput: string, selectedCategoryFilter: "a
 
   const sortTasksForFocus = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
-      // Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
+      // 1. Starred tasks first
+      const isAStarred = a.content.startsWith("*");
+      const isBStarred = b.content.startsWith("*");
+      if (isAStarred && !isBStarred) return -1;
+      if (!isAStarred && isBStarred) return 1;
+
+      // 2. Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
       if (b.priority !== a.priority) {
         return b.priority - a.priority;
       }
 
-      // Due date: earliest first
-      const getDateValue = (task: TodoistTask) => {
-        if (task.due?.datetime) return new Date(task.due.datetime).getTime();
-        if (task.due?.date) return new Date(task.due.date).getTime();
-        return Infinity; // Tasks without a due date go last
+      // Helper to get date value, handling null/undefined and invalid dates
+      const getDateValue = (dateString: string | null | undefined) => {
+        if (typeof dateString === 'string' && dateString) {
+          const parsedDate = parseISO(dateString);
+          return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
+        }
+        return Infinity; // Tasks without a date go last
       };
 
-      const dateA = getDateValue(a);
-      const dateB = getDateValue(b);
+      // 3. Deadline: earliest first
+      const deadlineA = getDateValue(a.deadline);
+      const deadlineB = getDateValue(b.deadline);
+      if (deadlineA !== deadlineB) {
+        return deadlineA - deadlineB;
+      }
 
-      return dateA - dateB;
+      // 4. Due date/time: earliest first
+      const dueDateTimeA = getDateValue(a.due?.datetime);
+      const dueDateTimeB = getDateValue(b.due?.datetime);
+      if (dueDateTimeA !== dueDateTimeB) {
+        return dueDateTimeA - dueDateTimeB;
+      }
+
+      const dueDateA = getDateValue(a.due?.date);
+      const dueDateB = getDateValue(b.due?.date);
+      if (dueDateA !== dueDateB) {
+        return dueDateA - dueDateB;
+      }
+
+      return 0; // No difference
     });
   }, []);
 
