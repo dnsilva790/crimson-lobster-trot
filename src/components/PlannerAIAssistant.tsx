@@ -187,32 +187,9 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
 
     let isOverlappingBreak = false;
     let fitsInAppropriateBlock = false;
+    let categoryMismatchFound = false; // Flag to detect category mismatch
 
     for (const block of combinedBlocksForSuggestion) {
-      if (block.type === "break") {
-        const blockStart = (typeof block.start === 'string' && block.start) ? parse(block.start, "HH:mm", currentDayDate) : null;
-        let blockEnd = (typeof block.end === 'string' && block.end) ? parse(block.end, "HH:mm", currentDayDate) : null;
-        if (!blockStart || !blockEnd || !isValid(blockStart) || !isValid(blockEnd)) continue;
-
-        if (isBefore(blockEnd, blockStart)) {
-          blockEnd = addDays(blockEnd, 1);
-        }
-        // Standard overlap check: (start1 < end2 && end1 > start2)
-        if (slotStart < blockEnd && slotEnd > blockStart) {
-          isOverlappingBreak = true;
-          break;
-        }
-      }
-    }
-    // Penalidade: Sobreposição com blocos de pausa
-    if (isOverlappingBreak) {
-      return { score: -Infinity, displacedTask: undefined };
-    }
-
-    // Pontuação: Correspondência de Categoria/Tipo de Bloco
-    for (const block of combinedBlocksForSuggestion) {
-      if (block.type === "break") continue;
-
       const blockStart = (typeof block.start === 'string' && block.start) ? parse(block.start, "HH:mm", currentDayDate) : null;
       let blockEnd = (typeof block.end === 'string' && block.end) ? parse(block.end, "HH:mm", currentDayDate) : null;
       if (!blockStart || !blockEnd || !isValid(blockStart) || !isValid(blockEnd)) continue;
@@ -221,37 +198,62 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
         blockEnd = addDays(blockEnd, 1);
       }
 
-      if (slotStart >= blockStart && slotEnd <= blockEnd) {
-        let isCategoryMatch = false;
-        if (taskCategory === "profissional" && block.type === "work") {
-          isCategoryMatch = true;
-          currentSlotScore += 10;
-        } else if (taskCategory === "pessoal" && block.type === "personal") {
-          isCategoryMatch = true;
-          currentSlotScore += 10;
-        } else if (taskCategory === undefined && (block.type === "work" || block.type === "personal")) {
-          isCategoryMatch = true;
-          currentSlotScore += 5;
+      // Check if the slot is within this block
+      if (slotStart < blockEnd && slotEnd > blockStart) { // Overlap check
+        if (block.type === "break") {
+          isOverlappingBreak = true;
+          break; // Found a break overlap, no need to check other blocks
         }
 
-        if (isCategoryMatch) {
+        // Check for category mismatch if taskCategory is defined
+        if (taskCategory !== undefined) {
+          if (taskCategory === "profissional" && block.type === "personal") {
+            categoryMismatchFound = true;
+            break; // Professional task in a personal block, strong mismatch
+          }
+          if (taskCategory === "pessoal" && block.type === "work") {
+            categoryMismatchFound = true;
+            break; // Personal task in a work block, strong mismatch
+          }
+        }
+
+        // If no direct mismatch, apply positive scoring for matches
+        if (taskCategory === "profissional" && block.type === "work") {
           fitsInAppropriateBlock = true;
+          currentSlotScore += 10;
           // Pontuação: Horário de Pico de Produtividade (06h-10h)
-          if (block.type === "work" && taskCategory === "profissional" &&
-              slotStart.getHours() >= 6 && slotStart.getHours() < 10) {
+          if (slotStart.getHours() >= 6 && slotStart.getHours() < 10) {
             currentSlotScore += 5;
           }
-          break;
+        } else if (taskCategory === "pessoal" && block.type === "personal") {
+          fitsInAppropriateBlock = true;
+          currentSlotScore += 10;
+        } else if (taskCategory === undefined && (block.type === "work" || block.type === "personal")) {
+          // Uncategorized task can fit into work or personal blocks, but with less bonus
+          fitsInAppropriateBlock = true;
+          currentSlotScore += 5;
         }
       }
     }
 
-    // Penalidade: Slot que não se encaixa em nenhum bloco de tempo adequado
+    // Penalidade: Sobreposição com blocos de pausa
+    if (isOverlappingBreak) {
+      return { score: -Infinity, displacedTask: undefined };
+    }
+
+    // Penalidade: Categoria da tarefa não corresponde ao tipo de bloco (se a categoria da tarefa for definida)
+    if (categoryMismatchFound) {
+      return { score: -Infinity, displacedTask: undefined };
+    }
+
+    // Penalidade: Slot que não se encaixa em nenhum bloco de tempo adequado (se houver blocos definidos)
+    // Esta penalidade só se aplica se a tarefa tem uma categoria definida e não encontrou um bloco correspondente
+    // OU se a tarefa não tem categoria e não encontrou nenhum bloco de trabalho/pessoal.
     if (!fitsInAppropriateBlock && combinedBlocksForSuggestion.length > 0) {
       currentSlotScore -= 5;
     } else if (combinedBlocksForSuggestion.length === 0) {
       // Se não há blocos definidos, qualquer slot é "adequado" com uma pontuação base
-      fitsInAppropriateBlock = true;
+      fitsInAppropriateBlock = true; // Considera que se encaixa se não há blocos para comparar
       currentSlotScore += 5;
     }
 
