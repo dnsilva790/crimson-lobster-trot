@@ -362,7 +362,7 @@ const Planejador = () => {
         setTempEstimatedDuration(String(updatedSelectedTask.estimatedDurationMinutes || 15));
         const initialCategory = getTaskCategory(updatedSelectedTask);
         setTempSelectedCategory(initialCategory || "none");
-        const initialPriority = 'priority' in updatedSelectedTask ? updatedSelectedTask.priority : 1;
+        const initialPriority = 'priority' in updatedSelectedTask ? updatedUpdatedTask.priority : 1;
         setTempSelectedPriority(initialPriority);
         toast.info(`Detalhes da tarefa selecionada atualizados no planejador.`);
       }
@@ -633,7 +633,9 @@ const Planejador = () => {
     setIsPreallocatingMeetings(true);
     try {
       // Fetch tasks that are meetings and have a due date/datetime
-      const meetingTasksWithDueDate = await fetchTasks(`##${MEETING_PROJECT_NAME} & (due: today | due: tomorrow | due: next 7 days)`, { includeSubtasks: false, includeRecurring: false });
+      // CORRECTED FILTER: Use project ID directly
+      const filterString = `project:${meetingProjectId} & (due: today | due: tomorrow | due: next 7 days)`;
+      const meetingTasksWithDueDate = await fetchTasks(filterString, { includeSubtasks: false, includeRecurring: false });
       let preallocatedCount = 0;
 
       for (const task of meetingTasksWithDueDate) {
