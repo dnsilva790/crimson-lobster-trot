@@ -431,12 +431,15 @@ const Planejador = () => {
   }, []);
 
   const scheduleTask = useCallback(async (task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date, isPreallocated: boolean = false) => {
+    console.log("Planejador: scheduleTask called for task:", task.content);
+    console.log("Planejador: start:", start, "end:", end, "targetDate:", targetDate);
+
     const dateKey = format(targetDate, "yyyy-MM-dd");
     const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
     
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
 
-    if ('project_id' in task) {
+    if ('project_id' in task) { // This block handles Todoist tasks
       const newLabels: string[] = task.labels.filter(
         label => label !== "pessoal" && label !== "profissional"
       );
@@ -447,13 +450,29 @@ const Planejador = () => {
       }
 
       if (!isPreallocated) {
+        const formattedDueDate = format(targetDate, "yyyy-MM-dd");
+        const parsedStartTime = parse((start || ''), "HH:mm", targetDate);
+        let finalDueDate: string | null = null;
+        let finalDueDateTime: string | null = null;
+
+        if (isValid(parsedStartTime)) { // If a valid time is parsed, use due_datetime
+          finalDueDateTime = format(parsedStartTime, "yyyy-MM-dd'T'HH:mm:ss");
+          finalDueDate = null; // Explicitly set due_date to null if due_datetime is used
+        } else { // Otherwise, just use due_date
+          finalDueDate = formattedDueDate;
+          finalDueDateTime = null;
+        }
+
+        console.log("Planejador: Sending to updateTask - finalDueDate:", finalDueDate);
+        console.log("Planejador: Sending to updateTask - finalDueDateTime:", finalDueDateTime);
+
         const updatedTodoistTask = await updateTask(task.id, {
           priority: tempSelectedPriority,
           labels: newLabels,
           duration: durationMinutes,
           duration_unit: "minute",
-          due_date: format(targetDate, "yyyy-MM-dd"),
-          due_datetime: format(parse((start || ''), "HH:mm", targetDate), "yyyy-MM-dd'T'HH:mm:ss"),
+          due_date: finalDueDate,
+          due_datetime: finalDueDateTime,
         });
 
         if (!updatedTodoistTask) {
@@ -463,7 +482,7 @@ const Planejador = () => {
         setBacklogTasks(prev => prev.map(t => t.id === updatedTodoistTask.id ? updatedTodoistTask : t));
       }
 
-    } else {
+    } else { // This block handles Internal tasks
       const updatedInternalTask: InternalTask = {
         ...task,
         category: tempSelectedCategory === "none" ? task.category : tempSelectedCategory,
