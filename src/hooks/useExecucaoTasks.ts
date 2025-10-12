@@ -26,26 +26,32 @@ export const useExecucaoTasks = (
   // Load Seiton ranked tasks once on mount or when relevant state changes
   useEffect(() => {
     const loadSeitonRanking = () => {
-      const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
-      if (savedSeitonState) {
-        try {
-          const parsedState: SeitonStateSnapshot = JSON.parse(savedState);
-          if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
-            setSeitonRankedTasks(parsedState.rankedTasks);
-            console.log("useExecucaoTasks: Loaded Seiton ranked tasks from localStorage:", parsedState.rankedTasks.length);
-          } else {
-            setSeitonRankedTasks([]);
-            console.log("useExecucaoTasks: Seiton ranked tasks in localStorage are empty.");
-          }
-        } catch (e) {
-          console.error("useExecucaoTasks: Failed to parse Seiton state from localStorage", e);
-          localStorage.removeItem(SEITON_RANKING_STORAGE_KEY);
-          toast.error("Erro ao carregar ranking do Seiton. Dados corrompidos foram removidos.");
+      try {
+        const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
+        // Ensure parsedState always has a default structure if savedSeitonState is null or invalid JSON
+        const parsedState: SeitonStateSnapshot = savedSeitonState 
+          ? JSON.parse(savedSeitonState) 
+          : {
+              tasksToProcess: [],
+              rankedTasks: [],
+              currentTaskToPlace: null,
+              comparisonCandidate: null,
+              comparisonIndex: 0,
+              tournamentState: "initial",
+            };
+
+        if (parsedState.rankedTasks && parsedState.rankedTasks.length > 0) {
+          setSeitonRankedTasks(parsedState.rankedTasks);
+          console.log("useExecucaoTasks: Loaded Seiton ranked tasks from localStorage:", parsedState.rankedTasks.length);
+        } else {
           setSeitonRankedTasks([]);
+          console.log("useExecucaoTasks: Seiton ranked tasks in localStorage are empty or invalid.");
         }
-      } else {
+      } catch (e) {
+        console.error("useExecucaoTasks: Failed to load or parse Seiton state from localStorage", e);
+        localStorage.removeItem(SEITON_RANKING_STORAGE_KEY);
+        toast.error("Erro ao carregar ranking do Seiton. Dados corrompidos foram removidos.");
         setSeitonRankedTasks([]);
-        console.log("useExecucaoTasks: No Seiton ranked tasks found in localStorage.");
       }
     };
     loadSeitonRanking();
@@ -92,7 +98,7 @@ export const useExecucaoTasks = (
 
       const dueDateA = getDateValue(a.due?.date);
       const dueDateB = getDateValue(b.due?.date);
-      if (dueDateA !== dueDateTimeB) { // Corrected from dueDateTimeB
+      if (dueDateA !== dueDateB) { 
         return dueDateA - dueDateB;
       }
 
