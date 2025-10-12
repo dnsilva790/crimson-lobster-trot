@@ -139,15 +139,13 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
         includeCompleted: options?.includeCompleted ?? false, // Default to false for completed
       };
 
-      let todoistApiFilter: string | undefined = filter; // Keep it as string | undefined
+      let todoistApiFilter = filter; // Keep it as string | undefined
       if (!finalOptions.includeCompleted) {
-        if (todoistApiFilter && todoistApiFilter.trim() !== "") {
-          todoistApiFilter = `${todoistApiFilter} & !is_completed`;
-        } else {
-          // If no filter is provided and we don't want completed tasks,
-          // pass undefined to todoistService.fetchTasks to get all active tasks by default.
-          todoistApiFilter = undefined; 
-        }
+        // Remove the explicit addition of !is_completed.
+        // The Todoist API /rest/v2/tasks endpoint by default only returns active tasks.
+        // If we need completed tasks, the user must explicitly set includeCompleted: true.
+        // If a filter is provided, we just use that filter.
+        // If no filter is provided, we pass undefined, and the API returns all active tasks.
       }
 
       const rawTasks = await makeApiCall(todoistService.fetchTasks, todoistApiFilter);
