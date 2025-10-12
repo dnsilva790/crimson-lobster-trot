@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,7 @@ import { getInternalTasks, updateInternalTask } from "@/utils/internalTaskStorag
 import { getProjects } from "@/utils/projectStorage";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import PlannerPromptEditor from "@/components/PlannerPromptEditor";
-import PlannerAIAssistant from "@/components/PlannerAIAssistant"; // Import the new component
+import PlannerAIAssistant, { PlannerAIAssistantRef } from "@/components/PlannerAIAssistant"; // Import the new component and its ref type
 
 const PLANNER_STORAGE_KEY = "planner_schedules_v2";
 const MEETING_PROJECT_NAME = "📅 Reuniões";
@@ -110,7 +110,7 @@ const Planejador = () => {
   const [plannerAiPrompt, setPlannerAiPrompt] = useState<string>(defaultPlannerAiPrompt);
 
   // Ref para o componente PlannerAIAssistant para chamar métodos
-  const plannerAIAssistantRef = useRef<{ triggerSuggestion: () => void }>(null);
+  const plannerAIAssistantRef = useRef<PlannerAIAssistantRef>(null);
 
   useEffect(() => {
     setShitsukeProjects(getProjects());
@@ -302,7 +302,7 @@ const Planejador = () => {
         setTempEstimatedDuration(String(updatedSelectedTask.estimatedDurationMinutes || 15));
         const initialCategory = getTaskCategory(updatedSelectedTask);
         setTempSelectedCategory(initialCategory || "none");
-        const initialPriority = 'priority' in updatedSelectedTask ? updatedSelectedTask.priority : 1;
+        const initialPriority = 'priority' in updatedSelectedTask ? updatedUpdatedTask.priority : 1;
         setTempSelectedPriority(initialPriority);
         toast.info(`Detalhes da tarefa selecionada atualizados no planejador.`);
       }
@@ -535,91 +535,115 @@ const Planejador = () => {
     fetchBacklogTasks();
   }, [fetchBacklogTasks]);
 
-  const handleSelectSlot = useCallback(async (time: string, type: TimeBlockType) => {
-    if (!selectedTaskToSchedule) {
-      toast.info("Selecione uma tarefa do backlog primeiro para agendar.");
+  const preallocateMeetingTasks = useCallback(async () => {
+    if (!meetingProjectId) {
+      toast.error("Projeto de reuniões não configurado. Verifique as configurações do Todoist.");
       return;
     }
 
-    const now = new Date();
-    const slotStartDateTime = parse(time, "HH:mm", selectedDate);
+    setIsPreallocatingMeetings(true);
+    try {
+      const meetingTasks = await fetchTasks(`##${MEETING_PROJECT_NAME} & no date`, { includeSubtasks: false, includeRecurring: false });
+      let preallocatedCount = 0;
 
-    if (isBefore(slotStartDateTime, now) && !isEqual(startOfDay(slotStartDateTime), startOfDay(now))) {
-      toast.error("Não é possível agendar tarefas para um horário ou dia que já passou.");
-      return;
-    }
-    if (isEqual(startOfDay(slotStartDateTime), startOfDay(now)) && isBefore(slotStartDateTime, startOfMinute(now))) {
-      toast.error("Não é possível agendar tarefas para um horário que já passou hoje.");
-      return;
-    }
-
-    const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
-    const slotStart = parse(time, "HH:mm", selectedDate);
-    let slotEnd = addMinutes(slotStart, durationMinutes);
-    const slotEndStr = format(slotEnd, "HH:mm");
-
-    const dateKey = format(selectedDate, "yyyy-MM-dd");
-    const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
-    const hasConflict = currentDay.scheduledTasks.some(st => {
-      const stStart = (typeof st.start === 'string' && st.start) ? parse(st.start, "HH:mm", selectedDate) : null;
-      const stEnd = (typeof st.end === 'string' && st.end) ? parse(st.end, "HH:mm", selectedDate) : null;
-      if (!stStart || !stEnd || !isValid(stStart) || !isValid(stEnd)) return false;
-
-      return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
-              isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
-              (slotStart <= stStart && slotEnd >= stEnd));
-    });
-
-    if (hasConflict) {
-      toast.error("Este slot já está ocupado por outra tarefa agendada.");
-      return;
-    }
-
-    const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory;
-    const combinedBlocks = getCombinedTimeBlocksForDate(selectedDate);
-
-    let isOverlappingBreak = false;
-    let fitsInAppropriateBlock = false;
-
-    for (const block of combinedBlocks) {
-      if (block.type === "break") {
-        const blockStart = (typeof block.start === 'string' && block.start) ? parse(block.start, "HH:mm", selectedDate) : null;
-        let blockEnd = (typeof block.end === 'string' && block.end) ? parse(block.end, "HH:mm", selectedDate) : null;
-        if (!blockStart || !blockEnd || !isValid(blockStart) || !isValid(blockEnd)) continue;
-
-        if (isBefore(blockEnd, blockStart)) {
-          blockEnd = addDays(blockEnd, 1);
+      for (const task of meetingTasks) {
+        if (ignoredMeetingTaskIds.includes(task.id)) {
+          continue;
         }
-        if (isWithinInterval(slotStart, { start: blockStart, end: blockEnd }) ||
-            isWithinInterval(slotEnd, { start: blockStart, end: blockEnd }) ||
-            (slotStart <= blockStart && slotEnd >= blockEnd)) {
-          isOverlappingBreak = true;
-          break;
+
+        if (task.content.toLowerCase().includes("reunião") && task.estimatedDurationMinutes) {
+          const durationMinutes = task.estimatedDurationMinutes;
+          const taskCategory = getTaskCategory(task) || "profissional"; // Reuniões geralmente são profissionais
+          const taskPriority = task.priority;
+
+          let bestSlot: { start: string; end: string; date: string } | null = null;
+          let bestScore = -Infinity;
+
+          const NUM_DAYS_TO_LOOK_AHEAD = 7;
+          const now = new Date();
+          const startOfToday = startOfDay(now);
+
+          for (let dayOffset = 0; dayOffset < NUM_DAYS_TO_LOOK_AHEAD; dayOffset++) {
+            const currentDayDate = addDays(startOfToday, dayOffset);
+            const currentDayDateKey = format(currentDayDate, "yyyy-MM-dd");
+            const combinedBlocksForSuggestion = getCombinedTimeBlocksForDate(currentDayDate);
+            const scheduledTasksForSuggestion = schedules[currentDayDateKey]?.scheduledTasks || [];
+
+            let startHour = 0;
+            let startMinute = 0;
+
+            if (isEqual(currentDayDate, startOfToday)) {
+              const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+              startHour = Math.floor(currentTotalMinutes / 60);
+              startMinute = Math.ceil((currentTotalMinutes % 60) / 15) * 15;
+              if (startMinute === 60) {
+                startHour++;
+                startMinute = 0;
+              }
+            }
+
+            for (let hour = startHour; hour < 24; hour++) {
+              for (let minute = (hour === startHour ? startMinute : 0); minute < 60; minute += 15) {
+                const slotStart = setMinutes(setHours(currentDayDate, hour), minute);
+                const slotEnd = addMinutes(slotStart, durationMinutes);
+                const slotStartStr = format(slotStart, "HH:mm");
+                const slotEndStr = format(slotEnd, "HH:mm");
+
+                // Re-implement scoreSlot logic here or call a helper if needed
+                // For simplicity, I'll inline a basic scoring for meetings
+                let currentScore = 0;
+                if (isBefore(slotStart, now)) {
+                  currentScore = -Infinity;
+                } else {
+                  // Prioritize earlier slots
+                  currentScore = -(slotStart.getHours() * 60 + slotStart.getMinutes());
+                  // Prioritize today/tomorrow
+                  if (isEqual(currentDayDate, startOfToday)) currentScore += 1000;
+                  else if (isEqual(currentDayDate, addDays(startOfToday, 1))) currentScore += 500;
+                }
+
+                if (currentScore > bestScore) {
+                  bestScore = currentScore;
+                  bestSlot = { start: slotStartStr, end: slotEndStr, date: currentDayDateKey };
+                }
+              }
+            }
+          }
+
+          if (bestSlot) {
+            // Temporariamente definir as props para a tarefa de reunião
+            const originalTempCategory = tempSelectedCategory;
+            const originalTempPriority = tempSelectedPriority;
+            const originalTempDuration = tempEstimatedDuration;
+
+            setTempSelectedCategory(taskCategory);
+            setTempSelectedPriority(taskPriority);
+            setTempEstimatedDuration(String(durationMinutes));
+
+            await scheduleTask(task, bestSlot.start, bestSlot.end, parseISO(bestSlot.date), true);
+            preallocatedCount++;
+
+            // Restaurar as props temporárias
+            setTempSelectedCategory(originalTempCategory);
+            setTempSelectedPriority(originalTempPriority);
+            setTempEstimatedDuration(originalTempDuration);
+          }
         }
       }
+      if (preallocatedCount > 0) {
+        toast.success(`${preallocatedCount} reuniões pré-alocadas com sucesso!`);
+      } else {
+        toast.info("Nenhuma reunião encontrada para pré-alocar ou todos os slots estão ocupados.");
+      }
+    } catch (error) {
+      console.error("Erro ao pré-alocar reuniões:", error);
+      toast.error("Falha ao pré-alocar reuniões.");
+    } finally {
+      setIsPreallocatingMeetings(false);
+      fetchBacklogTasks(); // Recarregar backlog para remover tarefas agendadas
     }
+  }, [meetingProjectId, fetchTasks, ignoredMeetingTaskIds, getCombinedTimeBlocksForDate, schedules, scheduleTask, tempSelectedCategory, tempSelectedPriority, tempEstimatedDuration, fetchBacklogTasks]);
 
-    if (isOverlappingBreak) {
-      toast.error("Não é possível agendar tarefas em blocos de pausa.");
-      return;
-    }
-
-    if (!fitsInAppropriateBlock && combinedBlocks.length > 0) {
-      toast.warning("O slot selecionado não está dentro de um bloco de tempo adequado para a categoria da tarefa.");
-    } else if (combinedBlocks.length === 0) {
-      fitsInAppropriateBlock = true;
-    }
-
-    await scheduleTask(selectedTaskToSchedule, time, slotEndStr, selectedDate);
-    fetchBacklogTasks();
-  }, [selectedTaskToSchedule, tempEstimatedDuration, tempSelectedCategory, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate, fetchBacklogTasks]);
-
-  // A função suggestTimeSlot agora será chamada pelo PlannerAIAssistant
-  const handleSuggestSlot = useCallback(() => {
-    if (plannerAIAssistantRef.current) {
-      plannerAIAssistantRef.current.triggerSuggestion();
-    }
-  }, []);
 
   const isLoading = isLoadingTodoist || isLoadingBacklog || isPreallocatingMeetings;
 
@@ -789,7 +813,7 @@ const Planejador = () => {
             </div>
             <div className="md:col-span-2">
               <Label htmlFor="block-recurrence">Recorrência</Label>
-              <Select value={newBlockRecurrence} onValueChange={(value: "daily" | "dayOfWeek" | "daily" | "weekdays" | "weekend") => setNewBlockRecurrence(value)}>
+              <Select value={newBlockRecurrence} onValueChange={(value: "daily" | "dayOfWeek" | "weekdays" | "weekend") => setNewBlockRecurrence(value)}>
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder="Recorrência" />
                 </SelectTrigger>
@@ -1038,6 +1062,22 @@ const Planejador = () => {
             )}
           </CardContent>
         </Card>
+        {/* PlannerAIAssistant component */}
+        <div className="mt-6">
+          <PlannerAIAssistant
+            ref={plannerAIAssistantRef}
+            plannerAiPrompt={plannerAiPrompt}
+            selectedTaskToSchedule={selectedTaskToSchedule}
+            selectedDate={selectedDate}
+            schedules={schedules}
+            recurringBlocks={recurringBlocks}
+            tempEstimatedDuration={tempEstimatedDuration}
+            tempSelectedCategory={tempSelectedCategory}
+            tempSelectedPriority={tempSelectedPriority}
+            onSuggestSlot={setSuggestedSlot}
+            onScheduleSuggestedTask={scheduleTask}
+          />
+        </div>
       </div>
     </div>
   );
