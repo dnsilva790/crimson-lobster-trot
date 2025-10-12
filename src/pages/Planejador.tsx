@@ -301,7 +301,7 @@ const Planejador = () => {
     } finally {
       setIsLoadingBacklog(false);
     }
-  }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingIds, selectedShitsukeProjectId, shitsukeProjects, fetchTaskById]);
+  }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingTaskIds, selectedShitsukeProjectId, shitsukeProjects, fetchTaskById]);
 
   // NEW: Function to sync scheduled tasks with Todoist status
   const syncScheduledTasks = useCallback(async () => {
