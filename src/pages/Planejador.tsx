@@ -19,45 +19,45 @@ import { useTodoist } from "@/context/TodoistContext";
 import { getInternalTasks, updateInternalTask } from "@/utils/internalTaskStorage";
 import { getProjects } from "@/utils/projectStorage";
 import LoadingSpinner from "@/components/ui/loading-spinner";
-import PlannerPromptEditor from "@/components/PlannerPromptEditor";
-import PlannerAIAssistant, { PlannerAIAssistantRef } from "@/components/PlannerAIAssistant"; // Import the new component and its ref type
+// import PlannerPromptEditor from "@/components/PlannerPromptEditor"; // Removido
+// import PlannerAIAssistant, { PlannerAIAssistantRef } from "@/components/PlannerAIAssistant"; // Removido
 
 const PLANNER_STORAGE_KEY = "planner_schedules_v2";
 const MEETING_PROJECT_NAME = "📅 Reuniões";
-const PLANNER_AI_PROMPT_STORAGE_KEY = "planner_ai_prompt";
+// const PLANNER_AI_PROMPT_STORAGE_KEY = "planner_ai_prompt"; // Removido
 
-const defaultPlannerAiPrompt = `**AGENTE DE SUGESTÃO DE SLOTS DO PLANEJADOR**
-**MISSÃO:** Sua missão é sugerir o melhor slot de 15 minutos para uma tarefa no calendário, considerando a categoria da tarefa (Pessoal/Profissional), sua prioridade, os blocos de tempo definidos (Trabalho, Pessoal, Pausa) e o horário atual.
+// const defaultPlannerAiPrompt = `**AGENTE DE SUGESTÃO DE SLOTS DO PLANEJADOR**
+// **MISSÃO:** Sua missão é sugerir o melhor slot de 15 minutos para uma tarefa no calendário, considerando a categoria da tarefa (Pessoal/Profissional), sua prioridade, os blocos de tempo definidos (Trabalho, Pessoal, Pausa) e o horário atual.
 
-**REGRAS DE PONTUAÇÃO (Prioridade Alta = Pontuação Alta):**
-1.  **Correspondência de Categoria/Tipo de Bloco (Base):**
-    *   Tarefa Profissional em Bloco de Trabalho: +10 pontos
-    *   Tarefa Pessoal em Bloco Pessoal: +10 pontos
-    *   Tarefa sem categoria definida em qualquer bloco de Trabalho/Pessoal: +5 pontos
-2.  **Horário de Pico de Produtividade (06h-10h):**
-    *   Tarefa Profissional em Bloco de Trabalho durante 06h-10h: +5 pontos (bônus)
-3.  **Prioridade da Tarefa:**
-    *   P1 (Urgente): +8 pontos
-    *   P2 (Alto): +6 pontos
-    *   P3 (Médio): +4 pontos
-    *   P4 (Baixo): +2 pontos
-4.  **Proximidade da Data:**
-    *   Hoje: +200 pontos
-    *   Amanhã: +100 pontos
-    *   Cada dia adicional no futuro: -10 pontos
-5.  **Horário do Dia:**
-    *   Slots mais cedo no dia (após o horário atual) são ligeiramente preferidos.
-6.  **Penalidades:**
-    *   Slot que não se encaixa em nenhum bloco de tempo adequado (se houver blocos definidos): -5 pontos
-    *   Slots que se sobrepõem a blocos de "Pausa" são **estritamente proibidos** e devem ser ignorados.
-    *   Não sugerir slots no passado.
+// **REGRAS DE PONTUAÇÃO (Prioridade Alta = Pontuação Alta):**
+// 1.  **Correspondência de Categoria/Tipo de Bloco (Base):**
+//     *   Tarefa Profissional em Bloco de Trabalho: +10 pontos
+//     *   Tarefa Pessoal em Bloco Pessoal: +10 pontos
+//     *   Tarefa sem categoria definida em qualquer bloco de Trabalho/Pessoal: +5 pontos
+// 2.  **Horário de Pico de Produtividade (06h-10h):**
+//     *   Tarefa Profissional em Bloco de Trabalho durante 06h-10h: +5 pontos (bônus)
+// 3.  **Prioridade da Tarefa:**
+//     *   P1 (Urgente): +8 pontos
+//     *   P2 (Alto): +6 pontos
+//     *   P3 (Médio): +4 pontos
+//     *   P4 (Baixo): +2 pontos
+// 4.  **Proximidade da Data:**
+//     *   Hoje: +200 pontos
+//     *   Amanhã: +100 pontos
+//     *   Cada dia adicional no futuro: -10 pontos
+// 5.  **Horário do Dia:**
+//     *   Slots mais cedo no dia (após o horário atual) são ligeiramente preferidos.
+// 6.  **Penalidades:**
+//     *   Slot que não se encaixa em nenhum bloco de tempo adequado (se houver blocos definidos): -5 pontos
+//     *   Slots que se sobrepõem a blocos de "Pausa" são **estritamente proibidos** e devem ser ignorados.
+//     *   Não sugerir slots no passado.
 
-**COMPORTAMENTO ADICIONAL:**
-*   Se a tarefa não tiver categoria definida, priorize blocos de trabalho por padrão.
-*   Sempre verifique conflitos com tarefas já agendadas. Slots conflitantes devem ser ignorados.
-*   Se nenhum bloco de tempo for definido para o dia, qualquer slot disponível é considerado "adequado" (com uma pequena pontuação base).
-*   A sugestão deve ser para o slot mais próximo possível no futuro que atenda aos critérios, começando pelo dia selecionado e avançando até 7 dias.
-`;
+// **COMPORTAMENTO ADICIONAL:**
+// *   Se a tarefa não tiver categoria definida, priorize blocos de trabalho por padrão.
+// *   Sempre verifique conflitos com tarefas já agendadas. Slots conflitantes devem ser ignorados.
+// *   Se nenhum bloco de tempo for definido para o dia, qualquer slot disponível é considerado "adequado" (com uma pequena pontuação base).
+// *   A sugestão deve ser para o slot mais próximo possível no futuro que atenda aos critérios, começando pelo dia selecionado e avançando até 7 dias.
+// `; // Removido
 
 const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
   4: "bg-red-500", // P1 - Urgente
@@ -107,10 +107,10 @@ const Planejador = () => {
   const [shitsukeProjects, setShitsukeProjects] = useState<Project[]>([]);
   const [selectedShitsukeProjectId, setSelectedShitsukeProjectId] = useState<string | 'all'>('all');
 
-  const [plannerAiPrompt, setPlannerAiPrompt] = useState<string>(defaultPlannerAiPrompt);
+  // const [plannerAiPrompt, setPlannerAiPrompt] = useState<string>(defaultPlannerAiPrompt); // Removido
 
   // Ref para o componente PlannerAIAssistant para chamar métodos
-  const plannerAIAssistantRef = useRef<PlannerAIAssistantRef>(null);
+  // const plannerAIAssistantRef = useRef<PlannerAIAssistantRef>(null); // Removido
 
   useEffect(() => {
     setShitsukeProjects(getProjects());
@@ -141,17 +141,17 @@ const Planejador = () => {
     localStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify({ schedules, recurringBlocks, ignoredMeetingTaskIds }));
   }, [schedules, recurringBlocks, ignoredMeetingTaskIds]);
 
-  useEffect(() => {
-    const savedPrompt = localStorage.getItem(PLANNER_AI_PROMPT_STORAGE_KEY);
-    if (savedPrompt) {
-      setPlannerAiPrompt(savedPrompt);
-    }
-  }, []);
+  // useEffect(() => {
+  //   const savedPrompt = localStorage.getItem(PLANNER_AI_PROMPT_STORAGE_KEY);
+  //   if (savedPrompt) {
+  //     setPlannerAiPrompt(savedPrompt);
+  //   }
+  // }, []); // Removido
 
-  const handleSavePlannerAiPrompt = useCallback((newPrompt: string) => {
-    setPlannerAiPrompt(newPrompt);
-    localStorage.setItem(PLANNER_AI_PROMPT_STORAGE_KEY, newPrompt);
-  }, []);
+  // const handleSavePlannerAiPrompt = useCallback((newPrompt: string) => {
+  //   setPlannerAiPrompt(newPrompt);
+  //   localStorage.setItem(PLANNER_AI_PROMPT_STORAGE_KEY, newPrompt);
+  // }, []); // Removido
 
   useEffect(() => {
     const getMeetingProjectId = async () => {
@@ -644,13 +644,13 @@ const Planejador = () => {
     }
   }, [meetingProjectId, fetchTasks, ignoredMeetingTaskIds, getCombinedTimeBlocksForDate, schedules, scheduleTask, tempSelectedCategory, tempSelectedPriority, tempEstimatedDuration, fetchBacklogTasks]);
 
-  const handleSuggestSlot = useCallback(() => {
-    if (plannerAIAssistantRef.current) {
-      plannerAIAssistantRef.current.triggerSuggestion();
-    } else {
-      toast.error("O assistente de IA não está pronto. Tente novamente.");
-    }
-  }, []);
+  // const handleSuggestSlot = useCallback(() => {
+  //   if (plannerAIAssistantRef.current) {
+  //     plannerAIAssistantRef.current.triggerSuggestion();
+  //   } else {
+  //     toast.error("O assistente de IA não está pronto. Tente novamente.");
+  //   }
+  // }, []); // Removido
 
   const handleSelectSlot = useCallback((time: string, type: TimeBlockType) => {
     if (!selectedTaskToSchedule) {
@@ -935,155 +935,141 @@ const Planejador = () => {
       </div>
 
       <div className="lg:col-span-1">
-        <div className="flex justify-end mb-4">
-          <PlannerPromptEditor
-            initialPrompt={plannerAiPrompt}
-            onSave={handleSavePlannerAiPrompt}
-            storageKey={PLANNER_AI_PROMPT_STORAGE_KEY}
-          />
+        <div className="mb-4">
+          <Label htmlFor="shitsuke-project-filter" className="text-sm text-gray-600 font-medium">
+            Filtrar por Projeto Shitsuke
+          </Label>
+          <Select
+            value={selectedShitsukeProjectId}
+            onValueChange={(value: string | 'all') => setSelectedShitsukeProjectId(value)}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="w-full mt-1">
+              <SelectValue placeholder="Todos os Projetos Shitsuke" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Projetos Shitsuke</SelectItem>
+              {shitsukeProjects.map(project => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.what}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <ListTodo className="h-5 w-5 text-indigo-600" /> Backlog de Tarefas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4">
-              <Label htmlFor="shitsuke-project-filter" className="text-sm text-gray-600 font-medium">
-                Filtrar por Projeto Shitsuke
-              </Label>
-              <Select
-                value={selectedShitsukeProjectId}
-                onValueChange={(value: string | 'all') => setSelectedShitsukeProjectId(value)}
-                disabled={isLoading}
-              >
-                <SelectTrigger className="w-full mt-1">
-                  <SelectValue placeholder="Todos os Projetos Shitsuke" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Projetos Shitsuke</SelectItem>
-                  {shitsukeProjects.map(project => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.what}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <div className="mb-4">
+          <Label htmlFor="backlog-filter" className="sr-only">Filtrar Backlog</Label>
+          <div className="relative">
+            <Input
+              id="backlog-filter"
+              type="text"
+              placeholder="Filtrar tarefas (ex: 'hoje', 'p1', '#projeto')"
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  fetchBacklogTasks();
+                }
+              }}
+              className="pr-10"
+              disabled={isLoading}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={fetchBacklogTasks}
+              className="absolute right-0 top-0 h-full px-3"
+              disabled={isLoading}
+            >
+              <Filter className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {selectedTaskToSchedule && (
+          <div className="mb-4 p-3 border border-indigo-400 bg-indigo-50 rounded-md flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-indigo-800">
+                Selecionado: {selectedTaskToSchedule.content}
+              </span>
+              <Button variant="ghost" size="icon" onClick={handleCancelTaskSelection}>
+                <XCircle className="h-4 w-4 text-indigo-600" />
+              </Button>
             </div>
-            <div className="mb-4">
-              <Label htmlFor="backlog-filter" className="sr-only">Filtrar Backlog</Label>
-              <div className="relative">
-                <Input
-                  id="backlog-filter"
-                  type="text"
-                  placeholder="Filtrar tarefas (ex: 'hoje', 'p1', '#projeto')"
-                  value={filterInput}
-                  onChange={(e) => setFilterInput(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      fetchBacklogTasks();
-                    }
-                  }}
-                  className="pr-10"
-                  disabled={isLoading}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={fetchBacklogTasks}
-                  className="absolute right-0 top-0 h-full px-3"
-                  disabled={isLoading}
-                >
-                  <Filter className="h-4 w-4" />
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div>
+                <Label htmlFor="temp-category" className="text-sm text-indigo-800">Categoria:</Label>
+                <Select value={tempSelectedCategory} onValueChange={(value: "pessoal" | "profissional" | "none") => setTempSelectedCategory(value)}>
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pessoal">Pessoal</SelectItem>
+                    <SelectItem value="profissional">Profissional</SelectItem>
+                    <SelectItem value="none">Manter Categoria</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="temp-priority" className="text-sm text-indigo-800">Prioridade:</Label>
+                <Select value={String(tempSelectedPriority)} onValueChange={(value) => setTempSelectedPriority(Number(value) as 1 | 2 | 3 | 4)}>
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Prioridade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="4">P1 - Urgente</SelectItem>
+                    <SelectItem value="3">P2 - Alto</SelectItem>
+                    <SelectItem value="2">P3 - Médio</SelectItem>
+                    <SelectItem value="1">P4 - Baixo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <Label htmlFor="temp-duration" className="text-sm text-indigo-800">Duração (min):</Label>
+              <Input
+                id="temp-duration"
+                type="number"
+                value={tempEstimatedDuration}
+                onChange={(e) => setTempEstimatedDuration(e.target.value)}
+                min="1"
+                className="w-20 text-sm"
+              />
+              {/* <Button onClick={handleSuggestSlot} className="flex-grow bg-yellow-500 hover:bg-yellow-600 text-white">
+                <Lightbulb className="h-4 w-4 mr-2" /> Sugerir Slot
+              </Button> */} {/* Removido */}
+            </div>
+            {suggestedSlot && (
+              <div className="mt-2 p-2 bg-green-100 border border-green-400 rounded-md flex items-center justify-between">
+                <span className="text-sm text-green-800">
+                  Sugestão: {suggestedSlot.start} - {suggestedSlot.end} ({format(parseISO(suggestedSlot.date), "dd/MM", { locale: ptBR })})
+                </span>
+                <Button size="sm" onClick={() => scheduleTask(selectedTaskToSchedule, suggestedSlot.start, suggestedSlot.end, parseISO(suggestedSlot.date))}>
+                  Agendar
                 </Button>
               </div>
-            </div>
-
-            {selectedTaskToSchedule && (
-              <div className="mb-4 p-3 border border-indigo-400 bg-indigo-50 rounded-md flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-indigo-800">
-                    Selecionado: {selectedTaskToSchedule.content}
-                  </span>
-                  <Button variant="ghost" size="icon" onClick={handleCancelTaskSelection}>
-                    <XCircle className="h-4 w-4 text-indigo-600" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div>
-                    <Label htmlFor="temp-category" className="text-sm text-indigo-800">Categoria:</Label>
-                    <Select value={tempSelectedCategory} onValueChange={(value: "pessoal" | "profissional" | "none") => setTempSelectedCategory(value)}>
-                      <SelectTrigger className="w-full mt-1">
-                        <SelectValue placeholder="Categoria" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pessoal">Pessoal</SelectItem>
-                        <SelectItem value="profissional">Profissional</SelectItem>
-                        <SelectItem value="none">Manter Categoria</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="temp-priority" className="text-sm text-indigo-800">Prioridade:</Label>
-                    <Select value={String(tempSelectedPriority)} onValueChange={(value) => setTempSelectedPriority(Number(value) as 1 | 2 | 3 | 4)}>
-                      <SelectTrigger className="w-full mt-1">
-                        <SelectValue placeholder="Prioridade" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="4">P1 - Urgente</SelectItem>
-                        <SelectItem value="3">P2 - Alto</SelectItem>
-                        <SelectItem value="2">P3 - Médio</SelectItem>
-                        <SelectItem value="1">P4 - Baixo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <Label htmlFor="temp-duration" className="text-sm text-indigo-800">Duração (min):</Label>
-                  <Input
-                    id="temp-duration"
-                    type="number"
-                    value={tempEstimatedDuration}
-                    onChange={(e) => setTempEstimatedDuration(e.target.value)}
-                    min="1"
-                    className="w-20 text-sm"
-                  />
-                  <Button onClick={handleSuggestSlot} className="flex-grow bg-yellow-500 hover:bg-yellow-600 text-white">
-                    <Lightbulb className="h-4 w-4 mr-2" /> Sugerir Slot
-                  </Button>
-                </div>
-                {suggestedSlot && (
-                  <div className="mt-2 p-2 bg-green-100 border border-green-400 rounded-md flex items-center justify-between">
-                    <span className="text-sm text-green-800">
-                      Sugestão: {suggestedSlot.start} - {suggestedSlot.end} ({format(parseISO(suggestedSlot.date), "dd/MM", { locale: ptBR })})
-                    </span>
-                    <Button size="sm" onClick={() => scheduleTask(selectedTaskToSchedule, suggestedSlot.start, suggestedSlot.end, parseISO(suggestedSlot.date))}>
-                      Agendar
-                    </Button>
-                  </div>
-                )}
-              </div>
             )}
-            {isLoading ? (
-              <div className="flex justify-center items-center h-[calc(100vh-400px)]">
-                <LoadingSpinner size={30} />
-              </div>
-            ) : backlogTasks.length > 0 ? (
-              <div className="mt-4 p-2 border rounded-md bg-gray-50 h-[calc(100vh-400px)] overflow-y-auto space-y-2">
-                {backlogTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className={cn(
-                      "p-3 border rounded-md cursor-pointer hover:bg-gray-100 transition-colors",
-                      selectedTaskToSchedule?.id === task.id ? "bg-indigo-100 border-indigo-500" : "bg-white border-gray-200"
-                    )}
-                    onClick={() => handleSelectBacklogTask(task)}
-                  >
-                    <h4 className="font-semibold text-gray-800">{task.content}</h4>
-                    {task.description && <p className="text-xs text-gray-600 line-clamp-2">{task.description}</p>}
-                    <div className="flex justify-between items-center text-xs text-gray-500 mt-1">
-                      <div className="flex items-center gap-2">
+          </div>
+        )}
+        {isLoading ? (
+          <div className="flex justify-center items-center h-[calc(100vh-400px)]">
+            <LoadingSpinner size={30} />
+          </div>
+        ) : backlogTasks.length > 0 ? (
+          <div className="mt-4 p-2 border rounded-md bg-gray-50 h-[calc(100vh-400px)] overflow-y-auto space-y-2">
+            {backlogTasks.map((task) => (
+              <div
+                key={task.id}
+                className={cn(
+                  "p-3 border rounded-md cursor-pointer hover:bg-gray-100 transition-colors",
+                  selectedTaskToSchedule?.id === task.id ? "bg-indigo-100 border-indigo-500" : "bg-white border-gray-200"
+                )}
+                onClick={() => handleSelectBacklogTask(task)}
+              >
+                <h4 className="font-semibold text-gray-800">{task.content}</h4>
+                {task.description && <p className="text-xs text-gray-600 line-clamp-2">{task.description}</p>}
+                <div className="flex justify-between items-center text-xs text-gray-500 mt-1">
+                  <div className="flex items-center gap-2">
                         <span
                           className={cn(
                             "px-2 py-0.5 rounded-full text-white text-xs font-medium",
@@ -1092,49 +1078,31 @@ const Planejador = () => {
                         >
                           {PRIORITY_LABELS['priority' in task ? task.priority : 1]}
                         </span>
-                        <span className="text-gray-600">
-                          {'labels' in task ? (getTaskCategory(task) || 'N/A') : task.category}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {'due' in task && typeof task.due?.datetime === 'string' && task.due.datetime && isValid(parseISO(task.due.datetime)) && (
-                          <span>Venc: {format(parseISO(task.due.datetime), "dd/MM HH:mm", { locale: ptBR })}</span>
-                        )}
-                        {'due' in task && typeof task.due?.date === 'string' && task.due.date && !(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.date)) && (
-                          <span>Venc: {format(parseISO(task.due.date), "dd/MM", { locale: ptBR })}</span>
-                        )}
-                        <span className="flex items-center">
-                          <Clock className="h-3 w-3 mr-1" /> {task.estimatedDurationMinutes || 15} min
-                        </span>
-                      </div>
-                    </div>
+                    <span className="text-gray-600">
+                      {'labels' in task ? (getTaskCategory(task) || 'N/A') : task.category}
+                    </span>
                   </div>
-                ))}
+                  <div className="flex items-center gap-2">
+                    {'due' in task && typeof task.due?.datetime === 'string' && task.due.datetime && isValid(parseISO(task.due.datetime)) && (
+                      <span>Venc: {format(parseISO(task.due.datetime), "dd/MM HH:mm", { locale: ptBR })}</span>
+                    )}
+                    {'due' in task && typeof task.due?.date === 'string' && task.due.date && !(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.date)) && (
+                      <span>Venc: {format(parseISO(task.due.date), "dd/MM", { locale: ptBR })}</span>
+                    )}
+                    <span className="flex items-center">
+                      <Clock className="h-3 w-3 mr-1" /> {task.estimatedDurationMinutes || 15} min
+                    </span>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="mt-4 p-4 border rounded-md bg-gray-50 h-[calc(100vh-400px)] overflow-y-auto">
-                <p className="text-gray-500 italic">Nenhuma tarefa no backlog para agendar ainda.</p>
-                <Button onClick={fetchBacklogTasks} className="mt-4 w-full">Recarregar Backlog</Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        {/* PlannerAIAssistant component */}
-        <div className="mt-6">
-          <PlannerAIAssistant
-            ref={plannerAIAssistantRef}
-            plannerAiPrompt={plannerAiPrompt}
-            selectedTaskToSchedule={selectedTaskToSchedule}
-            selectedDate={selectedDate}
-            schedules={schedules}
-            recurringBlocks={recurringBlocks}
-            tempEstimatedDuration={tempEstimatedDuration}
-            tempSelectedCategory={tempSelectedCategory}
-            tempSelectedPriority={tempSelectedPriority}
-            onSuggestSlot={setSuggestedSlot}
-            onScheduleSuggestedTask={scheduleTask}
-          />
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 p-4 border rounded-md bg-gray-50 h-[calc(100vh-400px)] overflow-y-auto">
+            <p className="text-gray-500 italic">Nenhuma tarefa no backlog para agendar ainda.</p>
+            <Button onClick={fetchBacklogTasks} className="mt-4 w-full">Recarregar Backlog</Button>
+          </div>
+        )}
       </div>
     </div>
   );

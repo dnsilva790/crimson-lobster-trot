@@ -210,8 +210,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
   }, [schedules, recurringBlocks]);
 
 
-  // REMOVIDO useCallback para depuração
-  const generateAISuggestion = async (
+  const generateAISuggestion = useCallback(async (
     task: (TodoistTask | InternalTask),
     currentSelectedDate: Date,
     durationMinutes: number,
@@ -333,11 +332,10 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       onSuggestSlot(null);
     }
     setIsLoadingAI(false);
-  };
+  }, [selectedTaskToSchedule, selectedDate, schedules, recurringBlocks, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, scoreSlot, onSuggestSlot, addMessage, setIsLoadingAI]);
 
 
-  // REMOVIDO useCallback para depuração
-  const handleSendMessage = async (initialSuggestion: boolean = false) => {
+  const handleSendMessage = useCallback(async (initialSuggestion: boolean = false) => {
     if (!initialSuggestion && inputMessage.trim() === "") return;
 
     const userMsg = initialSuggestion ? "Sugerir Slot" : inputMessage;
@@ -376,7 +374,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       addMessage("ai", aiResponse);
       setIsLoadingAI(false);
     }
-  };
+  }, [inputMessage, selectedTaskToSchedule, selectedDate, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, generateAISuggestion, plannerAiPrompt, addMessage, setIsLoadingAI]);
 
   // Expose a method to trigger suggestion from parent
   useImperativeHandle(ref, () => ({
