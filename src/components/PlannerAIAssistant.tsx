@@ -21,15 +21,13 @@ interface PlannerAIAssistantProps {
   tempEstimatedDuration: string;
   tempSelectedCategory: "pessoal" | "profissional" | "none";
   tempSelectedPriority: 1 | 2 | 3 | 4;
-  onSuggestSlot: (slot: { start: string; end: string; date: string } | null) => void;
+  onSuggestSlot: (slot: { start: string; end: string; date: string; displacedTask?: ScheduledTask } | null) => void;
   onScheduleSuggestedTask: (task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date) => Promise<void>;
 }
 
 export interface PlannerAIAssistantRef {
   triggerSuggestion: () => void;
 }
-
-// Removido PLANNER_AI_CHAT_HISTORY_KEY pois o chat não será mais exibido.
 
 const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssistantProps>(({
   plannerAiPrompt,
@@ -43,16 +41,9 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
   onSuggestSlot,
   onScheduleSuggestedTask,
 }, ref) => {
-  // Removido estados de mensagens e inputMessage, e isLoadingAI para o chat
-  const [isLoadingAI, setIsLoadingAI] = useState(false); // Mantido para o spinner de sugestão
-  // Removido scrollAreaRef
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
 
-  // Removido useEffect para carregar/salvar histórico de chat
-  // Removido useEffect para scroll
-
-  // Removido addMessage, pois não haverá chat
-
-  const getCombinedTimeBlocksForDate = useCallback((date: Date): TimeBlockType[] => {
+  const getCombinedTimeBlocksForDate = useCallback((date: Date): TimeBlock[] => {
     const dateKey = format(date, "yyyy-MM-dd");
     const dayOfWeek = getDay(date).toString() as DayOfWeek;
 
@@ -63,6 +54,45 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     return combined.sort((a, b) => a.start.localeCompare(b.start));
   }, [schedules, recurringBlocks]);
 
+  const getTaskImportanceScore = useCallback((task: TodoistTask | InternalTask): number => {
+    let score = 0;
+
+    // 1. Deadline (highest priority)
+    if ('deadline' in task && typeof task.deadline === 'string' && task.deadline) {
+      const parsedDeadline = parseISO(task.deadline);
+      if (isValid(parsedDeadline)) {
+        const daysUntilDeadline = (parsedDeadline.getTime() - startOfDay(new Date()).getTime()) / (1000 * 60 * 60 * 24);
+        score += Math.max(0, 1000 - (daysUntilDeadline * 50)); // Closer deadline, higher score
+      }
+    }
+
+    // 2. Priority
+    const priority = 'priority' in task ? task.priority : 1;
+    switch (priority) {
+      case 4: score += 80; break; // P1
+      case 3: score += 60; break; // P2
+      case 2: score += 40; break; // P3
+      case 1: score += 20; break; // P4
+    }
+
+    // 3. Due Date/Time
+    if ('due' in task && task.due) {
+      let dueDate: Date | null = null;
+      if (typeof task.due.datetime === 'string' && task.due.datetime) {
+        dueDate = parseISO(task.due.datetime);
+      } else if (typeof task.due.date === 'string' && task.due.date) {
+        dueDate = parseISO(task.due.date);
+      }
+
+      if (dueDate && isValid(dueDate)) {
+        const daysUntilDue = (dueDate.getTime() - startOfDay(new Date()).getTime()) / (1000 * 60 * 60 * 24);
+        score += Math.max(0, 50 - (daysUntilDue * 10)); // Closer due date, higher score
+      }
+    }
+
+    return score;
+  }, []);
+
   const scoreSlot = useCallback((
     slotStart: Date,
     slotEnd: Date,
@@ -70,30 +100,45 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     durationMinutes: number,
     taskCategory: "pessoal" | "profissional" | undefined,
     taskPriority: 1 | 2 | 3 | 4,
-    combinedBlocksForSuggestion: TimeBlockType[],
+    combinedBlocksForSuggestion: TimeBlock[], // Changed to TimeBlock[]
     scheduledTasksForSuggestion: ScheduledTask[],
     now: Date,
     startOfToday: Date,
-    dayOffset: number
-  ): number => {
+    dayOffset: number,
+    taskToScheduleImportance: number, // New: importance of the task being scheduled
+  ): { score: number, displacedTask: ScheduledTask | undefined } => {
     let currentSlotScore = 0;
+    let displacedTask: ScheduledTask | undefined = undefined;
 
-    // Penalidade: Slots no passado (já filtrado antes, mas reforça)
+    // Penalidade: Slots no passado
     if (isBefore(slotStart, now)) {
-      return -Infinity;
+      return { score: -Infinity, displacedTask: undefined };
     }
 
-    // Penalidade: Conflito com tarefas agendadas
-    const hasConflict = scheduledTasksForSuggestion.some(st => {
+    // Check for conflicts with scheduled tasks
+    for (const st of scheduledTasksForSuggestion) {
       const stStart = (typeof st.start === 'string' && st.start) ? parse(st.start, "HH:mm", currentDayDate) : null;
       const stEnd = (typeof st.end === 'string' && st.end) ? parse(st.end, "HH:mm", currentDayDate) : null;
-      if (!stStart || !stEnd || !isValid(stStart) || !isValid(stEnd)) return false;
+      if (!stStart || !stEnd || !isValid(stStart) || !isValid(stEnd)) continue;
 
-      return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
-              isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
-              (slotStart <= stStart && slotEnd >= stEnd));
-    });
-    if (hasConflict) return -Infinity;
+      if ((isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
+           isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
+           (slotStart <= stStart && slotEnd >= stEnd))) {
+        
+        if (st.isMeeting) { // Meetings cannot be displaced
+          return { score: -Infinity, displacedTask: undefined };
+        } else {
+          // Compare importance: if new task is more important, this slot is a candidate for displacement
+          const existingTaskImportance = getTaskImportanceScore(st.originalTask as TodoistTask | InternalTask); // Assuming originalTask is always present for ScheduledTask
+          if (taskToScheduleImportance > existingTaskImportance) {
+            displacedTask = st;
+            currentSlotScore += 50; // Bonus for displacing a less important task
+          } else {
+            return { score: -Infinity, displacedTask: undefined }; // Cannot displace a more important or equally important task
+          }
+        }
+      }
+    }
 
     let isOverlappingBreak = false;
     let fitsInAppropriateBlock = false;
@@ -117,7 +162,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     }
     // Penalidade: Sobreposição com blocos de pausa
     if (isOverlappingBreak) {
-      return -Infinity;
+      return { score: -Infinity, displacedTask: undefined };
     }
 
     // Pontuação: Correspondência de Categoria/Tipo de Bloco
@@ -186,8 +231,8 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     // Pontuação: Horário do Dia (slots mais cedo são ligeiramente preferidos)
     currentSlotScore -= (slotStart.getHours() * 60 + slotStart.getMinutes()) / 100;
 
-    return currentSlotScore;
-  }, [schedules, recurringBlocks]);
+    return { score: currentSlotScore, displacedTask };
+  }, [getTaskImportanceScore]);
 
 
   const generateAISuggestion = useCallback(async (
@@ -198,16 +243,17 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     taskPriority: 1 | 2 | 3 | 4,
   ) => {
     setIsLoadingAI(true);
-    let bestSlot: { start: string; end: string; date: string } | null = null;
+    let bestSlot: { start: string; end: string; date: string; displacedTask?: ScheduledTask } | null = null;
     let bestScore = -Infinity;
-    let explanation = ""; // A explicação será usada para um toast, não para o chat
+    let explanation = "";
 
-    console.log("PlannerAIAssistant: generateAISuggestion started."); // Log de depuração
-    console.log("PlannerAIAssistant: Task:", task.content, "Duration:", durationMinutes, "Category:", taskCategory, "Priority:", taskPriority); // Log de depuração
+    console.log("PlannerAIAssistant: generateAISuggestion started.");
+    console.log("PlannerAIAssistant: Task:", task.content, "Duration:", durationMinutes, "Category:", taskCategory, "Priority:", taskPriority);
 
     const NUM_DAYS_TO_LOOK_AHEAD = 7;
     const now = new Date();
     const startOfToday = startOfDay(now);
+    const taskToScheduleImportance = getTaskImportanceScore(task);
 
     for (let dayOffset = 0; dayOffset < NUM_DAYS_TO_LOOK_AHEAD; dayOffset++) {
       const currentDayDate = addDays(currentSelectedDate, dayOffset);
@@ -241,48 +287,52 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
           const slotStartStr = format(slotStart, "HH:mm");
           const slotEndStr = format(slotEnd, "HH:mm");
 
-          const currentScore = scoreSlot(
+          const { score: currentScore, displacedTask: currentDisplacedTask } = scoreSlot(
             slotStart, slotEnd, currentDayDate, durationMinutes,
             taskCategory, taskPriority, combinedBlocksForSuggestion,
-            scheduledTasksForSuggestion, now, startOfToday, dayOffset
+            scheduledTasksForSuggestion, now, startOfToday, dayOffset,
+            taskToScheduleImportance
           );
 
           if (currentScore > bestScore) {
             bestScore = currentScore;
-            bestSlot = { start: slotStartStr, end: slotEndStr, date: currentDayDateKey };
-            // Gerar uma explicação concisa para o toast
+            bestSlot = { start: slotStartStr, end: slotEndStr, date: currentDayDateKey, displacedTask: currentDisplacedTask };
+            
             explanation = `Sugestão: ${slotStartStr} - ${slotEndStr} em ${format(currentDayDate, "dd/MM/yyyy", { locale: ptBR })} para "${task.content}" (P${taskPriority}, ${taskCategory}).`;
+            if (currentDisplacedTask) {
+              explanation += ` Remanejando "${currentDisplacedTask.content}".`;
+            }
           }
         }
       }
     }
 
     if (bestSlot) {
-      toast.info(explanation); // Exibir a sugestão como um toast
+      toast.info(explanation);
       onSuggestSlot(bestSlot);
-      console.log("PlannerAIAssistant: Best slot found and suggested:", bestSlot); // Log de depuração
+      console.log("PlannerAIAssistant: Best slot found and suggested:", bestSlot);
     } else {
       toast.error("Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias.");
       onSuggestSlot(null);
-      console.log("PlannerAIAssistant: No suitable slot found."); // Log de depuração
+      console.log("PlannerAIAssistant: No suitable slot found.");
     }
     setIsLoadingAI(false);
-  }, [selectedTaskToSchedule, selectedDate, schedules, recurringBlocks, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, scoreSlot, onSuggestSlot, setIsLoadingAI]);
+  }, [selectedTaskToSchedule, selectedDate, schedules, recurringBlocks, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, scoreSlot, onSuggestSlot, setIsLoadingAI, getTaskImportanceScore]);
 
 
   const handleTriggerSuggestion = useCallback(async () => {
-    console.log("PlannerAIAssistant: handleTriggerSuggestion called."); // Log de depuração
+    console.log("PlannerAIAssistant: handleTriggerSuggestion called.");
     if (!selectedTaskToSchedule) {
       toast.error("Por favor, selecione uma tarefa do backlog para eu poder sugerir um slot.");
-      console.log("PlannerAIAssistant: No task selected."); // Log de depuração
+      console.log("PlannerAIAssistant: No task selected.");
       return;
     }
     if (tempSelectedCategory === "none") {
       toast.error("Por favor, classifique a tarefa como 'Pessoal' ou 'Profissional' antes de sugerir um slot.");
-      console.log("PlannerAIAssistant: Category is 'none'."); // Log de depuração
+      console.log("PlannerAIAssistant: Category is 'none'.");
       return;
     }
-    console.log("PlannerAIAssistant: Preconditions met, calling generateAISuggestion."); // Log de depuração
+    console.log("PlannerAIAssistant: Preconditions met, calling generateAISuggestion.");
     const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
     const taskCategory = tempSelectedCategory === "none" ? (selectedTaskToSchedule ? getTaskCategory(selectedTaskToSchedule) : undefined) : tempSelectedCategory;
     const taskPriority = tempSelectedPriority;

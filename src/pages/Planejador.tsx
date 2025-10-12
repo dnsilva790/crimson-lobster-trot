@@ -87,7 +87,7 @@ const Planejador = () => {
   const [backlogTasks, setBacklogTasks] = useState<(TodoistTask | InternalTask)[]>([]);
   const [selectedTaskToSchedule, setSelectedTaskToSchedule] = useState<(TodoistTask | InternalTask) | null>(null);
   const [isLoadingBacklog, setIsLoadingBacklog] = useState(false);
-  const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string; date: string } | null>(null);
+  const [suggestedSlot, setSuggestedSlot] = useState<{ start: string; end: string; date: string; displacedTask?: ScheduledTask } | null>(null);
   const [ignoredMeetingTaskIds, setIgnoredMeetingTaskIds] = useState<string[]>([]);
   
   const [tempEstimatedDuration, setTempEstimatedDuration] = useState<string>("15");
@@ -222,7 +222,7 @@ const Planejador = () => {
       const internalTasks = getInternalTasks();
 
       let combinedBacklog = [
-        ...(todoistTasks || []),
+        ...(todoistTasks || []).map(task => ({ ...task, isMeeting: task.content.startsWith('*') })), // Identify meetings
         ...internalTasks.filter(task => !task.isCompleted)
       ];
 
@@ -302,7 +302,7 @@ const Planejador = () => {
         setTempEstimatedDuration(String(updatedSelectedTask.estimatedDurationMinutes || 15));
         const initialCategory = getTaskCategory(updatedSelectedTask);
         setTempSelectedCategory(initialCategory || "none");
-        const initialPriority = 'priority' in updatedSelectedTask ? updatedUpdatedTask.priority : 1;
+        const initialPriority = 'priority' in updatedSelectedTask ? updatedSelectedTask.priority : 1;
         setTempSelectedPriority(initialPriority);
         toast.info(`Detalhes da tarefa selecionada atualizados no planejador.`);
       }
@@ -474,6 +474,7 @@ const Planejador = () => {
       category: tempSelectedCategory === "none" ? (getTaskCategory(task) || "pessoal") : tempSelectedCategory,
       estimatedDurationMinutes: durationMinutes,
       originalTask: task,
+      isMeeting: task.content.startsWith('*'), // Set isMeeting property
     };
 
     setSchedules((prevSchedules) => {
@@ -495,7 +496,7 @@ const Planejador = () => {
     fetchBacklogTasks();
   }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask, fetchBacklogTasks]);
 
-  const handleDeleteScheduledTask = useCallback(async (taskToDelete: ScheduledTask) => {
+  const handleDeleteScheduledTask = useCallback(async (taskToDelete: ScheduledTask, shouldReaddToBacklog: boolean = true) => {
     setSchedules((prevSchedules) => {
       const dateKey = format(selectedDate, "yyyy-MM-dd");
       const currentDay = prevSchedules[dateKey];
@@ -513,14 +514,14 @@ const Planejador = () => {
     if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask && taskToDelete.originalTask.project_id === meetingProjectId) {
       setIgnoredMeetingTaskIds(prev => [...new Set([...prev, taskToDelete.originalTask!.id])]);
       toast.info(`Reunião "${taskToDelete.content}" removida da agenda e não será pré-alocada novamente.`);
-    } else if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask) {
+    } else if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask && shouldReaddToBacklog) {
       await updateTask(taskToDelete.originalTask.id, {
         due_date: null,
         due_datetime: null,
       });
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e data de vencimento limpa no Todoist.`);
       handleSelectBacklogTask(taskToDelete.originalTask);
-    } else if (taskToDelete.originalTask) {
+    } else if (taskToDelete.originalTask && shouldReaddToBacklog) {
       handleSelectBacklogTask(taskToDelete.originalTask);
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e pronta para ser reagendada.`);
     } else {
@@ -602,6 +603,18 @@ const Planejador = () => {
                   else if (isEqual(currentDayDate, addDays(startOfToday, 1))) currentScore += 500;
                 }
 
+                // Check for conflicts with existing scheduled tasks
+                const hasConflict = scheduledTasksForSuggestion.some(st => {
+                  const stStart = (typeof st.start === 'string' && st.start) ? parse(st.start, "HH:mm", currentDayDate) : null;
+                  const stEnd = (typeof st.end === 'string' && st.end) ? parse(st.end, "HH:mm", currentDayDate) : null;
+                  if (!stStart || !stEnd || !isValid(stStart) || !isValid(stEnd)) return false;
+            
+                  return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
+                          isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
+                          (slotStart <= stStart && slotEnd >= stEnd));
+                });
+                if (hasConflict) currentScore = -Infinity; // Meetings cannot displace other tasks
+
                 if (currentScore > bestScore) {
                   bestScore = currentScore;
                   bestSlot = { start: slotStartStr, end: slotEndStr, date: currentDayDateKey };
@@ -642,7 +655,7 @@ const Planejador = () => {
       setIsPreallocatingMeetings(false);
       fetchBacklogTasks(); // Recarregar backlog para remover tarefas agendadas
     }
-  }, [meetingProjectId, fetchTasks, ignoredMeetingTaskIds, getCombinedTimeBlocksForDate, schedules, scheduleTask, tempSelectedCategory, tempSelectedPriority, tempEstimatedDuration, fetchBacklogTasks]);
+  }, [meetingProjectId, fetchTasks, ignoredMeetingTaskIds, getCombinedTimeBlocksForDate, schedules, scheduleTask, tempSelectedCategory, tempSelectedPriority, tempEstimatedDuration, fetchBacklogTasks, updateTask]);
 
   const handleSuggestSlot = useCallback(() => {
     console.log("Planejador: handleSuggestSlot called."); // Log de depuração
@@ -701,6 +714,27 @@ const Planejador = () => {
 
     scheduleTask(selectedTaskToSchedule, time, format(slotEnd, "HH:mm"), selectedDate);
   }, [selectedTaskToSchedule, tempEstimatedDuration, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate]);
+
+  const handleScheduleSuggestedTask = useCallback(async () => {
+    if (!selectedTaskToSchedule || !suggestedSlot) {
+      toast.error("Nenhuma tarefa ou slot sugerido para agendar.");
+      return;
+    }
+
+    if (suggestedSlot.displacedTask) {
+      // Remove the displaced task from its current slot without clearing Todoist due date
+      await handleDeleteScheduledTask(suggestedSlot.displacedTask, true); // true to re-add to backlog
+      toast.info(`Tarefa "${suggestedSlot.displacedTask.content}" remanejada para o backlog.`);
+    }
+
+    // Schedule the new task
+    await scheduleTask(
+      selectedTaskToSchedule,
+      suggestedSlot.start,
+      suggestedSlot.end,
+      parseISO(suggestedSlot.date)
+    );
+  }, [selectedTaskToSchedule, suggestedSlot, handleDeleteScheduledTask, scheduleTask]);
 
 
   const isLoading = isLoadingTodoist || isLoadingBacklog || isPreallocatingMeetings;
@@ -1058,8 +1092,13 @@ const Planejador = () => {
                   <div className="mt-2 p-2 bg-green-100 border border-green-400 rounded-md flex items-center justify-between">
                     <span className="text-sm text-green-800">
                       Sugestão: {suggestedSlot.start} - {suggestedSlot.end} ({format(parseISO(suggestedSlot.date), "dd/MM", { locale: ptBR })})
+                      {suggestedSlot.displacedTask && (
+                        <span className="block text-xs text-orange-700">
+                          (Remanejar: {suggestedSlot.displacedTask.content})
+                        </span>
+                      )}
                     </span>
-                    <Button size="sm" onClick={() => scheduleTask(selectedTaskToSchedule, suggestedSlot.start, suggestedSlot.end, parseISO(suggestedSlot.date))}>
+                    <Button size="sm" onClick={handleScheduleSuggestedTask}>
                       Agendar
                     </Button>
                   </div>

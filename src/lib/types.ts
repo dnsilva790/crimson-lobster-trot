@@ -29,6 +29,7 @@ export interface TodoistTask {
   estimatedDurationMinutes?: number;
   // Adicionado com base na saída do cURL, agora será controlável via Sync API
   deadline?: string | null; // YYYY-MM-DD
+  isMeeting?: boolean; // Adicionado para identificar reuniões
 }
 
 export interface TodoistProject {
@@ -90,6 +91,7 @@ export interface ScheduledTask {
   category: "pessoal" | "profissional";
   estimatedDurationMinutes: number; // Duração da tarefa agendada
   originalTask?: TodoistTask | InternalTask; // Referência à tarefa original
+  isMeeting?: boolean; // Adicionado para identificar reuniões
 }
 
 export interface DaySchedule {
