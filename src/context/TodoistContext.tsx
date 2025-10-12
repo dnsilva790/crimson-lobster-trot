@@ -139,9 +139,15 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
         includeCompleted: options?.includeCompleted ?? false, // Default to false for completed
       };
 
-      let todoistApiFilter = filter || "";
+      let todoistApiFilter: string | undefined = filter; // Keep it as string | undefined
       if (!finalOptions.includeCompleted) {
-        todoistApiFilter = todoistApiFilter ? `${todoistApiFilter} & !is_completed` : "!is_completed";
+        if (todoistApiFilter && todoistApiFilter.trim() !== "") {
+          todoistApiFilter = `${todoistApiFilter} & !is_completed`;
+        } else {
+          // If no filter is provided and we don't want completed tasks,
+          // pass undefined to todoistService.fetchTasks to get all active tasks by default.
+          todoistApiFilter = undefined; 
+        }
       }
 
       const rawTasks = await makeApiCall(todoistService.fetchTasks, todoistApiFilter);
