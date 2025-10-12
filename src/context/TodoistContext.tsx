@@ -75,7 +75,12 @@ const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
   }
 
   // Sanitize task.deadline
-  if (task.deadline === undefined || (typeof task.deadline === 'string' && task.deadline === "undefined")) {
+  // Ensure deadline is a string or null, not an object
+  if (task.deadline === undefined || task.deadline === null || (typeof task.deadline === 'string' && task.deadline === "undefined")) {
+    task.deadline = null;
+  } else if (typeof task.deadline !== 'string') {
+    // If it's an object or any other type, convert to string or null
+    console.warn(`TodoistContext: Task ${task.id} (${task.content}) has non-string/null deadline:`, task.deadline, ". Converting to null.");
     task.deadline = null;
   }
   

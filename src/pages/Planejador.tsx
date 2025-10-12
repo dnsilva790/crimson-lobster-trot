@@ -73,6 +73,16 @@ const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
   2: "P4",
 };
 
+const DayOfWeekNames: Record<DayOfWeek, string> = {
+  "0": "Domingo",
+  "1": "Segunda-feira",
+  "2": "Terça-feira",
+  "3": "Quarta-feira",
+  "4": "Quinta-feira",
+  "5": "Sexta-feira",
+  "6": "Sábado",
+};
+
 const Planejador = () => {
   const { fetchTasks, fetchProjects, updateTask, fetchTaskById, isLoading: isLoadingTodoist } = useTodoist();
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
@@ -544,99 +554,44 @@ const Planejador = () => {
 
     setIsPreallocatingMeetings(true);
     try {
-      const meetingTasks = await fetchTasks(`##${MEETING_PROJECT_NAME} & no date`, { includeSubtasks: false, includeRecurring: false });
+      // Fetch tasks that are meetings and have a due date/datetime
+      const meetingTasksWithDueDate = await fetchTasks(`##${MEETING_PROJECT_NAME} & (due: today | due: tomorrow | due: next 7 days)`, { includeSubtasks: false, includeRecurring: false });
       let preallocatedCount = 0;
 
-      for (const task of meetingTasks) {
+      for (const task of meetingTasksWithDueDate) {
         if (ignoredMeetingTaskIds.includes(task.id)) {
           continue;
         }
 
-        if (task.content.toLowerCase().includes("reunião") && task.estimatedDurationMinutes) {
-          const durationMinutes = task.estimatedDurationMinutes;
-          const taskCategory = getTaskCategory(task) || "profissional"; // Reuniões geralmente são profissionais
-          const taskPriority = task.priority;
+        // Ensure it's a meeting and has a valid due date/datetime
+        if (task.isMeeting && task.due?.datetime && isValid(parseISO(task.due.datetime))) {
+          const originalDueDateTime = parseISO(task.due.datetime);
+          const originalDueDate = startOfDay(originalDueDateTime);
+          const originalStartTime = format(originalDueDateTime, "HH:mm");
+          const durationMinutes = task.estimatedDurationMinutes || 60; // Default to 60 min for meetings if not set
+          const originalEndTime = format(addMinutes(originalDueDateTime, durationMinutes), "HH:mm");
+          const originalDateKey = format(originalDueDate, "yyyy-MM-dd");
 
-          let bestSlot: { start: string; end: string; date: string } | null = null;
-          let bestScore = -Infinity;
+          // Check if this meeting is already scheduled for this day
+          const isAlreadyScheduled = schedules[originalDateKey]?.scheduledTasks.some(
+            st => st.taskId === task.id && st.start === originalStartTime && st.end === originalEndTime
+          );
 
-          const NUM_DAYS_TO_LOOK_AHEAD = 7;
-          const now = new Date();
-          const startOfToday = startOfDay(now);
-
-          for (let dayOffset = 0; dayOffset < NUM_DAYS_TO_LOOK_AHEAD; dayOffset++) {
-            const currentDayDate = addDays(startOfToday, dayOffset);
-            const currentDayDateKey = format(currentDayDate, "yyyy-MM-dd");
-            const combinedBlocksForSuggestion = getCombinedTimeBlocksForDate(currentDayDate);
-            const scheduledTasksForSuggestion = schedules[currentDayDateKey]?.scheduledTasks || [];
-
-            let startHour = 0;
-            let startMinute = 0;
-
-            if (isEqual(currentDayDate, startOfToday)) {
-              const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-              startHour = Math.floor(currentTotalMinutes / 60);
-              startMinute = Math.ceil((currentTotalMinutes % 60) / 15) * 15;
-              if (startMinute === 60) {
-                startHour++;
-                startMinute = 0;
-              }
-            }
-
-            for (let hour = startHour; hour < 24; hour++) {
-              for (let minute = (hour === startHour ? startMinute : 0); minute < 60; minute += 15) {
-                const slotStart = setMinutes(setHours(currentDayDate, hour), minute);
-                const slotEnd = addMinutes(slotStart, durationMinutes);
-                const slotStartStr = format(slotStart, "HH:mm");
-                const slotEndStr = format(slotEnd, "HH:mm");
-
-                // Re-implement scoreSlot logic here or call a helper if needed
-                // For simplicity, I'll inline a basic scoring for meetings
-                let currentScore = 0;
-                if (isBefore(slotStart, now)) {
-                  currentScore = -Infinity;
-                } else {
-                  // Prioritize earlier slots
-                  currentScore = -(slotStart.getHours() * 60 + slotStart.getMinutes());
-                  // Prioritize today/tomorrow
-                  if (isEqual(currentDayDate, startOfToday)) currentScore += 1000;
-                  else if (isEqual(currentDayDate, addDays(startOfToday, 1))) currentScore += 500;
-                }
-
-                // Check for conflicts with existing scheduled tasks
-                const hasConflict = scheduledTasksForSuggestion.some(st => {
-                  const stStart = (typeof st.start === 'string' && st.start) ? parse(st.start, "HH:mm", currentDayDate) : null;
-                  const stEnd = (typeof st.end === 'string' && st.end) ? parse(st.end, "HH:mm", currentDayDate) : null;
-                  if (!stStart || !stEnd || !isValid(stStart) || !isValid(stEnd)) return false;
-            
-                  return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
-                          isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
-                          (slotStart <= stStart && slotEnd >= stEnd));
-                });
-                if (hasConflict) currentScore = -Infinity; // Meetings cannot displace other tasks
-
-                if (currentScore > bestScore) {
-                  bestScore = currentScore;
-                  bestSlot = { start: slotStartStr, end: slotEndStr, date: currentDayDateKey };
-                }
-              }
-            }
-          }
-
-          if (bestSlot) {
-            // Temporariamente definir as props para a tarefa de reunião
+          if (!isAlreadyScheduled) {
+            // Temporarily set props for the meeting task
             const originalTempCategory = tempSelectedCategory;
             const originalTempPriority = tempSelectedPriority;
             const originalTempDuration = tempEstimatedDuration;
 
-            setTempSelectedCategory(taskCategory);
-            setTempSelectedPriority(taskPriority);
+            setTempSelectedCategory(getTaskCategory(task) || "profissional");
+            setTempSelectedPriority(task.priority);
             setTempEstimatedDuration(String(durationMinutes));
 
-            await scheduleTask(task, bestSlot.start, bestSlot.end, parseISO(bestSlot.date), true);
+            // Schedule the meeting at its original time
+            await scheduleTask(task, originalStartTime, originalEndTime, originalDueDate, true);
             preallocatedCount++;
 
-            // Restaurar as props temporárias
+            // Restore temporary props
             setTempSelectedCategory(originalTempCategory);
             setTempSelectedPriority(originalTempPriority);
             setTempEstimatedDuration(originalTempDuration);
@@ -646,7 +601,7 @@ const Planejador = () => {
       if (preallocatedCount > 0) {
         toast.success(`${preallocatedCount} reuniões pré-alocadas com sucesso!`);
       } else {
-        toast.info("Nenhuma reunião encontrada para pré-alocar ou todos os slots estão ocupados.");
+        toast.info("Nenhuma reunião encontrada para pré-alocar ou todas já estão agendadas.");
       }
     } catch (error) {
       console.error("Erro ao pré-alocar reuniões:", error);
@@ -655,7 +610,7 @@ const Planejador = () => {
       setIsPreallocatingMeetings(false);
       fetchBacklogTasks(); // Recarregar backlog para remover tarefas agendadas
     }
-  }, [meetingProjectId, fetchTasks, ignoredMeetingTaskIds, getCombinedTimeBlocksForDate, schedules, scheduleTask, tempSelectedCategory, tempSelectedPriority, tempEstimatedDuration, fetchBacklogTasks, updateTask]);
+  }, [meetingProjectId, fetchTasks, ignoredMeetingTaskIds, schedules, scheduleTask, tempSelectedCategory, tempSelectedPriority, tempEstimatedDuration, fetchBacklogTasks]);
 
   const handleSuggestSlot = useCallback(() => {
     console.log("Planejador: handleSuggestSlot called."); // Log de depuração
@@ -723,7 +678,7 @@ const Planejador = () => {
 
     if (suggestedSlot.displacedTask) {
       // Remove the displaced task from its current slot without clearing Todoist due date
-      await handleDeleteScheduledTask(suggestedSlot.displacedTask, true); // true to re-add to backlog
+      await handleDeleteScheduledTask(suggestedSlot.displacedTask, false); // false: don't re-add to backlog, it's already there
       toast.info(`Tarefa "${suggestedSlot.displacedTask.content}" remanejada para o backlog.`);
     }
 
@@ -738,16 +693,6 @@ const Planejador = () => {
 
 
   const isLoading = isLoadingTodoist || isLoadingBacklog || isPreallocatingMeetings;
-
-  const DayOfWeekNames: Record<DayOfWeek, string> = {
-    "0": "Domingo",
-    "1": "Segunda-feira",
-    "2": "Terça-feira",
-    "3": "Quarta-feira",
-    "4": "Quinta-feira",
-    "5": "Sexta-feira",
-    "6": "Sábado",
-  };
 
   const setDay = (date: Date, day: number) => {
     const currentDay = date.getDay();

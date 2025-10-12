@@ -57,7 +57,12 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
   const getTaskImportanceScore = useCallback((task: TodoistTask | InternalTask): number => {
     let score = 0;
 
-    // 1. Deadline (highest priority)
+    // Reuniões são imutáveis e têm a maior importância para não serem remanejadas
+    if (task.content.startsWith('*')) {
+      return Infinity; 
+    }
+
+    // 1. Deadline (highest priority for displacement)
     if ('deadline' in task && typeof task.deadline === 'string' && task.deadline) {
       const parsedDeadline = parseISO(task.deadline);
       if (isValid(parsedDeadline)) {
@@ -100,12 +105,12 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     durationMinutes: number,
     taskCategory: "pessoal" | "profissional" | undefined,
     taskPriority: 1 | 2 | 3 | 4,
-    combinedBlocksForSuggestion: TimeBlock[], // Changed to TimeBlock[]
+    combinedBlocksForSuggestion: TimeBlock[],
     scheduledTasksForSuggestion: ScheduledTask[],
     now: Date,
     startOfToday: Date,
     dayOffset: number,
-    taskToScheduleImportance: number, // New: importance of the task being scheduled
+    taskToScheduleImportance: number,
   ): { score: number, displacedTask: ScheduledTask | undefined } => {
     let currentSlotScore = 0;
     let displacedTask: ScheduledTask | undefined = undefined;
@@ -129,7 +134,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
           return { score: -Infinity, displacedTask: undefined };
         } else {
           // Compare importance: if new task is more important, this slot is a candidate for displacement
-          const existingTaskImportance = getTaskImportanceScore(st.originalTask as TodoistTask | InternalTask); // Assuming originalTask is always present for ScheduledTask
+          const existingTaskImportance = getTaskImportanceScore(st.originalTask as TodoistTask | InternalTask);
           if (taskToScheduleImportance > existingTaskImportance) {
             displacedTask = st;
             currentSlotScore += 50; // Bonus for displacing a less important task
