@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Bot, User } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea"; // Importar Textarea
+import { Send, Bot, User, ClipboardCopy } from "lucide-react"; // Adicionar ClipboardCopy
 import { TodoistTask } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [lastGeneratedReport, setLastGeneratedReport] = useState<string | null>(null); // Novo estado para o relatório
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,6 +68,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Limpar relatório gerado quando a tarefa muda ou uma nova mensagem é enviada
+  useEffect(() => {
+    setLastGeneratedReport(null);
+  }, [currentTask, messages]); // messages para limpar ao enviar nova mensagem de chat
 
   const addMessage = useCallback((sender: "user" | "ai", text: string) => {
     setMessages((prev) => [...prev, { id: Date.now().toString(), sender, text }]);
@@ -122,6 +129,37 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     simulateAIResponse(userMsg);
   };
 
+  const handleGenerateStatusReport = useCallback(() => {
+    if (!currentTask) {
+      toast.error("Selecione uma tarefa para gerar o relatório de status.");
+      return;
+    }
+    // Simplificado, pois o AI Assistant não tem memória de 'últimos passos concluídos'
+    const statusText = `[STATUS]: Nesta sessão de foco, você trabalhou na tarefa: ${currentTask.content}.`;
+    const nextStepText = `[PRÓXIMO PASSO - AÇÃO IMEDIATA]: _Definir a próxima micro-ação para avançar com a tarefa._`;
+    const report = `${statusText}\n${nextStepText}`;
+    setLastGeneratedReport(report);
+    toast.success("Relatório de status gerado!");
+  }, [currentTask]);
+
+  const handleGenerateNextStepReport = useCallback(() => {
+    if (!currentTask) {
+      toast.error("Selecione uma tarefa para gerar o relatório de próximo passo.");
+      return;
+    }
+    const nextStepText = `[PRÓXIMO PASSO - AÇÃO IMEDIATA]: _${currentTask.content} (Definir a próxima micro-ação)._`;
+    const report = `[STATUS]: (Preencha aqui o que foi feito na última sessão)\n${nextStepText}`;
+    setLastGeneratedReport(report);
+    toast.success("Relatório de próximo passo gerado!");
+  }, [currentTask]);
+
+  const handleCopyReport = useCallback(() => {
+    if (lastGeneratedReport) {
+      navigator.clipboard.writeText(lastGeneratedReport);
+      toast.success("Relatório copiado para a área de transferência!");
+    }
+  }, [lastGeneratedReport]);
+
   return (
     <Card className="h-[calc(100vh-100px)] flex flex-col">
       <CardHeader>
@@ -162,22 +200,49 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
             )}
           </div>
         </ScrollArea>
-        <div className="p-4 border-t flex items-center gap-2">
-          <Input
-            placeholder="Converse com o Tutor IA..."
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === "Enter") {
-                handleSendMessage();
-              }
-            }}
-            disabled={isThinking || !currentTask}
-            className="flex-grow"
-          />
-          <Button onClick={handleSendMessage} disabled={isThinking || !currentTask}>
-            <Send className="h-4 w-4" />
-          </Button>
+        <div className="p-4 border-t flex flex-col gap-2">
+          {lastGeneratedReport && (
+            <div className="bg-gray-100 p-3 rounded-md border border-gray-200">
+              <Label htmlFor="generated-report" className="text-sm font-semibold text-gray-700 mb-1 block">
+                Relatório para Todoist:
+              </Label>
+              <Textarea
+                id="generated-report"
+                value={lastGeneratedReport}
+                readOnly
+                rows={4}
+                className="font-mono text-xs resize-none"
+              />
+              <Button onClick={handleCopyReport} size="sm" className="w-full mt-2 flex items-center gap-1">
+                <ClipboardCopy className="h-4 w-4" /> Copiar Relatório
+              </Button>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={handleGenerateStatusReport} disabled={!currentTask} className="flex items-center gap-1">
+              <ClipboardCopy className="h-4 w-4" /> Gerar Status
+            </Button>
+            <Button onClick={handleGenerateNextStepReport} disabled={!currentTask} className="flex items-center gap-1">
+              <ClipboardCopy className="h-4 w-4" /> Gerar Próximo Passo
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Converse com o Tutor IA..."
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  handleSendMessage();
+                }
+              }}
+              disabled={isThinking || !currentTask}
+              className="flex-grow"
+            />
+            <Button onClick={handleSendMessage} disabled={isThinking || !currentTask}>
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
