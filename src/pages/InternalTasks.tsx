@@ -9,28 +9,47 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getInternalTasks, addInternalTask, updateInternalTask, deleteInternalTask, saveInternalTasks } from "@/utils/internalTaskStorage";
-import { InternalTask } from "@/lib/types";
+import { InternalTask, TodoistProject } from "@/lib/types"; // Import TodoistProject
 import { toast } from "sonner";
 import { PlusCircle, Trash2, Edit, Save, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTodoist } from "@/context/TodoistContext"; // Import useTodoist
 
 const InternalTasks = () => {
+  const { createTodoistTask, fetchProjects, isLoading: isLoadingTodoist } = useTodoist(); // Destructure createTodoistTask and fetchProjects
   const [tasks, setTasks] = useState<InternalTask[]>([]);
   const [newTaskContent, setNewTaskContent] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [newTaskCategory, setNewTaskCategory] = useState<"pessoal" | "profissional">("pessoal");
-  const [newTaskEstimatedDuration, setNewTaskEstimatedDuration] = useState<string>("15"); // Default to 15 minutes
+  const [newTaskEstimatedDuration, setNewTaskEstimatedDuration] = useState<string>("15");
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
   const [editedCategory, setEditedCategory] = useState<"pessoal" | "profissional">("pessoal");
   const [editedEstimatedDuration, setEditedEstimatedDuration] = useState<string>("15");
 
+  // New states for Todoist task creation
+  const [taskCreationType, setTaskCreationType] = useState<"internal" | "todoist">("internal");
+  const [todoistProjects, setTodoistProjects] = useState<TodoistProject[]>([]);
+  const [selectedTodoistProjectId, setSelectedTodoistProjectId] = useState<string | undefined>(undefined);
+
   useEffect(() => {
     setTasks(getInternalTasks());
   }, []);
 
-  const handleAddTask = useCallback(() => {
+  // Fetch Todoist projects
+  useEffect(() => {
+    const loadProjects = async () => {
+      const projects = await fetchProjects();
+      if (projects && projects.length > 0) {
+        setTodoistProjects(projects);
+        setSelectedTodoistProjectId(projects[0].id); // Select the first project by default
+      }
+    };
+    loadProjects();
+  }, [fetchProjects]);
+
+  const handleAddTask = useCallback(async () => { // Made async
     if (!newTaskContent.trim()) {
       toast.error("O conteúdo da tarefa não pode ser vazio.");
       return;
@@ -41,24 +60,54 @@ const InternalTasks = () => {
       return;
     }
 
-    const newTask: InternalTask = {
-      id: Date.now().toString(), // Simple unique ID
-      content: newTaskContent.trim(),
-      description: newTaskDescription.trim(),
-      category: newTaskCategory,
-      isCompleted: false,
-      createdAt: new Date().toISOString(),
-      estimatedDurationMinutes: duration,
-    };
+    if (taskCreationType === "todoist") {
+      if (!selectedTodoistProjectId) {
+        toast.error("Por favor, selecione um projeto do Todoist.");
+        return;
+      }
 
-    const updatedTasks = addInternalTask(newTask);
-    setTasks(updatedTasks);
-    setNewTaskContent("");
-    setNewTaskDescription("");
-    setNewTaskCategory("pessoal");
-    setNewTaskEstimatedDuration("15"); // Reset to default
-    toast.success("Tarefa interna adicionada!");
-  }, [newTaskContent, newTaskDescription, newTaskCategory, newTaskEstimatedDuration]);
+      const labels = newTaskCategory === "none" ? [] : [newTaskCategory];
+
+      const todoistTaskData = {
+        content: newTaskContent.trim(),
+        description: newTaskDescription.trim(),
+        project_id: selectedTodoistProjectId,
+        priority: 1 as 1 | 2 | 3 | 4, // Default to P4 (lowest) for new tasks
+        labels: labels,
+        duration: duration,
+        duration_unit: "minute" as "minute",
+      };
+
+      const createdTask = await createTodoistTask(todoistTaskData);
+      if (createdTask) {
+        toast.success(`Tarefa "${createdTask.content}" criada no Todoist!`);
+        setNewTaskContent("");
+        setNewTaskDescription("");
+        setNewTaskCategory("pessoal");
+        setNewTaskEstimatedDuration("15");
+      } else {
+        toast.error("Falha ao criar tarefa no Todoist.");
+      }
+    } else {
+      const newTask: InternalTask = {
+        id: Date.now().toString(),
+        content: newTaskContent.trim(),
+        description: newTaskDescription.trim(),
+        category: newTaskCategory,
+        isCompleted: false,
+        createdAt: new Date().toISOString(),
+        estimatedDurationMinutes: duration,
+      };
+
+      const updatedTasks = addInternalTask(newTask);
+      setTasks(updatedTasks);
+      setNewTaskContent("");
+      setNewTaskDescription("");
+      setNewTaskCategory("pessoal");
+      setNewTaskEstimatedDuration("15");
+      toast.success("Tarefa interna adicionada!");
+    }
+  }, [newTaskContent, newTaskDescription, newTaskCategory, newTaskEstimatedDuration, taskCreationType, selectedTodoistProjectId, createTodoistTask]);
 
   const handleToggleComplete = useCallback((taskId: string) => {
     setTasks((prevTasks) => {
@@ -230,6 +279,45 @@ const InternalTasks = () => {
         </CardTitle>
         <div className="grid gap-4">
           <div>
+            <Label htmlFor="task-creation-type">Tipo de Tarefa</Label>
+            <Select value={taskCreationType} onValueChange={(value: "internal" | "todoist") => setTaskCreationType(value)}>
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Selecione o tipo de tarefa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="internal">Tarefa Interna</SelectItem>
+                <SelectItem value="todoist">Tarefa Todoist</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {taskCreationType === "todoist" && (
+            <div>
+              <Label htmlFor="todoist-project">Projeto do Todoist</Label>
+              <Select
+                value={selectedTodoistProjectId}
+                onValueChange={(value) => setSelectedTodoistProjectId(value)}
+                disabled={isLoadingTodoist || todoistProjects.length === 0}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Selecione um projeto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {todoistProjects.length === 0 ? (
+                    <SelectItem value="loading" disabled>Carregando projetos...</SelectItem>
+                  ) : (
+                    todoistProjects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div>
             <Label htmlFor="new-task-content">Conteúdo da Tarefa</Label>
             <Input
               id="new-task-content"
@@ -274,7 +362,7 @@ const InternalTasks = () => {
               className="mt-1"
             />
           </div>
-          <Button onClick={handleAddTask} className="w-full mt-2">
+          <Button onClick={handleAddTask} className="w-full mt-2" disabled={isLoadingTodoist}>
             Adicionar Tarefa
           </Button>
         </div>
