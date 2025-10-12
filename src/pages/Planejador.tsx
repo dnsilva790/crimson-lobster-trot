@@ -650,8 +650,13 @@ const Planejador = () => {
 
       if (isEqual(startOfCurrentDay, startOfToday)) {
         const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+        // Round up to the next 15-minute interval if current minute is not exactly on an interval
         startHour = Math.floor(currentTotalMinutes / 60);
-        startMinute = Math.floor((currentTotalMinutes % 60) / 15) * 15;
+        startMinute = Math.ceil((currentTotalMinutes % 60) / 15) * 15;
+        if (startMinute === 60) { // If rounding up to 60 minutes, increment hour and reset minutes
+          startHour++;
+          startMinute = 0;
+        }
       }
 
       for (let hour = startHour; hour < 24; hour++) {
@@ -661,7 +666,8 @@ const Planejador = () => {
           const slotStartStr = format(slotStart, "HH:mm");
           const slotEndStr = format(slotEnd, "HH:mm");
 
-          if (isBefore(slotEnd, now)) {
+          // Ensure the start of the slot is not in the past relative to 'now'
+          if (isBefore(slotStart, now)) {
             continue;
           }
 
