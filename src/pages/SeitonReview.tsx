@@ -27,6 +27,10 @@ interface OverdueCounts {
 const SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY = "seiton_review_filter_input";
 const GTD_PROCESSED_LABEL = "gtd_processada";
 
+// Ratios Fibonacci para P1:P2:P3:P4 (1:2:3:5)
+const FIBONACCI_RATIOS = { 4: 1, 3: 2, 2: 3, 1: 5 };
+const TOTAL_FIBONACCI_UNITS = Object.values(FIBONACCI_RATIOS).reduce((sum, ratio) => sum + ratio, 0); // 1 + 2 + 3 + 5 = 11
+
 const SeitonReview = () => {
   const { fetchTasks, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const [reviewState, setReviewState] = useState<ReviewState>("initial");
@@ -39,6 +43,8 @@ const SeitonReview = () => {
     return `no label:${GTD_PROCESSED_LABEL}`;
   });
   const [overdueCounts, setOverdueCounts] = useState<OverdueCounts>({ 1: 0, 2: 0, 3: 0, 4: 0 });
+  const [allTaskCountsByPriority, setAllTaskCountsByPriority] = useState<OverdueCounts>({ 1: 0, 2: 0, 3: 0, 4: 0 });
+
 
   const currentTask = tasksToReview[currentTaskIndex];
   const isLoading = isLoadingTodoist || reviewState === "loading";
@@ -53,7 +59,6 @@ const SeitonReview = () => {
     const counts: OverdueCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
     const now = new Date();
 
-    // Fetch tasks using the currentFilter
     const tasksForCounts = await fetchTasks(currentFilter, { includeSubtasks: false, includeRecurring: false });
 
     if (tasksForCounts) {
@@ -67,7 +72,15 @@ const SeitonReview = () => {
       });
     }
     setOverdueCounts(counts);
-  }, [fetchTasks]); // Add fetchTasks to dependencies
+  }, [fetchTasks]);
+
+  const calculateAllTaskCountsByPriority = useCallback((tasks: TodoistTask[]) => {
+    const counts: OverdueCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    tasks.forEach(task => {
+        counts[task.priority]++;
+    });
+    setAllTaskCountsByPriority(counts);
+  }, []);
 
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
@@ -123,33 +136,41 @@ const SeitonReview = () => {
       setTasksToReview(sortedTasks);
       setReviewState("reviewing");
       toast.success(`Encontradas ${sortedTasks.length} tarefas para revisão de prioridade.`);
+      calculateAllTaskCountsByPriority(sortedTasks); // Calculate for all tasks
     } else {
       setTasksToReview([]);
       setReviewState("finished");
       toast.info("Nenhuma tarefa encontrada para revisão de prioridade com o filtro atual.");
+      calculateAllTaskCountsByPriority([]); // Clear counts if no tasks
     }
 
-    // Call calculateOverdueCounts with the current filterInput
     await calculateOverdueCounts(filterInput);
-  }, [fetchTasks, filterInput, calculateOverdueCounts, sortTasks]);
+  }, [fetchTasks, filterInput, calculateOverdueCounts, sortTasks, calculateAllTaskCountsByPriority]);
 
   useEffect(() => {
-    // This useEffect should now call calculateOverdueCounts with the current filterInput
-    // when the component mounts or filterInput changes.
     calculateOverdueCounts(filterInput);
-  }, [filterInput, calculateOverdueCounts]); // Depend on filterInput
+    // When filterInput changes, we should also re-calculate allTaskCountsByPriority
+    // However, `tasksToReview` is only updated by `loadTasksForReview`.
+    // So, we'll rely on `loadTasksForReview` to call `calculateAllTaskCountsByPriority`.
+  }, [filterInput, calculateOverdueCounts]);
 
 
   const advanceToNextTask = useCallback(() => {
+    setTasksToReview(prevTasks => {
+      const updatedTasks = prevTasks.filter((_, index) => index !== currentTaskIndex);
+      // Recalculate all task counts for the *remaining* tasks
+      calculateAllTaskCountsByPriority(updatedTasks);
+      return updatedTasks;
+    });
+
     if (currentTaskIndex < tasksToReview.length - 1) {
       setCurrentTaskIndex((prev) => prev + 1);
     } else {
       setReviewState("finished");
       toast.success("Revisão de prioridades concluída!");
     }
-    // Recalculate overdue counts with the current filter
     calculateOverdueCounts(filterInput);
-  }, [currentTaskIndex, tasksToReview.length, calculateOverdueCounts, filterInput]);
+  }, [currentTaskIndex, tasksToReview.length, calculateOverdueCounts, filterInput, calculateAllTaskCountsByPriority, tasksToReview]);
 
   const handleAssignPriority = useCallback(async (newPriority: 1 | 2 | 3 | 4) => {
     if (!currentTask) return;
@@ -223,6 +244,39 @@ const SeitonReview = () => {
     2: "P3 - Médio",
     1: "P4 - Baixo",
   };
+
+  const totalTasksInReview = tasksToReview.length;
+  const fibonacciSuggestion = useMemo(() => {
+      if (totalTasksInReview === 0) return null;
+
+      const targetCounts: OverdueCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+      let suggestionText = "";
+      let bestPriorityToSuggest: 1 | 2 | 3 | 4 | null = null;
+      let maxDeficit = 0;
+
+      // Calculate target counts based on Fibonacci ratios
+      for (const p of [4, 3, 2, 1] as (1 | 2 | 3 | 4)[]) {
+          targetCounts[p] = Math.round(totalTasksInReview * (FIBONACCI_RATIOS[p] / TOTAL_FIBONACCI_UNITS));
+      }
+
+      // Find the priority with the largest deficit (under target)
+      for (const p of [4, 3, 2, 1] as (1 | 2 | 3 | 4)[]) { // Check P1 first
+          const deficit = targetCounts[p] - allTaskCountsByPriority[p];
+          if (deficit > maxDeficit) {
+              maxDeficit = deficit;
+              bestPriorityToSuggest = p;
+          }
+      }
+
+      if (bestPriorityToSuggest) {
+          suggestionText = `Considere atribuir P${bestPriorityToSuggest} (${PRIORITY_LABELS[bestPriorityToSuggest]}) para balancear o ranking.`;
+      } else {
+          suggestionText = "Sua distribuição de prioridades está bem equilibrada ou acima dos alvos Fibonacci.";
+      }
+
+      return { targetCounts, suggestionText };
+  }, [totalTasksInReview, allTaskCountsByPriority]);
+
 
   return (
     <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -376,7 +430,7 @@ const SeitonReview = () => {
         )}
       </div>
 
-      <div className="lg:col-span-1">
+      <div className="lg:col-span-1 flex flex-col gap-6">
         <Card className="h-full">
           <CardHeader>
             <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -403,6 +457,59 @@ const SeitonReview = () => {
             <p className="text-sm text-gray-500 mt-4">
               *Contagem de tarefas com prazo no passado (excluindo o dia de hoje).
             </p>
+          </CardContent>
+        </Card>
+
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <Star className="h-5 w-5 text-yellow-600" /> Sugestão Fibonacci
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-4">
+              {fibonacciSuggestion ? (
+                  <>
+                      <p className="text-sm text-gray-600">
+                          Distribuição ideal (Fibonacci 1:2:3:5 para P1:P2:P3:P4) para {totalTasksInReview} tarefas:
+                      </p>
+                      {Object.entries(FIBONACCI_RATIOS).sort(([pA], [pB]) => parseInt(pB) - parseInt(pA)).map(([priority, ratio]) => {
+                          const p = parseInt(priority) as 1 | 2 | 3 | 4;
+                          const currentCount = allTaskCountsByPriority[p];
+                          const targetCount = fibonacciSuggestion.targetCounts[p];
+                          const isUnder = currentCount < targetCount;
+                          const isOver = currentCount > targetCount;
+                          return (
+                              <div key={p} className={cn(
+                                  "flex items-center justify-between p-3 rounded-md border",
+                                  isUnder && "bg-blue-50 border-blue-200",
+                                  isOver && "bg-red-50 border-red-200",
+                                  !isUnder && !isOver && "bg-green-50 border-green-200"
+                              )}>
+                                  <span className="font-medium text-gray-800">
+                                      {PRIORITY_LABELS[p]}:
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                      <span className="text-sm text-gray-500">Atual: {currentCount}</span>
+                                      <span className="text-sm text-gray-500">Alvo: {targetCount}</span>
+                                      <Badge className={cn(
+                                          "text-white text-lg px-3 py-1",
+                                          isUnder && "bg-blue-500",
+                                          isOver && "bg-red-500",
+                                          !isUnder && !isOver && "bg-green-500"
+                                      )}>
+                                          {isUnder ? "⬆️" : isOver ? "⬇️" : "✅"}
+                                      </Badge>
+                                  </div>
+                              </div>
+                          );
+                      })}
+                      <p className="text-md font-semibold text-gray-700 mt-4">
+                          {fibonacciSuggestion.suggestionText}
+                      </p>
+                  </>
+              ) : (
+                  <p className="text-gray-600 italic">Inicie a revisão para ver a sugestão de prioridades.</p>
+              )}
           </CardContent>
         </Card>
       </div>
