@@ -16,15 +16,6 @@ import { ptBR } from "date-fns/locale";
 import { ArrowRight, Star, Scale, Zap, UserCheck, XCircle, ExternalLink, CalendarIcon, Clock, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-type EvaluationState = "initial" | "evaluating" | "finished";
-
-interface EvaluatedTask extends TodoistTask {
-  urgencyScore?: number;
-  dependenceScore?: number;
-}
-
-const SEITON_KRALJIC_STORAGE_KEY = "seitonKraljicEvaluationState";
-const SEITON_KRALJIC_FILTER_INPUT_STORAGE_KEY = "seitonKraljicFilterInput";
 
 type TournamentState = "initial" | "comparing" | "finished";
 

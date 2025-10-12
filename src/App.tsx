@@ -22,7 +22,7 @@ import ProjectDetail from "./pages/ProjectDetail"; // Importar a nova página Pr
 import EditProject from "./pages/EditProject";
 import FollowUp from "./pages/FollowUp";
 import SeitonReview from "./pages/SeitonReview"; // Importar a nova página SeitonReview
-import SeitonKraljic from "./pages/SeitonKraljic"; // Importar a nova página SeitonKraljic
+
 
 const queryClient = new QueryClient();
 
@@ -40,7 +40,6 @@ const App = () => (
               <Route path="/seiketsu" element={<Seiketsu />} /> {/* Rota atualizada para Seiketsu */}
               <Route path="/seiton-review" element={<SeitonReview />} /> {/* Nova rota para SeitonReview */}
               <Route path="/seiton" element={<Seiton />} />
-              <Route path="/seiton-kraljic" element={<SeitonKraljic />} /> {/* Nova rota para SeitonKraljic */}
               <Route path="/novoseiso" element={<NovoSeiso />} /> {/* Rota atualizada para NovoSeiso */}
               <Route path="/internal-tasks" element={<InternalTasks />} />
               <Route path="/planejador" element={<Planejador />} />

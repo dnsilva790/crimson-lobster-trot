@@ -10,7 +10,6 @@ import {
   CalendarDays,
   Star, // Ícone para Shitsuke e Seiton Review
   Users, // Ícone para Follow-Up
-  Scale, // Ícone para Seiton Kraljic
 } from "lucide-react";
 
 const modules = [
@@ -45,14 +44,6 @@ const modules = [
     description: "Torneio de Priorização",
     colorClass: "bg-orange-100 hover:bg-orange-200", // Mudando a cor para diferenciar
     activeColor: "border-orange-600",
-  },
-  {
-    path: "/seiton-kraljic", // Nova rota para Seiton Kraljic
-    icon: Scale, // Ícone para Seiton Kraljic
-    title: "KRALJIC",
-    description: "Matriz de Prioridade",
-    colorClass: "bg-purple-100 hover:bg-purple-200", // Cor para Seiton Kraljic
-    activeColor: "border-purple-600",
   },
   {
     path: "/novoseiso", // Rota atualizada para Novo Seiso
