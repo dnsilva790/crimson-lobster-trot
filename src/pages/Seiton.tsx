@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Adicionado import do Select
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRight, Star, Scale, Zap, UserCheck, XCircle, ExternalLink, CalendarIcon, Clock, Check } from "lucide-react"; // Adicionado Check
+import { ArrowRight, Star, Scale, Zap, UserCheck, XCircle, ExternalLink, CalendarIcon, Clock, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type EvaluationState = "initial" | "evaluating" | "finished";
@@ -43,7 +43,7 @@ const SEITON_CATEGORY_FILTER_STORAGE_KEY = "seiton_category_filter";
 
 const Seiton = () => {
   console.log("Seiton component rendering...");
-  const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist(); // Adicionado updateTask
+  const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const [tournamentState, setTournamentState] = useState<TournamentState>("initial");
   const [tasksToProcess, setTasksToProcess] = useState<TodoistTask[]>([]);
   const [rankedTasks, setRankedTasks] = useState<TodoistTask[]>([]);
@@ -234,7 +234,7 @@ const Seiton = () => {
       }
     }
 
-    console.log("startTournament: tasksToLoad before setting state:", tasksToLoad.length, tasksToLoad); // Added log
+    console.log("startTournament: tasksToLoad before setting state:", tasksToLoad.length, tasksToLoad);
 
     const sortedTasksToLoad = sortTasks(tasksToLoad);
     setTasksToProcess(sortedTasksToLoad);
@@ -295,7 +295,7 @@ const Seiton = () => {
   // Effect to load state from localStorage on component mount
   useEffect(() => {
     const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
-    console.log("Seiton: Loading from localStorage. Raw savedState:", savedState); // Added log
+    console.log("Seiton: Loading from localStorage. Raw savedState:", savedState);
     if (savedState) {
       try {
         const parsedState: SeitonStateSnapshot = JSON.parse(savedState);
@@ -304,7 +304,7 @@ const Seiton = () => {
         setCurrentTaskToPlace(parsedState.currentTaskToPlace);
         setComparisonCandidate(parsedState.comparisonCandidate);
         setComparisonIndex(parsedState.comparisonIndex);
-        setTournamentState(parsedState.tournamentState); // Ensure tournamentState is also restored
+        setTournamentState(parsedState.tournamentState);
         setHasSavedState(true);
         toast.info("Estado do torneio carregado. Clique em 'Continuar Torneio' para prosseguir.");
         console.log("Seiton: Successfully parsed saved state from localStorage:", parsedState);
@@ -312,16 +312,14 @@ const Seiton = () => {
         console.error("Failed to parse saved state from localStorage", e);
         localStorage.removeItem(LOCAL_STORAGE_KEY);
         toast.error("Erro ao carregar estado do torneio. Dados corrompidos foram removidos.");
-        setHasSavedState(false); // Ensure hasSavedState is false if parsing fails
+        setHasSavedState(false);
       }
     }
   }, []);
 
-  // Effect to save state to localStorage whenever relevant state changes
+  // Effect to save in-progress state to localStorage
   useEffect(() => {
-    // Only save if the tournament has actually started (not in the 'initial' state)
-    // AND there is actual data to save (either tasks to process, ranked tasks, or a task currently being compared)
-    if (tournamentState !== "initial" && (tasksToProcess.length > 0 || rankedTasks.length > 0 || currentTaskToPlace)) {
+    if (tournamentState === "comparing") { // Only save if actively comparing
       const stateToSave: SeitonStateSnapshot = {
         tasksToProcess,
         rankedTasks,
@@ -331,31 +329,27 @@ const Seiton = () => {
         tournamentState,
       };
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
-      console.log("Seiton: State saved to localStorage (on state change):", stateToSave);
-      setHasSavedState(true); // Set to true only when actual data is saved
+      console.log("Seiton: In-progress state saved to localStorage:", stateToSave);
+      setHasSavedState(true);
     }
   }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState]);
 
-  // Effect to save state to localStorage when component unmounts
+  // Effect to save final state when tournament finishes
   useEffect(() => {
-    return () => {
-      // Only save on unmount if the tournament was in progress or finished
-      // This ensures the last known state is saved even if the browser is closed or navigated away
-      if (tournamentState !== "initial") {
-        const stateToSave: SeitonStateSnapshot = {
-          tasksToProcess,
-          rankedTasks,
-          currentTaskToPlace,
-          comparisonCandidate,
-          comparisonIndex,
-          tournamentState,
-        };
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
-        console.log("Seiton: State saved to localStorage (on unmount):", stateToSave);
-      }
-    };
-  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState]); // Dependencies are important for cleanup to capture latest state
-
+    if (tournamentState === "finished") {
+      const finalStateToSave: SeitonStateSnapshot = {
+        tasksToProcess: [], // Clear these for a finished state
+        rankedTasks,
+        currentTaskToPlace: null,
+        comparisonCandidate: null,
+        comparisonIndex: 0,
+        tournamentState: "finished",
+      };
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalStateToSave));
+      console.log("Seiton: Final state saved to localStorage (tournament finished):", finalStateToSave);
+      setHasSavedState(true);
+    }
+  }, [tournamentState, rankedTasks]); // Depend on tournamentState and rankedTasks
 
   // Nova função para aplicar a regra P1
   const applyP1Rule = useCallback(async () => {
@@ -370,7 +364,7 @@ const Seiton = () => {
         console.log(`Seiton: Promovendo tarefa "${task.content}" (ID: ${task.id}) de P${task.priority} para P1.`);
         const updatedTodoistTask = await updateTask(task.id, { priority: 4 });
         if (updatedTodoistTask) {
-          updatedRankedTasks[i] = updatedTodoistTask; // Atualiza com a tarefa retornada da API
+          updatedRankedTasks[i] = updatedTodoistTask;
           changesMade = true;
         } else {
           toast.error(`Falha ao promover a tarefa "${task.content}" para P1 no Todoist.`);
@@ -397,10 +391,10 @@ const Seiton = () => {
       }
     } else if (tournamentState === "comparing" && tasksToProcess.length === 0 && !currentTaskToPlace && rankedTasks.length > 0) {
         setTournamentState("finished");
-    } else if (tournamentState === "finished") { // <--- Adicionado este bloco
+    } else if (tournamentState === "finished") {
         applyP1Rule();
     }
-  }, [tournamentState, currentTaskToPlace, tasksToProcess.length, rankedTasks.length, startNextPlacement, applyP1Rule]); // Adicionado applyP1Rule às dependências
+  }, [tournamentState, currentTaskToPlace, tasksToProcess.length, rankedTasks.length, startNextPlacement, applyP1Rule]);
 
   const handleSelection = useCallback(
     (winner: TodoistTask) => {
