@@ -644,6 +644,63 @@ const Planejador = () => {
     }
   }, [meetingProjectId, fetchTasks, ignoredMeetingTaskIds, getCombinedTimeBlocksForDate, schedules, scheduleTask, tempSelectedCategory, tempSelectedPriority, tempEstimatedDuration, fetchBacklogTasks]);
 
+  const handleSuggestSlot = useCallback(() => {
+    if (plannerAIAssistantRef.current) {
+      plannerAIAssistantRef.current.triggerSuggestion();
+    } else {
+      toast.error("O assistente de IA não está pronto. Tente novamente.");
+    }
+  }, []);
+
+  const handleSelectSlot = useCallback((time: string, type: TimeBlockType) => {
+    if (!selectedTaskToSchedule) {
+      toast.info("Selecione uma tarefa do backlog primeiro para agendar em um slot.");
+      return;
+    }
+
+    const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
+    const slotStart = parse(time, "HH:mm", selectedDate);
+    const slotEnd = addMinutes(slotStart, durationMinutes);
+
+    // Check for conflicts with already scheduled tasks in the current day
+    const dateKey = format(selectedDate, "yyyy-MM-dd");
+    const scheduledTasksForDay = schedules[dateKey]?.scheduledTasks || [];
+    const hasConflict = scheduledTasksForDay.some(st => {
+      const stStart = parse(st.start, "HH:mm", selectedDate);
+      const stEnd = parse(st.end, "HH:mm", selectedDate);
+      if (!isValid(stStart) || !isValid(stEnd)) return false; // Ensure parsed dates are valid
+      return (isWithinInterval(slotStart, { start: stStart, end: stEnd }) ||
+              isWithinInterval(slotEnd, { start: stStart, end: stEnd }) ||
+              (slotStart <= stStart && slotEnd >= stEnd));
+    });
+
+    if (hasConflict) {
+      toast.error("Este slot já está ocupado por outra tarefa agendada.");
+      return;
+    }
+
+    // Check for conflicts with break blocks
+    const combinedBlocksForDay = getCombinedTimeBlocksForDate(selectedDate);
+    const isOverlappingBreak = combinedBlocksForDay.some(block => {
+      if (block.type === "break") {
+        const blockStart = parse(block.start, "HH:mm", selectedDate);
+        const blockEnd = parse(block.end, "HH:mm", selectedDate);
+        if (!isValid(blockStart) || !isValid(blockEnd)) return false; // Ensure parsed dates are valid
+        return (isWithinInterval(slotStart, { start: blockStart, end: blockEnd }) ||
+                isWithinInterval(slotEnd, { start: blockStart, end: blockEnd }) ||
+                (slotStart <= blockStart && slotEnd >= blockEnd));
+      }
+      return false;
+    });
+
+    if (isOverlappingBreak) {
+      toast.error("Não é possível agendar em um bloco de pausa.");
+      return;
+    }
+
+    scheduleTask(selectedTaskToSchedule, time, format(slotEnd, "HH:mm"), selectedDate);
+  }, [selectedTaskToSchedule, tempEstimatedDuration, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate]);
+
 
   const isLoading = isLoadingTodoist || isLoadingBacklog || isPreallocatingMeetings;
 
