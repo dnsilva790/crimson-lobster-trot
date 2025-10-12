@@ -8,10 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban, RotateCcw, Eraser } from "lucide-react";
+import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban, RotateCcw, Eraser, SortAsc } from "lucide-react";
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project } from "@/lib/types";
+import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project, SeitonStateSnapshot } from "@/lib/types";
 import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
@@ -25,6 +25,7 @@ import PlannerAIAssistant, { PlannerAIAssistantRef } from "@/components/PlannerA
 const PLANNER_STORAGE_KEY = "planner_schedules_v2";
 const MEETING_PROJECT_NAME = "📅 Reuniões";
 const PLANNER_AI_PROMPT_STORAGE_KEY = "planner_ai_prompt";
+const SEITON_RANKING_STORAGE_KEY = "seitonTournamentState"; // Adicionado
 
 const defaultPlannerAiPrompt = `**AGENTE DE SUGESTÃO DE SLOTS DO PLANEJADOR**
 **MISSÃO:** Sua missão é sugerir o melhor slot de 15 minutos para uma tarefa no calendário, considerando a categoria da tarefa (Pessoal/Profissional), sua prioridade, os blocos de tempo definidos (Trabalho, Pessoal, Pausa) e o horário atual.
@@ -118,6 +119,8 @@ const Planejador = () => {
   const [selectedShitsukeProjectId, setSelectedShitsukeProjectId] = useState<string | 'all'>('all');
 
   const [plannerAiPrompt, setPlannerAiPrompt] = useState<string>(defaultPlannerAiPrompt);
+  const [seitonRankedTasks, setSeitonRankedTasks] = useState<TodoistTask[]>([]); // Estado para tarefas ranqueadas do Seiton
+  const [backlogSortOrder, setBacklogSortOrder] = useState<"default" | "seiton">("default"); // Novo estado para ordem do backlog
 
   // Ref para o componente PlannerAIAssistant para chamar métodos
   const plannerAIAssistantRef = useRef<PlannerAIAssistantRef>(null);
@@ -177,6 +180,40 @@ const Planejador = () => {
     getMeetingProjectId();
   }, [fetchProjects]);
 
+  // Load Seiton ranked tasks
+  useEffect(() => {
+    const loadSeitonRanking = () => {
+      let loadedState: SeitonStateSnapshot = {
+        tasksToProcess: [],
+        rankedTasks: [],
+        currentTaskToPlace: null,
+        comparisonCandidate: null,
+        comparisonIndex: 0,
+        tournamentState: "initial",
+      };
+      try {
+        const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
+        if (savedSeitonState) {
+          const parsed = JSON.parse(savedSeitonState);
+          loadedState = { ...loadedState, ...parsed };
+        }
+        if (loadedState.rankedTasks && loadedState.rankedTasks.length > 0) {
+          setSeitonRankedTasks(loadedState.rankedTasks);
+        } else {
+          setSeitonRankedTasks([]);
+        }
+      } catch (e) {
+        console.error("Planejador: Failed to load or parse Seiton state from localStorage. Error:", e);
+        localStorage.removeItem(SEITON_RANKING_STORAGE_KEY);
+        toast.error("Erro ao carregar ranking do Seiton. Dados corrompidos foram removidos.");
+        setSeitonRankedTasks([]);
+      }
+    };
+    loadSeitonRanking();
+    window.addEventListener('storage', loadSeitonRanking);
+    return () => window.removeEventListener('storage', loadSeitonRanking);
+  }, []);
+
   const getCombinedTimeBlocksForDate = useCallback((date: Date): TimeBlock[] => {
     const dateKey = format(date, "yyyy-MM-dd");
     const dayOfWeek = getDay(date).toString() as DayOfWeek;
@@ -193,6 +230,81 @@ const Planejador = () => {
     timeBlocks: getCombinedTimeBlocksForDate(selectedDate),
     scheduledTasks: schedules[format(selectedDate, "yyyy-MM-dd")]?.scheduledTasks || [],
   };
+
+  const sortBacklogTasks = useCallback((tasks: (TodoistTask | InternalTask)[]): (TodoistTask | InternalTask)[] => {
+    if (backlogSortOrder === "seiton") {
+      // Create a map for quick lookup of Seiton rank
+      const seitonRankMap = new Map<string, number>();
+      seitonRankedTasks.forEach((task, index) => seitonRankMap.set(task.id, index));
+
+      // Sort by Seiton rank, then by default criteria for tasks not in Seiton ranking
+      return [...tasks].sort((a, b) => {
+        const rankA = seitonRankMap.get(a.id);
+        const rankB = seitonRankMap.get(b.id);
+
+        if (rankA !== undefined && rankB !== undefined) {
+          return rankA - rankB; // Both in Seiton ranking
+        }
+        if (rankA !== undefined) return -1; // A is in Seiton, B is not
+        if (rankB !== undefined) return 1; // B is in Seiton, A is not
+
+        // Fallback to default sorting if neither is in Seiton ranking
+        const isAStarred = a.content.startsWith("*");
+        const isBStarred = b.content.startsWith("*");
+        if (isAStarred && !isBStarred) return -1;
+        if (!isAStarred && isBStarred) return 1;
+
+        const priorityA = 'priority' in a ? a.priority : 1;
+        const priorityB = 'priority' in b ? b.priority : 1;
+        if (priorityA !== priorityB) return priorityB - priorityA;
+
+        const getTaskDateValue = (task: TodoistTask | InternalTask) => {
+          if ('due' in task && typeof task.due?.datetime === 'string' && task.due.datetime) return parseISO(task.due.datetime).getTime();
+          if ('due' in task && typeof task.due?.date === 'string' && task.due.date) return parseISO(task.due.date).getTime();
+          return Infinity;
+        };
+
+        const dateA = getTaskDateValue(a);
+        const dateB = getTaskDateValue(b);
+
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+
+        const createdAtA = 'createdAt' in a ? parseISO(a.createdAt).getTime() : ('created_at' in a ? parseISO(a.created_at).getTime() : Infinity);
+        const createdAtB = 'createdAt' in b ? parseISO(b.createdAt).getTime() : ('created_at' in b ? parseISO(b.created_at).getTime() : Infinity);
+        return createdAtA - createdAtB;
+      });
+    } else { // Default sorting
+      return [...tasks].sort((a, b) => {
+        const isAStarred = a.content.startsWith("*");
+        const isBStarred = b.content.startsWith("*");
+        if (isAStarred && !isBStarred) return -1;
+        if (!isAStarred && isBStarred) return 1;
+
+        const priorityA = 'priority' in a ? a.priority : 1;
+        const priorityB = 'priority' in b ? b.priority : 1;
+        if (priorityA !== priorityB) return priorityB - priorityA;
+
+        const getTaskDateValue = (task: TodoistTask | InternalTask) => {
+          if ('due' in task && typeof task.due?.datetime === 'string' && task.due.datetime) return parseISO(task.due.datetime).getTime();
+          if ('due' in task && typeof task.due?.date === 'string' && task.due.date) return parseISO(task.due.date).getTime();
+          return Infinity;
+        };
+
+        const dateA = getTaskDateValue(a);
+        const dateB = getTaskDateValue(b);
+
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+
+        const createdAtA = 'createdAt' in a ? parseISO(a.createdAt).getTime() : ('created_at' in a ? parseISO(a.created_at).getTime() : Infinity);
+        const createdAtB = 'createdAt' in b ? parseISO(b.createdAt).getTime() : ('created_at' in b ? parseISO(b.created_at).getTime() : Infinity);
+        return createdAtA - createdAtB;
+      });
+    }
+  }, [backlogSortOrder, seitonRankedTasks]);
 
   const fetchBacklogTasks = useCallback(async () => {
     setIsLoadingBacklog(true);
@@ -266,33 +378,7 @@ const Planejador = () => {
         return true;
       });
 
-      const sortedBacklog = filteredBacklog.sort((a, b) => {
-        const isAStarred = a.content.startsWith("*");
-        const isBStarred = b.content.startsWith("*");
-        if (isAStarred && !isBStarred) return -1;
-        if (!isAStarred && isBStarred) return 1;
-
-        const priorityA = 'priority' in a ? a.priority : 1;
-        const priorityB = 'priority' in b ? b.priority : 1;
-        if (priorityA !== priorityB) return priorityB - priorityA;
-
-        const getTaskDateValue = (task: TodoistTask | InternalTask) => {
-          if ('due' in task && typeof task.due?.datetime === 'string' && task.due.datetime) return parseISO(task.due.datetime).getTime();
-          if ('due' in task && typeof task.due?.date === 'string' && task.due.date) return parseISO(task.due.date).getTime();
-          return Infinity;
-        };
-
-        const dateA = getTaskDateValue(a);
-        const dateB = getTaskDateValue(b);
-
-        if (dateA !== dateB) {
-          return dateA - dateB;
-        }
-
-        const createdAtA = 'createdAt' in a ? parseISO(a.createdAt).getTime() : ('created_at' in a ? parseISO(a.created_at).getTime() : Infinity);
-        const createdAtB = 'createdAt' in b ? parseISO(b.createdAt).getTime() : ('created_at' in b ? parseISO(b.created_at).getTime() : Infinity);
-        return createdAtA - createdAtB;
-      });
+      const sortedBacklog = sortBacklogTasks(filteredBacklog); // Apply the new sorting function
 
       setBacklogTasks(sortedBacklog);
     } catch (error) {
@@ -301,7 +387,7 @@ const Planejador = () => {
     } finally {
       setIsLoadingBacklog(false);
     }
-  }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingTaskIds, selectedShitsukeProjectId, shitsukeProjects, fetchTaskById]);
+  }, [fetchTasks, filterInput, meetingProjectId, schedules, ignoredMeetingTaskIds, selectedShitsukeProjectId, shitsukeProjects, fetchTaskById, sortBacklogTasks]); // Add sortBacklogTasks to dependencies
 
   // NEW: Function to sync scheduled tasks with Todoist status
   const syncScheduledTasks = useCallback(async () => {
@@ -345,7 +431,7 @@ const Planejador = () => {
     fetchBacklogTasks();
     // Call syncScheduledTasks after fetching backlog to ensure schedule is up-to-date
     syncScheduledTasks();
-  }, [fetchBacklogTasks, syncScheduledTasks]); // Add syncScheduledTasks to dependency array
+  }, [fetchBacklogTasks, syncScheduledTasks, backlogSortOrder]); // Add backlogSortOrder to dependency array
 
   // Also call syncScheduledTasks when selectedDate changes to ensure the current view is fresh
   useEffect(() => {
@@ -1100,6 +1186,24 @@ const Planejador = () => {
                   <Filter className="h-4 w-4" />
                 </Button>
               </div>
+            </div>
+            <div className="mb-4">
+              <Label htmlFor="backlog-sort-order" className="text-sm text-gray-600 font-medium">
+                Ordenar Backlog por
+              </Label>
+              <Select
+                value={backlogSortOrder}
+                onValueChange={(value: "default" | "seiton") => setBacklogSortOrder(value)}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Ordenação Padrão" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Ordenação Padrão</SelectItem>
+                  <SelectItem value="seiton">Ranking Seiton</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button onClick={fetchBacklogTasks} disabled={isLoading} className="w-full mt-2 flex items-center justify-center">
               <RotateCcw className="h-4 w-4 mr-2" /> Recarregar Backlog
