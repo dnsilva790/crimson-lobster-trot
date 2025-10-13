@@ -60,7 +60,7 @@ const Deadlines = () => {
         const deadlineB = b.deadline ? parseISO(b.deadline).getTime() : Infinity;
         if (deadlineA !== deadlineB) return deadlineA - deadlineB;
 
-        if (b.priority !== a.priority) return b.priority - b.priority; // Corrected from b.priority - a.priority to b.priority - b.priority
+        if (b.priority !== a.priority) return b.priority - a.priority;
         
         const getDueDateValue = (task: TodoistTask) => {
           if (typeof task.due?.datetime === 'string' && task.due.datetime) return parseISO(task.due.datetime).getTime();
@@ -182,15 +182,24 @@ const Deadlines = () => {
   }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadlineDate, deadlineTasks, updateTask, fetchDeadlineTasks, handleCancelEditing]);
 
   // Debug function
-  const handleDebugTask = useCallback(() => {
-    const taskToDebug = deadlineTasks.find(task => task.content.toLowerCase() === "beber água");
-    if (taskToDebug) {
-      setDebugTaskJson(JSON.stringify(taskToDebug, null, 2));
-    } else {
-      setDebugTaskJson("Tarefa 'Beber água' não encontrada na lista de tarefas com deadline. Certifique-se de que ela existe no Todoist e tem um campo 'Deadline' preenchido.");
-    }
+  const handleDebugTask = useCallback(async () => { // Adicionado 'async' aqui
     setShowDebugTask(true);
-  }, [deadlineTasks]);
+    setDebugTaskJson("Buscando tarefa 'Beber água'...");
+
+    try {
+      const tasks = await fetchTasks("Beber água", { includeSubtasks: false, includeRecurring: false, includeCompleted: true }); // Busca todas as tarefas, incluindo as completadas
+      const taskToDebug = tasks.find(task => task.content.toLowerCase() === "beber água");
+
+      if (taskToDebug) {
+        setDebugTaskJson(JSON.stringify(taskToDebug, null, 2));
+      } else {
+        setDebugTaskJson("Tarefa 'Beber água' não encontrada no Todoist. Certifique-se de que ela existe (mesmo que concluída) e tente novamente.");
+      }
+    } catch (error) {
+      console.error("Erro ao buscar tarefa para debug:", error);
+      setDebugTaskJson(`Erro ao buscar tarefa: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }, [fetchTasks]); // Adicionado fetchTasks como dependência
 
   const renderTaskItem = (task: TodoistTask) => {
     const isOverdue = task.deadline && isPast(parseISO(task.deadline)) && !isToday(parseISO(task.deadline));
