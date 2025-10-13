@@ -250,9 +250,13 @@ const SeitonReview = () => {
   };
 
   const fibonacciSuggestion = useMemo(() => {
-      // Filtrar tarefas P4 da contagem total para a distribuição Fibonacci
-      const tasksForFibonacci = tasksToReview.filter(task => task.priority !== 1);
-      const totalTasksForFibonacci = tasksForFibonacci.length;
+      // Use allTaskCountsByPriority directly for the counts of P1, P2, P3
+      const currentP1Count = allTaskCountsByPriority[4];
+      const currentP2Count = allTaskCountsByPriority[3];
+      const currentP3Count = allTaskCountsByPriority[2];
+
+      // Total tasks for Fibonacci calculation (excluding P4)
+      const totalTasksForFibonacci = currentP1Count + currentP2Count + currentP3Count;
 
       if (totalTasksForFibonacci === 0) return null;
 
@@ -282,8 +286,8 @@ const SeitonReview = () => {
           suggestionText = "Sua distribuição de prioridades (excluindo P4) está bem equilibrada ou acima dos alvos Fibonacci.";
       }
 
-      return { targetCounts, suggestionText };
-  }, [tasksToReview, allTaskCountsByPriority]);
+      return { targetCounts, suggestionText, totalTasksForFibonacci };
+  }, [allTaskCountsByPriority]);
 
 
   return (
