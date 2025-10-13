@@ -151,14 +151,23 @@ const SeitonReview = () => {
       1: "p4", // Our P4 (Inbox) is Todoist's p4
     };
 
-    let finalFilter = filterInput;
+    let filterParts: string[] = [];
+
+    // 1. Add user's custom filter input
+    if (filterInput.trim()) {
+      filterParts.push(filterInput.trim());
+    }
+
+    // 2. Add priority filter if selected
     if (selectedPriorityFilter !== "all") {
       const todoistPriority = todoistPriorityMap[selectedPriorityFilter];
-      finalFilter = finalFilter ? `${finalFilter} & ${todoistPriority}` : todoistPriority;
+      filterParts.push(todoistPriority);
     }
-    // Always include the GTD_PROCESSED_LABEL exclusion unless explicitly overridden by the user
-    finalFilter = finalFilter ? `${finalFilter} & no label:${GTD_PROCESSED_LABEL}` : `no label:${GTD_PROCESSED_LABEL}`;
 
+    // 3. Always exclude GTD_PROCESSED_LABEL
+    filterParts.push(`!@${GTD_PROCESSED_LABEL}`);
+
+    const finalFilter = filterParts.join(" & ");
 
     const fetchedTasks = await fetchTasks(finalFilter, { includeSubtasks: false, includeRecurring: false });
 
@@ -186,12 +195,16 @@ const SeitonReview = () => {
       2: "p3",
       1: "p4",
     };
-    let currentCombinedFilter = filterInput;
+    let filterParts: string[] = [];
+    if (filterInput.trim()) {
+      filterParts.push(filterInput.trim());
+    }
     if (selectedPriorityFilter !== "all") {
       const todoistPriority = todoistPriorityMap[selectedPriorityFilter];
-      currentCombinedFilter = currentCombinedFilter ? `${currentCombinedFilter} & ${todoistPriority}` : todoistPriority;
+      filterParts.push(todoistPriority);
     }
-    currentCombinedFilter = currentCombinedFilter ? `${currentCombinedFilter} & no label:${GTD_PROCESSED_LABEL}` : `no label:${GTD_PROCESSED_LABEL}`;
+    filterParts.push(`!@${GTD_PROCESSED_LABEL}`);
+    const currentCombinedFilter = filterParts.join(" & ");
 
     calculateOverdueCounts(currentCombinedFilter);
     // No need to call calculateAllTaskCountsByPriority here, as it's called by loadTasksForReview
@@ -361,7 +374,7 @@ const SeitonReview = () => {
                 <Input
                   type="text"
                   id="task-filter"
-                  placeholder={`Opcional: insira um filtro do Todoist (ex: 'hoje', '#projeto'). Exclui tarefas já processadas.`} // Placeholder atualizado
+                  placeholder={`Opcional: insira um filtro do Todoist (ex: 'hoje', '#projeto').`}
                   value={filterInput}
                   onChange={(e) => setFilterInput(e.target.value)}
                   className="pr-10"
@@ -380,7 +393,7 @@ const SeitonReview = () => {
                 )}
               </div>
               <p className="text-xs text-gray-500 text-left mt-1">
-                Use filtros do Todoist para definir quais tarefas revisar. Por padrão, exclui tarefas já processadas pelo Seiketsu.
+                Use filtros do Todoist para definir quais tarefas revisar. O filtro `!@gtd_processada` é aplicado automaticamente.
               </p>
             </div>
             <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">

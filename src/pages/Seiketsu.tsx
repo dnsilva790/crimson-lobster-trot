@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,12 +40,6 @@ type GtdState =
   | "reviewing"
   | "finished";
 
-type ActionableStep =
-  | "isActionable"
-  | "nextAction"
-  | "scheduling"
-  | "delegating";
-
 interface GtdProcessorState {
   gtdState: GtdState;
   actionableStep: ActionableStep;
@@ -73,6 +67,7 @@ const Seiketsu = () => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [inboxFilter, setInboxFilter] = useState<string>(() => {
     if (typeof window !== 'undefined') {
+      // Ensure correct syntax for default filter
       return localStorage.getItem(INBOX_FILTER_STORAGE_KEY) || `no date & no project & !@${GTD_PROCESSED_LABEL} & !@${AGENDA_LABEL}`;
     }
     return `no date & no project & !@${GTD_PROCESSED_LABEL} & !@${AGENDA_LABEL}`;
@@ -165,6 +160,7 @@ const Seiketsu = () => {
     setActionableStep("isActionable");
     setTasksToProcess([]);
 
+    console.log("Seiketsu: Filter being sent to Todoist API:", inboxFilter); // Log para depuração
     const fetchedTasks = await fetchTasks(inboxFilter, { includeSubtasks: false, includeRecurring: false }); 
     if (fetchedTasks && fetchedTasks.length > 0) {
       setTasksToProcess(fetchedTasks);
@@ -430,6 +426,8 @@ const Seiketsu = () => {
             />
             <p className="text-xs text-gray-500 text-left mt-1">
               Use filtros do Todoist para definir sua caixa de entrada. Subtarefas e tarefas recorrentes são excluídas automaticamente.
+              <br/>
+              **Se você vir `!@@agenda` nos logs do console, por favor, limpe o item `gtdInboxFilter` do seu Local Storage.**
             </p>
           </div>
           <Button
