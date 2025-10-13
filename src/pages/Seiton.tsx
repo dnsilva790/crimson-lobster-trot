@@ -514,6 +514,15 @@ const Seiton = () => {
           {task.description && (
             <p className="text-sm text-gray-600 mb-2 line-clamp-3">{task.description}</p>
           )}
+          {task.labels && task.labels.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {task.labels.map((label) => (
+                <Badge key={label} variant="secondary" className="text-xs bg-gray-100 text-gray-700">
+                  {label}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2">
           {renderTaskDates(task)}
@@ -707,6 +716,15 @@ const Seiton = () => {
                             </Badge>
                           )}
                         </div>
+                        {task.labels && task.labels.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {task.labels.map((label) => (
+                              <Badge key={label} variant="secondary" className="text-xs bg-gray-100 text-gray-700">
+                                {label}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                         <div className="text-xs text-gray-500">
                           {renderTaskDates(task)}
                         </div>
@@ -773,6 +791,15 @@ const Seiton = () => {
                         </div>
                         {task.description && (
                           <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
+                        )}
+                        {task.labels && task.labels.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {task.labels.map((label) => (
+                              <Badge key={label} variant="secondary" className="text-xs bg-gray-100 text-gray-700">
+                                {label}
+                              </Badge>
+                            ))}
+                          </div>
                         )}
                         <div className="text-xs text-gray-500 mt-1">
                           {renderTaskDates(task)}
