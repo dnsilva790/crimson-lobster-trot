@@ -1169,7 +1169,7 @@ const Planejador = () => {
             <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <ListTodo className="h-5 w-5 text-indigo-600" /> Backlog de Tarefas
             </CardTitle>
-          </CardTitle>
+          </CardHeader>
           <CardContent>
             <div className="mb-4">
               <Label htmlFor="shitsuke-project-filter" className="text-sm text-gray-600 font-medium">
