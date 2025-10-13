@@ -219,7 +219,7 @@ export const todoistService = {
       if (syncItem) {
         // O campo 'deadline' vem diretamente no objeto 'item' da Sync API v9
         // Ele pode ser um objeto ou null. Se for um objeto, pegamos a propriedade 'date'.
-        const deadlineValue = syncItem.deadline && typeof syncItem.deadline === 'object' ? syncItem.deadline.date : syncItem.deadline;
+        const deadlineValue = syncItem.deadline && typeof syncItem.deadline === 'object' ? syncItem.deadline.date : null;
         return { ...task, deadline: deadlineValue, custom_fields: syncItem.custom_fields };
       }
       return task;
@@ -246,7 +246,7 @@ export const todoistService = {
     const syncItem = syncResponse?.items?.[0];
     if (syncItem) {
       // O campo 'deadline' vem diretamente no objeto 'item' da Sync API v9
-      const deadlineValue = syncItem.deadline && typeof syncItem.deadline === 'object' ? syncItem.deadline.date : syncItem.deadline;
+      const deadlineValue = syncItem.deadline && typeof syncItem.deadline === 'object' ? syncItem.deadline.date : null;
       return { ...restTask, deadline: deadlineValue, custom_fields: syncItem.custom_fields };
     }
     return restTask;
