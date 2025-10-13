@@ -232,6 +232,7 @@ const Seiketsu = () => {
     const updated = await updateTask(currentTask.id, { labels: updatedLabels });
     if (updated) {
       toast.success(`Tarefa "${currentTask.content}" marcada com a etiqueta de foco.`);
+      window.open(currentTask.url, "_blank"); // Open task in Todoist
       advanceToNextTask();
     } else {
       toast.error("Falha ao adicionar a etiqueta de foco à tarefa.");
