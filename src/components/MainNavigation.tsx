@@ -10,7 +10,6 @@ import {
   CalendarDays,
   Star, // Ícone para Shitsuke e Seiton Review
   Users, // Ícone para Follow-Up
-  CalendarCheck, // Ícone para Deadlines
 } from "lucide-react";
 
 const modules = [
@@ -85,14 +84,6 @@ const modules = [
     description: "Acompanhar Delegados",
     colorClass: "bg-pink-100 hover:bg-pink-200",
     activeColor: "border-pink-600",
-  },
-  {
-    path: "/deadlines", // NOVO MÓDULO
-    icon: CalendarCheck, // Ícone para Deadlines
-    title: "DEADLINES",
-    description: "Gerenciar Prazos Finais",
-    colorClass: "bg-red-100 hover:bg-red-200",
-    activeColor: "border-red-600",
   },
 ];
 
