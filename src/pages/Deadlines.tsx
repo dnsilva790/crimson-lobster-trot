@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
+import { todoistSyncApiCall, generateUuid } from "@/services/todoistService"; // Importar as funções exportadas
 
 const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
   4: "bg-red-500",
@@ -32,7 +33,7 @@ const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
 };
 
 const Deadlines = () => {
-  const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist, fetchTaskById } = useTodoist();
+  const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist, apiKey } = useTodoist(); // Obter apiKey do contexto
   const [deadlineTasks, setDeadlineTasks] = useState<TodoistTask[]>([]);
   const [isLoadingDeadlines, setIsLoadingDeadlines] = useState(false);
 
@@ -184,24 +185,36 @@ const Deadlines = () => {
   // Debug function
   const handleDebugTask = useCallback(async () => {
     setShowDebugTask(true);
-    setDebugTaskJson("Buscando tarefa 'Beber água' pelo ID...");
+    setDebugTaskJson("Buscando tarefa 'Beber água' pela Sync API v9...");
+
+    if (!apiKey) {
+      setDebugTaskJson("API key não configurada. Por favor, configure a API key na página inicial.");
+      return;
+    }
 
     // Extrair o ID da tarefa do link fornecido
-    const taskId = "6cHMcGCjPXc3R2pW"; // ID da tarefa "beber-agua-6cHMcGCjPXc3R2pW"
+    const taskId = "9313292961"; // ID da tarefa "beber-agua-6cHMcGCjPXc3R2pW"
 
     try {
-      const taskToDebug = await fetchTaskById(taskId);
+      const syncResponse = await todoistSyncApiCall(apiKey, [{
+        type: "sync",
+        uuid: generateUuid(),
+        args: {
+          resource_types: ["items"],
+          ids: [taskId],
+        },
+      }]);
 
-      if (taskToDebug) {
-        setDebugTaskJson(JSON.stringify(taskToDebug, null, 2));
+      if (syncResponse && syncResponse.items && syncResponse.items.length > 0) {
+        setDebugTaskJson(JSON.stringify(syncResponse.items[0], null, 2));
       } else {
-        setDebugTaskJson(`Tarefa com ID "${taskId}" não encontrada no Todoist. Certifique-se de que ela existe (mesmo que concluída) e tente novamente.`);
+        setDebugTaskJson(`Tarefa com ID "${taskId}" não encontrada na Sync API. Certifique-se de que ela existe e tente novamente.`);
       }
     } catch (error) {
-      console.error("Erro ao buscar tarefa para debug:", error);
-      setDebugTaskJson(`Erro ao buscar tarefa: ${error instanceof Error ? error.message : String(error)}`);
+      console.error("Erro ao buscar tarefa para debug via Sync API:", error);
+      setDebugTaskJson(`Erro ao buscar tarefa via Sync API: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [fetchTaskById]);
+  }, [apiKey]); // Adicionado apiKey como dependência
 
   const renderTaskItem = (task: TodoistTask) => {
     const isOverdue = task.deadline && isPast(parseISO(task.deadline)) && !isToday(parseISO(task.deadline));

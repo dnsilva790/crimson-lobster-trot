@@ -14,7 +14,7 @@ let lastCustomFieldFetchTime: number = 0;
 const CUSTOM_FIELD_CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
 // Função para gerar UUIDs aleatórios, necessários para a Sync API
-function generateUuid(): string {
+export function generateUuid(): string { // EXPORTADO
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -89,7 +89,7 @@ async function todoistApiCall<T>(
 }
 
 // Nova função para chamadas à Sync API
-async function todoistSyncApiCall(
+export async function todoistSyncApiCall( // EXPORTADO
   apiKey: string,
   commands: any[],
 ): Promise<any | undefined> {
@@ -328,7 +328,7 @@ export const todoistService = {
     content: string;
     description?: string;
     project_id?: string;
-    parent_id?: string; // Para criar subtarefas
+    parent_id?: string;
     due_date?: string;
     due_datetime?: string;
     priority?: 1 | 2 | 3 | 4;
