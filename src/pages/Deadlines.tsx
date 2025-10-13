@@ -368,7 +368,22 @@ const Deadlines = () => {
             </div>
           ) : (
             <div className="p-6 text-center text-gray-600">
-              Nenhuma tarefa com deadline encontrada.
+              <p className="text-lg mb-2">Nenhuma tarefa com deadline encontrada.</p>
+              <p className="text-sm text-gray-500">
+                Certifique-se de que você tem um campo personalizado chamado "Deadline" (do tipo "data")
+                criado no Todoist e que suas tarefas possuem este campo preenchido.
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Você pode criar campos personalizados em:{" "}
+                <a
+                  href="https://todoist.com/app/settings/integrations/developer"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >
+                  Todoist &gt; Configurações &gt; Integrações &gt; Desenvolvedor
+                </a>
+              </p>
             </div>
           )}
         </CardContent>
