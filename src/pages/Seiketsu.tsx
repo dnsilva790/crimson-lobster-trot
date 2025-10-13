@@ -291,13 +291,26 @@ const Seiketsu = () => {
 
   const handleMarkAsProject = useCallback(async () => {
     if (!currentTask) return;
-    navigate("/shitsuke/create", {
-      state: {
-        initialWhat: currentTask.content,
-        initialTodoistTaskId: currentTask.id,
-      },
-    });
-  }, [currentTask, navigate]);
+
+    // 1. Add GTD_PROCESSED_LABEL to the current task
+    const updatedLabels = [...new Set([...currentTask.labels, GTD_PROCESSED_LABEL])];
+    const updated = await updateTask(currentTask.id, { labels: updatedLabels });
+
+    if (updated) {
+      toast.success(`Tarefa "${currentTask.content}" marcada como processada e vinculada a um novo projeto.`);
+      // 2. Advance to the next task in Seiketsu
+      advanceToNextTask();
+      // 3. Navigate to create project page
+      navigate("/shitsuke/create", {
+        state: {
+          initialWhat: currentTask.content,
+          initialTodoistTaskId: currentTask.id,
+        },
+      });
+    } else {
+      toast.error("Falha ao marcar a tarefa como processada para o projeto.");
+    }
+  }, [currentTask, navigate, updateTask, advanceToNextTask]);
 
   const handleNextAction = useCallback(async () => {
     if (!currentTask) return;
