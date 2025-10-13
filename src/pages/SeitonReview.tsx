@@ -26,7 +26,7 @@ interface OverdueCounts {
 }
 
 const SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY = "seiton_review_filter_input";
-const SEITON_REVIEW_PRIORITY_FILTER_STORAGE_KEY = "seiton_review_priority_filter"; // Nova chave de armazenamento
+const SEITON_REVIEW_PRIORITY_FILTER_STORAGE_KEY = "seiton_review_priority_filter";
 const GTD_PROCESSED_LABEL = "gtd_processada";
 
 // Ratios Fibonacci para P1:P2:P3 (1:2:3) - P4 é excluído da distribuição
@@ -40,9 +40,9 @@ const SeitonReview = () => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY) || `no label:${GTD_PROCESSED_LABEL}`;
+      return localStorage.getItem(SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY) || ""; // Alterado para string vazia
     }
-    return `no label:${GTD_PROCESSED_LABEL}`;
+    return ""; // Alterado para string vazia
   });
   const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<"all" | 1 | 2 | 3 | 4>(() => {
     if (typeof window !== 'undefined') {
@@ -156,6 +156,9 @@ const SeitonReview = () => {
       const todoistPriority = todoistPriorityMap[selectedPriorityFilter];
       finalFilter = finalFilter ? `${finalFilter} & ${todoistPriority}` : todoistPriority;
     }
+    // Always include the GTD_PROCESSED_LABEL exclusion unless explicitly overridden by the user
+    finalFilter = finalFilter ? `${finalFilter} & no label:${GTD_PROCESSED_LABEL}` : `no label:${GTD_PROCESSED_LABEL}`;
+
 
     const fetchedTasks = await fetchTasks(finalFilter, { includeSubtasks: false, includeRecurring: false });
 
@@ -188,6 +191,8 @@ const SeitonReview = () => {
       const todoistPriority = todoistPriorityMap[selectedPriorityFilter];
       currentCombinedFilter = currentCombinedFilter ? `${currentCombinedFilter} & ${todoistPriority}` : todoistPriority;
     }
+    currentCombinedFilter = currentCombinedFilter ? `${currentCombinedFilter} & no label:${GTD_PROCESSED_LABEL}` : `no label:${GTD_PROCESSED_LABEL}`;
+
     calculateOverdueCounts(currentCombinedFilter);
     // No need to call calculateAllTaskCountsByPriority here, as it's called by loadTasksForReview
     // and fibonacciSuggestion uses the state directly.
@@ -233,7 +238,7 @@ const SeitonReview = () => {
   }, [advanceToNextTask]);
 
   const handleClearFilter = useCallback(() => {
-    setFilterInput(`no label:${GTD_PROCESSED_LABEL}`);
+    setFilterInput(""); // Alterado para string vazia
     setSelectedPriorityFilter("all");
   }, []);
 
@@ -356,13 +361,13 @@ const SeitonReview = () => {
                 <Input
                   type="text"
                   id="task-filter"
-                  placeholder={`Ex: 'no date & no project & !@gtd_processada & !@agenda'`}
+                  placeholder={`Opcional: insira um filtro do Todoist (ex: 'hoje', '#projeto'). Exclui tarefas já processadas.`} // Placeholder atualizado
                   value={filterInput}
                   onChange={(e) => setFilterInput(e.target.value)}
                   className="pr-10"
                   disabled={isLoading}
                 />
-                {filterInput !== `no label:${GTD_PROCESSED_LABEL}` && (
+                {filterInput !== "" && ( // Condição para mostrar o botão de limpar
                   <Button
                     variant="ghost"
                     size="icon"
