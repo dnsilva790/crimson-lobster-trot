@@ -1,3 +1,9 @@
+export interface TodoistCustomField {
+  id: string;
+  name: string;
+  value: string | null;
+}
+
 export interface TodoistTask {
   id: string;
   project_id: string;
@@ -30,6 +36,7 @@ export interface TodoistTask {
   // Adicionado com base na saída do cURL, agora será controlável via Sync API
   deadline?: string | null; // YYYY-MM-DD
   isMeeting?: boolean; // Adicionado para identificar reuniões
+  custom_fields?: TodoistCustomField[]; // Adicionado para capturar campos personalizados brutos
 }
 
 export interface TodoistProject {
@@ -116,4 +123,17 @@ export interface Project {
   status: "ativo" | "concluido" | "arquivado" | "cancelado"; // Status do projeto
   todoistTaskId?: string; // Opcional: ID da tarefa Todoist que originou o projeto
   subtasks: string[]; // Subtarefas geradas a partir do campo 'how'
+}
+
+// Nova interface para definições de campos personalizados (retornada pela Sync API)
+export interface TodoistCustomFieldDefinition {
+  id: string;
+  name: string;
+  project_id: string | null; // Pode ser null para campos globais
+  type: "text" | "number" | "date" | "checkbox" | "dropdown";
+  config: {
+    name: string;
+    type: string;
+    options?: { id: string; name: string }[];
+  };
 }

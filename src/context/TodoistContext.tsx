@@ -88,7 +88,7 @@ const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
   return task;
 };
 
-export const TodoistProvider = ({ children }: { ReactNode }) => {
+export const TodoistProvider = ({ children }: { children: ReactNode }) => {
   const [apiKey, setApiKeyInternal] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -152,7 +152,7 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
       
       console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
       rawTasks.forEach(task => {
-        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}, is_completed: ${task.is_completed}`);
+        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}, is_completed: ${task.is_completed}, deadline: ${task.deadline}`);
       });
 
       // Sanitização completa das tarefas
