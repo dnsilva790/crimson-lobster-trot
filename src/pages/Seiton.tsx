@@ -452,34 +452,42 @@ const Seiton = () => {
     }
   }, [closeTask, currentTaskToPlace, comparisonCandidate]);
 
-  const renderTaskDates = (task: TodoistTask) => {
-    const dateElements: JSX.Element[] = [];
+  const renderTaskDatesAndDuration = (task: TodoistTask) => {
+    const elements: JSX.Element[] = [];
 
     if (typeof task.due?.datetime === 'string' && task.due.datetime) {
       const parsedDate = parseISO(task.due.datetime);
       if (isValid(parsedDate)) {
-        dateElements.push(
-          <span key="due-datetime" className="block">
-            Vencimento: {format(parsedDate, "dd/MM/yyyy HH:mm", { locale: ptBR })}
+        elements.push(
+          <span key="due-datetime" className="flex items-center gap-1">
+            <CalendarIcon className="h-3 w-3" /> {format(parsedDate, "dd/MM/yyyy HH:mm", { locale: ptBR })}
           </span>
         );
       }
     } else if (typeof task.due?.date === 'string' && task.due.date) {
       const parsedDate = parseISO(task.due.date);
       if (isValid(parsedDate)) {
-        dateElements.push(
-          <span key="due-date" className="block">
-            Vencimento: {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })}
+        elements.push(
+          <span key="due-date" className="flex items-center gap-1">
+            <CalendarIcon className="h-3 w-3" /> {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })}
           </span>
         );
       }
     }
 
-    if (dateElements.length === 0) {
+    if (task.duration?.amount && task.duration.unit === "minute") {
+      elements.push(
+        <span key="duration" className="flex items-center gap-1">
+          <Clock className="h-3 w-3" /> {task.duration.amount} min
+        </span>
+      );
+    }
+
+    if (elements.length === 0) {
       return <span>Sem prazo</span>;
     }
 
-    return <div className="space-y-1">{dateElements}</div>;
+    return <div className="flex flex-wrap gap-x-4 gap-y-1">{elements}</div>;
   };
 
   const renderTaskCard = (task: TodoistTask, isClickable: boolean = false, showActions: boolean = false) => {
@@ -525,7 +533,7 @@ const Seiton = () => {
           )}
         </div>
         <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2">
-          {renderTaskDates(task)}
+          {renderTaskDatesAndDuration(task)}
           <span
             className={cn(
               "px-2 py-1 rounded-full text-white text-xs font-medium",
@@ -726,7 +734,7 @@ const Seiton = () => {
                           </div>
                         )}
                         <div className="text-xs text-gray-500">
-                          {renderTaskDates(task)}
+                          {renderTaskDatesAndDuration(task)}
                         </div>
                       </div>
                       {index < 3 && (
@@ -802,7 +810,7 @@ const Seiton = () => {
                           </div>
                         )}
                         <div className="text-xs text-gray-500 mt-1">
-                          {renderTaskDates(task)}
+                          {renderTaskDatesAndDuration(task)}
                         </div>
                       </div>
                       {index < 3 && (
