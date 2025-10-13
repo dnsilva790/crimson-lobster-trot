@@ -32,7 +32,7 @@ const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
 };
 
 const Deadlines = () => {
-  const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
+  const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist, fetchTaskById } = useTodoist();
   const [deadlineTasks, setDeadlineTasks] = useState<TodoistTask[]>([]);
   const [isLoadingDeadlines, setIsLoadingDeadlines] = useState(false);
 
@@ -182,24 +182,26 @@ const Deadlines = () => {
   }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadlineDate, deadlineTasks, updateTask, fetchDeadlineTasks, handleCancelEditing]);
 
   // Debug function
-  const handleDebugTask = useCallback(async () => { // Adicionado 'async' aqui
+  const handleDebugTask = useCallback(async () => {
     setShowDebugTask(true);
-    setDebugTaskJson("Buscando tarefa 'Beber água'...");
+    setDebugTaskJson("Buscando tarefa 'Beber água' pelo ID...");
+
+    // Extrair o ID da tarefa do link fornecido
+    const taskId = "6cHMcGCjPXc3R2pW"; // ID da tarefa "beber-agua-6cHMcGCjPXc3R2pW"
 
     try {
-      const tasks = await fetchTasks("Beber água", { includeSubtasks: false, includeRecurring: false, includeCompleted: true }); // Busca todas as tarefas, incluindo as completadas
-      const taskToDebug = tasks.find(task => task.content.toLowerCase() === "beber água");
+      const taskToDebug = await fetchTaskById(taskId);
 
       if (taskToDebug) {
         setDebugTaskJson(JSON.stringify(taskToDebug, null, 2));
       } else {
-        setDebugTaskJson("Tarefa 'Beber água' não encontrada no Todoist. Certifique-se de que ela existe (mesmo que concluída) e tente novamente.");
+        setDebugTaskJson(`Tarefa com ID "${taskId}" não encontrada no Todoist. Certifique-se de que ela existe (mesmo que concluída) e tente novamente.`);
       }
     } catch (error) {
       console.error("Erro ao buscar tarefa para debug:", error);
       setDebugTaskJson(`Erro ao buscar tarefa: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [fetchTasks]); // Adicionado fetchTasks como dependência
+  }, [fetchTaskById]);
 
   const renderTaskItem = (task: TodoistTask) => {
     const isOverdue = task.deadline && isPast(parseISO(task.deadline)) && !isToday(parseISO(task.deadline));
