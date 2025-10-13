@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
@@ -25,6 +26,7 @@ interface OverdueCounts {
 }
 
 const SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY = "seiton_review_filter_input";
+const SEITON_REVIEW_PRIORITY_FILTER_STORAGE_KEY = "seiton_review_priority_filter"; // Nova chave de armazenamento
 const GTD_PROCESSED_LABEL = "gtd_processada";
 
 // Ratios Fibonacci para P1:P2:P3 (1:2:3) - P4 é excluído da distribuição
@@ -42,6 +44,13 @@ const SeitonReview = () => {
     }
     return `no label:${GTD_PROCESSED_LABEL}`;
   });
+  const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<"all" | 1 | 2 | 3 | 4>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(SEITON_REVIEW_PRIORITY_FILTER_STORAGE_KEY);
+      return stored ? (stored === "all" ? "all" : parseInt(stored, 10) as 1 | 2 | 3 | 4) : "all";
+    }
+    return "all";
+  });
   const [overdueCounts, setOverdueCounts] = useState<OverdueCounts>({ 1: 0, 2: 0, 3: 0, 4: 0 });
   const [allTaskCountsByPriority, setAllTaskCountsByPriority] = useState<OverdueCounts>({ 1: 0, 2: 0, 3: 0, 4: 0 });
 
@@ -54,6 +63,12 @@ const SeitonReview = () => {
       localStorage.setItem(SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY, filterInput);
     }
   }, [filterInput]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SEITON_REVIEW_PRIORITY_FILTER_STORAGE_KEY, String(selectedPriorityFilter));
+    }
+  }, [selectedPriorityFilter]);
 
   const calculateOverdueCounts = useCallback(async (currentFilter: string) => {
     const counts: OverdueCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
@@ -129,7 +144,20 @@ const SeitonReview = () => {
     setCurrentTaskIndex(0);
     setTasksToReview([]);
 
-    const fetchedTasks = await fetchTasks(filterInput, { includeSubtasks: false, includeRecurring: false });
+    const todoistPriorityMap: Record<1 | 2 | 3 | 4, string> = {
+      4: "p1", // Our P1 (Urgente) is Todoist's p1
+      3: "p2", // Our P2 (Importante) is Todoist's p2
+      2: "p3", // Our P3 (Rotina) is Todoist's p3
+      1: "p4", // Our P4 (Inbox) is Todoist's p4
+    };
+
+    let finalFilter = filterInput;
+    if (selectedPriorityFilter !== "all") {
+      const todoistPriority = todoistPriorityMap[selectedPriorityFilter];
+      finalFilter = finalFilter ? `${finalFilter} & ${todoistPriority}` : todoistPriority;
+    }
+
+    const fetchedTasks = await fetchTasks(finalFilter, { includeSubtasks: false, includeRecurring: false });
 
     if (fetchedTasks && fetchedTasks.length > 0) {
       const sortedTasks = sortTasks(fetchedTasks);
@@ -144,15 +172,26 @@ const SeitonReview = () => {
       calculateAllTaskCountsByPriority([]); // Clear counts if no tasks
     }
 
-    await calculateOverdueCounts(filterInput);
-  }, [fetchTasks, filterInput, calculateOverdueCounts, sortTasks, calculateAllTaskCountsByPriority]);
+    await calculateOverdueCounts(finalFilter); // Use finalFilter for overdue counts
+  }, [fetchTasks, filterInput, selectedPriorityFilter, calculateOverdueCounts, sortTasks, calculateAllTaskCountsByPriority]);
 
   useEffect(() => {
-    calculateOverdueCounts(filterInput);
-    // When filterInput changes, we should also re-calculate allTaskCountsByPriority
-    // However, `tasksToReview` is only updated by `loadTasksForReview`.
-    // So, we'll rely on `loadTasksForReview` to call `calculateAllTaskCountsByPriority`.
-  }, [filterInput, calculateOverdueCounts]);
+    // Recalculate overdue counts and all task counts whenever filterInput or selectedPriorityFilter changes
+    const todoistPriorityMap: Record<1 | 2 | 3 | 4, string> = {
+      4: "p1",
+      3: "p2",
+      2: "p3",
+      1: "p4",
+    };
+    let currentCombinedFilter = filterInput;
+    if (selectedPriorityFilter !== "all") {
+      const todoistPriority = todoistPriorityMap[selectedPriorityFilter];
+      currentCombinedFilter = currentCombinedFilter ? `${currentCombinedFilter} & ${todoistPriority}` : todoistPriority;
+    }
+    calculateOverdueCounts(currentCombinedFilter);
+    // No need to call calculateAllTaskCountsByPriority here, as it's called by loadTasksForReview
+    // and fibonacciSuggestion uses the state directly.
+  }, [filterInput, selectedPriorityFilter, calculateOverdueCounts]);
 
 
   const advanceToNextTask = useCallback(() => {
@@ -169,8 +208,8 @@ const SeitonReview = () => {
       setReviewState("finished");
       toast.success("Revisão de prioridades concluída!");
     }
-    calculateOverdueCounts(filterInput);
-  }, [currentTaskIndex, tasksToReview.length, calculateOverdueCounts, filterInput, calculateAllTaskCountsByPriority, tasksToReview]);
+    // The overdue counts will be recalculated by the useEffect when tasksToReview changes
+  }, [currentTaskIndex, tasksToReview.length, calculateAllTaskCountsByPriority, tasksToReview]);
 
   const handleAssignPriority = useCallback(async (newPriority: 1 | 2 | 3 | 4) => {
     if (!currentTask) return;
@@ -195,6 +234,7 @@ const SeitonReview = () => {
 
   const handleClearFilter = useCallback(() => {
     setFilterInput(`no label:${GTD_PROCESSED_LABEL}`);
+    setSelectedPriorityFilter("all");
   }, []);
 
   const renderTaskDates = (task: TodoistTask) => {
@@ -337,6 +377,27 @@ const SeitonReview = () => {
               <p className="text-xs text-gray-500 text-left mt-1">
                 Use filtros do Todoist para definir quais tarefas revisar. Por padrão, exclui tarefas já processadas pelo Seiketsu.
               </p>
+            </div>
+            <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">
+              <Label htmlFor="priority-filter" className="text-left text-gray-600 font-medium">
+                Filtrar por Prioridade
+              </Label>
+              <Select
+                value={String(selectedPriorityFilter)}
+                onValueChange={(value: string) => setSelectedPriorityFilter(value === "all" ? "all" : parseInt(value, 10) as 1 | 2 | 3 | 4)}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Todas as Prioridades" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Prioridades</SelectItem>
+                  <SelectItem value="4">P1 - Urgente</SelectItem>
+                  <SelectItem value="3">P2 - Importante</SelectItem>
+                  <SelectItem value="2">P3 - Rotina</SelectItem>
+                  <SelectItem value="1">P4 - Inbox</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button
               onClick={loadTasksForReview}
