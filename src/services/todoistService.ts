@@ -2,7 +2,8 @@ import { TodoistTask, TodoistProject, TodoistCustomFieldDefinition } from "@/lib
 
 const TODOIST_API_BASE_URL = "https://api.todoist.com/rest/v2";
 const TODOIST_SYNC_API_BASE_URL = "https://api.todoist.com/sync/v9";
-const TODOIST_API_V1_BASE_URL = "https://api.todoist.com/api/v1"; // Nova URL para a API v1
+// A API v1 não será mais usada para o deadline devido a problemas de CORS e payload.
+// const TODOIST_API_V1_BASE_URL = "https://api.todoist.com/api/v1"; 
 
 interface TodoistError {
   status: number;
@@ -79,58 +80,58 @@ async function todoistApiCall<T>(
   return jsonResponse as T;
 }
 
-// Função para chamadas à API v1
-async function todoistApiCallV1<T>(
-  endpoint: string,
-  apiKey: string,
-  method: string = "POST", // Default para POST na v1 conforme especificado
-  body?: object,
-): Promise<T | undefined> {
-  const sanitizedApiKey = apiKey.replace(/[^\x20-\x7E]/g, '');
+// A API v1 não será mais usada para o deadline devido a problemas de CORS e payload.
+// async function todoistApiCallV1<T>(
+//   endpoint: string,
+//   apiKey: string,
+//   method: string = "POST",
+//   body?: object,
+// ): Promise<T | undefined> {
+//   const sanitizedApiKey = apiKey.replace(/[^\x20-\x7E]/g, '');
 
-  const headers: HeadersInit = {
-    Authorization: `Bearer ${sanitizedApiKey}`,
-    "Content-Type": "application/json",
-  };
+//   const headers: HeadersInit = {
+//     Authorization: `Bearer ${sanitizedApiKey}`,
+//     "Content-Type": "application/json",
+//   };
 
-  const config: RequestInit = {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  };
+//   const config: RequestInit = {
+//     method,
+//     headers,
+//     body: body ? JSON.stringify(body) : undefined,
+//   };
 
-  const url = `${TODOIST_API_V1_BASE_URL}${endpoint}`;
-  console.log("Todoist API v1 Request URL:", url);
-  console.log("Todoist API v1 Request Body:", JSON.stringify(body));
+//   const url = `${TODOIST_API_V1_BASE_URL}${endpoint}`;
+//   console.log("Todoist API v1 Request URL:", url);
+//   console.log("Todoist API v1 Request Body:", JSON.stringify(body));
 
-  const response = await fetch(url, config);
+//   const response = await fetch(url, config);
 
-  console.log(`Todoist API v1 Response Status for ${url}:`, response.status);
+//   console.log(`Todoist API v1 Response Status for ${url}:`, response.status);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Todoist API v1 Error Response Body for ${url}:`, errorText);
-    const errorData: TodoistError = {
-      status: response.status,
-      message: errorText,
-    };
-    throw errorData;
-  }
+//   if (!response.ok) {
+//     const errorText = await response.text();
+//     console.error(`Todoist API v1 Error Response Body for ${url}:`, errorText);
+//     const errorData: TodoistError = {
+//       status: response.status,
+//       message: errorText,
+//     };
+//     throw errorData;
+//   }
 
-  if (response.status === 204) {
-    console.log(`Todoist API v1 Response Body for ${url}:`, "No Content (204)");
-    return undefined; // Conforme especificado para 204
-  }
+//   if (response.status === 204) {
+//     console.log(`Todoist API v1 Response Body for ${url}:`, "No Content (204)");
+//     return undefined;
+//   }
 
-  try {
-    const jsonResponse = await response.json();
-    console.log(`Todoist API v1 Response Body for ${url}:`, jsonResponse);
-    return jsonResponse as T;
-  } catch (e) {
-    console.log(`Todoist API v1 Response for ${url} had no JSON body.`);
-    return undefined;
-  }
-}
+//   try {
+//     const jsonResponse = await response.json();
+//     console.log(`Todoist API v1 Response Body for ${url}:`, jsonResponse);
+//     return jsonResponse as T;
+//   } catch (e) {
+//     console.log(`Todoist API v1 Response for ${url} had no JSON body.`);
+//     return undefined;
+//   }
+// }
 
 
 export async function todoistSyncApiCall(
@@ -173,18 +174,18 @@ export async function todoistSyncApiCall(
   return jsonResponse;
 }
 
-// Nova função para atualizar o deadline via API v1
-async function updateTaskDeadlineV1(apiKey: string, taskId: string, newDeadlineDate: string | null): Promise<void> {
-  const payload = {
-    deadline: newDeadlineDate ? {
-      string: newDeadlineDate,
-      date: newDeadlineDate,
-      datetime: null,
-      timezone: null,
-    } : null,
-  };
-  await todoistApiCallV1<void>(`/tasks/${taskId}`, apiKey, "POST", payload);
-}
+// A função updateTaskDeadlineV1 não será mais usada.
+// async function updateTaskDeadlineV1(apiKey: string, taskId: string, newDeadlineDate: string | null): Promise<void> {
+//   const payload = {
+//     deadline: newDeadlineDate ? {
+//       string: newDeadlineDate,
+//       date: newDeadlineDate,
+//       datetime: null,
+//       timezone: null,
+//     } : null,
+//   };
+//   await todoistApiCallV1<void>(`/tasks/${taskId}`, apiKey, "POST", payload);
+// }
 
 
 export const todoistService = {
@@ -288,11 +289,11 @@ export const todoistService = {
     deadline?: string | null;
   }): Promise<TodoistTask | undefined> => {
     const restApiPayload: any = {};
-    let needsRestApiCall = false;
+    let syncApiCommands: any[] = [];
     let deadlineUpdateNeeded = false;
     let deadlineValue: string | null | undefined;
 
-    // Separar o campo 'deadline' dos outros campos
+    // Separar o campo 'deadline' dos outros campos para a Sync API
     if (data.deadline !== undefined) {
       deadlineValue = data.deadline;
       deadlineUpdateNeeded = true;
@@ -303,20 +304,29 @@ export const todoistService = {
       Object.assign(restApiPayload, data);
     }
 
-    // Verificar se há outros campos para a REST API v2
+    // 1. Realizar a atualização via REST API v2, se houver outros campos
     if (Object.keys(restApiPayload).length > 0) {
-      needsRestApiCall = true;
-    }
-
-    // 1. Realizar a atualização via REST API v2, se necessário
-    if (needsRestApiCall) {
       await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", restApiPayload);
     }
 
-    // 2. Realizar a atualização do deadline via API v1, se necessário
+    // 2. Realizar a atualização do deadline via Sync API v9, se necessário
     if (deadlineUpdateNeeded) {
-      // updateTaskDeadlineV1 já lida com null para remover o deadline
-      await updateTaskDeadlineV1(apiKey, taskId, deadlineValue as string | null);
+      const deadlinePayload = deadlineValue ? {
+        string: deadlineValue,
+        date: deadlineValue, // A Sync API v9 espera 'date' para o formato YYYY-MM-DD
+        datetime: null,
+        timezone: null,
+      } : null;
+
+      syncApiCommands.push({
+        type: "item_update",
+        uuid: generateUuid(),
+        args: {
+          id: taskId,
+          deadline: deadlinePayload,
+        },
+      });
+      await todoistSyncApiCall(apiKey, syncApiCommands);
     }
 
     // 3. Buscar a tarefa novamente para obter o estado mais atualizado do Todoist
@@ -350,8 +360,21 @@ export const todoistService = {
     const newTask = await todoistApiCall<TodoistTask>("/tasks", apiKey, "POST", restApiPayload);
 
     if (newTask && deadlineValue !== undefined) {
-      // Se o deadline foi fornecido, atualizá-lo via API v1 após a criação
-      await updateTaskDeadlineV1(apiKey, newTask.id, deadlineValue);
+      // Se o deadline foi fornecido, atualizá-lo via Sync API v9 após a criação
+      const syncApiCommands = [{
+        type: "item_update",
+        uuid: generateUuid(),
+        args: {
+          id: newTask.id,
+          deadline: {
+            string: deadlineValue,
+            date: deadlineValue,
+            datetime: null,
+            timezone: null,
+          },
+        },
+      }];
+      await todoistSyncApiCall(apiKey, syncApiCommands);
       // Buscar a tarefa novamente para obter o deadline atualizado
       return todoistService.fetchTaskById(apiKey, newTask.id);
     }
