@@ -15,6 +15,7 @@ import { format, parseISO, isPast, isToday, isTomorrow, addDays, isValid } from 
 import { ptBR } from "date-fns/locale";
 import { ArrowRight, Check, XCircle, Star, CalendarIcon, Clock, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox"; // Importar Checkbox
 
 type ReviewState = "initial" | "reviewing" | "finished";
 
@@ -27,6 +28,7 @@ interface OverdueCounts {
 
 const SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY = "seiton_review_filter_input";
 const SEITON_REVIEW_PRIORITY_FILTER_STORAGE_KEY = "seiton_review_priority_filter";
+const SEITON_REVIEW_INCLUDE_GTD_PROCESSED_STORAGE_KEY = "seiton_review_include_gtd_processed"; // Nova chave
 const GTD_PROCESSED_LABEL = "gtd_processada";
 
 // Ratios Fibonacci para P1:P2:P3 (1:2:3) - P4 é excluído da distribuição
@@ -40,9 +42,9 @@ const SeitonReview = () => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY) || ""; // Alterado para string vazia
+      return localStorage.getItem(SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY) || "";
     }
-    return ""; // Alterado para string vazia
+    return "";
   });
   const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<"all" | 1 | 2 | 3 | 4>(() => {
     if (typeof window !== 'undefined') {
@@ -50,6 +52,13 @@ const SeitonReview = () => {
       return stored ? (stored === "all" ? "all" : parseInt(stored, 10) as 1 | 2 | 3 | 4) : "all";
     }
     return "all";
+  });
+  const [includeGtdProcessedTasks, setIncludeGtdProcessedTasks] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(SEITON_REVIEW_INCLUDE_GTD_PROCESSED_STORAGE_KEY);
+      return stored === "true";
+    }
+    return false;
   });
   const [overdueCounts, setOverdueCounts] = useState<OverdueCounts>({ 1: 0, 2: 0, 3: 0, 4: 0 });
   const [allTaskCountsByPriority, setAllTaskCountsByPriority] = useState<OverdueCounts>({ 1: 0, 2: 0, 3: 0, 4: 0 });
@@ -69,6 +78,12 @@ const SeitonReview = () => {
       localStorage.setItem(SEITON_REVIEW_PRIORITY_FILTER_STORAGE_KEY, String(selectedPriorityFilter));
     }
   }, [selectedPriorityFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SEITON_REVIEW_INCLUDE_GTD_PROCESSED_STORAGE_KEY, String(includeGtdProcessedTasks));
+    }
+  }, [includeGtdProcessedTasks]);
 
   const calculateOverdueCounts = useCallback(async (currentFilter: string) => {
     const counts: OverdueCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
@@ -164,8 +179,10 @@ const SeitonReview = () => {
       filterParts.push(todoistPriority);
     }
 
-    // 3. Always exclude GTD_PROCESSED_LABEL
-    filterParts.push(`!@${GTD_PROCESSED_LABEL}`);
+    // 3. Conditionally exclude GTD_PROCESSED_LABEL
+    if (!includeGtdProcessedTasks) {
+      filterParts.push(`!@${GTD_PROCESSED_LABEL}`);
+    }
 
     const finalFilter = filterParts.join(" & ");
 
@@ -185,7 +202,7 @@ const SeitonReview = () => {
     }
 
     await calculateOverdueCounts(finalFilter); // Use finalFilter for overdue counts
-  }, [fetchTasks, filterInput, selectedPriorityFilter, calculateOverdueCounts, sortTasks, calculateAllTaskCountsByPriority]);
+  }, [fetchTasks, filterInput, selectedPriorityFilter, includeGtdProcessedTasks, calculateOverdueCounts, sortTasks, calculateAllTaskCountsByPriority]);
 
   useEffect(() => {
     // Recalculate overdue counts and all task counts whenever filterInput or selectedPriorityFilter changes
@@ -203,13 +220,15 @@ const SeitonReview = () => {
       const todoistPriority = todoistPriorityMap[selectedPriorityFilter];
       filterParts.push(todoistPriority);
     }
-    filterParts.push(`!@${GTD_PROCESSED_LABEL}`);
+    if (!includeGtdProcessedTasks) { // Conditionally add this filter
+      filterParts.push(`!@${GTD_PROCESSED_LABEL}`);
+    }
     const currentCombinedFilter = filterParts.join(" & ");
 
     calculateOverdueCounts(currentCombinedFilter);
     // No need to call calculateAllTaskCountsByPriority here, as it's called by loadTasksForReview
     // and fibonacciSuggestion uses the state directly.
-  }, [filterInput, selectedPriorityFilter, calculateOverdueCounts]);
+  }, [filterInput, selectedPriorityFilter, includeGtdProcessedTasks, calculateOverdueCounts]);
 
 
   const advanceToNextTask = useCallback(() => {
@@ -251,8 +270,9 @@ const SeitonReview = () => {
   }, [advanceToNextTask]);
 
   const handleClearFilter = useCallback(() => {
-    setFilterInput(""); // Alterado para string vazia
+    setFilterInput("");
     setSelectedPriorityFilter("all");
+    setIncludeGtdProcessedTasks(false); // Reset this as well
   }, []);
 
   const renderTaskDates = (task: TodoistTask) => {
@@ -393,7 +413,7 @@ const SeitonReview = () => {
                 )}
               </div>
               <p className="text-xs text-gray-500 text-left mt-1">
-                Use filtros do Todoist para definir quais tarefas revisar. O filtro `!@gtd_processada` é aplicado automaticamente.
+                Use filtros do Todoist para definir quais tarefas revisar.
               </p>
             </div>
             <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">
@@ -416,6 +436,17 @@ const SeitonReview = () => {
                   <SelectItem value="1">P4 - Inbox</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center justify-center gap-2 mb-6 max-w-md mx-auto">
+              <Checkbox
+                id="include-gtd-processed"
+                checked={includeGtdProcessedTasks}
+                onCheckedChange={(checked: boolean) => setIncludeGtdProcessedTasks(checked)}
+                disabled={isLoading}
+              />
+              <Label htmlFor="include-gtd-processed" className="text-sm text-gray-600 font-medium cursor-pointer">
+                Incluir tarefas já processadas pelo GTD (`@gtd_processada`)
+              </Label>
             </div>
             <Button
               onClick={loadTasksForReview}
