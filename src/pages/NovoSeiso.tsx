@@ -20,10 +20,10 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from "sonner";
 
 
-const AI_PROMPT_STORAGE_KEY = "ai_tutor_novoseiso_prompt"; // Atualizado
-const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input"; // Atualizado
-const NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY = "novoseiso_category_filter"; // Atualizado
-const NOVO_SEISO_TASK_SOURCE_STORAGE_KEY = "novoseiso_task_source"; // Nova chave de armazenamento
+const AI_PROMPT_STORAGE_KEY = "ai_tutor_novoseiso_prompt";
+const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input";
+const NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY = "novoseiso_category_filter";
+const NOVO_SEISO_TASK_SOURCE_STORAGE_KEY = "novoseiso_task_source";
 
 const defaultAiPrompt = `**TUTOR IA SEISO - COACH DE EXECUÇÃO ESTRATÉGICA E PRODUTIVIDADE**
 **MISSÃO PRINCIPAL**
@@ -105,23 +105,23 @@ Clara, Objetiva e Focada na Ação: Sua comunicação é direta e prática.
 Positiva e Encorajadora: Apesar da firmeza, sua linguagem é positiva e construtiva, para construir disciplina sem gerar sobrecarga emocional. Você reconhece o esforço e celebra as vitórias.
 Anti-Procrastinação: Você é especialista em quebrar a inércia, transformando tarefas vagas em ações concretas e imediatas.`;
 
-const NovoSeiso = () => { // Renomeado o componente
+const NovoSeiso = () => {
   const { closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(NOVO_SEISO_FILTER_INPUT_STORAGE_KEY) || ""; // Atualizado
+      return localStorage.getItem(NOVO_SEISO_FILTER_INPUT_STORAGE_KEY) || "";
     }
     return "";
   });
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<"all" | "pessoal" | "profissional">(() => {
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem(NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all"; // Atualizado
+      return (localStorage.getItem(NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all";
     }
     return "all";
   });
   const [selectedTaskSource, setSelectedTaskSource] = useState<"filter" | "planner" | "ranking" | "all">(() => {
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem(NOVO_SEISO_TASK_SOURCE_STORAGE_KEY) as "filter" | "planner" | "ranking" | "all") || "filter"; // Novo estado
+      return (localStorage.getItem(NOVO_SEISO_TASK_SOURCE_STORAGE_KEY) as "filter" | "planner" | "ranking" | "all") || "filter";
     }
     return "filter";
   });
@@ -129,19 +129,19 @@ const NovoSeiso = () => { // Renomeado o componente
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(NOVO_SEISO_FILTER_INPUT_STORAGE_KEY, filterInput); // Atualizado
+      localStorage.setItem(NOVO_SEISO_FILTER_INPUT_STORAGE_KEY, filterInput);
     }
   }, [filterInput]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY, selectedCategoryFilter); // Atualizado
+      localStorage.setItem(NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY, selectedCategoryFilter);
     }
   }, [selectedCategoryFilter]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(NOVO_SEISO_TASK_SOURCE_STORAGE_KEY, selectedTaskSource); // Salvar novo estado
+      localStorage.setItem(NOVO_SEISO_TASK_SOURCE_STORAGE_KEY, selectedTaskSource);
     }
   }, [selectedTaskSource]);
 
@@ -154,7 +154,7 @@ const NovoSeiso = () => { // Renomeado o componente
     loadTasksForFocus,
     advanceToNextTask,
     updateTaskInFocusList,
-  } = useExecucaoTasks(filterInput, selectedCategoryFilter, selectedTaskSource); // Passar selectedTaskSource
+  } = useExecucaoTasks(filterInput, selectedCategoryFilter, selectedTaskSource);
 
   const currentTask = focusTasks[currentTaskIndex];
 
@@ -231,7 +231,7 @@ const NovoSeiso = () => { // Renomeado o componente
   return (
     <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2">
-        <h2 className="text-3xl font-bold mb-2 text-gray-800">✨ NOVO SEISO - Modo Foco Total</h2> {/* Título atualizado */}
+        <h2 className="text-3xl font-bold mb-2 text-gray-800">✨ NOVO SEISO - Modo Foco Total</h2>
         <p className="text-lg text-gray-600 mb-6">Concentre-se em uma tarefa por vez.</p>
 
         {isLoading && (
@@ -246,9 +246,9 @@ const NovoSeiso = () => { // Renomeado o componente
             setFilterInput={setFilterInput}
             selectedCategoryFilter={selectedCategoryFilter}
             setSelectedCategoryFilter={setSelectedCategoryFilter}
-            selectedTaskSource={selectedTaskSource} // Nova prop
-            setSelectedTaskSource={setSelectedTaskSource} // Nova prop
-            onStartFocus={() => loadTasksForFocus(selectedTaskSource)} // Passar selectedTaskSource
+            selectedTaskSource={selectedTaskSource}
+            setSelectedTaskSource={setSelectedTaskSource}
+            onStartFocus={() => loadTasksForFocus(selectedTaskSource)}
             isLoading={isLoading}
           />
         )}
@@ -278,7 +278,7 @@ const NovoSeiso = () => { // Renomeado o componente
         {!isLoading && execucaoState === "finished" && (
           <ExecucaoFinishedState
             originalTasksCount={initialTotalTasks}
-            onStartNewFocus={() => loadTasksForFocus(selectedTaskSource)} // Passar selectedTaskSource
+            onStartNewFocus={() => loadTasksForFocus(selectedTaskSource)}
           />
         )}
       </div>

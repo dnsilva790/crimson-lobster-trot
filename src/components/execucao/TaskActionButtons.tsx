@@ -23,10 +23,10 @@ interface TaskActionButtonsProps {
     priority?: 1 | 2 | 3 | 4;
     due_date?: string | null;
     due_datetime?: string | null;
-    duration?: number; // Adicionado
-    duration_unit?: "minute" | "day"; // Adicionado
+    duration?: number;
+    duration_unit?: "minute" | "day";
   }) => Promise<TodoistTask | undefined>;
-  onPostpone: (taskId: string) => Promise<void>; // Nova prop para postergar
+  onPostpone: (taskId: string) => Promise<void>;
 }
 
 const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
@@ -35,10 +35,9 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   onComplete,
   onSkip,
   onUpdateTask,
-  onPostpone, // Nova prop
+  onPostpone,
 }) => {
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
-  // const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false); // Removido, pois não está sendo usado
 
   const initialDueDate = currentTask.due?.date ? parseISO(currentTask.due.date) : undefined;
   const initialDueTime = currentTask.due?.datetime ? format(parseISO(currentTask.due.datetime), "HH:mm") : "";
@@ -49,7 +48,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(initialDueDate);
   const [selectedDueTime, setSelectedDueTime] = useState<string>(initialDueTime);
   const [selectedPriority, setSelectedPriority] = useState<1 | 2 | 3 | 4>(currentTask.priority);
-  const [selectedDuration, setSelectedDuration] = useState<string>(initialDuration); // Novo estado para duração
+  const [selectedDuration, setSelectedDuration] = useState<string>(initialDuration);
 
   const handleReschedule = async () => {
     const updateData: {
@@ -65,7 +64,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
     if (selectedDueDate) {
       let finalDate = selectedDueDate;
       if (selectedDueTime) {
-        const [hours, minutes] = selectedDueTime.split(":").map(Number);
+        const [hours, minutes] = (selectedDueTime || '').split(":").map(Number);
         finalDate = setMinutes(setHours(selectedDueDate, hours), minutes);
         updateData.due_datetime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
         updateData.due_date = null;
@@ -132,7 +131,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6"> {/* Ajustado para 4 colunas */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
       <Button
         onClick={() => onComplete(currentTask.id)}
         disabled={isLoading}
@@ -213,7 +212,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
         </PopoverContent>
       </Popover>
       <Button
-        onClick={() => onPostpone(currentTask.id)} // Usando a nova prop
+        onClick={() => onPostpone(currentTask.id)}
         disabled={isLoading}
         className="bg-yellow-500 hover:bg-yellow-600 text-white py-3 text-md flex items-center justify-center"
       >

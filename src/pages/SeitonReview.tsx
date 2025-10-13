@@ -15,7 +15,7 @@ import { format, parseISO, isPast, isToday, isTomorrow, addDays, isValid } from 
 import { ptBR } from "date-fns/locale";
 import { ArrowRight, Check, XCircle, Star, CalendarIcon, Clock, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox"; // Importar Checkbox
+import { Checkbox } from "@/components/ui/checkbox";
 
 type ReviewState = "initial" | "reviewing" | "finished";
 
@@ -28,7 +28,7 @@ interface OverdueCounts {
 
 const SEITON_REVIEW_FILTER_INPUT_STORAGE_KEY = "seiton_review_filter_input";
 const SEITON_REVIEW_PRIORITY_FILTER_STORAGE_KEY = "seiton_review_priority_filter";
-const SEITON_REVIEW_INCLUDE_GTD_PROCESSED_STORAGE_KEY = "seiton_review_include_gtd_processed"; // Nova chave
+const SEITON_REVIEW_INCLUDE_GTD_PROCESSED_STORAGE_KEY = "seiton_review_include_gtd_processed";
 const GTD_PROCESSED_LABEL = "gtd_processada";
 
 // Ratios Fibonacci para P1:P2:P3 (1:2:3) - P4 é excluído da distribuição
@@ -119,18 +119,18 @@ const SeitonReview = () => {
       if (isAStarred && !isBStarred) return -1;
       if (!isAStarred && isBStarred) return 1;
 
+      // Removido: const getDeadlineValue = (task: TodoistTask) => {
+      // Removido:   if (typeof task.deadline === 'string' && task.deadline) return parseISO(task.deadline).getTime();
+      // Removido:   return Infinity;
+      // Removido: };
+      // Removido: const deadlineA = getDeadlineValue(a);
+      // Removido: const deadlineB = getDeadlineValue(b);
+      // Removido: if (deadlineA !== deadlineB) {
+      // Removido:   return deadlineA - deadlineB;
+      // Removido: }
+
       if (b.priority !== a.priority) {
         return b.priority - a.priority;
-      }
-
-      const getDeadlineValue = (task: TodoistTask) => {
-        if (typeof task.deadline === 'string' && task.deadline) return parseISO(task.deadline).getTime();
-        return Infinity;
-      };
-      const deadlineA = getDeadlineValue(a);
-      const deadlineB = getDeadlineValue(b);
-      if (deadlineA !== deadlineB) {
-        return deadlineA - deadlineB;
       }
 
       const getDueDateValue = (task: TodoistTask) => {
@@ -272,7 +272,7 @@ const SeitonReview = () => {
   const handleClearFilter = useCallback(() => {
     setFilterInput("");
     setSelectedPriorityFilter("all");
-    setIncludeGtdProcessedTasks(false); // Reset this as well
+    setIncludeGtdProcessedTasks(false);
   }, []);
 
   const renderTaskDates = (task: TodoistTask) => {

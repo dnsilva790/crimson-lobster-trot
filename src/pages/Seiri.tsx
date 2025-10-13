@@ -190,22 +190,22 @@ const Seiri = () => {
     }
   }, [tasksToReview, updateTask]);
 
-  const handleUpdateFieldDeadline = useCallback(async (taskId: string, deadlineDate: string | null) => {
-    console.log("Seiri: onUpdateFieldDeadline called. Task ID:", taskId, "Deadline Date:", deadlineDate);
-    const updated = await updateTask(taskId, { deadline: deadlineDate });
-    if (updated) {
-      console.log("Seiri: Task updated successfully. New deadline from API:", updated.deadline);
-      setTasksToReview(prevTasks =>
-        prevTasks.map(task =>
-          task.id === taskId ? { ...task, deadline: updated.deadline } : task
-        )
-      );
-      toast.success("Deadline da tarefa atualizado com sucesso!");
-    } else {
-      console.error("Seiri: Failed to update task deadline.");
-      toast.error("Falha ao atualizar o deadline da tarefa.");
-    }
-  }, [tasksToReview, updateTask]);
+  // Removido: const handleUpdateFieldDeadline = useCallback(async (taskId: string, deadlineDate: string | null) => {
+  // Removido:   console.log("Seiri: onUpdateFieldDeadline called. Task ID:", taskId, "Deadline Date:", deadlineDate);
+  // Removido:   const updated = await updateTask(taskId, { deadline: deadlineDate });
+  // Removido:   if (updated) {
+  // Removido:     console.log("Seiri: Task updated successfully. New deadline from API:", updated.deadline);
+  // Removido:     setTasksToReview(prevTasks =>
+  // Removido:       prevTasks.map(task =>
+  // Removido:         task.id === taskId ? { ...task, deadline: updated.deadline } : task
+  // Removido:       )
+  // Removido:     );
+  // Removido:     toast.success("Deadline da tarefa atualizado com sucesso!");
+  // Removido:   } else {
+  // Removido:     console.error("Seiri: Failed to update task deadline.");
+  // Removido:     toast.error("Falha ao atualizar o deadline da tarefa.");
+  // Removido:   }
+  // Removido: }, [tasksToReview, updateTask]);
 
   const handleUpdateDuration = useCallback(async (taskId: string, duration: number | null) => {
     const updated = await updateTask(taskId, {
@@ -312,7 +312,7 @@ const Seiri = () => {
             onUpdateCategory={handleUpdateCategory}
             onUpdatePriority={handleUpdatePriority}
             onUpdateDeadline={handleUpdateDeadline}
-            onUpdateFieldDeadline={handleUpdateFieldDeadline}
+            // Removido: onUpdateFieldDeadline={handleUpdateFieldDeadline}
             onPostpone={handlePostpone}
             onUpdateDuration={handleUpdateDuration}
             isLoading={isLoading}

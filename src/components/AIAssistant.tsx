@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea"; // Importar Textarea
-import { Send, Bot, User, ClipboardCopy } from "lucide-react"; // Adicionar ClipboardCopy
+import { Textarea } from "@/components/ui/textarea";
+import { Send, Bot, User, ClipboardCopy } from "lucide-react";
 import { TodoistTask } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,7 @@ interface AIAssistantProps {
     labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
-    deadline?: string | null;
+    // Removido: deadline?: string | null;
   }) => Promise<TodoistTask | undefined>;
   closeTask: (taskId: string) => Promise<void>;
 }
@@ -47,7 +47,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isThinking, setIsThinking] = useState(false);
-  const [lastGeneratedReport, setLastGeneratedReport] = useState<string | null>(null); // Novo estado para o relatório
+  const [lastGeneratedReport, setLastGeneratedReport] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -72,7 +72,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   // Limpar relatório gerado quando a tarefa muda ou uma nova mensagem é enviada
   useEffect(() => {
     setLastGeneratedReport(null);
-  }, [currentTask, messages]); // messages para limpar ao enviar nova mensagem de chat
+  }, [currentTask, messages]);
 
   const addMessage = useCallback((sender: "user" | "ai", text: string) => {
     setMessages((prev) => [...prev, { id: Date.now().toString(), sender, text }]);

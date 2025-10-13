@@ -1,9 +1,3 @@
-export interface TodoistCustomField {
-  id: string;
-  name: string;
-  value: string | null;
-}
-
 export interface TodoistTask {
   id: string;
   project_id: string;
@@ -33,10 +27,9 @@ export interface TodoistTask {
   creator_id: string;
   // Propriedade adicionada no front-end para facilitar o planejamento
   estimatedDurationMinutes?: number;
-  // Adicionado com base na saída do cURL, agora será controlável via Sync API
-  deadline?: string | null; // YYYY-MM-DD
+  // Removido: deadline?: string | null; // YYYY-MM-DD
   isMeeting?: boolean; // Adicionado para identificar reuniões
-  custom_fields?: TodoistCustomField[]; // Adicionado para capturar campos personalizados brutos
+  // Removido: custom_fields?: TodoistCustomField[]; // Adicionado para capturar campos personalizados brutos
 }
 
 export interface TodoistProject {
@@ -125,15 +118,15 @@ export interface Project {
   subtasks: string[]; // Subtarefas geradas a partir do campo 'how'
 }
 
-// Nova interface para definições de campos personalizados (retornada pela Sync API)
-export interface TodoistCustomFieldDefinition {
-  id: string;
-  name: string;
-  project_id: string | null; // Pode ser null para campos globais
-  type: "text" | "number" | "date" | "checkbox" | "dropdown";
-  config: {
-    name: string;
-    type: string;
-    options?: { id: string; name: string }[];
-  };
-}
+// Removido: Nova interface para definições de campos personalizados (retornada pela Sync API)
+// Removido: export interface TodoistCustomFieldDefinition {
+// Removido:   id: string;
+// Removido:   name: string;
+// Removido:   project_id: string | null; // Pode ser null para campos globais
+// Removido:   type: "text" | "number" | "date" | "checkbox" | "dropdown";
+// Removido:   config: {
+// Removido:     name: string;
+// Removido:     type: string;
+// Removido:     options?: { id: string; name: string }[];
+// Removido:   };
+// Removido: }

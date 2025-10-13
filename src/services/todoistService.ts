@@ -1,25 +1,25 @@
-import { TodoistTask, TodoistProject, TodoistCustomField, TodoistCustomFieldDefinition } from "@/lib/types";
+import { TodoistTask, TodoistProject } from "@/lib/types";
 
 const TODOIST_API_BASE_URL = "https://api.todoist.com/rest/v2";
-const TODOIST_SYNC_API_BASE_URL = "https://api.todoist.com/sync/v9"; // Nova URL para a Sync API
+// Removido: const TODOIST_SYNC_API_BASE_URL = "https://api.todoist.com/sync/v9"; // Nova URL para a Sync API
 
 interface TodoistError {
   status: number;
   message: string;
 }
 
-// Cache para definições de campos personalizados e o ID do campo 'Deadline'
-let deadlineCustomFieldId: string | null = null;
-let lastCustomFieldFetchTime: number = 0;
-const CUSTOM_FIELD_CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+// Removido: Cache para definições de campos personalizados e o ID do campo 'Deadline'
+// Removido: let deadlineCustomFieldId: string | null = null;
+// Removido: let lastCustomFieldFetchTime: number = 0;
+// Removido: const CUSTOM_FIELD_CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
-// Função para gerar UUIDs aleatórios, necessários para a Sync API
-function generateUuid(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
+// Removido: Função para gerar UUIDs aleatórios, necessários para a Sync API
+// Removido: function generateUuid(): string {
+// Removido:   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+// Removido:     const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+// Removido:     return v.toString(16);
+// Removido:   });
+// Removido: }
 
 async function todoistApiCall<T>(
   endpoint: string,
@@ -88,158 +88,150 @@ async function todoistApiCall<T>(
   return jsonResponse as T;
 }
 
-// Nova função para chamadas à Sync API
-async function todoistSyncApiCall(
-  apiKey: string,
-  commands: any[],
-): Promise<any | undefined> {
-  const sanitizedApiKey = apiKey.replace(/[^\x20-\x7E]/g, '');
+// Removido: Nova função para chamadas à Sync API
+// Removido: async function todoistSyncApiCall(
+// Removido:   apiKey: string,
+// Removido:   commands: any[],
+// Removido: ): Promise<any | undefined> {
+// Removido:   const sanitizedApiKey = apiKey.replace(/[^\x20-\x7E]/g, '');
 
-  const headers: HeadersInit = {
-    Authorization: `Bearer ${sanitizedApiKey}`,
-    "Content-Type": "application/json",
-  };
+// Removido:   const headers: HeadersInit = {
+// Removido:     Authorization: `Bearer ${sanitizedApiKey}`,
+// Removido:     "Content-Type": "application/json",
+// Removido:   };
 
-  const config: RequestInit = {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ commands }),
-  };
+// Removido:   const config: RequestInit = {
+// Removido:     method: "POST",
+// Removido:     headers,
+// Removido:     body: JSON.stringify({ commands }),
+// Removido:   };
 
-  const url = `${TODOIST_SYNC_API_BASE_URL}/sync`;
-  console.log("Todoist Sync API Request URL:", url);
-  console.log("Todoist Sync API Request Body:", JSON.stringify({ commands }));
+// Removido:   const url = `${TODOIST_SYNC_API_BASE_URL}/sync`;
+// Removido:   console.log("Todoist Sync API Request URL:", url);
+// Removido:   console.log("Todoist Sync API Request Body:", JSON.stringify({ commands }));
 
-  const response = await fetch(url, config);
+// Removido:   const response = await fetch(url, config);
 
-  console.log(`Todoist Sync API Response Status for ${url}:`, response.status);
+// Removido:   console.log(`Todoist Sync API Response Status for ${url}:`, response.status);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Todoist Sync API Error Response Body for ${url}:`, errorText);
-    const errorData: TodoistError = {
-      status: response.status,
-      message: errorText,
-    };
-    throw errorData;
-  }
+// Removido:   if (!response.ok) {
+// Removido:     const errorText = await response.text();
+// Removido:     console.error(`Todoist Sync API Error Response Body for ${url}:`, errorText);
+// Removido:     const errorData: TodoistError = {
+// Removido:       status: response.status,
+// Removido:       message: errorText,
+// Removido:     };
+// Removido:     throw errorData;
+// Removido:   }
 
-  const jsonResponse = await response.json();
-  console.log(`Todoist Sync API Response Body for ${url}:`, jsonResponse);
-  return jsonResponse;
-}
+// Removido:   const jsonResponse = await response.json();
+// Removido:   console.log(`Todoist Sync API Response Body for ${url}:`, jsonResponse);
+// Removido:   return jsonResponse;
+// Removido: }
 
-// NEW: Função para buscar definições de campos personalizados e encontrar o ID do campo 'Deadline'
-async function getDeadlineCustomFieldId(apiKey: string): Promise<string | null> {
-  const now = Date.now();
-  if (deadlineCustomFieldId && (now - lastCustomFieldFetchTime < CUSTOM_FIELD_CACHE_DURATION)) {
-    return deadlineCustomFieldId; // Retorna o ID em cache se disponível e não expirado
-  }
+// Removido: NEW: Função para buscar definições de campos personalizados e encontrar o ID do campo 'Deadline'
+// Removido: async function getDeadlineCustomFieldId(apiKey: string): Promise<string | null> {
+// Removido:   const now = Date.now();
+// Removido:   if (deadlineCustomFieldId && (now - lastCustomFieldFetchTime < CUSTOM_FIELD_CACHE_DURATION)) {
+// Removido:     return deadlineCustomFieldId; // Retorna o ID em cache se disponível e não expirado
+// Removido:   }
 
-  try {
-    // O endpoint /sync da Sync API com resource_types=["project_sections"] retorna definições de campos personalizados
-    const response = await todoistSyncApiCall(apiKey, [{
-      type: "sync",
-      uuid: generateUuid(),
-      args: {
-        resource_types: ["project_sections"], // Este tipo de recurso inclui definições de campos personalizados
-      },
-    }]);
+// Removido:   try {
+// Removido:     // O endpoint /sync da Sync API com resource_types=["project_sections"] retorna definições de campos personalizados
+// Removido:     const response = await todoistSyncApiCall(apiKey, [{
+// Removido:       type: "sync",
+// Removido:       uuid: generateUuid(),
+// Removido:       args: {
+// Removido:         resource_types: ["project_sections"], // Este tipo de recurso inclui definições de campos personalizados
+// Removido:       },
+// Removido:     }]);
 
-    if (response && response.project_sections) {
-      const deadlineField = response.project_sections.find(
-        (section: TodoistCustomFieldDefinition) => section.type === "date" && section.config?.name === "Deadline"
-      );
-      if (deadlineField) {
-        deadlineCustomFieldId = deadlineField.id;
-        lastCustomFieldFetchTime = now;
-        console.log("TodoistService: Encontrado ID do campo personalizado 'Deadline':", deadlineCustomFieldId);
-        return deadlineCustomFieldId;
-      }
-    }
-    console.warn("TodoistService: Definição do campo personalizado 'Deadline' não encontrada.");
-    return null;
-  } catch (error) {
-    console.error("TodoistService: Falha ao buscar definições de campos personalizados:", error);
-    return null;
-  }
-}
+// Removido:     if (response && response.project_sections) {
+// Removido:       const deadlineField = response.project_sections.find(
+// Removido:         (section: TodoistCustomFieldDefinition) => section.type === "date" && section.config?.name === "Deadline"
+// Removido:       );
+// Removido:       if (deadlineField) {
+// Removido:         deadlineCustomFieldId = deadlineField.id;
+// Removido:         lastCustomFieldFetchTime = now;
+// Removido:         console.log("TodoistService: Encontrado ID do campo personalizado 'Deadline':", deadlineCustomFieldId);
+// Removido:         return deadlineCustomFieldId;
+// Removido:       }
+// Removido:     }
+// Removido:     console.warn("TodoistService: Definição do campo personalizado 'Deadline' não encontrada.");
+// Removido:     return null;
+// Removido:   } catch (error) {
+// Removido:     console.error("TodoistService: Falha ao buscar definições de campos personalizados:", error);
+// Removido:     return null;
+// Removido:   }
+// Removido: }
 
-// Helper para extrair o deadline de um array de custom_fields
-function extractDeadlineFromCustomFields(task: any, deadlineFieldId: string | null): string | null {
-  if (!deadlineFieldId || !task.custom_fields || !Array.isArray(task.custom_fields)) {
-    return null;
-  }
-  const deadlineField = task.custom_fields.find((cf: any) => cf.field_id === deadlineFieldId);
-  return deadlineField?.value || null;
-}
+// Removido: Helper para extrair o deadline de um array de custom_fields
+// Removido: function extractDeadlineFromCustomFields(task: any, deadlineFieldId: string | null): string | null {
+// Removido:   if (!deadlineFieldId || !task.custom_fields || !Array.isArray(task.custom_fields)) {
+// Removido:     return null;
+// Removido:   }
+// Removido:   const deadlineField = task.custom_fields.find((cf: any) => cf.field_id === deadlineFieldId);
+// Removido:   return deadlineField?.value || null;
+// Removido: }
 
 
 export const todoistService = {
   fetchTasks: async (apiKey: string, filter?: string): Promise<TodoistTask[]> => {
     const endpoint = filter ? `/tasks?filter=${encodeURIComponent(filter)}` : "/tasks";
-    const restTasks = await todoistApiCall<TodoistTask[]>(endpoint, apiKey);
-    const deadlineFieldId = await getDeadlineCustomFieldId(apiKey);
+    const tasks = await todoistApiCall<TodoistTask[]>(endpoint, apiKey);
+    // Removido: const deadlineFieldId = await getDeadlineCustomFieldId(apiKey);
 
-    if (!restTasks || restTasks.length === 0 || !deadlineFieldId) {
-      return restTasks || [];
-    }
+    // Removido: Toda a lógica de Sync API para buscar custom_fields e mergear deadlines
+    // Removido: if (!restTasks || restTasks.length === 0 || !deadlineFieldId) {
+    // Removido:   return restTasks || [];
+    // Removido: }
+    // Removido: const syncResponse = await todoistSyncApiCall(apiKey, [{
+    // Removido:   type: "sync",
+    // Removido:   uuid: generateUuid(),
+    // Removido:   args: {
+    // Removido:     resource_types: ["items"],
+    // Removido:     sync_token: "*",
+    // Removido:   },
+    // Removido: }]);
+    // Removido: const syncItems: any[] = syncResponse?.items || [];
+    // Removido: const syncItemsMap = new Map<string, any>();
+    // Removido: syncItems.forEach(item => syncItemsMap.set(item.id, item));
+    // Removido: const mergedTasks = restTasks.map(task => {
+    // Removido:   const syncItem = syncItemsMap.get(task.id);
+    // Removido:   if (syncItem) {
+    // Removido:     const deadlineValue = extractDeadlineFromCustomFields(syncItem, deadlineFieldId);
+    // Removido:     return { ...task, deadline: deadlineValue };
+    // Removido:   }
+    // Removido:   return task;
+    // Removido: });
+    // Removido: return mergedTasks || [];
 
-    // Buscar todos os itens da Sync API para obter campos personalizados
-    // Isso é ineficiente, mas necessário para obter campos personalizados para todas as tarefas
-    const syncResponse = await todoistSyncApiCall(apiKey, [{
-      type: "sync",
-      uuid: generateUuid(),
-      args: {
-        resource_types: ["items"],
-        sync_token: "*", // Sincronização inicial, busca todos os itens
-      },
-    }]);
-
-    const syncItems: any[] = syncResponse?.items || [];
-    const syncItemsMap = new Map<string, any>();
-    syncItems.forEach(item => syncItemsMap.set(item.id, item));
-
-    const mergedTasks = restTasks.map(task => {
-      const syncItem = syncItemsMap.get(task.id);
-      if (syncItem) {
-        const deadlineValue = extractDeadlineFromCustomFields(syncItem, deadlineFieldId);
-        return { ...task, deadline: deadlineValue };
-      }
-      return task;
-    });
-
-    return mergedTasks || [];
+    return tasks || [];
   },
 
   fetchTaskById: async (apiKey: string, taskId: string): Promise<TodoistTask | undefined> => {
-    const restTask = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "GET");
-    if (!restTask) {
-      return undefined;
-    }
-
-    const deadlineFieldId = await getDeadlineCustomFieldId(apiKey);
-    if (!deadlineFieldId) {
-      return restTask; // Retorna sem deadline se o ID não for encontrado
-    }
-
-    // Buscar item específico da Sync API para obter campos personalizados
-    const syncResponse = await todoistSyncApiCall(apiKey, [{
-      type: "sync",
-      uuid: generateUuid(),
-      args: {
-        resource_types: ["items"],
-        ids: [taskId], // Solicita apenas este item específico
-      },
-    }]);
-
-    const syncItem = syncResponse?.items?.[0];
-    if (syncItem) {
-      const deadlineValue = extractDeadlineFromCustomFields(syncItem, deadlineFieldId);
-      return { ...restTask, deadline: deadlineValue };
-    }
-
-    return restTask;
+    const task = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "GET");
+    // Removido: if (!restTask) {
+    // Removido:   return undefined;
+    // Removido: }
+    // Removido: const deadlineFieldId = await getDeadlineCustomFieldId(apiKey);
+    // Removido: if (!deadlineFieldId) {
+    // Removido:   return restTask;
+    // Removido: }
+    // Removido: const syncResponse = await todoistSyncApiCall(apiKey, [{
+    // Removido:   type: "sync",
+    // Removido:   uuid: generateUuid(),
+    // Removido:   args: {
+    // Removido:     resource_types: ["items"],
+    // Removido:     ids: [taskId],
+    // Removido:   },
+    // Removido: }]);
+    // Removido: const syncItem = syncResponse?.items?.[0];
+    // Removido: if (syncItem) {
+    // Removido:   const deadlineValue = extractDeadlineFromCustomFields(syncItem, deadlineFieldId);
+    // Removido:   return { ...restTask, deadline: deadlineValue };
+    // Removido: }
+    return task;
   },
 
   fetchProjects: async (apiKey: string): Promise<TodoistProject[]> => {
@@ -264,12 +256,12 @@ export const todoistService = {
     labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
-    deadline?: string | null; // Adicionado o campo deadline
+    // Removido: deadline?: string | null; // Adicionado o campo deadline
   }): Promise<TodoistTask | undefined> => {
     const restApiPayload: any = {};
-    const syncApiCommands: any[] = [];
+    // Removido: const syncApiCommands: any[] = [];
     let needsRestApiCall = false;
-    let needsSyncApiCall = false;
+    // Removido: let needsSyncApiCall = false;
 
     // 1. Identificar campos para a REST API v2
     if (data.content !== undefined) { restApiPayload.content = data.content; needsRestApiCall = true; }
@@ -281,27 +273,27 @@ export const todoistService = {
     if (data.duration !== undefined) { restApiPayload.duration = data.duration; needsRestApiCall = true; }
     if (data.duration_unit !== undefined) { restApiPayload.duration_unit = data.duration_unit; needsRestApiCall = true; }
 
-    // 2. Identificar campo deadline para a Sync API v9 (como campo personalizado)
-    if (data.deadline !== undefined) {
-      const deadlineFieldId = await getDeadlineCustomFieldId(apiKey); // Obter o ID
-      if (deadlineFieldId) {
-        const customFieldsPayload: { [key: string]: string | null } = {};
-        customFieldsPayload[deadlineFieldId] = data.deadline; // Usar o ID real do campo
+    // Removido: 2. Identificar campo deadline para a Sync API v9 (como campo personalizado)
+    // Removido: if (data.deadline !== undefined) {
+    // Removido:   const deadlineFieldId = await getDeadlineCustomFieldId(apiKey); // Obter o ID
+    // Removido:   if (deadlineFieldId) {
+    // Removido:     const customFieldsPayload: { [key: string]: string | null } = {};
+    // Removido:     customFieldsPayload[deadlineFieldId] = data.deadline; // Usar o ID real do campo
 
-        syncApiCommands.push({
-          type: "item_update",
-          uuid: generateUuid(),
-          args: {
-            id: taskId,
-            custom_fields: customFieldsPayload, // Usar custom_fields para a Sync API
-          },
-        });
-        needsSyncApiCall = true;
-        console.log("todoistService: Comando da Sync API para deadline:", syncApiCommands); // Log de depuração
-      } else {
-        console.warn("TodoistService: Não foi possível encontrar o ID do campo personalizado 'Deadline' para atualização.");
-      }
-    }
+    // Removido:     syncApiCommands.push({
+    // Removido:       type: "item_update",
+    // Removido:       uuid: generateUuid(),
+    // Removido:       args: {
+    // Removido:         id: taskId,
+    // Removido:         custom_fields: customFieldsPayload, // Usar custom_fields para a Sync API
+    // Removido:       },
+    // Removido:     });
+    // Removido:     needsSyncApiCall = true;
+    // Removido:     console.log("todoistService: Comando da Sync API para deadline:", syncApiCommands); // Log de depuração
+    // Removido:   } else {
+    // Removido:     console.warn("TodoistService: Não foi possível encontrar o ID do campo personalizado 'Deadline' para atualização.");
+    // Removido:   }
+    // Removido: }
 
     let restApiUpdateResult: TodoistTask | undefined;
 
@@ -310,10 +302,10 @@ export const todoistService = {
       restApiUpdateResult = await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", restApiPayload);
     }
 
-    // 4. Realizar a atualização via Sync API, se necessário
-    if (needsSyncApiCall) {
-      await todoistSyncApiCall(apiKey, syncApiCommands);
-    }
+    // Removido: 4. Realizar a atualização via Sync API, se necessário
+    // Removido: if (needsSyncApiCall) {
+    // Removido:   await todoistSyncApiCall(apiKey, syncApiCommands);
+    // Removido: }
 
     // 5. Buscar a tarefa novamente para obter o estado mais atualizado do Todoist
     // Esta chamada agora também buscará os campos personalizados

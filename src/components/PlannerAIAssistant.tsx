@@ -23,7 +23,7 @@ interface PlannerAIAssistantProps {
   tempSelectedPriority: 1 | 2 | 3 | 4;
   onSuggestSlot: (slot: { start: string; end: string; date: string; displacedTask?: ScheduledTask } | null) => void;
   onScheduleSuggestedTask: (task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date) => Promise<void>;
-  getCombinedTimeBlocksForDate: (date: Date) => TimeBlock[]; // Adicionado
+  getCombinedTimeBlocksForDate: (date: Date) => TimeBlock[];
 }
 
 export interface PlannerAIAssistantRef {
@@ -49,7 +49,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
   tempSelectedPriority,
   onSuggestSlot,
   onScheduleSuggestedTask,
-  getCombinedTimeBlocksForDate, // Adicionado
+  getCombinedTimeBlocksForDate,
 }, ref) => {
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -57,7 +57,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [lastSuggestionDetails, setLastSuggestionDetails] = useState<{
     slot: { start: string; end: string; date: string; displacedTask?: ScheduledTask } | null;
-    explanationText: string; // Renomeado para evitar conflito com a variável local 'explanation'
+    explanationText: string;
     taskCategory: "pessoal" | "profissional" | undefined;
     taskPriority: 1 | 2 | 3 | 4;
     durationMinutes: number;
@@ -76,7 +76,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       addMessage("ai", `Olá! Sou o Tutor IA do Planejador. Como posso te ajudar a organizar seu dia ${format(selectedDate, "dd/MM", { locale: ptBR })}?`);
     }
     setLastSuggestionDetails(null); // Clear last suggestion when date changes
-  }, [selectedDate]); // Reload chat history when selectedDate changes
+  }, [selectedDate]);
 
   // Save messages whenever they change
   useEffect(() => {
@@ -103,16 +103,16 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       return Infinity; 
     }
 
-    // 1. Deadline (highest priority for displacement)
-    if ('deadline' in task && typeof task.deadline === 'string' && task.deadline) {
-      const parsedDeadline = parseISO(task.deadline);
-      if (isValid(parsedDeadline)) {
-        const daysUntilDeadline = (parsedDeadline.getTime() - startOfDay(new Date()).getTime()) / (1000 * 60 * 60 * 24);
-        score += Math.max(0, 1000 - (daysUntilDeadline * 50)); // Closer deadline, higher score
-      }
-    }
+    // Removido: 1. Deadline (highest priority for displacement)
+    // Removido: if ('deadline' in task && typeof task.deadline === 'string' && task.deadline) {
+    // Removido:   const parsedDeadline = parseISO(task.deadline);
+    // Removido:   if (isValid(parsedDeadline)) {
+    // Removido:     const daysUntilDeadline = (parsedDeadline.getTime() - startOfDay(new Date()).getTime()) / (1000 * 60 * 60 * 24);
+    // Removido:     score += Math.max(0, 1000 - (daysUntilDeadline * 50)); // Closer deadline, higher score
+    // Removido:   }
+    // Removido: }
 
-    // 2. Priority
+    // 1. Priority
     const priority = 'priority' in task ? task.priority : 1;
     switch (priority) {
       case 4: score += 80; break; // P1
@@ -121,7 +121,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       case 1: score += 20; break; // P4
     }
 
-    // 3. Due Date/Time
+    // 2. Due Date/Time
     if ('due' in task && task.due) {
       let dueDate: Date | null = null;
       if (typeof task.due.datetime === 'string' && task.due.datetime) {
@@ -353,7 +353,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     }
 
     if (bestSlot) {
-      addMessage("ai", explanation); // Add to chat
+      addMessage("ai", explanation);
       onSuggestSlot(bestSlot);
       setLastSuggestionDetails({
         slot: bestSlot,
@@ -364,9 +364,9 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
         suggestedDate: parseISO(bestSlot.date),
       });
     } else {
-      addMessage("ai", "Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias."); // Add to chat
+      addMessage("ai", "Não foi possível encontrar um slot adequado para esta tarefa nos próximos 7 dias.");
       onSuggestSlot(null);
-      setLastSuggestionDetails(null); // Clear last suggestion
+      setLastSuggestionDetails(null);
     }
     setIsLoadingAI(false);
   }, [selectedTaskToSchedule, selectedDate, schedules, recurringBlocks, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, getCombinedTimeBlocksForDate, scoreSlot, onSuggestSlot, setIsLoadingAI, getTaskImportanceScore, addMessage]);
@@ -470,7 +470,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       }
     } else if (lowerCaseMessage.includes("sugestão") || lowerCaseMessage.includes("slot")) {
       await handleTriggerSuggestion();
-      return; // handleTriggerSuggestion will add its own message
+      return;
     } else if (lowerCaseMessage.includes("refinar")) {
       responseText = "Para refinar a sugestão, você pode me dar mais detalhes sobre suas preferências, como 'mais cedo', 'outro dia', ou 'mais longo'. (Funcionalidade de refinar sugestão em desenvolvimento)";
     } else {

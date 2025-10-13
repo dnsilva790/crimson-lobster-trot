@@ -47,7 +47,7 @@ const FollowUp = () => {
   const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(undefined);
   const [editedDueTime, setEditedDueTime] = useState<string>("");
   const [editedPriority, setEditedPriority] = useState<1 | 2 | 3 | 4>(1);
-  const [editedDuration, setEditedDuration] = useState<string>("");
+  // Removido: const [editedDuration, setEditedDuration] = useState<string>("");
 
   const fetchDelegatedTasks = useCallback(async () => {
     setIsFetchingDelegatedTasks(true);
@@ -207,7 +207,7 @@ const FollowUp = () => {
     setEditedDueDate((typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : undefined);
     setEditedDueTime((typeof task.due?.datetime === 'string' && task.due.datetime) ? format(parseISO(task.due.datetime), "HH:mm") : "");
     setEditedPriority(task.priority);
-    setEditedDuration(task.duration?.amount && task.duration.unit === "minute" ? String(task.duration.amount) : "");
+    // Removido: setEditedDuration(task.duration?.amount && task.duration.unit === "minute" ? String(task.duration.amount) : "");
   }, []);
 
   const handleCancelEditing = useCallback(() => {
@@ -215,7 +215,7 @@ const FollowUp = () => {
     setEditedDueDate(undefined);
     setEditedDueTime("");
     setEditedPriority(1);
-    setEditedDuration("");
+    // Removido: setEditedDuration("");
   }, []);
 
   const handleSaveEdit = useCallback(async () => {
@@ -268,22 +268,22 @@ const FollowUp = () => {
       changed = true;
     }
 
-    // Handle Duration
-    const newDurationAmount = parseInt(editedDuration, 10);
-    const currentDurationAmount = taskToEdit.duration?.amount;
-    const currentDurationUnit = taskToEdit.duration?.unit;
+    // Removido: Handle Duration
+    // Removido: const newDurationAmount = parseInt(editedDuration, 10);
+    // Removido: const currentDurationAmount = taskToEdit.duration?.amount;
+    // Removido: const currentDurationUnit = taskToEdit.duration?.unit;
 
-    if (!isNaN(newDurationAmount) && newDurationAmount > 0) {
-      if (newDurationAmount !== currentDurationAmount || currentDurationUnit !== "minute") {
-        updateData.duration = newDurationAmount;
-        updateData.duration_unit = "minute";
-        changed = true;
-      }
-    } else if (editedDuration === "" && (currentDurationAmount !== undefined || currentDurationUnit !== undefined)) {
-      updateData.duration = null;
-      updateData.duration_unit = undefined;
-      changed = true;
-    }
+    // Removido: if (!isNaN(newDurationAmount) && newDurationAmount > 0) {
+    // Removido:   if (newDurationAmount !== currentDurationAmount || currentDurationUnit !== "minute") {
+    // Removido:     updateData.duration = newDurationAmount;
+    // Removido:     updateData.duration_unit = "minute";
+    // Removido:     changed = true;
+    // Removido:   }
+    // Removido: } else if (editedDuration === "" && (currentDurationAmount !== undefined || currentDurationUnit !== undefined)) {
+    // Removido:   updateData.duration = null;
+    // Removido:   updateData.duration_unit = undefined;
+    // Removido:   changed = true;
+    // Removido: }
 
     if (changed) {
       await updateTask(editingTaskId, updateData);
@@ -293,7 +293,7 @@ const FollowUp = () => {
       toast.info("Nenhuma alteração detectada.");
     }
     handleCancelEditing();
-  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDuration, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
+  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
 
 
   const renderTaskItem = (task: TodoistTask) => (
@@ -364,7 +364,7 @@ const FollowUp = () => {
               </SelectContent>
             </Select>
           </div>
-          <div>
+          {/* Removido: <div>
             <Label htmlFor={`edit-duration-${task.id}`} className="text-sm">Duração Estimada (minutos)</Label>
             <Input
               id={`edit-duration-${task.id}`}
@@ -376,7 +376,7 @@ const FollowUp = () => {
               className="mt-1"
               disabled={isLoadingTodoist}
             />
-          </div>
+          </div> */}
           <div className="flex gap-2 mt-2">
             <Button onClick={handleSaveEdit} size="sm" className="flex-1" disabled={isLoadingTodoist}>
               Salvar

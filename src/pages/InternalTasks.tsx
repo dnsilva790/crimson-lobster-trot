@@ -11,31 +11,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { getInternalTasks, addInternalTask, updateInternalTask, deleteInternalTask, saveInternalTasks } from "@/utils/internalTaskStorage";
-import { InternalTask, TodoistProject } from "@/lib/types"; // Import TodoistProject
+import { InternalTask, TodoistProject } from "@/lib/types";
 import { toast } from "sonner";
 import { PlusCircle, Trash2, Edit, Save, XCircle, Clock, CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTodoist } from "@/context/TodoistContext"; // Import useTodoist
+import { useTodoist } from "@/context/TodoistContext";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const InternalTasks = () => {
-  const { createTodoistTask, fetchProjects, isLoading: isLoadingTodoist } = useTodoist(); // Destructure createTodoistTask and fetchProjects
+  const { createTodoistTask, fetchProjects, isLoading: isLoadingTodoist } = useTodoist();
   const [tasks, setTasks] = useState<InternalTask[]>([]);
   const [newTaskContent, setNewTaskContent] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [newTaskCategory, setNewTaskCategory] = useState<"pessoal" | "profissional">("pessoal");
   const [newTaskEstimatedDuration, setNewTaskEstimatedDuration] = useState<string>("15");
-  const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined); // Novo estado para data
-  const [newDueTime, setNewDueTime] = useState<string>(""); // Novo estado para hora
+  const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined);
+  const [newDueTime, setNewDueTime] = useState<string>("");
 
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
   const [editedCategory, setEditedCategory] = useState<"pessoal" | "profissional">("pessoal");
   const [editedEstimatedDuration, setEditedEstimatedDuration] = useState<string>("15");
-  const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(undefined); // Novo estado para data editada
-  const [editedDueTime, setEditedDueTime] = useState<string>(""); // Novo estado para hora editada
+  const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(undefined);
+  const [editedDueTime, setEditedDueTime] = useState<string>("");
 
   // New states for Todoist task creation
   const [taskCreationType, setTaskCreationType] = useState<"internal" | "todoist">("internal");
@@ -58,7 +58,7 @@ const InternalTasks = () => {
     loadProjects();
   }, [fetchProjects]);
 
-  const handleAddTask = useCallback(async () => { // Made async
+  const handleAddTask = useCallback(async () => {
     if (!newTaskContent.trim()) {
       toast.error("O conteúdo da tarefa não pode ser vazio.");
       return;

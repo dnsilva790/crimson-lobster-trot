@@ -23,7 +23,7 @@ interface FollowUpAIAssistantProps {
     labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
-    deadline?: string | null;
+    // Removido: deadline?: string | null;
   }) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
@@ -144,14 +144,14 @@ const FollowUpAIAssistant: React.FC<FollowUpAIAssistantProps> = ({
   }, [lastAiSuggestion]);
 
   return (
-    <Card className="h-[calc(100vh-100px)] flex flex-col"> {/* Ajustado a altura para caber na tela */}
+    <Card className="h-[calc(100vh-100px)] flex flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <Bot className="h-5 w-5 text-indigo-600" /> Tutor IA SEISO (Follow-Up)
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col p-0">
-        <ScrollArea className="h-[calc(100vh-300px)] p-4" viewportRef={scrollAreaRef}> {/* Ajustado a altura */}
+        <ScrollArea className="h-[calc(100vh-300px)] p-4" viewportRef={scrollAreaRef}>
           <div className="space-y-4">
             {messages.map((msg) => (
               <div

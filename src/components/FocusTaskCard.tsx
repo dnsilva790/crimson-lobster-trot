@@ -3,11 +3,11 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { TodoistTask } from "@/lib/types";
-import { cn, getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
+import { cn, getTaskCategory } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink, CalendarIcon, Clock } from "lucide-react"; // Importar CalendarIcon e Clock
-import { Badge } from "@/components/ui/badge"; // Importar Badge
+import { ExternalLink, CalendarIcon, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface FocusTaskCardProps {
   task: TodoistTask;

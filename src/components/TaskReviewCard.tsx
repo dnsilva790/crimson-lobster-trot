@@ -22,7 +22,7 @@ interface TaskReviewCardProps {
   onUpdateCategory: (taskId: string, newCategory: "pessoal" | "profissional" | "none") => void;
   onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void;
   onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>;
-  onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
+  // Removido: onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
   onPostpone: (taskId: string) => Promise<void>;
   onUpdateDuration: (taskId: string, duration: number | null) => Promise<void>;
   isLoading: boolean;
@@ -50,7 +50,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onUpdateCategory,
   onUpdatePriority,
   onUpdateDeadline,
-  onUpdateFieldDeadline,
+  // Removido: onUpdateFieldDeadline,
   onPostpone,
   onUpdateDuration,
   isLoading,
@@ -63,8 +63,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   const [selectedDueTime, setSelectedDueTime] = useState<string>("");
   const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
 
-  const [selectedFieldDeadlineDate, setSelectedFieldDeadlineDate] = useState<Date | undefined>(undefined);
-  const [isFieldDeadlinePopoverOpen, setIsFieldDeadlinePopoverOpen] = useState(false);
+  // Removido: const [selectedFieldDeadlineDate, setSelectedFieldDeadlineDate] = useState<Date | undefined>(undefined);
+  // Removido: const [isFieldDeadlinePopoverOpen, setIsFieldDeadlinePopoverOpen] = useState(false);
 
   const [selectedDuration, setSelectedDuration] = useState<string>(
     task.duration?.amount && task.duration.unit === "minute"
@@ -76,7 +76,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
 
   useEffect(() => {
     console.log("TaskReviewCard: Task prop changed. Updating local states.");
-    console.log(`TaskReviewCard: Task ID: ${task.id}, current task.deadline: ${task.deadline}`); // Debug log
+    // Removido: console.log(`TaskReviewCard: Task ID: ${task.id}, current task.deadline: ${task.deadline}`); // Debug log
     if (task.labels.includes("pessoal")) {
       setSelectedCategory("pessoal");
     } else if (task.labels.includes("profissional")) {
@@ -113,15 +113,15 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     setSelectedDueTime(initialDueTime);
     console.log(`DEBUG (useEffect init): Task ID: ${task.id}, initialDueTime = '${initialDueTime}', type = ${typeof initialDueTime}`);
 
-    // For task.deadline, ensure it's a string before parsing
-    setSelectedFieldDeadlineDate((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
+    // Removido: For task.deadline, ensure it's a string before parsing
+    // Removido: setSelectedFieldDeadlineDate((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
     setSelectedDuration(
       task.duration?.amount && task.duration.unit === "minute"
         ? String(task.duration.amount)
         : ""
     );
-    console.log("TaskReviewCard: New task.deadline:", task.deadline);
-    console.log("TaskReviewCard: New selectedFieldDeadlineDate:", (typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
+    // Removido: console.log("TaskReviewCard: New task.deadline:", task.deadline);
+    // Removido: console.log("TaskReviewCard: New selectedFieldDeadlineDate:", (typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
   }, [task]);
 
   const handleCategoryChange = (newCategory: "pessoal" | "profissional" | "none") => {
@@ -174,24 +174,24 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     setIsDeadlinePopoverOpen(false);
   };
 
-  const handleSetFieldDeadline = async () => {
-    console.log("TaskReviewCard: handleSetFieldDeadline called.");
-    if (!selectedFieldDeadlineDate) {
-      toast.error("Por favor, selecione uma data para o deadline.");
-      return;
-    }
-    const formattedDeadline = format(selectedFieldDeadlineDate, "yyyy-MM-dd");
-    console.log("TaskReviewCard: Calling onUpdateFieldDeadline with taskId:", task.id, "deadlineDate:", formattedDeadline);
-    await onUpdateFieldDeadline(task.id, formattedDeadline);
-    setIsFieldDeadlinePopoverOpen(false);
-  };
+  // Removido: const handleSetFieldDeadline = async () => {
+  // Removido:   console.log("TaskReviewCard: handleSetFieldDeadline called.");
+  // Removido:   if (!selectedFieldDeadlineDate) {
+  // Removido:     toast.error("Por favor, selecione uma data para o deadline.");
+  // Removido:     return;
+  // Removido:   }
+  // Removido:   const formattedDeadline = format(selectedFieldDeadlineDate, "yyyy-MM-dd");
+  // Removido:   console.log("TaskReviewCard: Calling onUpdateFieldDeadline with taskId:", task.id, "deadlineDate:", formattedDeadline);
+  // Removido:   await onUpdateFieldDeadline(task.id, formattedDeadline);
+  // Removido:   setIsFieldDeadlinePopoverOpen(false);
+  // Removido: };
 
-  const handleClearFieldDeadline = async () => {
-    console.log("TaskReviewCard: handleClearFieldDeadline called.");
-    await onUpdateFieldDeadline(task.id, null);
-    setSelectedFieldDeadlineDate(undefined);
-    setIsFieldDeadlinePopoverOpen(false);
-  };
+  // Removido: const handleClearFieldDeadline = async () => {
+  // Removido:   console.log("TaskReviewCard: handleClearFieldDeadline called.");
+  // Removido:   await onUpdateFieldDeadline(task.id, null);
+  // Removido:   setSelectedFieldDeadlineDate(undefined);
+  // Removido:   setIsFieldDeadlinePopoverOpen(false);
+  // Removido: };
 
   const handleDurationChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -246,17 +246,17 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       );
     }
 
-    // 4. Always include task.deadline (if exists and is valid)
-    if (typeof task.deadline === 'string' && task.deadline) {
-      const parsedDeadline = parseISO(task.deadline);
-      if (isValid(parsedDeadline)) {
-        dateElements.push(
-          <span key="field-deadline" className="block text-red-600 font-semibold">
-            Deadline: {format(parsedDeadline, "dd/MM/yyyy", { locale: ptBR })}
-          </span>
-        );
-      }
-    }
+    // Removido: 4. Always include task.deadline (if exists and is valid)
+    // Removido: if (typeof task.deadline === 'string' && task.deadline) {
+    // Removido:   const parsedDeadline = parseISO(task.deadline);
+    // Removido:   if (isValid(parsedDeadline)) {
+    // Removido:     dateElements.push(
+    // Removido:       <span key="field-deadline" className="block text-red-600 font-semibold">
+    // Removido:         Deadline: {format(parsedDeadline, "dd/MM/yyyy", { locale: ptBR })}
+    // Removido:       </span>
+    // Removido:     );
+    // Removido:   }
+    // Removido: }
 
     if (dateElements.length === 0) {
       return <span>Sem prazo</span>;
@@ -383,7 +383,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           <Clock className="mr-2 h-5 w-5" /> Postergue
         </Button>
       </div>
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-1 gap-4"> {/* Ajustado para 1 coluna */}
         <Popover open={isDeadlinePopoverOpen} onOpenChange={setIsDeadlinePopoverOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -439,7 +439,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           </PopoverContent>
         </Popover>
 
-        <Popover open={isFieldDeadlinePopoverOpen} onOpenChange={setIsFieldDeadlinePopoverOpen}>
+        {/* Removido: Popover para Field Deadline */}
+        {/* Removido: <Popover open={isFieldDeadlinePopoverOpen} onOpenChange={setIsFieldDeadlinePopoverOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
@@ -476,7 +477,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
               </Button>
             </div>
           </PopoverContent>
-        </Popover>
+        </Popover> */}
       </div>
       <div className="mt-4">
         <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
