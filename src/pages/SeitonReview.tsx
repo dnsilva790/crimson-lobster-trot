@@ -32,7 +32,7 @@ const SEITON_REVIEW_INCLUDE_GTD_PROCESSED_STORAGE_KEY = "seiton_review_include_g
 const GTD_PROCESSED_LABEL = "gtd_processada";
 
 // Ratios Fibonacci para P1:P2:P3 (1:2:3) - P4 é excluído da distribuição
-const FIBONACCI_RATIOS_FOR_SUGGESTION = { 4: 1, 3: 2, 2: 3 }; // P1:1, P2:2, P3:3
+const FIBONACCI_RATIOS_FOR_SUGGESTION = { 4: 1, 3: 2, 3: 3 }; // P1:1, P2:2, P3:3
 const TOTAL_FIBONACCI_UNITS_FOR_SUGGESTION = Object.values(FIBONACCI_RATIOS_FOR_SUGGESTION).reduce((sum, ratio) => sum + ratio, 0); // 1 + 2 + 3 = 6
 
 const SeitonReview = () => {
@@ -93,11 +93,16 @@ const SeitonReview = () => {
 
     if (tasksForCounts) {
       tasksForCounts.forEach(task => {
-        if ((typeof task.due?.date === 'string' && task.due.date) || (typeof task.due?.datetime === 'string' && task.due.datetime)) {
-          const dueDate = (typeof task.due?.datetime === 'string' && task.due.datetime) ? parseISO(task.due.datetime) : (typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : null;
-          if (dueDate && isValid(dueDate) && isPast(dueDate) && !isToday(dueDate)) {
-            counts[task.priority]++;
-          }
+        // Prioritize deadline for overdue check
+        let effectiveDate: Date | null = null;
+        if (typeof task.deadline === 'string' && task.deadline) {
+          effectiveDate = parseISO(task.deadline);
+        } else if ((typeof task.due?.date === 'string' && task.due.date) || (typeof task.due?.datetime === 'string' && task.due.datetime)) {
+          effectiveDate = (typeof task.due?.datetime === 'string' && task.due.datetime) ? parseISO(task.due.datetime) : (typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : null;
+        }
+        
+        if (effectiveDate && isValid(effectiveDate) && isPast(effectiveDate) && !isToday(effectiveDate)) {
+          counts[task.priority]++;
         }
       });
     }
@@ -119,15 +124,15 @@ const SeitonReview = () => {
       if (isAStarred && !isBStarred) return -1;
       if (!isAStarred && isBStarred) return 1;
 
-      // Removido: const getDeadlineValue = (task: TodoistTask) => {
-      // Removido:   if (typeof task.deadline === 'string' && task.deadline) return parseISO(task.deadline).getTime();
-      // Removido:   return Infinity;
-      // Removido: };
-      // Removido: const deadlineA = getDeadlineValue(a);
-      // Removido: const deadlineB = getDeadlineValue(b);
-      // Removido: if (deadlineA !== deadlineB) {
-      // Removido:   return deadlineA - deadlineB;
-      // Removido: }
+      const getDeadlineValue = (task: TodoistTask) => { // Adicionado
+        if (typeof task.deadline === 'string' && task.deadline) return parseISO(task.deadline).getTime();
+        return Infinity;
+      };
+      const deadlineA = getDeadlineValue(a);
+      const deadlineB = getDeadlineValue(b);
+      if (deadlineA !== deadlineB) {
+        return deadlineA - deadlineB;
+      }
 
       if (b.priority !== a.priority) {
         return b.priority - a.priority;
@@ -293,6 +298,17 @@ const SeitonReview = () => {
         dateElements.push(
           <span key="due-date" className="flex items-center gap-1">
             <CalendarIcon className="h-3 w-3" /> {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        );
+      }
+    }
+
+    if (typeof task.deadline === 'string' && task.deadline) { // Adicionado
+      const parsedDeadline = parseISO(task.deadline);
+      if (isValid(parsedDeadline)) {
+        dateElements.push(
+          <span key="field-deadline" className="flex items-center gap-1 text-red-600 font-semibold">
+            <CalendarIcon className="h-3 w-3" /> Deadline: {format(parsedDeadline, "dd/MM/yyyy", { locale: ptBR })}
           </span>
         );
       }

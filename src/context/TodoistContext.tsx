@@ -1,4 +1,4 @@
-import React, {
+import React,
   createContext,
   useContext,
   useState,
@@ -27,7 +27,7 @@ interface TodoistContextType {
     labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
-    // Removido: deadline?: string | null;
+    deadline?: string | null; // Adicionado o campo deadline
   }) => Promise<TodoistTask | undefined>;
   createTodoistTask: (data: {
     content: string;
@@ -40,6 +40,7 @@ interface TodoistContextType {
     labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
+    deadline?: string; // Adicionado o campo deadline
   }) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
@@ -74,17 +75,17 @@ const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
     }
   }
 
-  // Removido: Sanitize task.deadline
-  // Removido: // Ensure deadline is a string or null, not an object
-  // Removido: if (task.deadline === undefined || task.deadline === null || (typeof task.deadline === 'string' && task.deadline === "undefined")) {
-  // Removido:   task.deadline = null;
-  // Removido: } else if (typeof task.deadline !== 'string') {
-  // Removido:   // If it's an object or any other type, convert to string or null
-  // Removido:   console.warn(`TodoistContext: Task ${task.id} (${task.content}) has non-string/null deadline:`, task.deadline, ". Converting to null.");
-  // Removido:   task.deadline = null;
-  // Removido: }
+  // Sanitize task.deadline
+  // Ensure deadline is a string or null, not an object
+  if (task.deadline === undefined || task.deadline === null || (typeof task.deadline === 'string' && task.deadline === "undefined")) {
+    task.deadline = null;
+  } else if (typeof task.deadline !== 'string') {
+    // If it's an object or any other type, convert to string or null
+    console.warn(`TodoistContext: Task ${task.id} (${task.content}) has non-string/null deadline:`, task.deadline, ". Converting to null.");
+    task.deadline = null;
+  }
   
-  // Removido: console.log(`TodoistContext: Sanitized task ${task.id} (${task.content}) deadline: ${task.deadline}`); // Debug log
+  console.log(`TodoistContext: Sanitized task ${task.id} (${task.content}) deadline: ${task.deadline}`); // Debug log
   return task;
 };
 
@@ -152,7 +153,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       
       console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
       rawTasks.forEach(task => {
-        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}, is_completed: ${task.is_completed}`); // Removido: , deadline: ${task.deadline}
+        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}, is_completed: ${task.is_completed}, deadline: ${task.deadline}`);
       });
 
       // Sanitização completa das tarefas
@@ -231,7 +232,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       labels?: string[];
       duration?: number;
       duration_unit?: "minute" | "day";
-      // Removido: deadline?: string | null;
+      deadline?: string | null; // Adicionado o campo deadline
     }) => {
       const updatedTask = await makeApiCall(todoistService.updateTask, taskId, data);
       if (updatedTask) {
@@ -254,6 +255,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       labels?: string[];
       duration?: number;
       duration_unit?: "minute" | "day";
+      deadline?: string; // Adicionado o campo deadline
     }) => {
       const newTask = await makeApiCall(todoistService.createTask, data);
       if (newTask) {

@@ -53,6 +53,17 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
       }
     }
 
+    if (typeof task.deadline === 'string' && task.deadline) { // Adicionado
+      const parsedDeadline = parseISO(task.deadline);
+      if (isValid(parsedDeadline)) {
+        dateElements.push(
+          <span key="field-deadline" className="flex items-center gap-1 text-red-600 font-semibold">
+            <CalendarIcon className="h-3 w-3" /> Deadline: {format(parsedDeadline, "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        );
+      }
+    }
+
     if (task.duration?.amount && task.duration.unit === "minute") {
       dateElements.push(
         <span key="duration" className="flex items-center gap-1">

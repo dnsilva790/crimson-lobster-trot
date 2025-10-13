@@ -24,7 +24,7 @@ interface AIAssistantProps {
     labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
-    // Removido: deadline?: string | null;
+    deadline?: string | null; // Adicionado
   }) => Promise<TodoistTask | undefined>;
   closeTask: (taskId: string) => Promise<void>;
 }

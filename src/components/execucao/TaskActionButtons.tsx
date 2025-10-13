@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, ArrowRight, CalendarIcon, Clock, XCircle } from "lucide-react";
 import { TodoistTask } from "@/lib/types";
-import { format, parseISO, setHours, setMinutes } from "date-fns";
+import { format, parseISO, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -25,6 +25,7 @@ interface TaskActionButtonsProps {
     due_datetime?: string | null;
     duration?: number;
     duration_unit?: "minute" | "day";
+    deadline?: string | null; // Adicionado
   }) => Promise<TodoistTask | undefined>;
   onPostpone: (taskId: string) => Promise<void>;
 }
@@ -44,11 +45,13 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   const initialDuration = currentTask.duration?.amount && currentTask.duration.unit === "minute"
     ? String(currentTask.duration.amount)
     : "15"; // Default to 15 minutes
+  const initialDeadline = currentTask.deadline ? parseISO(currentTask.deadline) : undefined; // Adicionado
 
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(initialDueDate);
   const [selectedDueTime, setSelectedDueTime] = useState<string>(initialDueTime);
   const [selectedPriority, setSelectedPriority] = useState<1 | 2 | 3 | 4>(currentTask.priority);
   const [selectedDuration, setSelectedDuration] = useState<string>(initialDuration);
+  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(initialDeadline); // Adicionado
 
   const handleReschedule = async () => {
     const updateData: {
@@ -57,11 +60,12 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
       due_datetime?: string | null;
       duration?: number;
       duration_unit?: "minute" | "day";
+      deadline?: string | null; // Adicionado
     } = {};
     let changed = false;
 
     // Handle Due Date and Time
-    if (selectedDueDate) {
+    if (selectedDueDate && isValid(selectedDueDate)) {
       let finalDate = selectedDueDate;
       if (selectedDueTime) {
         const [hours, minutes] = (selectedDueTime || '').split(":").map(Number);
@@ -113,6 +117,18 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
       changed = true;
     }
 
+    // Handle Deadline (Adicionado)
+    if (selectedDeadlineDate && isValid(selectedDeadlineDate)) {
+      const formattedDeadline = format(selectedDeadlineDate, "yyyy-MM-dd");
+      if (formattedDeadline !== currentTask.deadline) {
+        updateData.deadline = formattedDeadline;
+        changed = true;
+      }
+    } else if (!selectedDeadlineDate && currentTask.deadline) {
+      updateData.deadline = null;
+      changed = true;
+    }
+
     if (changed) {
       await onUpdateTask(currentTask.id, updateData);
       toast.success("Tarefa reagendada e atualizada!");
@@ -127,6 +143,13 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
     setSelectedDueDate(undefined);
     setSelectedDueTime("");
     toast.success("Data de vencimento removida!");
+    setIsReschedulePopoverOpen(false);
+  };
+
+  const handleClearDeadline = async () => { // Adicionado
+    await onUpdateTask(currentTask.id, { deadline: null });
+    setSelectedDeadlineDate(undefined);
+    toast.success("Deadline removido!");
     setIsReschedulePopoverOpen(false);
   };
 
@@ -202,11 +225,26 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
                 className="mt-1"
               />
             </div>
+            {/* Campo Deadline Adicionado */}
+            <div>
+              <Label htmlFor="reschedule-deadline">Deadline (Opcional)</Label>
+              <Calendar
+                mode="single"
+                selected={selectedDeadlineDate}
+                onSelect={setSelectedDeadlineDate}
+                initialFocus
+                locale={ptBR}
+                className="rounded-md border shadow"
+              />
+            </div>
             <Button onClick={handleReschedule} className="w-full">
               Salvar Reagendamento
             </Button>
             <Button onClick={handleClearDueDate} variant="outline" className="w-full">
               <XCircle className="mr-2 h-4 w-4" /> Limpar Data de Vencimento
+            </Button>
+            <Button onClick={handleClearDeadline} variant="outline" className="w-full text-red-600 border-red-600 hover:bg-red-50">
+              <XCircle className="mr-2 h-4 w-4" /> Limpar Deadline
             </Button>
           </div>
         </PopoverContent>

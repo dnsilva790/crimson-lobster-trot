@@ -64,7 +64,7 @@ export const useExecucaoTasks = (
     loadSeitonRanking();
     // Listen for changes in localStorage from other tabs/windows (e.g., Seiton module)
     window.addEventListener('storage', loadSeitonRanking);
-    return () => window.removeEventListener('storage', loadSeadonRanking);
+    return () => window.removeEventListener('storage', loadSeitonRanking);
   }, []); // Run once on mount
 
   const sortTasksForFocus = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
@@ -89,14 +89,14 @@ export const useExecucaoTasks = (
         return Infinity; // Tasks without a date go last
       };
 
-      // Removido: 3. Deadline: earliest first
-      // Removido: const deadlineA = getDateValue(a.deadline);
-      // Removido: const deadlineB = getDateValue(b.deadline);
-      // Removido: if (deadlineA !== deadlineB) {
-      // Removido:   return deadlineA - deadlineB;
-      // Removido: }
+      // 3. Deadline: earliest first
+      const deadlineA = getDateValue(a.deadline);
+      const deadlineB = getDateValue(b.deadline);
+      if (deadlineA !== deadlineB) {
+        return deadlineA - deadlineB;
+      }
 
-      // 3. Due date/time: earliest first
+      // 4. Due date/time: earliest first
       const dueDateTimeA = getDateValue(a.due?.datetime);
       const dueDateTimeB = getDateValue(b.due?.datetime);
       if (dueDateTimeA !== dueDateTimeB) {
@@ -150,7 +150,7 @@ export const useExecucaoTasks = (
       parent_id: null,
       order: 0,
       estimatedDurationMinutes: internalTask.estimatedDurationMinutes,
-      // Removido: deadline: null,
+      deadline: null,
     });
 
     // --- Helper functions for loading from different sources ---

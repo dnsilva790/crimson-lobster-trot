@@ -89,6 +89,16 @@ const Seiton = () => {
       if (isAStarred && !isBStarred) return -1;
       if (!isAStarred && isBStarred) return 1;
 
+      const getDeadlineValue = (task: TodoistTask) => { // Adicionado
+        if (typeof task.deadline === 'string' && task.deadline) return parseISO(task.deadline).getTime();
+        return Infinity;
+      };
+      const deadlineA = getDeadlineValue(a);
+      const deadlineB = getDeadlineValue(b);
+      if (deadlineA !== deadlineB) {
+        return deadlineA - deadlineB;
+      }
+
       if (b.priority !== a.priority) {
         return b.priority - a.priority;
       }
@@ -243,8 +253,8 @@ const Seiton = () => {
     } else if (currentRankedTasks.length > 0 && sortedTasksToLoad.length >= 1) {
       setCurrentTaskToPlace(sortedTasksToLoad[0]);
       setTasksToProcess(sortedTasksToLoad.slice(1));
-      setComparisonIndex(currentRankedTasks.length - 1);
-      setComparisonCandidate(currentRankedTasks[currentRankedTasks.length - 1]);
+      setComparisonIndex(rankedTasks.length - 1);
+      setComparisonCandidate(rankedTasks[rankedTasks.length - 1]);
       setTournamentState("comparing");
     } else if (currentRankedTasks.length === 0 && sortedTasksToLoad.length === 1) {
       setRankedTasks((prev) => [...prev, sortedTasksToLoad[0]]);
@@ -470,6 +480,17 @@ const Seiton = () => {
         elements.push(
           <span key="due-date" className="flex items-center gap-1">
             <CalendarIcon className="h-3 w-3" /> {format(parsedDate, "dd/MM/yyyy", { locale: ptBR })}
+          </span>
+        );
+      }
+    }
+
+    if (typeof task.deadline === 'string' && task.deadline) { // Adicionado
+      const parsedDeadline = parseISO(task.deadline);
+      if (isValid(parsedDeadline)) {
+        elements.push(
+          <span key="field-deadline" className="flex items-center gap-1 text-red-600 font-semibold">
+            <CalendarIcon className="h-3 w-3" /> Deadline: {format(parsedDeadline, "dd/MM/yyyy", { locale: ptBR })}
           </span>
         );
       }

@@ -41,6 +41,16 @@ const Seiri = () => {
       if (isAStarred && !isBStarred) return -1;
       if (!isAStarred && isBStarred) return 1;
 
+      const getDeadlineValue = (task: TodoistTask) => { // Adicionado
+        if (typeof task.deadline === 'string' && task.deadline) return parseISO(task.deadline).getTime();
+        return Infinity;
+      };
+      const deadlineA = getDeadlineValue(a);
+      const deadlineB = getDeadlineValue(b);
+      if (deadlineA !== deadlineB) {
+        return deadlineA - deadlineB;
+      }
+
       if (b.priority !== a.priority) {
         return b.priority - a.priority;
       }
@@ -190,22 +200,22 @@ const Seiri = () => {
     }
   }, [tasksToReview, updateTask]);
 
-  // Removido: const handleUpdateFieldDeadline = useCallback(async (taskId: string, deadlineDate: string | null) => {
-  // Removido:   console.log("Seiri: onUpdateFieldDeadline called. Task ID:", taskId, "Deadline Date:", deadlineDate);
-  // Removido:   const updated = await updateTask(taskId, { deadline: deadlineDate });
-  // Removido:   if (updated) {
-  // Removido:     console.log("Seiri: Task updated successfully. New deadline from API:", updated.deadline);
-  // Removido:     setTasksToReview(prevTasks =>
-  // Removido:       prevTasks.map(task =>
-  // Removido:         task.id === taskId ? { ...task, deadline: updated.deadline } : task
-  // Removido:       )
-  // Removido:     );
-  // Removido:     toast.success("Deadline da tarefa atualizado com sucesso!");
-  // Removido:   } else {
-  // Removido:     console.error("Seiri: Failed to update task deadline.");
-  // Removido:     toast.error("Falha ao atualizar o deadline da tarefa.");
-  // Removido:   }
-  // Removido: }, [tasksToReview, updateTask]);
+  const handleUpdateFieldDeadline = useCallback(async (taskId: string, deadlineDate: string | null) => { // Adicionado
+    console.log("Seiri: onUpdateFieldDeadline called. Task ID:", taskId, "Deadline Date:", deadlineDate);
+    const updated = await updateTask(taskId, { deadline: deadlineDate });
+    if (updated) {
+      console.log("Seiri: Task updated successfully. New deadline from API:", updated.deadline);
+      setTasksToReview(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, deadline: updated.deadline } : task
+        )
+      );
+      toast.success("Deadline da tarefa atualizado com sucesso!");
+    } else {
+      console.error("Seiri: Failed to update task deadline.");
+      toast.error("Falha ao atualizar o deadline da tarefa.");
+    }
+  }, [tasksToReview, updateTask]);
 
   const handleUpdateDuration = useCallback(async (taskId: string, duration: number | null) => {
     const updated = await updateTask(taskId, {
@@ -231,11 +241,6 @@ const Seiri = () => {
       due_datetime: nextInterval.datetime,
     });
     if (updated) {
-      setTasksToReview(prevTasks =>
-        prevTasks.map(task =>
-          task.id === taskId ? { ...task, due: updated.due } : task
-        )
-      );
       toast.success(`Tarefa postergada para ${format(parseISO(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
       handleNextTask();
     } else {
@@ -312,7 +317,7 @@ const Seiri = () => {
             onUpdateCategory={handleUpdateCategory}
             onUpdatePriority={handleUpdatePriority}
             onUpdateDeadline={handleUpdateDeadline}
-            // Removido: onUpdateFieldDeadline={handleUpdateFieldDeadline}
+            onUpdateFieldDeadline={handleUpdateFieldDeadline} // Adicionado
             onPostpone={handlePostpone}
             onUpdateDuration={handleUpdateDuration}
             isLoading={isLoading}

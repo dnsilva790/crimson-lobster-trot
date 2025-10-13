@@ -103,16 +103,16 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       return Infinity; 
     }
 
-    // Removido: 1. Deadline (highest priority for displacement)
-    // Removido: if ('deadline' in task && typeof task.deadline === 'string' && task.deadline) {
-    // Removido:   const parsedDeadline = parseISO(task.deadline);
-    // Removido:   if (isValid(parsedDeadline)) {
-    // Removido:     const daysUntilDeadline = (parsedDeadline.getTime() - startOfDay(new Date()).getTime()) / (1000 * 60 * 60 * 24);
-    // Removido:     score += Math.max(0, 1000 - (daysUntilDeadline * 50)); // Closer deadline, higher score
-    // Removido:   }
-    // Removido: }
+    // 1. Deadline (highest priority for displacement)
+    if ('deadline' in task && typeof task.deadline === 'string' && task.deadline) {
+      const parsedDeadline = parseISO(task.deadline);
+      if (isValid(parsedDeadline)) {
+        const daysUntilDeadline = (parsedDeadline.getTime() - startOfDay(new Date()).getTime()) / (1000 * 60 * 60 * 24);
+        score += Math.max(0, 1000 - (daysUntilDeadline * 50)); // Closer deadline, higher score
+      }
+    }
 
-    // 1. Priority
+    // 2. Priority
     const priority = 'priority' in task ? task.priority : 1;
     switch (priority) {
       case 4: score += 80; break; // P1
@@ -121,7 +121,7 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
       case 1: score += 20; break; // P4
     }
 
-    // 2. Due Date/Time
+    // 3. Due Date/Time
     if ('due' in task && task.due) {
       let dueDate: Date | null = null;
       if (typeof task.due.datetime === 'string' && task.due.datetime) {

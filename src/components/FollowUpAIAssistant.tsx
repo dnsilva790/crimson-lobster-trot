@@ -23,7 +23,7 @@ interface FollowUpAIAssistantProps {
     labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
-    // Removido: deadline?: string | null;
+    deadline?: string | null; // Adicionado
   }) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
@@ -71,6 +71,12 @@ const FollowUpAIAssistant: React.FC<FollowUpAIAssistantProps> = ({
       localStorage.setItem(getTaskHistoryKey(currentTask.id), JSON.stringify(messages));
     }
   }, [messages, currentTask]);
+
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const addMessage = useCallback((sender: "user" | "ai", text: string) => {
     setMessages((prev) => [...prev, { id: Date.now().toString(), sender, text }]);

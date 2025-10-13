@@ -27,9 +27,9 @@ export interface TodoistTask {
   creator_id: string;
   // Propriedade adicionada no front-end para facilitar o planejamento
   estimatedDurationMinutes?: number;
-  // Removido: deadline?: string | null; // YYYY-MM-DD
+  deadline?: string | null; // Adicionado o campo deadline
   isMeeting?: boolean; // Adicionado para identificar reuniões
-  // Removido: custom_fields?: TodoistCustomField[]; // Adicionado para capturar campos personalizados brutos
+  custom_fields?: TodoistCustomField[]; // Adicionado para capturar campos personalizados brutos
 }
 
 export interface TodoistProject {
@@ -118,15 +118,21 @@ export interface Project {
   subtasks: string[]; // Subtarefas geradas a partir do campo 'how'
 }
 
-// Removido: Nova interface para definições de campos personalizados (retornada pela Sync API)
-// Removido: export interface TodoistCustomFieldDefinition {
-// Removido:   id: string;
-// Removido:   name: string;
-// Removido:   project_id: string | null; // Pode ser null para campos globais
-// Removido:   type: "text" | "number" | "date" | "checkbox" | "dropdown";
-// Removido:   config: {
-// Removido:     name: string;
-// Removido:     type: string;
-// Removido:     options?: { id: string; name: string }[];
-// Removido:   };
-// Removido: }
+// Nova interface para definições de campos personalizados (retornada pela Sync API)
+export interface TodoistCustomFieldDefinition {
+  id: string;
+  name: string;
+  project_id: string | null; // Pode ser null para campos globais
+  type: "text" | "number" | "date" | "checkbox" | "dropdown";
+  config: {
+    name: string;
+    type: string;
+    options?: { id: string; name: string }[];
+  };
+}
+
+// Nova interface para o campo custom_fields dentro de uma tarefa (Sync API)
+export interface TodoistCustomField {
+  id: string; // ID da definição do campo personalizado
+  value: string | null; // Valor do campo
+}

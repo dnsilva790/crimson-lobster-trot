@@ -28,6 +28,7 @@ const InternalTasks = () => {
   const [newTaskEstimatedDuration, setNewTaskEstimatedDuration] = useState<string>("15");
   const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined);
   const [newDueTime, setNewDueTime] = useState<string>("");
+  const [newDeadline, setNewDeadline] = useState<Date | undefined>(undefined); // Adicionado
 
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState("");
@@ -36,6 +37,7 @@ const InternalTasks = () => {
   const [editedEstimatedDuration, setEditedEstimatedDuration] = useState<string>("15");
   const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(undefined);
   const [editedDueTime, setEditedDueTime] = useState<string>("");
+  const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined); // Adicionado
 
   // New states for Todoist task creation
   const [taskCreationType, setTaskCreationType] = useState<"internal" | "todoist">("internal");
@@ -87,6 +89,7 @@ const InternalTasks = () => {
         duration_unit: "minute" as "minute",
         due_date: newDueDate ? format(newDueDate, "yyyy-MM-dd") : undefined,
         due_datetime: newDueDate && newDueTime ? format(newDueDate, "yyyy-MM-dd") + "T" + newDueTime + ":00" : undefined,
+        deadline: newDeadline ? format(newDeadline, "yyyy-MM-dd") : undefined, // Adicionado
       };
 
       const createdTask = await createTodoistTask(todoistTaskData);
@@ -98,6 +101,7 @@ const InternalTasks = () => {
         setNewTaskEstimatedDuration("15");
         setNewDueDate(undefined);
         setNewDueTime("");
+        setNewDeadline(undefined); // Adicionado
       } else {
         toast.error("Falha ao criar tarefa no Todoist.");
       }
@@ -124,7 +128,7 @@ const InternalTasks = () => {
       setNewDueTime("");
       toast.success("Tarefa interna adicionada!");
     }
-  }, [newTaskContent, newTaskDescription, newTaskCategory, newTaskEstimatedDuration, newDueDate, newDueTime, taskCreationType, selectedTodoistProjectId, createTodoistTask]);
+  }, [newTaskContent, newTaskDescription, newTaskCategory, newTaskEstimatedDuration, newDueDate, newDueTime, newDeadline, taskCreationType, selectedTodoistProjectId, createTodoistTask]); // Adicionado newDeadline
 
   const handleToggleComplete = useCallback((taskId: string) => {
     setTasks((prevTasks) => {
@@ -151,6 +155,7 @@ const InternalTasks = () => {
     setEditedEstimatedDuration(String(task.estimatedDurationMinutes || 15));
     setEditedDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
     setEditedDueTime(task.dueTime || "");
+    setEditedDeadline(task.dueDate ? parseISO(task.dueDate) : undefined); // Placeholder for internal tasks, as they don't have a separate deadline field // Adicionado
   }, []);
 
   const handleCancelEditing = useCallback(() => {
@@ -161,6 +166,7 @@ const InternalTasks = () => {
     setEditedEstimatedDuration("15");
     setEditedDueDate(undefined);
     setEditedDueTime("");
+    setEditedDeadline(undefined); // Adicionado
   }, []);
 
   const handleSaveEdit = useCallback(() => {
@@ -195,8 +201,9 @@ const InternalTasks = () => {
     setEditedEstimatedDuration("15");
     setEditedDueDate(undefined);
     setEditedDueTime("");
+    setEditedDeadline(undefined); // Adicionado
     toast.success("Tarefa interna atualizada!");
-  }, [editingTaskId, editedContent, editedDescription, editedCategory, editedEstimatedDuration, editedDueDate, editedDueTime, tasks]);
+  }, [editingTaskId, editedContent, editedDescription, editedCategory, editedEstimatedDuration, editedDueDate, editedDueTime, tasks]); // Adicionado editedDeadline
 
   const personalTasks = tasks.filter(task => task.category === "pessoal");
   const professionalTasks = tasks.filter(task => task.category === "profissional");
@@ -467,6 +474,32 @@ const InternalTasks = () => {
               onChange={(e) => setNewDueTime(e.target.value)}
               className="mt-1"
             />
+          </div>
+          <div> {/* Adicionado */}
+            <Label htmlFor="new-deadline">Deadline (Opcional)</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal mt-1",
+                    !newDeadline && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {newDeadline && isValid(newDeadline) ? format(newDeadline, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={newDeadline}
+                  onSelect={setNewDeadline}
+                  initialFocus
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <Button onClick={handleAddTask} className="w-full mt-2" disabled={isLoadingTodoist}>
             Adicionar Tarefa
