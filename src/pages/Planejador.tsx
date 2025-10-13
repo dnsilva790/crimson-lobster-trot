@@ -566,18 +566,35 @@ const Planejador = () => {
     toast.info("Seleção de tarefa cancelada.");
   }, []);
 
-  const scheduleTask = useCallback(async (task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date, isPreallocated: boolean = false) => {
-    console.log("Planejador: scheduleTask - Início para tarefa:", task.content);
-
+  const scheduleTask = useCallback(async (task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date, isPreallocated: boolean = false): Promise<ScheduledTask | undefined> => {
     const dateKey = format(targetDate, "yyyy-MM-dd");
-    const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
-    
-    const durationMinutes = parseInt(tempEstimatedDuration, 10) || 15;
+    const durationMinutes = ('estimatedDurationMinutes' in task && task.estimatedDurationMinutes) ? task.estimatedDurationMinutes : (parseInt(tempEstimatedDuration, 10) || 15);
 
     // Determine if the task is a meeting based on project_id or content prefix
     const isTaskMeeting = ('project_id' in task && meetingProjectId !== null && task.project_id === meetingProjectId) || task.content.startsWith('*');
 
-    if ('project_id' in task) { // This block handles Todoist tasks
+    // For preallocated tasks (meetings), we don't update Todoist or modify global state directly here.
+    // We just prepare the scheduled task object and return it.
+    if (isPreallocated) {
+      const newScheduledTask: ScheduledTask = {
+        id: `${task.id}-${Date.now()}`, // Unique ID for scheduled instance
+        taskId: task.id,
+        content: task.content,
+        description: task.description,
+        start: start,
+        end: end,
+        priority: ('priority' in task ? task.priority : 1), // Use original task priority for preallocated
+        category: getTaskCategory(task) || "profissional", // Meetings are usually professional
+        estimatedDurationMinutes: durationMinutes, // Use the calculated duration for meetings
+        originalTask: task,
+        isMeeting: isTaskMeeting,
+      };
+      return newScheduledTask; // Return the scheduled task object
+    }
+
+    // --- Logic for non-preallocated tasks (manual scheduling) ---
+    // This part will only run for manual scheduling
+    if ('project_id' in task) { // Todoist task
       const newLabels: string[] = task.labels.filter(
         label => label !== "pessoal" && label !== "profissional"
       );
@@ -587,44 +604,35 @@ const Planejador = () => {
         newLabels.push("profissional");
       }
 
-      if (!isPreallocated) {
-        const formattedDueDate = format(targetDate, "yyyy-MM-dd");
-        const parsedStartTime = parse((start || ''), "HH:mm", targetDate);
-        let finalDueDate: string | null = null;
-        let finalDueDateTime: string | null = null;
+      const formattedDueDate = format(targetDate, "yyyy-MM-dd");
+      const parsedStartTime = parse((start || ''), "HH:mm", targetDate);
+      let finalDueDate: string | null = null;
+      let finalDueDateTime: string | null = null;
 
-        if (isValid(parsedStartTime)) { // If a valid time is parsed, use due_datetime
-          finalDueDateTime = format(parsedStartTime, "yyyy-MM-dd'T'HH:mm:ss");
-          finalDueDate = null; // Explicitly set due_date to null if due_datetime is used
-        } else { // Otherwise, just use due_date
-          finalDueDate = formattedDueDate;
-          finalDueDateTime = null;
-        }
-
-        console.log("Planejador: Sending to updateTask - finalDueDate:", finalDueDate);
-        console.log("Planejador: Sending to updateTask - finalDueDateTime:", finalDueDateTime);
-
-        console.log("Planejador: scheduleTask - Chamando updateTask para Todoist task:", task.id);
-        const updatedTodoistTask = await updateTask(task.id, {
-          priority: tempSelectedPriority,
-          labels: newLabels,
-          duration: durationMinutes,
-          duration_unit: "minute",
-          due_date: finalDueDate,
-          due_datetime: finalDueDateTime,
-        });
-        console.log("Planejador: scheduleTask - Retorno de updateTask:", updatedTodoistTask);
-
-        if (!updatedTodoistTask) {
-          toast.error("Falha ao atualizar a tarefa no Todoist.");
-          console.error("Planejador: scheduleTask - updateTask retornou undefined.");
-          return;
-        }
-        setBacklogTasks(prev => prev.map(t => t.id === updatedTodoistTask.id ? updatedTodoistTask : t));
-        console.log("Planejador: scheduleTask - backlogTasks atualizado com Todoist task.");
+      if (isValid(parsedStartTime)) {
+        finalDueDateTime = format(parsedStartTime, "yyyy-MM-dd'T'HH:mm:ss");
+        finalDueDate = null;
+      } else {
+        finalDueDate = formattedDueDate;
+        finalDueDateTime = null;
       }
 
-    } else { // This block handles Internal tasks
+      const updatedTodoistTask = await updateTask(task.id, {
+        priority: tempSelectedPriority,
+        labels: newLabels,
+        duration: durationMinutes,
+        duration_unit: "minute",
+        due_date: finalDueDate,
+        due_datetime: finalDueDateTime,
+      });
+
+      if (!updatedTodoistTask) {
+        toast.error("Falha ao atualizar a tarefa no Todoist.");
+        return undefined;
+      }
+      setBacklogTasks(prev => prev.map(t => t.id === updatedTodoistTask.id ? updatedTodoistTask : t));
+
+    } else { // Internal task
       const updatedInternalTask: InternalTask = {
         ...task,
         category: tempSelectedCategory === "none" ? task.category : tempSelectedCategory,
@@ -632,10 +640,8 @@ const Planejador = () => {
       };
       updateInternalTask(updatedInternalTask);
       setBacklogTasks(prev => prev.map(t => t.id === updatedInternalTask.id ? updatedInternalTask : t));
-      console.log("Planejador: scheduleTask - backlogTasks atualizado com Internal task.");
     }
 
-    console.log("Planejador: scheduleTask - Criando newScheduledTask.");
     const newScheduledTask: ScheduledTask = {
       id: `${task.id}-${Date.now()}`,
       taskId: task.id,
@@ -647,36 +653,27 @@ const Planejador = () => {
       category: tempSelectedCategory === "none" ? (getTaskCategory(task) || "pessoal") : tempSelectedCategory,
       estimatedDurationMinutes: durationMinutes,
       originalTask: task,
-      isMeeting: isTaskMeeting, // Use the determined isTaskMeeting flag
+      isMeeting: isTaskMeeting,
     };
 
-    console.log("Planejador: scheduleTask - Atualizando schedules.");
     setSchedules((prevSchedules) => {
+      const currentDay = prevSchedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
       const updatedScheduledTasks = [...currentDay.scheduledTasks, newScheduledTask].sort((a, b) => a.start.localeCompare(b.start));
       return {
         ...prevSchedules,
         [dateKey]: { ...currentDay, scheduledTasks: updatedScheduledTasks },
       };
     });
-    console.log("Planejador: scheduleTask - Schedules atualizado.");
 
-    if (!isPreallocated) {
-      toast.success(`Tarefa "${task.content}" agendada para ${start}-${end} em ${format(targetDate, "dd/MM", { locale: ptBR })} e atualizada!`);
-    }
-    // Do NOT clear selectedTaskToSchedule here if it's a displaced task,
-    // as we want to re-select it for a new suggestion.
-    if (!isPreallocated && !isTaskMeeting) { // Only clear if not preallocated and not a meeting
-      setSelectedTaskToSchedule(null);
-      setSuggestedSlot(null);
-      setTempEstimatedDuration("15");
-      setTempSelectedCategory("none");
-      setTempSelectedPriority(1);
-      console.log("Planejador: scheduleTask - Seleção de tarefa limpa.");
-    }
-    console.log("Planejador: scheduleTask - Chamando fetchBacklogTasks.");
-    fetchBacklogTasks(); // Re-fetch backlog to remove the scheduled task
-    console.log("Planejador: scheduleTask - Fim.");
-  }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask, fetchBacklogTasks, meetingProjectId]);
+    toast.success(`Tarefa "${task.content}" agendada para ${start}-${end} em ${format(targetDate, "dd/MM", { locale: ptBR })} e atualizada!`);
+    setSelectedTaskToSchedule(null);
+    setSuggestedSlot(null);
+    setTempEstimatedDuration("15");
+    setTempSelectedCategory("none");
+    setTempSelectedPriority(1);
+    fetchBacklogTasks();
+    return newScheduledTask;
+  }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask, fetchBacklogTasks, meetingProjectId, getTaskCategory]);
 
   const handleDeleteScheduledTask = useCallback(async (taskToDelete: ScheduledTask, shouldReaddToBacklog: boolean = true) => {
     setSchedules((prevSchedules) => {
@@ -728,56 +725,60 @@ const Planejador = () => {
 
     setIsPreallocatingMeetings(true);
     try {
-      // Fetch tasks that are meetings and have a due date/datetime
-      // CORRECTED FILTER: Use project ID directly
       const filterString = `project:${meetingProjectId} & (due: today | due: tomorrow | due: next 7 days)`;
       const meetingTasksWithDueDate = await fetchTasks(filterString, { includeSubtasks: false, includeRecurring: false });
       let preallocatedCount = 0;
+      const newScheduledMeetingsByDate: Record<string, ScheduledTask[]> = {};
 
       for (const task of meetingTasksWithDueDate) {
         if (ignoredMeetingTaskIds.includes(task.id)) {
           continue;
         }
 
-        // Ensure it's a meeting and has a valid due date/datetime
-        // The isMeeting check here should also use the project_id
         const isCurrentTaskMeeting = task.content.startsWith('*') || (meetingProjectId !== null && task.project_id === meetingProjectId);
 
         if (isCurrentTaskMeeting && task.due?.datetime && isValid(parseISO(task.due.datetime))) {
           const originalDueDateTime = parseISO(task.due.datetime);
           const originalDueDate = startOfDay(originalDueDateTime);
           const originalStartTime = format(originalDueDateTime, "HH:mm");
-          const durationMinutes = task.estimatedDurationMinutes || 30; // Default to 30 min for meetings if not set
+          const durationMinutes = task.estimatedDurationMinutes || 30;
           const originalEndTime = format(addMinutes(originalDueDateTime, durationMinutes), "HH:mm");
           const originalDateKey = format(originalDueDate, "yyyy-MM-dd");
 
-          // Check if this meeting is already scheduled for this day
           const isAlreadyScheduled = schedules[originalDateKey]?.scheduledTasks.some(
             st => st.taskId === task.id && st.start === originalStartTime && st.end === originalEndTime
           );
 
           if (!isAlreadyScheduled) {
-            // Temporarily set props for the meeting task
-            const originalTempCategory = tempSelectedCategory;
-            const originalTempPriority = tempSelectedPriority;
-            const originalTempDuration = tempEstimatedDuration;
-
-            setTempSelectedCategory(getTaskCategory(task) || "profissional");
-            setTempSelectedPriority(task.priority);
-            setTempEstimatedDuration(String(durationMinutes));
-
-            // Schedule the meeting at its original time
-            await scheduleTask(task, originalStartTime, originalEndTime, originalDueDate, true);
-            preallocatedCount++;
-
-            // Restore temporary props
-            setTempSelectedCategory(originalTempCategory);
-            setTempSelectedPriority(originalTempPriority);
-            setTempEstimatedDuration(originalTempDuration);
+            // Call scheduleTask with isPreallocated: true, it will return the ScheduledTask object
+            const scheduledMeeting = await scheduleTask(task, originalStartTime, originalEndTime, originalDueDate, true);
+            
+            if (scheduledMeeting) {
+              if (!newScheduledMeetingsByDate[originalDateKey]) {
+                newScheduledMeetingsByDate[originalDateKey] = [];
+              }
+              newScheduledMeetingsByDate[originalDateKey].push(scheduledMeeting);
+              preallocatedCount++;
+            }
           }
         }
       }
+
+      // Perform a single, atomic update to schedules
       if (preallocatedCount > 0) {
+        setSchedules(prevSchedules => {
+          const updatedSchedules = { ...prevSchedules };
+          for (const dateKey in newScheduledMeetingsByDate) {
+            const existingScheduledTasks = updatedSchedules[dateKey]?.scheduledTasks || [];
+            const newMeetingsForDate = newScheduledMeetingsByDate[dateKey];
+            updatedSchedules[dateKey] = {
+              date: dateKey,
+              timeBlocks: updatedSchedules[dateKey]?.timeBlocks || [],
+              scheduledTasks: [...existingScheduledTasks, ...newMeetingsForDate].sort((a, b) => a.start.localeCompare(b.start)),
+            };
+          }
+          return updatedSchedules;
+        });
         toast.success(`${preallocatedCount} reuniões pré-alocadas com sucesso!`);
       } else {
         toast.info("Nenhuma reunião encontrada para pré-alocar ou todas já estão agendadas.");
@@ -787,9 +788,9 @@ const Planejador = () => {
       toast.error("Falha ao pré-alocar reuniões.");
     } finally {
       setIsPreallocatingMeetings(false);
-      fetchBacklogTasks(); // Recarregar backlog para remover tarefas agendadas
+      fetchBacklogTasks(); // Recarregar backlog uma única vez
     }
-  }, [meetingProjectId, fetchTasks, ignoredMeetingTaskIds, schedules, scheduleTask, tempSelectedCategory, tempSelectedPriority, tempEstimatedDuration, fetchBacklogTasks]);
+  }, [meetingProjectId, fetchTasks, ignoredMeetingTaskIds, schedules, scheduleTask, fetchBacklogTasks]);
 
   const handleSuggestSlot = useCallback(() => {
     console.log("Planejador: handleSuggestSlot called."); // Log de depuração
@@ -1168,7 +1169,7 @@ const Planejador = () => {
             <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <ListTodo className="h-5 w-5 text-indigo-600" /> Backlog de Tarefas
             </CardTitle>
-          </CardHeader>
+          </CardTitle>
           <CardContent>
             <div className="mb-4">
               <Label htmlFor="shitsuke-project-filter" className="text-sm text-gray-600 font-medium">
