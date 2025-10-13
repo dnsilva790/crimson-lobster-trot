@@ -185,14 +185,13 @@ const Deadlines = () => {
   // Debug function
   const handleDebugTask = useCallback(async () => {
     setShowDebugTask(true);
-    setDebugTaskJson("Buscando tarefa 'Beber água' pela Sync API v9...");
+    setDebugTaskJson("Buscando todas as tarefas ativas pela Sync API v9 e filtrando por ID...");
 
     if (!apiKey) {
       setDebugTaskJson("API key não configurada. Por favor, configure a API key na página inicial.");
       return;
     }
 
-    // Extrair o ID da tarefa do link fornecido
     const taskId = "9313292961"; // ID da tarefa "beber-agua-6cHMcGCjPXc3R2pW"
 
     try {
@@ -201,20 +200,25 @@ const Deadlines = () => {
         uuid: generateUuid(),
         args: {
           resource_types: ["items"],
-          ids: [taskId],
+          sync_token: "*", // As requested by the user
         },
       }]);
 
       if (syncResponse && syncResponse.items && syncResponse.items.length > 0) {
-        setDebugTaskJson(JSON.stringify(syncResponse.items[0], null, 2));
+        const foundTask = syncResponse.items.find((item: any) => item.id === taskId);
+        if (foundTask) {
+          setDebugTaskJson(JSON.stringify(foundTask, null, 2));
+        } else {
+          setDebugTaskJson(`Tarefa com ID "${taskId}" não encontrada na resposta da Sync API (após filtrar todos os itens).`);
+        }
       } else {
-        setDebugTaskJson(`Tarefa com ID "${taskId}" não encontrada na Sync API. Certifique-se de que ela existe e tente novamente.`);
+        setDebugTaskJson(`Nenhuma tarefa encontrada na resposta da Sync API.`);
       }
     } catch (error) {
       console.error("Erro ao buscar tarefa para debug via Sync API:", error);
       setDebugTaskJson(`Erro ao buscar tarefa via Sync API: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [apiKey]); // Adicionado apiKey como dependência
+  }, [apiKey]);
 
   const renderTaskItem = (task: TodoistTask) => {
     const isOverdue = task.deadline && isPast(parseISO(task.deadline)) && !isToday(parseISO(task.deadline));
