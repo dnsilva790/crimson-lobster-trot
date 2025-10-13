@@ -77,15 +77,22 @@ const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
 
   // Sanitize task.deadline
   // Ensure deadline is a string or null, not an object
+  console.log(`DEBUG: Sanitizing task ${task.id} (${task.content}). Raw deadline before check:`, task.deadline, `(type: ${typeof task.deadline})`);
   if (task.deadline === undefined || task.deadline === null || (typeof task.deadline === 'string' && task.deadline === "undefined")) {
     task.deadline = null;
   } else if (typeof task.deadline !== 'string') {
-    // If it's an object or any other type, convert to string or null
-    console.warn(`TodoistContext: Task ${task.id} (${task.content}) has non-string/null deadline:`, task.deadline, ". Converting to null.");
-    task.deadline = null;
+    // If it's an object and has a 'date' property that is a string, extract it
+    if (typeof task.deadline === 'object' && task.deadline !== null && 'date' in task.deadline && typeof (task.deadline as any).date === 'string') {
+      task.deadline = (task.deadline as any).date;
+      console.log(`TodoistContext: Successfully extracted date from object deadline for task ${task.id}. New deadline:`, task.deadline);
+    } else {
+      // Otherwise, it's an unexpected non-string/non-date-object format, convert to null
+      console.warn(`TodoistContext: Task ${task.id} (${task.content}) has unexpected deadline format:`, task.deadline, ". Converting to null.");
+      task.deadline = null;
+    }
   }
   
-  console.log(`TodoistContext: Sanitized task ${task.id} (${task.content}) deadline: ${task.deadline}`); // Debug log
+  console.log(`TodoistContext: Sanitized task ${task.id} (${task.content}) final deadline: ${task.deadline}`);
   return task;
 };
 
