@@ -9,11 +9,6 @@ interface TodoistError {
   message: string;
 }
 
-// Cache para definições de campos personalizados e o ID do campo 'Deadline'
-let deadlineCustomFieldId: string | null = null;
-let lastCustomFieldFetchTime: number = 0;
-const CUSTOM_FIELD_CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
-
 // Função para gerar UUIDs aleatórios, necessários para a Sync API
 export function generateUuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -84,7 +79,7 @@ async function todoistApiCall<T>(
   return jsonResponse as T;
 }
 
-// Nova função para chamadas à API v1
+// Função para chamadas à API v1
 async function todoistApiCallV1<T>(
   endpoint: string,
   apiKey: string,
@@ -127,8 +122,6 @@ async function todoistApiCallV1<T>(
     return undefined; // Conforme especificado para 204
   }
 
-  // A API v1 pode retornar um corpo mesmo para 2xx, mas o usuário especificou 204 para sucesso.
-  // Se houver um corpo, tentamos parsear, caso contrário, retornamos undefined.
   try {
     const jsonResponse = await response.json();
     console.log(`Todoist API v1 Response Body for ${url}:`, jsonResponse);
@@ -180,47 +173,9 @@ export async function todoistSyncApiCall(
   return jsonResponse;
 }
 
-async function getDeadlineCustomFieldId(apiKey: string): Promise<string | null> {
-  const now = Date.now();
-  if (deadlineCustomFieldId && (now - lastCustomFieldFetchTime < CUSTOM_FIELD_CACHE_DURATION)) {
-    return deadlineCustomFieldId;
-  }
-
-  try {
-    const response = await todoistSyncApiCall(apiKey, [{
-      type: "sync",
-      uuid: generateUuid(),
-      args: {
-        resource_types: ["project_sections"],
-      },
-    }]);
-
-    if (response && response.project_sections) {
-      const deadlineField = response.project_sections.find(
-        (section: TodoistCustomFieldDefinition) => section.type === "date" && section.config?.name === "Deadline"
-      );
-      if (deadlineField) {
-        deadlineCustomFieldId = deadlineField.id;
-        lastCustomFieldFetchTime = now;
-        console.log("TodoistService: Encontrado ID do campo personalizado 'Deadline':", deadlineCustomFieldId);
-        return deadlineCustomFieldId;
-      }
-    }
-    console.warn("TodoistService: Definição do campo personalizado 'Deadline' não encontrada.");
-    return null;
-  } catch (error) {
-    console.error("TodoistService: Falha ao buscar definições de campos personalizados:", error);
-    return null;
-  }
-}
-
-function extractDeadlineFromCustomFields(task: any, deadlineFieldId: string | null): string | null {
-  if (!deadlineFieldId || !task.custom_fields || !Array.isArray(task.custom_fields)) {
-    return null;
-  }
-  const deadlineField = task.custom_fields.find((cf: any) => cf.field_id === deadlineFieldId);
-  return deadlineField?.value || null;
-}
+// Removendo a lógica de cache e busca de custom field ID para 'deadline'
+// Não precisamos mais de getDeadlineCustomFieldId e extractDeadlineFromCustomFields
+// porque o campo 'deadline' virá diretamente do objeto 'item' da Sync API v9.
 
 // Nova função para atualizar o deadline via API v1
 async function updateTaskDeadlineV1(apiKey: string, taskId: string, newDeadlineDate: string | null): Promise<void> {
@@ -232,7 +187,6 @@ async function updateTaskDeadlineV1(apiKey: string, taskId: string, newDeadlineD
       timezone: null,
     } : null,
   };
-  // A API v1 retorna 204 No Content para sucesso, então o tipo de retorno é void
   await todoistApiCallV1<void>(`/tasks/${taskId}`, apiKey, "POST", payload);
 }
 
@@ -246,12 +200,7 @@ export const todoistService = {
       return restTasks || [];
     }
 
-    const deadlineFieldId = await getDeadlineCustomFieldId(apiKey);
-
-    if (!deadlineFieldId) {
-      return restTasks;
-    }
-
+    // Buscar informações adicionais (incluindo o campo 'deadline') via Sync API v9
     const syncResponse = await todoistSyncApiCall(apiKey, [{
       type: "sync",
       uuid: generateUuid(),
@@ -268,7 +217,9 @@ export const todoistService = {
     const mergedTasks = restTasks.map(task => {
       const syncItem = syncItemsMap.get(task.id);
       if (syncItem) {
-        const deadlineValue = extractDeadlineFromCustomFields(syncItem, deadlineFieldId);
+        // O campo 'deadline' vem diretamente no objeto 'item' da Sync API v9
+        // Ele pode ser um objeto ou null. Se for um objeto, pegamos a propriedade 'date'.
+        const deadlineValue = syncItem.deadline && typeof syncItem.deadline === 'object' ? syncItem.deadline.date : syncItem.deadline;
         return { ...task, deadline: deadlineValue, custom_fields: syncItem.custom_fields };
       }
       return task;
@@ -282,11 +233,7 @@ export const todoistService = {
       return undefined;
     }
 
-    const deadlineFieldId = await getDeadlineCustomFieldId(apiKey);
-    if (!deadlineFieldId) {
-      return restTask;
-    }
-
+    // Buscar informações adicionais (incluindo o campo 'deadline') via Sync API v9
     const syncResponse = await todoistSyncApiCall(apiKey, [{
       type: "sync",
       uuid: generateUuid(),
@@ -298,7 +245,8 @@ export const todoistService = {
 
     const syncItem = syncResponse?.items?.[0];
     if (syncItem) {
-      const deadlineValue = extractDeadlineFromCustomFields(syncItem, deadlineFieldId);
+      // O campo 'deadline' vem diretamente no objeto 'item' da Sync API v9
+      const deadlineValue = syncItem.deadline && typeof syncItem.deadline === 'object' ? syncItem.deadline.date : syncItem.deadline;
       return { ...restTask, deadline: deadlineValue, custom_fields: syncItem.custom_fields };
     }
     return restTask;
