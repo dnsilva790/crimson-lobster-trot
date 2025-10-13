@@ -48,6 +48,7 @@ interface GtdProcessorState {
   inboxFilter: string;
   selectedDueDate?: Date;
   selectedDueTime: string;
+  selectedDeadlineDate?: Date; // Novo estado para o deadline
   delegateName: string;
 }
 
@@ -78,6 +79,7 @@ const Seiketsu = () => {
 
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(undefined);
   const [selectedDueTime, setSelectedDueTime] = useState<string>("");
+  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(undefined); // Novo estado
   const [delegateName, setDelegateName] = useState<string>("");
 
   const currentTask = tasksToProcess[currentTaskIndex];
@@ -112,6 +114,7 @@ const Seiketsu = () => {
           setInboxFilter(parsedState.inboxFilter);
           setSelectedDueDate(parsedState.selectedDueDate && isValid(parsedState.selectedDueDate) ? parseISO(parsedState.selectedDueDate.toISOString()) : undefined);
           setSelectedDueTime(parsedState.selectedDueTime);
+          setSelectedDeadlineDate(parsedState.selectedDeadlineDate && isValid(parsedState.selectedDeadlineDate) ? parseISO(parsedState.selectedDeadlineDate.toISOString()) : undefined); // Carregar deadline
           setDelegateName(parsedState.delegateName);
           
           if (newGtdState === "reviewing" && parsedState.tasksToProcess.length > 0) {
@@ -136,20 +139,23 @@ const Seiketsu = () => {
         inboxFilter,
         selectedDueDate,
         selectedDueTime,
+        selectedDeadlineDate, // Salvar deadline
         delegateName,
       };
       localStorage.setItem(GTD_STORAGE_KEY, JSON.stringify(stateToSave));
       localStorage.setItem(INBOX_FILTER_STORAGE_KEY, inboxFilter);
     }
-  }, [gtdState, actionableStep, tasksToProcess, currentTaskIndex, inboxFilter, selectedDueDate, selectedDueTime, delegateName]);
+  }, [gtdState, actionableStep, tasksToProcess, currentTaskIndex, inboxFilter, selectedDueDate, selectedDueTime, selectedDeadlineDate, delegateName]);
 
   useEffect(() => {
     if (isSchedulingPopoverOpen && currentTask) {
       setSelectedDueDate((typeof currentTask.due?.date === 'string' && currentTask.due.date) ? parseISO(currentTask.due.date) : undefined);
       setSelectedDueTime((typeof currentTask.due?.datetime === 'string' && currentTask.due.datetime) ? format(parseISO(currentTask.due.datetime), "HH:mm") : "");
+      setSelectedDeadlineDate((typeof currentTask.deadline === 'string' && currentTask.deadline) ? parseISO(currentTask.deadline) : undefined); // Inicializar deadline
     } else if (!isSchedulingPopoverOpen) {
       setSelectedDueDate(undefined);
       setSelectedDueTime("");
+      setSelectedDeadlineDate(undefined); // Limpar deadline
     }
   }, [isSchedulingPopoverOpen, currentTask]);
 
@@ -189,6 +195,7 @@ const Seiketsu = () => {
     setActionableStep("isActionable");
     setSelectedDueDate(undefined);
     setSelectedDueTime("");
+    setSelectedDeadlineDate(undefined); // Limpar deadline
     setDelegateName("");
   }, [currentTaskIndex, currentTask]);
 
@@ -240,20 +247,27 @@ const Seiketsu = () => {
   }, [currentTask, updateTask, advanceToNextTask]);
 
   const handleSetSchedule = useCallback(async () => {
-    if (!currentTask || !selectedDueDate || !isValid(selectedDueDate)) {
-      toast.error("Por favor, selecione uma data válida para agendar.");
+    if (!currentTask || (!selectedDueDate && !selectedDeadlineDate)) {
+      toast.error("Por favor, selecione uma data de vencimento ou um deadline válido.");
       return;
     }
 
     let finalDueDate: string | null = null;
     let finalDueDateTime: string | null = null;
+    let finalDeadline: string | null = null;
 
-    if (selectedDueTime) {
-      const [hours, minutes] = (selectedDueTime || '').split(":").map(Number);
-      const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
-      finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
-    } else {
-      finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
+    if (selectedDueDate && isValid(selectedDueDate)) {
+      if (selectedDueTime) {
+        const [hours, minutes] = (selectedDueTime || '').split(":").map(Number);
+        const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
+        finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
+      } else {
+        finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
+      }
+    }
+
+    if (selectedDeadlineDate && isValid(selectedDeadlineDate)) {
+      finalDeadline = format(selectedDeadlineDate, "yyyy-MM-dd");
     }
 
     const updatedLabels = [...new Set([...currentTask.labels, GTD_PROCESSED_LABEL, AGENDA_LABEL])]; // Add both labels
@@ -261,6 +275,7 @@ const Seiketsu = () => {
     const updated = await updateTask(currentTask.id, {
       due_date: finalDueDate,
       due_datetime: finalDueDateTime,
+      deadline: finalDeadline, // Enviar o deadline
       labels: updatedLabels, // Pass updated labels
     });
     if (updated) {
@@ -268,7 +283,7 @@ const Seiketsu = () => {
       setIsSchedulingPopoverOpen(false);
       advanceToNextTask();
     }
-  }, [currentTask, selectedDueDate, selectedDueTime, updateTask, advanceToNextTask]);
+  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, updateTask, advanceToNextTask]);
 
   const handleSetDelegate = useCallback(async () => {
     if (!currentTask || !delegateName.trim()) {
@@ -333,6 +348,7 @@ const Seiketsu = () => {
     setActionableStep("isActionable");
     setSelectedDueDate(undefined);
     setSelectedDueTime("");
+    setSelectedDeadlineDate(undefined); // Limpar deadline
     setDelegateName("");
     localStorage.removeItem(GTD_STORAGE_KEY);
     toast.info("Processamento GTD reiniciado.");
@@ -385,6 +401,11 @@ const Seiketsu = () => {
               </>
             ) : (
               <span>Sem prazo</span>
+            )}
+            {task.deadline && (
+              <span className="flex items-center gap-1 text-red-600 font-semibold">
+                <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
+              </span>
             )}
             {hasDuration && (
               <span className="flex items-center gap-1">
@@ -573,9 +594,25 @@ const Seiketsu = () => {
                         className="mt-1"
                       />
                     </div>
+                    <div className="mt-2">
+                      <Label htmlFor="deadline-date">Deadline (Opcional)</Label>
+                      <Calendar
+                        mode="single"
+                        selected={selectedDeadlineDate}
+                        onSelect={setSelectedDeadlineDate}
+                        initialFocus
+                        locale={ptBR}
+                        className="rounded-md border shadow"
+                      />
+                    </div>
                     <Button onClick={handleSetSchedule} className="w-full">
                       Salvar Agendamento
                     </Button>
+                    {(selectedDueDate || selectedDueTime || selectedDeadlineDate) && (
+                      <Button onClick={() => { setSelectedDueDate(undefined); setSelectedDueTime(""); setSelectedDeadlineDate(undefined); }} variant="outline" className="w-full">
+                        <XCircle className="mr-2 h-4 w-4" /> Limpar Datas
+                      </Button>
+                    )}
                   </div>
                 </PopoverContent>
               </Popover>
