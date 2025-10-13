@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban, RotateCcw, Eraser, SortAsc } from "lucide-react";
+import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban, RotateCcw, Eraser, SortAsc, ExternalLink } from "lucide-react";
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project, SeitonStateSnapshot } from "@/lib/types";
@@ -1327,7 +1327,16 @@ const Planejador = () => {
                     )}
                     onClick={() => handleSelectBacklogTask(task)}
                   >
-                    <h4 className="font-semibold text-gray-800">{task.content}</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-gray-800">{task.content}</h4>
+                      {'url' in task && task.url && (
+                        <a href={task.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-6 w-6">
+                            <ExternalLink className="h-4 w-4 text-blue-500" />
+                          </Button>
+                        </a>
+                      )}
+                    </div>
                     {task.description && <p className="text-xs text-gray-600 line-clamp-2">{task.description}</p>}
                     <div className="flex justify-between items-center text-xs text-gray-500 mt-1">
                       <div className="flex items-center gap-2">
