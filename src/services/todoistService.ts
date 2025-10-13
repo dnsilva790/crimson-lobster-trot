@@ -173,10 +173,6 @@ export async function todoistSyncApiCall(
   return jsonResponse;
 }
 
-// Removendo a lógica de cache e busca de custom field ID para 'deadline'
-// Não precisamos mais de getDeadlineCustomFieldId e extractDeadlineFromCustomFields
-// porque o campo 'deadline' virá diretamente do objeto 'item' da Sync API v9.
-
 // Nova função para atualizar o deadline via API v1
 async function updateTaskDeadlineV1(apiKey: string, taskId: string, newDeadlineDate: string | null): Promise<void> {
   const payload = {
@@ -217,9 +213,17 @@ export const todoistService = {
     const mergedTasks = restTasks.map(task => {
       const syncItem = syncItemsMap.get(task.id);
       if (syncItem) {
-        // O campo 'deadline' vem diretamente no objeto 'item' da Sync API v9
-        // Ele pode ser um objeto ou null. Se for um objeto, pegamos a propriedade 'date'.
-        const deadlineValue = syncItem.deadline && typeof syncItem.deadline === 'object' ? syncItem.deadline.date : null;
+        let deadlineValue: string | null = null;
+        // Verifica se syncItem.deadline existe e é um objeto, e se possui a propriedade 'date'
+        if (syncItem.deadline && typeof syncItem.deadline === 'object' && syncItem.deadline.date) {
+          deadlineValue = syncItem.deadline.date;
+        } else if (syncItem.deadline && typeof syncItem.deadline === 'string') {
+          // Caso raro onde deadline já é uma string (para compatibilidade, embora não esperado para o campo nativo)
+          deadlineValue = syncItem.deadline;
+        } else if (syncItem.deadline !== null && syncItem.deadline !== undefined) {
+          // Loga o formato inesperado para depuração
+          console.warn(`TodoistService: Task ${task.id} (${task.content}) has unexpected deadline object format:`, syncItem.deadline);
+        }
         return { ...task, deadline: deadlineValue, custom_fields: syncItem.custom_fields };
       }
       return task;
@@ -245,8 +249,15 @@ export const todoistService = {
 
     const syncItem = syncResponse?.items?.[0];
     if (syncItem) {
-      // O campo 'deadline' vem diretamente no objeto 'item' da Sync API v9
-      const deadlineValue = syncItem.deadline && typeof syncItem.deadline === 'object' ? syncItem.deadline.date : null;
+      let deadlineValue: string | null = null;
+      // Verifica se syncItem.deadline existe e é um objeto, e se possui a propriedade 'date'
+      if (syncItem.deadline && typeof syncItem.deadline === 'object' && syncItem.deadline.date) {
+        deadlineValue = syncItem.deadline.date;
+      } else if (syncItem.deadline && typeof syncItem.deadline === 'string') {
+        deadlineValue = syncItem.deadline;
+      } else if (syncItem.deadline !== null && syncItem.deadline !== undefined) {
+        console.warn(`TodoistService: Task ${taskId} (${restTask.content}) has unexpected deadline object format:`, syncItem.deadline);
+      }
       return { ...restTask, deadline: deadlineValue, custom_fields: syncItem.custom_fields };
     }
     return restTask;
