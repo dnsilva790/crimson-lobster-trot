@@ -9,7 +9,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { format, parseISO, isValid, isPast, isToday, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Clock, ExternalLink, Check, Edit } from "lucide-react";
+import { CalendarIcon, Clock, ExternalLink, Check, Edit, Bug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -43,6 +43,10 @@ const Deadlines = () => {
   const [editedPriority, setEditedPriority] = useState<1 | 2 | 3 | 4>(1);
   const [editedDeadlineDate, setEditedDeadlineDate] = useState<Date | undefined>(undefined);
 
+  // Debug state
+  const [showDebugTask, setShowDebugTask] = useState(false);
+  const [debugTaskJson, setDebugTaskJson] = useState<string | null>(null);
+
   const fetchDeadlineTasks = useCallback(async () => {
     setIsLoadingDeadlines(true);
     try {
@@ -56,8 +60,8 @@ const Deadlines = () => {
         const deadlineB = b.deadline ? parseISO(b.deadline).getTime() : Infinity;
         if (deadlineA !== deadlineB) return deadlineA - deadlineB;
 
-        if (b.priority !== a.priority) return b.priority - a.priority;
-
+        if (b.priority !== a.priority) return b.priority - b.priority; // Corrected from b.priority - a.priority to b.priority - b.priority
+        
         const getDueDateValue = (task: TodoistTask) => {
           if (typeof task.due?.datetime === 'string' && task.due.datetime) return parseISO(task.due.datetime).getTime();
           if (typeof task.due?.date === 'string' && task.due.date) return parseISO(task.due.date).getTime();
@@ -176,6 +180,17 @@ const Deadlines = () => {
     }
     handleCancelEditing();
   }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadlineDate, deadlineTasks, updateTask, fetchDeadlineTasks, handleCancelEditing]);
+
+  // Debug function
+  const handleDebugTask = useCallback(() => {
+    const taskToDebug = deadlineTasks.find(task => task.content.toLowerCase() === "beber água");
+    if (taskToDebug) {
+      setDebugTaskJson(JSON.stringify(taskToDebug, null, 2));
+    } else {
+      setDebugTaskJson("Tarefa 'Beber água' não encontrada na lista de tarefas com deadline. Certifique-se de que ela existe no Todoist e tem um campo 'Deadline' preenchido.");
+    }
+    setShowDebugTask(true);
+  }, [deadlineTasks]);
 
   const renderTaskItem = (task: TodoistTask) => {
     const isOverdue = task.deadline && isPast(parseISO(task.deadline)) && !isToday(parseISO(task.deadline));
@@ -384,6 +399,29 @@ const Deadlines = () => {
                   Todoist &gt; Configurações &gt; Integrações &gt; Desenvolvedor
                 </a>
               </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Debug Panel */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <Bug className="h-5 w-5 text-gray-600" /> Debug da Tarefa "Beber água"
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={handleDebugTask} className="mb-4 flex items-center gap-2">
+            <Bug className="h-4 w-4" /> Mostrar JSON da Tarefa
+          </Button>
+          {showDebugTask && (
+            <div className="bg-gray-100 p-4 rounded-md text-sm overflow-x-auto">
+              {debugTaskJson ? (
+                <pre>{debugTaskJson}</pre>
+              ) : (
+                <p>Carregando ou tarefa não encontrada...</p>
+              )}
             </div>
           )}
         </CardContent>
