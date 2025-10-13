@@ -69,8 +69,8 @@ const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
 
 const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
   4: "P1",
-  3: "P2",
-  2: "P3", // Corrected from P4
+  3: "P2", // Corrected from P4
+  2: "P3", // Corrected from P3
   1: "P4", // Corrected from P3
 };
 
@@ -448,7 +448,7 @@ const Planejador = () => {
         setTempEstimatedDuration(String(updatedSelectedTask.estimatedDurationMinutes || 15));
         const initialCategory = getTaskCategory(updatedSelectedTask);
         setTempSelectedCategory(initialCategory || "none");
-        const initialPriority = 'priority' in updatedSelectedTask ? updatedUpdatedTask.priority : 1;
+        const initialPriority = 'priority' in updatedSelectedTask ? updatedSelectedTask.priority : 1;
         setTempSelectedPriority(initialPriority);
         toast.info(`Detalhes da tarefa selecionada atualizados no planejador.`);
       }
@@ -567,8 +567,7 @@ const Planejador = () => {
   }, []);
 
   const scheduleTask = useCallback(async (task: TodoistTask | InternalTask, start: string, end: string, targetDate: Date, isPreallocated: boolean = false) => {
-    console.log("Planejador: scheduleTask called for task:", task.content);
-    console.log("Planejador: start:", start, "end:", end, "targetDate:", targetDate);
+    console.log("Planejador: scheduleTask - Início para tarefa:", task.content);
 
     const dateKey = format(targetDate, "yyyy-MM-dd");
     const currentDay = schedules[dateKey] || { date: dateKey, timeBlocks: [], scheduledTasks: [] };
@@ -605,6 +604,7 @@ const Planejador = () => {
         console.log("Planejador: Sending to updateTask - finalDueDate:", finalDueDate);
         console.log("Planejador: Sending to updateTask - finalDueDateTime:", finalDueDateTime);
 
+        console.log("Planejador: scheduleTask - Chamando updateTask para Todoist task:", task.id);
         const updatedTodoistTask = await updateTask(task.id, {
           priority: tempSelectedPriority,
           labels: newLabels,
@@ -613,12 +613,15 @@ const Planejador = () => {
           due_date: finalDueDate,
           due_datetime: finalDueDateTime,
         });
+        console.log("Planejador: scheduleTask - Retorno de updateTask:", updatedTodoistTask);
 
         if (!updatedTodoistTask) {
           toast.error("Falha ao atualizar a tarefa no Todoist.");
+          console.error("Planejador: scheduleTask - updateTask retornou undefined.");
           return;
         }
         setBacklogTasks(prev => prev.map(t => t.id === updatedTodoistTask.id ? updatedTodoistTask : t));
+        console.log("Planejador: scheduleTask - backlogTasks atualizado com Todoist task.");
       }
 
     } else { // This block handles Internal tasks
@@ -629,8 +632,10 @@ const Planejador = () => {
       };
       updateInternalTask(updatedInternalTask);
       setBacklogTasks(prev => prev.map(t => t.id === updatedInternalTask.id ? updatedInternalTask : t));
+      console.log("Planejador: scheduleTask - backlogTasks atualizado com Internal task.");
     }
 
+    console.log("Planejador: scheduleTask - Criando newScheduledTask.");
     const newScheduledTask: ScheduledTask = {
       id: `${task.id}-${Date.now()}`,
       taskId: task.id,
@@ -645,6 +650,7 @@ const Planejador = () => {
       isMeeting: isTaskMeeting, // Use the determined isTaskMeeting flag
     };
 
+    console.log("Planejador: scheduleTask - Atualizando schedules.");
     setSchedules((prevSchedules) => {
       const updatedScheduledTasks = [...currentDay.scheduledTasks, newScheduledTask].sort((a, b) => a.start.localeCompare(b.start));
       return {
@@ -652,6 +658,7 @@ const Planejador = () => {
         [dateKey]: { ...currentDay, scheduledTasks: updatedScheduledTasks },
       };
     });
+    console.log("Planejador: scheduleTask - Schedules atualizado.");
 
     if (!isPreallocated) {
       toast.success(`Tarefa "${task.content}" agendada para ${start}-${end} em ${format(targetDate, "dd/MM", { locale: ptBR })} e atualizada!`);
@@ -664,8 +671,11 @@ const Planejador = () => {
       setTempEstimatedDuration("15");
       setTempSelectedCategory("none");
       setTempSelectedPriority(1);
+      console.log("Planejador: scheduleTask - Seleção de tarefa limpa.");
     }
+    console.log("Planejador: scheduleTask - Chamando fetchBacklogTasks.");
     fetchBacklogTasks(); // Re-fetch backlog to remove the scheduled task
+    console.log("Planejador: scheduleTask - Fim.");
   }, [schedules, tempEstimatedDuration, tempSelectedCategory, tempSelectedPriority, updateTask, updateInternalTask, fetchBacklogTasks, meetingProjectId]);
 
   const handleDeleteScheduledTask = useCallback(async (taskToDelete: ScheduledTask, shouldReaddToBacklog: boolean = true) => {
@@ -790,7 +800,8 @@ const Planejador = () => {
     }
   }, []);
 
-  const handleSelectSlot = useCallback((time: string, type: TimeBlockType) => {
+  const handleSelectSlot = useCallback(async (time: string, type: TimeBlockType) => {
+    console.log("Planejador: handleSelectSlot - Início.");
     if (!selectedTaskToSchedule) {
       toast.info("Selecione uma tarefa do backlog primeiro para agendar em um slot.");
       return;
@@ -800,13 +811,22 @@ const Planejador = () => {
     const slotStart = parse(time, "HH:mm", selectedDate);
     const slotEnd = addMinutes(slotStart, durationMinutes);
 
+    if (!isValid(slotStart) || !isValid(slotEnd)) {
+      toast.error("Erro ao calcular o slot de tempo. Verifique o formato da hora.");
+      console.error("Planejador: handleSelectSlot - slotStart ou slotEnd inválido.");
+      return;
+    }
+
     // Check for conflicts with already scheduled tasks in the current day
     const dateKey = format(selectedDate, "yyyy-MM-dd");
     const scheduledTasksForDay = schedules[dateKey]?.scheduledTasks || [];
     const hasConflict = scheduledTasksForDay.some(st => {
       const stStart = parse(st.start, "HH:mm", selectedDate);
       const stEnd = parse(st.end, "HH:mm", selectedDate);
-      if (!isValid(stStart) || !isValid(stEnd)) return false; // Ensure parsed dates are valid
+      if (!isValid(stStart) || !isValid(stEnd)) {
+        console.warn(`Planejador: handleSelectSlot - Tarefa agendada inválida encontrada: ${st.content}`);
+        return false; // Ignore invalid scheduled tasks for conflict check
+      }
       
       // Standard overlap check: (start1 < end2 && end1 > start2)
       return (slotStart < stEnd && slotEnd > stStart);
@@ -814,6 +834,7 @@ const Planejador = () => {
 
     if (hasConflict) {
       toast.error("Este slot já está ocupado por outra tarefa agendada.");
+      console.log("Planejador: handleSelectSlot - Conflito de slot detectado.");
       return;
     }
 
@@ -823,7 +844,10 @@ const Planejador = () => {
       if (block.type === "break") {
         const blockStart = parse(block.start, "HH:mm", selectedDate);
         const blockEnd = parse(block.end, "HH:mm", selectedDate);
-        if (!isValid(blockStart) || !isValid(blockEnd)) return false; // Ensure parsed dates are valid
+        if (!isValid(blockStart) || !isValid(blockEnd)) {
+          console.warn(`Planejador: handleSelectSlot - Bloco de tempo inválido encontrado: ${block.label}`);
+          return false; // Ignore invalid time blocks for conflict check
+        }
         
         // Standard overlap check: (start1 < end2 && end1 > start2)
         return (slotStart < blockEnd && slotEnd > blockStart);
@@ -833,10 +857,19 @@ const Planejador = () => {
 
     if (isOverlappingBreak) {
       toast.error("Não é possível agendar em um bloco de pausa.");
+      console.log("Planejador: handleSelectSlot - Sobreposição com bloco de pausa detectada.");
       return;
     }
 
-    scheduleTask(selectedTaskToSchedule, time, format(slotEnd, "HH:mm"), selectedDate);
+    try {
+      console.log("Planejador: handleSelectSlot - Chamando scheduleTask.");
+      await scheduleTask(selectedTaskToSchedule, time, format(slotEnd, "HH:mm"), selectedDate);
+      console.log("Planejador: handleSelectSlot - scheduleTask concluído com sucesso.");
+    } catch (error) {
+      console.error("Planejador: handleSelectSlot - Erro ao agendar tarefa:", error);
+      toast.error("Ocorreu um erro ao agendar a tarefa. Verifique o console para mais detalhes.");
+    }
+    console.log("Planejador: handleSelectSlot - Fim.");
   }, [selectedTaskToSchedule, tempEstimatedDuration, selectedDate, scheduleTask, schedules, getCombinedTimeBlocksForDate]);
 
   const handleScheduleSuggestedTask = useCallback(async () => {
