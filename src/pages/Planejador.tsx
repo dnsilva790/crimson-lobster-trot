@@ -26,6 +26,7 @@ const PLANNER_STORAGE_KEY = "planner_schedules_v2";
 const MEETING_PROJECT_NAME = "📅 Reuniões";
 const PLANNER_AI_PROMPT_STORAGE_KEY = "planner_ai_prompt";
 const SEITON_RANKING_STORAGE_KEY = "seitonTournamentState"; // Adicionado
+const RAPIDA_LABEL = "⚡ Rápida"; // Nova constante para a etiqueta
 
 const defaultPlannerAiPrompt = `**AGENTE DE SUGESTÃO DE SLOTS DO PLANEJADOR**
 **MISSÃO:** Sua missão é sugerir o melhor slot de 15 minutos para uma tarefa no calendário, considerando a categoria da tarefa (Pessoal/Profissional), sua prioridade, os blocos de tempo definidos (Trabalho, Pessoal, Pausa) e o horário atual.
@@ -406,6 +407,11 @@ const Planejador = () => {
           if (todoistTask === undefined || todoistTask.is_completed) {
             console.log(`Planejador: Tarefa Todoist agendada "${scheduledTask.content}" (ID: ${scheduledTask.taskId}) está concluída ou não existe mais. Removendo da agenda.`);
             changesMade = true;
+            // Also remove the "⚡ Rápida" label if the task is completed/deleted
+            if (todoistTask?.labels.includes(RAPIDA_LABEL)) {
+              const updatedLabels = todoistTask.labels.filter(label => label !== RAPIDA_LABEL);
+              await updateTask(todoistTask.id, { labels: updatedLabels });
+            }
           } else {
             newScheduledTasks.push(scheduledTask);
           }
@@ -424,7 +430,7 @@ const Planejador = () => {
       toast.info("Agenda sincronizada com o status das tarefas do Todoist.");
     }
     console.log("Planejador: Sincronização de tarefas agendadas concluída.");
-  }, [schedules, fetchTaskById]);
+  }, [schedules, fetchTaskById, updateTask]);
 
 
   useEffect(() => {
@@ -604,6 +610,11 @@ const Planejador = () => {
         newLabels.push("profissional");
       }
 
+      // Add "⚡ Rápida" label
+      if (!newLabels.includes(RAPIDA_LABEL)) {
+        newLabels.push(RAPIDA_LABEL);
+      }
+
       const formattedDueDate = format(targetDate, "yyyy-MM-dd");
       const parsedStartTime = parse((start || ''), "HH:mm", targetDate);
       let finalDueDate: string | null = null;
@@ -694,14 +705,21 @@ const Planejador = () => {
       setIgnoredMeetingTaskIds(prev => [...new Set([...prev, taskToDelete.originalTask!.id])]);
       toast.info(`Reunião "${taskToDelete.content}" removida da agenda e não será pré-alocada novamente.`);
       setSelectedTaskToSchedule(null); // Clear selection for ignored meetings
-    } else if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask && shouldReaddToBacklog) {
+    } else if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask) { // It's a Todoist task
+      // Remove "⚡ Rápida" label
+      const updatedLabels = taskToDelete.originalTask.labels.filter(label => label !== RAPIDA_LABEL);
       await updateTask(taskToDelete.originalTask.id, {
         due_date: null,
         due_datetime: null,
+        labels: updatedLabels, // Update labels
       });
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e data de vencimento limpa no Todoist.`);
-      handleSelectBacklogTask(taskToDelete.originalTask); // This selects it
-    } else if (taskToDelete.originalTask && shouldReaddToBacklog) {
+      if (shouldReaddToBacklog) {
+        handleSelectBacklogTask(taskToDelete.originalTask); // This selects it
+      } else {
+        setSelectedTaskToSchedule(null);
+      }
+    } else if (taskToDelete.originalTask && shouldReaddToBacklog) { // Internal task
       handleSelectBacklogTask(taskToDelete.originalTask); // This selects it
       toast.info(`Tarefa "${taskToDelete.content}" removida da agenda e pronta para ser reagendada.`);
     } else { // shouldReaddToBacklog is false, or no originalTask
