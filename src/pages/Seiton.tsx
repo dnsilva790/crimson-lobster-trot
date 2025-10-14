@@ -358,32 +358,42 @@ const Seiton = () => {
     }
   }, [tournamentState, rankedTasks]); // Depend on tournamentState and rankedTasks
 
-  // Nova função para aplicar a regra P1
-  const applyP1Rule = useCallback(async () => {
+  // Nova função para aplicar as regras de prioridade baseadas no ranking
+  const applyRankingPriorityRules = useCallback(async () => {
     if (rankedTasks.length === 0) return;
 
     let updatedRankedTasks = [...rankedTasks];
     let changesMade = false;
 
-    for (let i = 0; i < Math.min(4, rankedTasks.length); i++) {
+    for (let i = 0; i < rankedTasks.length; i++) {
       const task = rankedTasks[i];
-      if (task.priority !== 4) {
-        console.log(`Seiton: Promovendo tarefa "${task.content}" (ID: ${task.id}) de P${task.priority} para P1.`);
-        const updatedTodoistTask = await updateTask(task.id, { priority: 4 });
+      let newPriority: 1 | 2 | 3 | 4;
+
+      if (i < 4) { // Top 4 tasks (0-3)
+        newPriority = 4; // P1
+      } else if (i < 24) { // Next 20 tasks (4-23)
+        newPriority = 3; // P2
+      } else { // From 25th task onwards (24+)
+        newPriority = 2; // P3
+      }
+
+      if (task.priority !== newPriority) {
+        console.log(`Seiton: Atualizando tarefa "${task.content}" (ID: ${task.id}) de P${task.priority} para P${newPriority}.`);
+        const updatedTodoistTask = await updateTask(task.id, { priority: newPriority });
         if (updatedTodoistTask) {
           updatedRankedTasks[i] = updatedTodoistTask;
           changesMade = true;
         } else {
-          toast.error(`Falha ao promover a tarefa "${task.content}" para P1 no Todoist.`);
+          toast.error(`Falha ao atualizar a prioridade da tarefa "${task.content}" para P${newPriority} no Todoist.`);
         }
       }
     }
 
     if (changesMade) {
       setRankedTasks(updatedRankedTasks);
-      toast.success("Regra P1 aplicada: As 4 primeiras tarefas foram ajustadas para P1, se necessário.");
+      toast.success("Prioridades das tarefas ajustadas com base no ranking!");
     } else {
-      toast.info("Regra P1 aplicada: Nenhuma alteração necessária nas 4 primeiras tarefas.");
+      toast.info("Nenhuma alteração de prioridade necessária com base no ranking.");
     }
   }, [rankedTasks, updateTask]);
 
@@ -399,9 +409,9 @@ const Seiton = () => {
     } else if (tournamentState === "comparing" && tasksToProcess.length === 0 && !currentTaskToPlace && rankedTasks.length > 0) {
         setTournamentState("finished");
     } else if (tournamentState === "finished") {
-        applyP1Rule();
+        applyRankingPriorityRules(); // Chamada para a nova função
     }
-  }, [tournamentState, currentTaskToPlace, tasksToProcess.length, rankedTasks.length, startNextPlacement, applyP1Rule]);
+  }, [tournamentState, currentTaskToPlace, tasksToProcess.length, rankedTasks.length, startNextPlacement, applyRankingPriorityRules]);
 
   const handleSelection = useCallback(
     (winner: TodoistTask) => {
@@ -799,6 +809,97 @@ const Seiton = () => {
               Resetar Ranking
             </Button>
           </div>
+        </>
+      )}
+
+      {!isLoadingTodoist && tournamentState === "finished" && (
+        <>
+          {console.log("Rendering: Finished state")}
+          <div className="text-center mt-10">
+            <p className="text-2xl font-semibold text-gray-700 mb-4">
+              🎉 Torneio de Priorização Concluído!
+            </p>
+            <p className="text-lg text-gray-600 mb-6">
+              As prioridades das suas tarefas foram ajustadas no Todoist.
+            </p>
+            <div className="flex flex-col md:flex-row justify-center gap-4 mt-6">
+              <Button
+                onClick={() => startTournament(false)}
+                className="px-8 py-4 text-xl bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-200"
+              >
+                Iniciar Novo Torneio
+              </Button>
+              <Button
+                onClick={resetTournamentState}
+                className="px-8 py-4 text-xl bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors duration-200"
+              >
+                Resetar Ranking Salvo
+              </Button>
+            </div>
+          </div>
+
+          {rankedTasks.length > 0 && (
+            <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner">
+              <h3 className="text-2xl font-bold mb-4 text-center text-gray-800">
+                Ranking Final
+              </h3>
+              <div className="space-y-3">
+                {rankedTasks.map((task, index) => {
+                  const category = getTaskCategory(task);
+                  return (
+                    <Card
+                      key={task.id}
+                      className={cn(
+                        "p-3 rounded-lg flex items-center gap-3 border",
+                        index === 0 && "bg-yellow-50 border-yellow-400",
+                        index === 1 && "bg-gray-50 border-gray-300",
+                        index === 2 && "bg-amber-50 border-amber-300",
+                      )}
+                    >
+                      <span className="text-xl font-bold text-gray-600 w-6 text-center">
+                        {index + 1}º
+                      </span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-md font-semibold text-gray-700">{task.content}</h4>
+                          {category && (
+                            <Badge
+                              className={cn(
+                                "text-xs font-medium",
+                                category === "pessoal" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                              )}
+                            >
+                              {category === "pessoal" ? "Pessoal" : "Profissional"}
+                            </Badge>
+                          )}
+                        </div>
+                        {task.labels && task.labels.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {task.labels.map((label) => (
+                              <Badge key={label} variant="secondary" className="text-xs bg-gray-100 text-gray-700">
+                                {label}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-500">
+                          {renderTaskDatesAndDuration(task)}
+                        </div>
+                      </div>
+                      <span
+                        className={cn(
+                          "px-2 py-1 rounded-full text-white text-xs font-medium ml-auto",
+                          PRIORITY_COLORS[task.priority],
+                        )}
+                      >
+                        {PRIORITY_LABELS[task.priority]}
+                      </span>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </>
       )}
 
