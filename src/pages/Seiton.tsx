@@ -655,7 +655,8 @@ const Seiton = () => {
           {console.log("Rendering: Loading spinner")}
           <div className="flex justify-center items-center h-48">
             <LoadingSpinner size={40} />
-          </>
+          </div>
+        </>
       )}
 
       {!isLoadingTodoist && tournamentState === "initial" && (
