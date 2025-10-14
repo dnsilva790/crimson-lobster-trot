@@ -57,6 +57,14 @@ const modules = [
     activeColor: "border-indigo-600",
   },
   {
+    path: "/shitsuke", // Nova rota para SHITSUKE (Revisão Diária)
+    icon: CheckSquare, // Ícone para Revisão Diária
+    title: "SHITSUKE",
+    description: "Revisão Diária",
+    colorClass: "bg-green-50 hover:bg-green-100", // Cor para Revisão Diária
+    activeColor: "border-green-500",
+  },
+  {
     path: "/project-management", // Rota atualizada
     icon: FolderOpen, // Novo ícone para Gestão de Projetos
     title: "PROJETOS 5W2H", // Novo título
@@ -87,14 +95,6 @@ const modules = [
     description: "Seu Coach de Produtividade",
     colorClass: "bg-purple-50 hover:bg-purple-100", // Cor para o Tutor IA
     activeColor: "border-purple-500",
-  },
-  {
-    path: "/shitsuke", // Nova rota para SHITSUKE (Revisão Diária)
-    icon: CheckSquare, // Ícone para Revisão Diária
-    title: "SHITSUKE",
-    description: "Revisão Diária",
-    colorClass: "bg-green-50 hover:bg-green-100", // Cor para Revisão Diária
-    activeColor: "border-green-500",
   },
   {
     path: "/internal-tasks",
