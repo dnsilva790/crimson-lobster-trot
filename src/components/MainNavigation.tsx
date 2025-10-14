@@ -80,15 +80,6 @@ const modules = [
     colorClass: "bg-pink-100 hover:bg-pink-200",
     activeColor: "border-pink-600",
   },
-  // Removido o módulo DEADLINES
-  {
-    path: "/ai-agent", // Nova rota para o Tutor IA SEISO
-    icon: Bot, // Ícone para o Tutor IA SEISO
-    title: "TUTOR IA",
-    description: "Seu Coach de Produtividade",
-    colorClass: "bg-purple-50 hover:bg-purple-100", // Cor para o Tutor IA
-    activeColor: "border-purple-500",
-  },
   {
     path: "/internal-tasks",
     icon: ListTodo,

@@ -6,8 +6,8 @@ import { useTodoist } from "@/context/TodoistContext";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import FocusTaskCard from "@/components/FocusTaskCard";
 import { Progress } from "@/components/ui/progress";
-import AIAssistant from "@/components/AIAssistant";
-import PromptEditor from "@/components/PromptEditor";
+import AIAgentAssistant from "@/components/AIAgentAssistant"; // Importar o novo assistente
+import AIAgentPromptEditor from "@/components/AIAgentPromptEditor"; // Renomeado de PromptEditor para consistência
 
 import ExecucaoInitialState from "@/components/execucao/ExecucaoInitialState";
 import ExecucaoFinishedState from "@/components/execucao/ExecucaoFinishedState";
@@ -18,9 +18,9 @@ import { calculateNext15MinInterval } from '@/utils/dateUtils';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from "sonner";
+import { TodoistTask } from "@/lib/types"; // Importar TodoistTask
 
-
-const AI_PROMPT_STORAGE_KEY = "ai_tutor_novoseiso_prompt";
+const AI_AGENT_PROMPT_STORAGE_KEY = "ai_agent_tutor_seiso_prompt"; // Chave de armazenamento para o prompt do AI Agent
 const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input";
 const NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY = "novoseiso_category_filter";
 const NOVO_SEISO_TASK_SOURCE_STORAGE_KEY = "novoseiso_task_source";
@@ -106,7 +106,7 @@ Positiva e Encorajadora: Apesar da firmeza, sua linguagem é positiva e construt
 Anti-Procrastinação: Você é especialista em quebrar a inércia, transformando tarefas vagas em ações concretas e imediatas.`;
 
 const NovoSeiso = () => {
-  const { closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
+  const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem(NOVO_SEISO_FILTER_INPUT_STORAGE_KEY) || "";
@@ -126,6 +126,7 @@ const NovoSeiso = () => {
     return "filter";
   });
   const [aiPrompt, setAiPrompt] = useState<string>(defaultAiPrompt);
+  const [allTodoistTasks, setAllTodoistTasks] = useState<TodoistTask[]>([]); // Novo estado para todas as tarefas
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -154,12 +155,23 @@ const NovoSeiso = () => {
     loadTasksForFocus,
     advanceToNextTask,
     updateTaskInFocusList,
+    setFocusTaskById, // Nova função
   } = useExecucaoTasks(filterInput, selectedCategoryFilter, selectedTaskSource);
 
   const currentTask = focusTasks[currentTaskIndex];
 
+  // Fetch all tasks for the AI Agent's "Radar de Produtividade"
+  const fetchAllTodoistTasks = useCallback(async () => {
+    const tasks = await fetchTasks(undefined, { includeSubtasks: false, includeRecurring: false });
+    setAllTodoistTasks(tasks);
+  }, [fetchTasks]);
+
   useEffect(() => {
-    const savedPrompt = localStorage.getItem(AI_PROMPT_STORAGE_KEY);
+    fetchAllTodoistTasks();
+  }, [fetchAllTodoistTasks]);
+
+  useEffect(() => {
+    const savedPrompt = localStorage.getItem(AI_AGENT_PROMPT_STORAGE_KEY); // Usar a chave do AI Agent
     if (savedPrompt) {
       setAiPrompt(savedPrompt);
     }
@@ -167,7 +179,7 @@ const NovoSeiso = () => {
 
   const handleSaveAiPrompt = useCallback((newPrompt: string) => {
     setAiPrompt(newPrompt);
-    localStorage.setItem(AI_PROMPT_STORAGE_KEY, newPrompt);
+    localStorage.setItem(AI_AGENT_PROMPT_STORAGE_KEY, newPrompt); // Usar a chave do AI Agent
   }, []);
 
   const handleComplete = useCallback(async (taskId: string) => {
@@ -175,8 +187,9 @@ const NovoSeiso = () => {
     if (success !== undefined) {
       advanceToNextTask();
       toast.success("Tarefa concluída com sucesso!");
+      fetchAllTodoistTasks(); // Refresh all tasks after completion
     }
-  }, [closeTask, advanceToNextTask]);
+  }, [closeTask, advanceToNextTask, fetchAllTodoistTasks]);
 
   const handleSkip = useCallback(async () => {
     advanceToNextTask();
@@ -195,9 +208,10 @@ const NovoSeiso = () => {
     if (updated) {
       updateTaskInFocusList(updated);
       toast.success("Tarefa atualizada com sucesso!");
+      fetchAllTodoistTasks(); // Refresh all tasks after update
     }
     return updated;
-  }, [updateTask, updateTaskInFocusList]);
+  }, [updateTask, updateTaskInFocusList, fetchAllTodoistTasks]);
 
   const handlePostpone = useCallback(async (taskId: string) => {
     if (!currentTask) return; // Ensure currentTask is available
@@ -217,10 +231,11 @@ const NovoSeiso = () => {
     if (updated) {
       toast.success(`Tarefa postergada para ${format(parseISO(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })} e atualizada!`);
       advanceToNextTask();
+      fetchAllTodoistTasks(); // Refresh all tasks after postpone
     } else {
       toast.error("Falha ao postergar a tarefa.");
     }
-  }, [updateTask, advanceToNextTask, currentTask]); // Add currentTask to dependencies
+  }, [updateTask, advanceToNextTask, currentTask, fetchAllTodoistTasks]);
 
   const handleEmergencyFocus = useCallback(async (taskId: string) => {
     if (!currentTask) return;
@@ -235,10 +250,15 @@ const NovoSeiso = () => {
     if (updated) {
       updateTaskInFocusList(updated); // Atualiza a tarefa na lista de foco local
       toast.success(`Etiqueta '🎯 Foco' adicionada à tarefa "${currentTask.content}"!`);
+      fetchAllTodoistTasks(); // Refresh all tasks after emergency focus
     } else {
       toast.error("Falha ao adicionar a etiqueta '🎯 Foco'.");
     }
-  }, [currentTask, updateTask, updateTaskInFocusList]);
+  }, [currentTask, updateTask, updateTaskInFocusList, fetchAllTodoistTasks]);
+
+  const handleAISuggestTask = useCallback((suggestedTask: TodoistTask) => {
+    setFocusTaskById(suggestedTask.id); // Usar a nova função do hook
+  }, [setFocusTaskById]);
 
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
 
@@ -314,18 +334,19 @@ const NovoSeiso = () => {
 
       <div className="lg:col-span-1 flex flex-col gap-4">
         <div className="flex justify-end">
-          <PromptEditor
+          <AIAgentPromptEditor // Usar o AIAgentPromptEditor
             initialPrompt={aiPrompt}
             onSave={handleSaveAiPrompt}
-            storageKey={AI_PROMPT_STORAGE_KEY}
+            storageKey={AI_AGENT_PROMPT_STORAGE_KEY} // Usar a chave do AI Agent
           />
         </div>
-        <AIAssistant
+        <AIAgentAssistant // Usar o AIAgentAssistant
           aiPrompt={aiPrompt}
-          currentTask={currentTask}
-          focusTasks={focusTasks}
-          updateTask={updateTask}
-          closeTask={closeTask}
+          currentTask={currentTask} // Passar a tarefa de foco atual
+          allTasks={allTodoistTasks} // Passar todas as tarefas para o radar
+          updateTask={handleUpdateTaskAndRefresh}
+          closeTask={handleComplete}
+          onTaskSuggested={handleAISuggestTask} // Passar o callback para sugestões do IA
         />
       </div>
     </div>

@@ -21,8 +21,6 @@ import CreateProjectManagement from "./pages/CreateProjectManagement"; // Renome
 import ProjectManagementDetail from "./pages/ProjectManagementDetail"; // Renomeado de ProjectDetail
 import EditProjectManagement from "./pages/EditProjectManagement"; // Renomeado de EditProject
 import FollowUp from "./pages/FollowUp";
-// import Deadlines from "./pages/Deadlines"; // Importar a nova página Deadlines - REMOVIDO
-import AIAgent from "./pages/AIAgent"; // Importar a nova página AIAgent
 import Shitsuke from "./pages/Shitsuke"; // Importar a nova página Shitsuke (Revisão Diária)
 
 
@@ -49,8 +47,6 @@ const App = () => (
               <Route path="/project-management/:projectId" element={<ProjectManagementDetail />} />
               <Route path="/project-management/edit/:projectId" element={<EditProjectManagement />} />
               <Route path="/follow-up" element={<FollowUp />} />
-              {/* <Route path="/deadlines" element={<Deadlines />} /> REMOVIDO */}
-              <Route path="/ai-agent" element={<AIAgent />} /> {/* Nova rota para o Tutor IA SEISO */}
               <Route path="/shitsuke" element={<Shitsuke />} /> {/* Nova rota para SHITSUKE (Revisão Diária) */}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -31,6 +31,7 @@ export const useExecucaoTasks = (
     comparisonCandidate: null,
     comparisonIndex: 0,
     tournamentState: "initial",
+    selectedPrioritizationContext: "none",
   };
 
   // Load Seiton ranked tasks once on mount or when relevant state changes
@@ -357,6 +358,18 @@ export const useExecucaoTasks = (
     ));
   }, []);
 
+  // Nova função para definir a tarefa de foco por ID
+  const setFocusTaskById = useCallback((taskId: string) => {
+    const index = focusTasks.findIndex(task => task.id === taskId);
+    if (index !== -1) {
+      setCurrentTaskIndex(index);
+      setExecucaoState("focusing"); // Ensure we are in focusing state
+      toast.info(`Foco alterado para a tarefa sugerida pelo IA.`);
+    } else {
+      toast.error("A tarefa sugerida pelo IA não está na lista de foco atual.");
+    }
+  }, [focusTasks]);
+
 
   return {
     focusTasks,
@@ -367,5 +380,6 @@ export const useExecucaoTasks = (
     loadTasksForFocus,
     advanceToNextTask,
     updateTaskInFocusList, // Expor esta função
+    setFocusTaskById, // Expor a nova função
   };
 };

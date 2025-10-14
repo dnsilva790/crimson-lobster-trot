@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid, isToday, isTomorrow, isPast, addHours, getHours, differenceInDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useTodoist } from "@/context/TodoistContext"; // Import useTodoist
 
 interface AIAgentAssistantProps {
   aiPrompt: string;
@@ -29,6 +30,7 @@ interface AIAgentAssistantProps {
     deadline?: string | null;
   }) => Promise<TodoistTask | undefined>;
   closeTask: (taskId: string) => Promise<void>;
+  onTaskSuggested: (task: TodoistTask) => void; // Nova prop para sugerir tarefa
 }
 
 interface Message {
@@ -47,10 +49,12 @@ const AI_CHAT_HISTORY_KEY_PREFIX = "ai_agent_chat_history_task_";
 const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
   aiPrompt,
   currentTask, // Tarefa selecionada no dropdown
-  allTasks,
+  allTasks, // Recebido como prop
   updateTask,
   closeTask,
+  onTaskSuggested, // Nova prop
 }) => {
+  const { isLoading: isLoadingTodoist } = useTodoist(); // Use isLoading from context
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isThinking, setIsThinking] = useState(false);
@@ -64,21 +68,21 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
 
   // Load messages for the current task (from dropdown) or clear if none selected
   useEffect(() => {
-    if (currentTask) {
-      const savedHistory = localStorage.getItem(getTaskHistoryKey(currentTask.id));
+    const taskInFocus = currentTask || suggestedTaskForGuidance;
+    if (taskInFocus) {
+      const savedHistory = localStorage.getItem(getTaskHistoryKey(taskInFocus.id));
       if (savedHistory) {
         setMessages(JSON.parse(savedHistory));
       } else {
         setMessages([]);
-        addMessage("ai", `Olá! Sou o Tutor IA SEISO. Como posso te ajudar a focar e executar a tarefa "${currentTask.content}" hoje?`);
+        addMessage("ai", `Olá! Sou o Tutor IA SEISO. Como posso te ajudar a focar e executar a tarefa "${taskInFocus.content}" hoje?`);
       }
-      setSuggestedTaskForGuidance(null); // Clear suggested task if user explicitly selects one
     } else {
       setMessages([]); // Clear messages if no task is in focus
       addMessage("ai", "Olá! Sou o Tutor IA SEISO. Estou pronto para te ajudar a organizar suas tarefas. Qual a próxima tarefa que devo executar?");
     }
     setLastGeneratedReport(null); // Clear last generated report when task changes
-  }, [currentTask, getTaskHistoryKey]);
+  }, [currentTask, suggestedTaskForGuidance, getTaskHistoryKey]);
 
   // Save messages whenever they change for the current task (from dropdown) or suggested task
   useEffect(() => {
@@ -209,6 +213,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       if (priorityZeroTasks.length > 0) {
         const nextPriorityZeroTask = priorityZeroTasks[0];
         setSuggestedTaskForGuidance(nextPriorityZeroTask);
+        onTaskSuggested(nextPriorityZeroTask); // Emit suggested task
         responseText = `PRIORIDADE ZERO: A tarefa "${nextPriorityZeroTask.content}" tem um deadline para ${format(parseISO(nextPriorityZeroTask.deadline!), "dd/MM/yyyy", { locale: ptBR })}. Recomendo focar nela para zerar pendências.`;
       } else {
         // 2. LÓGICA DE SUGESTÃO INTEGRADA (RADAR DE PRODUTIVIDADE)
@@ -263,6 +268,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
         // For simulation, we'll just suggest the bestTaskA, and add a note about preparation if relevant.
         if (bestTaskA) {
           setSuggestedTaskForGuidance(bestTaskA);
+          onTaskSuggested(bestTaskA); // Emit suggested task
           responseText = `RADAR DE PRODUTIVIDADE: A próxima ação urgente identificada é "${bestTaskA.content}" (P${bestTaskA.priority}).`;
           if (bestTaskA.deadline) {
             responseText += ` Com deadline para ${format(parseISO(bestTaskA.deadline), "dd/MM/yyyy", { locale: ptBR })}.`;
@@ -290,7 +296,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       addMessage("ai", responseText);
       setIsThinking(false);
     }, 1500); // Simulate AI thinking time
-  }, [addMessage, currentTask, allTasks, closeTask, aiPrompt, parseDelegateInfo, parseCriticalStakeholders, generateTodoistUpdateSuggestion, updateTask, suggestedTaskForGuidance]);
+  }, [addMessage, currentTask, allTasks, closeTask, aiPrompt, parseDelegateInfo, parseCriticalStakeholders, generateTodoistUpdateSuggestion, updateTask, suggestedTaskForGuidance, onTaskSuggested]);
 
   const handleSendMessage = async () => {
     if (inputMessage.trim() === "" || isThinking) return;
@@ -395,10 +401,10 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
             </div>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <Button onClick={handleGenerateStatusReport} disabled={!currentTask && !suggestedTaskForGuidance} className="flex items-center gap-1">
+            <Button onClick={handleGenerateStatusReport} disabled={!taskContext || isLoadingTodoist} className="flex items-center gap-1">
               <ClipboardCopy className="h-4 w-4" /> Gerar Status
             </Button>
-            <Button onClick={handleGenerateNextStepReport} disabled={!currentTask && !suggestedTaskForGuidance} className="flex items-center gap-1">
+            <Button onClick={handleGenerateNextStepReport} disabled={!taskContext || isLoadingTodoist} className="flex items-center gap-1">
               <ClipboardCopy className="h-4 w-4" /> Gerar Próximo Passo
             </Button>
           </div>
@@ -412,10 +418,10 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
                   handleSendMessage();
                 }
               }}
-              disabled={isThinking}
+              disabled={isThinking || isLoadingTodoist}
               className="flex-grow"
             />
-            <Button onClick={handleSendMessage} disabled={isThinking}>
+            <Button onClick={handleSendMessage} disabled={isThinking || isLoadingTodoist}>
               <Send className="h-4 w-4" />
             </Button>
           </div>
