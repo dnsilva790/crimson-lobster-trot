@@ -12,7 +12,7 @@ import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCi
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project, SeitonStateSnapshot } from "@/lib/types";
-import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner";
+import TimeSlotPlanner from "@/components/TimeSlot/TimeSlot/TimeSlotPlanner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { useTodoist } from "@/context/TodoistContext";
@@ -26,7 +26,7 @@ const PLANNER_STORAGE_KEY = "planner_schedules_v2";
 const MEETING_PROJECT_NAME = "📅 Reuniões";
 const PLANNER_AI_PROMPT_STORAGE_KEY = "planner_ai_prompt";
 const SEITON_RANKING_STORAGE_KEY = "seitonTournamentState"; // Adicionado
-const RAPIDA_LABEL = "⚡ Rápida"; // Nova constante para a etiqueta
+const CRONOGRAMA_HOJE_LABEL = "📆 Cronograma de hoje"; // Nova constante para a etiqueta
 
 const defaultPlannerAiPrompt = `**AGENTE DE SUGESTÃO DE SLOTS DO PLANEJADOR**
 **MISSÃO:** Sua missão é sugerir o melhor slot de 15 minutos para uma tarefa no calendário, considerando a categoria da tarefa (Pessoal/Profissional), sua prioridade, os blocos de tempo definidos (Trabalho, Pessoal, Pausa) e o horário atual.
@@ -191,6 +191,7 @@ const Planejador = () => {
         comparisonCandidate: null,
         comparisonIndex: 0,
         tournamentState: "initial",
+        selectedPrioritizationContext: "none",
       };
       try {
         const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
@@ -407,9 +408,9 @@ const Planejador = () => {
           if (todoistTask === undefined || todoistTask.is_completed) {
             console.log(`Planejador: Tarefa Todoist agendada "${scheduledTask.content}" (ID: ${scheduledTask.taskId}) está concluída ou não existe mais. Removendo da agenda.`);
             changesMade = true;
-            // Also remove the "⚡ Rápida" label if the task is completed/deleted
-            if (todoistTask?.labels.includes(RAPIDA_LABEL)) {
-              const updatedLabels = todoistTask.labels.filter(label => label !== RAPIDA_LABEL);
+            // Also remove the "📆 Cronograma de hoje" label if the task is completed/deleted
+            if (todoistTask?.labels.includes(CRONOGRAMA_HOJE_LABEL)) {
+              const updatedLabels = todoistTask.labels.filter(label => label !== CRONOGRAMA_HOJE_LABEL);
               await updateTask(todoistTask.id, { labels: updatedLabels });
             }
           } else {
@@ -610,9 +611,9 @@ const Planejador = () => {
         newLabels.push("profissional");
       }
 
-      // Add "⚡ Rápida" label
-      if (!newLabels.includes(RAPIDA_LABEL)) {
-        newLabels.push(RAPIDA_LABEL);
+      // Add "📆 Cronograma de hoje" label
+      if (!newLabels.includes(CRONOGRAMA_HOJE_LABEL)) {
+        newLabels.push(CRONOGRAMA_HOJE_LABEL);
       }
 
       const formattedDueDate = format(targetDate, "yyyy-MM-dd");
@@ -706,8 +707,8 @@ const Planejador = () => {
       toast.info(`Reunião "${taskToDelete.content}" removida da agenda e não será pré-alocada novamente.`);
       setSelectedTaskToSchedule(null); // Clear selection for ignored meetings
     } else if (taskToDelete.originalTask && 'project_id' in taskToDelete.originalTask) { // It's a Todoist task
-      // Remove "⚡ Rápida" label
-      const updatedLabels = taskToDelete.originalTask.labels.filter(label => label !== RAPIDA_LABEL);
+      // Remove "📆 Cronograma de hoje" label
+      const updatedLabels = taskToDelete.originalTask.labels.filter(label => label !== CRONOGRAMA_HOJE_LABEL);
       await updateTask(taskToDelete.originalTask.id, {
         due_date: null,
         due_datetime: null,
