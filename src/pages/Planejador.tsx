@@ -12,7 +12,7 @@ import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCi
 import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project, SeitonStateSnapshot } from "@/lib/types";
-import TimeSlotPlanner from "@/components/TimeSlot/TimeSlot/TimeSlotPlanner";
+import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner"; // Caminho corrigido
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { useTodoist } from "@/context/TodoistContext";
