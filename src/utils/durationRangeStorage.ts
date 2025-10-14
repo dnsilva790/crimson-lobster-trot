@@ -4,7 +4,8 @@ const DURATION_RANGES_STORAGE_KEY = "fast_track_duration_ranges";
 
 const defaultDurationRanges: DurationRange[] = [
   { id: "0-5", label: "0-5 minutos", minMinutes: 0, maxMinutes: 5 },
-  { id: "6-15", label: "6-15 minutos", minMinutes: 6, maxMinutes: 15 },
+  { id: "6-10", label: "6-10 minutos", minMinutes: 6, maxMinutes: 10 }, // Nova faixa adicionada
+  { id: "11-15", label: "11-15 minutos", minMinutes: 11, maxMinutes: 15 }, // Ajustado para 11-15
   { id: "16-30", label: "16-30 minutos", minMinutes: 16, maxMinutes: 30 },
   { id: "31-60", label: "31-60 minutos", minMinutes: 31, maxMinutes: 60 },
   { id: "60+", label: "Mais de 60 minutos", minMinutes: 61, maxMinutes: null },
