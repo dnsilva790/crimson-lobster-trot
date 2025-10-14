@@ -342,8 +342,9 @@ const Seiton = () => {
         setCurrentTaskToPlace(parsedState.currentTaskToPlace);
         setComparisonCandidate(parsedState.comparisonCandidate);
         setComparisonIndex(parsedState.comparisonIndex);
-        setTournamentState(parsedState.tournamentState);
-        setSelectedPrioritizationContext(parsedState.selectedPrioritizationContext); // Adicionado
+        // Always force to 'initial' when loading from localStorage to show config options
+        setTournamentState("initial"); 
+        setSelectedPrioritizationContext(parsedState.selectedPrioritizationContext);
         setHasSavedState(true);
         toast.info("Estado do torneio carregado. Clique em 'Continuar Torneio' para prosseguir.");
         console.log("Seiton: Successfully parsed saved state from localStorage:", parsedState);
@@ -352,7 +353,10 @@ const Seiton = () => {
         localStorage.removeItem(LOCAL_STORAGE_KEY);
         toast.error("Erro ao carregar estado do torneio. Dados corrompidos foram removidos.");
         setHasSavedState(false);
+        setTournamentState("initial"); // Ensure it's initial on error too
       }
+    } else {
+      setTournamentState("initial"); // Ensure it's initial if no saved state
     }
   }, []);
 
@@ -651,8 +655,7 @@ const Seiton = () => {
           {console.log("Rendering: Loading spinner")}
           <div className="flex justify-center items-center h-48">
             <LoadingSpinner size={40} />
-          </div>
-        </>
+          </>
       )}
 
       {!isLoadingTodoist && tournamentState === "initial" && (
