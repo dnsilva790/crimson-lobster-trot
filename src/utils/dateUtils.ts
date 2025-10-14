@@ -6,7 +6,7 @@ import { addMinutes, setMinutes, setHours, format, isBefore } from 'date-fns';
  * @param currentDate A data/hora de referência.
  * @returns Um objeto com a data formatada (yyyy-MM-dd) e o datetime formatado (yyyy-MM-dd'T'HH:mm:ss).
  */
-export const calculateNext15MinInterval = (currentDate: Date): { date: string, datetime: string } => {
+export const calculateNext15MinInterval = (currentDate: Date): { date: string | null, datetime: string } => {
   let nextTime = addMinutes(currentDate, 15); // Adiciona 15 minutos à hora atual
 
   // Arredonda para baixo para o próximo intervalo de 15 minutos
@@ -23,7 +23,7 @@ export const calculateNext15MinInterval = (currentDate: Date): { date: string, d
   }
 
   return {
-    date: format(nextTime, "yyyy-MM-dd"),
+    date: null, // Definir como null quando datetime é fornecido
     datetime: format(nextTime, "yyyy-MM-dd'T'HH:mm:ss"),
   };
 };
