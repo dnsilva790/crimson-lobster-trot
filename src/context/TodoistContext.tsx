@@ -180,7 +180,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       
       console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
       rawTasks.forEach(task => {
-        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}, is_completed: ${task.is_completed}, deadline: ${task.deadline}`);
+        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}, is_completed: ${task.is_completed}, duration: ${JSON.stringify(task.duration)}, deadline: ${task.deadline}`);
       });
 
       const sanitizedTasks = rawTasks.map(sanitizeTodoistTask);
@@ -192,13 +192,17 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
       console.log("TodoistContext: Tarefas após filtro 'every hour'. Original:", rawTasks.length, "Filtrado:", filteredHourlyRecurring.length);
 
       const tasksWithDuration = filteredHourlyRecurring.map(task => {
-        let estimatedDurationMinutes = 15;
+        let estimatedDurationMinutes = 15; // Default
         if (task.duration) {
           if (task.duration.unit === "minute") {
             estimatedDurationMinutes = task.duration.amount;
+            console.log(`  Task ID: ${task.id}, Content: "${task.content}", API Duration (min): ${task.duration.amount}, Estimated: ${estimatedDurationMinutes}`);
           } else if (task.duration.unit === "day") {
-            estimatedDurationMinutes = task.duration.amount * 8 * 60;
+            estimatedDurationMinutes = task.duration.amount * 8 * 60; // Assuming 8 hours per day
+            console.log(`  Task ID: ${task.id}, Content: "${task.content}", API Duration (days): ${task.duration.amount}, Estimated: ${estimatedDurationMinutes}`);
           }
+        } else {
+          console.log(`  Task ID: ${task.id}, Content: "${task.content}", No API Duration, Estimated: ${estimatedDurationMinutes} (default)`);
         }
         return { ...task, estimatedDurationMinutes };
       });

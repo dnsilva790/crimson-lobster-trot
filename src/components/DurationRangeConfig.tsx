@@ -86,6 +86,7 @@ const DurationRangeConfig: React.FC<DurationRangeConfigProps> = ({ onSave }) => 
       }
     }
 
+    console.log("DurationRangeConfig: Saving ranges to storage:", ranges);
     saveDurationRanges(ranges);
     onSave(ranges);
     toast.success("Períodos de duração salvos com sucesso!");
