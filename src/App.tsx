@@ -23,6 +23,7 @@ import EditProject from "./pages/EditProject";
 import FollowUp from "./pages/FollowUp";
 import SeitonReview from "./pages/SeitonReview"; // Importar a nova página SeitonReview
 import Deadlines from "./pages/Deadlines"; // Importar a nova página Deadlines
+import AIAgent from "./pages/AIAgent"; // Importar a nova página AIAgent
 
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="/shitsuke/edit/:projectId" element={<EditProject />} />
               <Route path="/follow-up" element={<FollowUp />} />
               <Route path="/deadlines" element={<Deadlines />} /> {/* Nova rota para Deadlines */}
+              <Route path="/ai-agent" element={<AIAgent />} /> {/* Nova rota para o Tutor IA SEISO */}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>

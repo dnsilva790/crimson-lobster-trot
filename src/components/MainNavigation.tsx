@@ -11,6 +11,7 @@ import {
   Star, // Ícone para Shitsuke e Seiton Review
   Users, // Ícone para Follow-Up
   CalendarClock, // Ícone para Deadlines
+  Bot, // Ícone para o Tutor IA SEISO
 } from "lucide-react";
 
 const modules = [
@@ -93,6 +94,14 @@ const modules = [
     description: "Tarefas com Prazo Final",
     colorClass: "bg-red-100 hover:bg-red-200", // Cor para Deadlines
     activeColor: "border-red-600",
+  },
+  {
+    path: "/ai-agent", // Nova rota para o Tutor IA SEISO
+    icon: Bot, // Ícone para o Tutor IA SEISO
+    title: "TUTOR IA",
+    description: "Seu Coach de Produtividade",
+    colorClass: "bg-purple-50 hover:bg-purple-100", // Cor para o Tutor IA
+    activeColor: "border-purple-500",
   },
 ];
 
