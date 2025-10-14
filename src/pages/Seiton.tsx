@@ -41,7 +41,8 @@ const Seiton = () => {
   const [currentTaskToPlace, setCurrentTaskToPlace] = useState<TodoistTask | null>(null);
   const [comparisonCandidate, setComparisonCandidate] = useState<TodoistTask | null>(null);
   const [comparisonIndex, setComparisonIndex] = useState<number>(0);
-  const [history, setHistory] = useState<SeitonStateSnapshot[]>([]);
+  const [history, setHistory] = useState<SeitonStateSnapshot[]>([]
+  );
   const [hasSavedState, setHasSavedState] = useState<boolean>(false);
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -84,12 +85,19 @@ const Seiton = () => {
 
   const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
+      // 1. Starred tasks first
       const isAStarred = a.content.startsWith("*");
       const isBStarred = b.content.startsWith("*");
       if (isAStarred && !isBStarred) return -1;
       if (!isAStarred && isBStarred) return 1;
 
-      const getDeadlineValue = (task: TodoistTask) => { // Adicionado
+      // 2. Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
+      if (b.priority !== a.priority) {
+        return b.priority - a.priority;
+      }
+
+      // 3. Deadline: earliest first
+      const getDeadlineValue = (task: TodoistTask) => {
         if (typeof task.deadline === 'string' && task.deadline) return parseISO(task.deadline).getTime();
         return Infinity;
       };
@@ -99,10 +107,7 @@ const Seiton = () => {
         return deadlineA - deadlineB;
       }
 
-      if (b.priority !== a.priority) {
-        return b.priority - a.priority;
-      }
-
+      // 4. Due date/time: earliest first
       const getTaskDate = (task: TodoistTask) => {
         if (typeof task.due?.datetime === 'string' && task.due.datetime) {
           const parsedDate = parseISO(task.due.datetime);
@@ -122,6 +127,7 @@ const Seiton = () => {
         return dateA - dateB;
       }
 
+      // 5. Created at: earliest first
       const createdAtA = (typeof a.created_at === 'string' && a.created_at) ? parseISO(a.created_at) : null;
       const createdAtB = (typeof b.created_at === 'string' && b.created_at) ? parseISO(b.created_at) : null;
       
