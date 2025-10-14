@@ -292,7 +292,7 @@ const NovoSeiso = () => {
               onSkip={handleSkip}
               onUpdateTask={handleUpdateTaskAndRefresh}
               onPostpone={handlePostpone}
-              onEmergencyFocus={handleEmergencyFocus} {/* Passar a nova função */}
+              onEmergencyFocus={handleEmergencyFocus}
             />
 
             <div className="mt-8 text-center">
