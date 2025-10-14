@@ -20,6 +20,7 @@ import { Rocket, Filter, RotateCcw, XCircle } from "lucide-react";
 
 const FAST_TRACK_FILTER_INPUT_STORAGE_KEY = "fast_track_filter_input";
 const FAST_TRACK_CATEGORY_FILTER_STORAGE_KEY = "fast_track_category_filter";
+const FAST_TRACK_SELECTED_DURATION_RANGE_STORAGE_KEY = "fast_track_selected_duration_range";
 
 const FastTrack = () => {
   const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
@@ -40,6 +41,12 @@ const FastTrack = () => {
     }
     return "all";
   });
+  const [selectedDurationRangeId, setSelectedDurationRangeId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(FAST_TRACK_SELECTED_DURATION_RANGE_STORAGE_KEY) || "all";
+    }
+    return "all";
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -52,6 +59,12 @@ const FastTrack = () => {
       localStorage.setItem(FAST_TRACK_CATEGORY_FILTER_STORAGE_KEY, selectedCategoryFilter);
     }
   }, [selectedCategoryFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(FAST_TRACK_SELECTED_DURATION_RANGE_STORAGE_KEY, selectedDurationRangeId);
+    }
+  }, [selectedDurationRangeId]);
 
   const loadDurationRanges = useCallback(() => {
     setDurationRanges(getDurationRanges());
@@ -215,6 +228,13 @@ const FastTrack = () => {
     return sortedGroupedTasks;
   }, [filteredTasks, durationRanges]);
 
+  const displayedGroupedTasks = useMemo(() => {
+    if (selectedDurationRangeId === "all") {
+      return groupedTasks;
+    }
+    return groupedTasks.filter(group => group.range.id === selectedDurationRangeId);
+  }, [groupedTasks, selectedDurationRangeId]);
+
   const handleClearFilter = useCallback(() => {
     setFilterInput("");
     setSelectedCategoryFilter("all");
@@ -289,6 +309,29 @@ const FastTrack = () => {
             <DurationRangeConfig onSave={handleDurationRangesSave} />
           </div>
         </div>
+        <div className="mt-4">
+          <Label htmlFor="duration-range-selector" className="text-left text-gray-600 font-medium">
+            Visualizar Faixa de Duração
+          </Label>
+          <Select
+            value={selectedDurationRangeId}
+            onValueChange={setSelectedDurationRangeId}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="w-full mt-1">
+              <SelectValue placeholder="Todas as Faixas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as Faixas</SelectItem>
+              {durationRanges.map(range => (
+                <SelectItem key={range.id} value={range.id}>{range.label}</SelectItem>
+              ))}
+              {groupedTasks.some(group => group.range.id === "no-duration") && (
+                <SelectItem value="no-duration">Sem Duração Definida</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
       </Card>
 
       {isLoading ? (
@@ -304,7 +347,7 @@ const FastTrack = () => {
         </div>
       ) : (
         <div className="space-y-8">
-          {groupedTasks.map((group) => (
+          {displayedGroupedTasks.map((group) => (
             <div key={group.range.id}>
               <h3 className="text-2xl font-bold mb-4 text-gray-800 border-b pb-2">
                 {group.range.label} ({group.tasks.length})
