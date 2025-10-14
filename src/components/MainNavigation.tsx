@@ -8,11 +8,13 @@ import {
   BarChart,
   ListTodo,
   CalendarDays,
-  Star, // Ícone para Shitsuke e Seiton Review
+  Star, // Ícone para Seiton Review
   Users, // Ícone para Follow-Up
   CalendarClock, // Ícone para Deadlines
   Bot, // Ícone para o Tutor IA SEISO
   Rocket, // Ícone para Fast Track
+  CheckSquare, // Ícone para o novo Shitsuke (Revisão Diária)
+  FolderOpen, // Ícone para Gestão de Projetos 5W2H
 } from "lucide-react";
 
 const modules = [
@@ -81,11 +83,11 @@ const modules = [
     activeColor: "border-indigo-600",
   },
   {
-    path: "/shitsuke", // Nova rota
-    icon: Star, // Ícone para Shitsuke
-    title: "SHITSUKE",
-    description: "Projetos 5W2H",
-    colorClass: "bg-teal-100 hover:bg-teal-200", // Mudando a cor para Shitsuke
+    path: "/project-management", // Rota atualizada
+    icon: FolderOpen, // Novo ícone para Gestão de Projetos
+    title: "PROJETOS 5W2H", // Novo título
+    description: "Gestão de Projetos", // Nova descrição
+    colorClass: "bg-teal-100 hover:bg-teal-200",
     activeColor: "border-teal-600",
   },
   {
@@ -111,6 +113,14 @@ const modules = [
     description: "Seu Coach de Produtividade",
     colorClass: "bg-purple-50 hover:bg-purple-100", // Cor para o Tutor IA
     activeColor: "border-purple-500",
+  },
+  {
+    path: "/shitsuke", // Nova rota para SHITSUKE (Revisão Diária)
+    icon: CheckSquare, // Ícone para Revisão Diária
+    title: "SHITSUKE",
+    description: "Revisão Diária",
+    colorClass: "bg-green-50 hover:bg-green-100", // Cor para Revisão Diária
+    activeColor: "border-green-500",
   },
 ];
 

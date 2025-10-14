@@ -327,13 +327,13 @@ const Planejador = () => {
               todoistFilter = todoistFilter ? `${todoistFilter} & #${shitsukeProjectTodoistProjectId}` : `#${shitsukeProjectTodoistProjectId}`;
             }
           } else {
-            toast.error("Tarefa principal do projeto Shitsuke não encontrada no Todoist.");
+            toast.error("Tarefa principal do projeto 5W2H não encontrada no Todoist.");
             setBacklogTasks([]);
             setIsLoadingBacklog(false);
             return;
           }
         } else {
-          toast.info("Projeto Shitsuke selecionado não tem tarefa principal vinculada no Todoist.");
+          toast.info("Projeto 5W2H selecionado não tem tarefa principal vinculada no Todoist.");
           setBacklogTasks([]);
           setIsLoadingBacklog(false);
           return;
@@ -1173,7 +1173,7 @@ const Planejador = () => {
           <CardContent>
             <div className="mb-4">
               <Label htmlFor="shitsuke-project-filter" className="text-sm text-gray-600 font-medium">
-                Filtrar por Projeto Shitsuke
+                Filtrar por Projeto 5W2H
               </Label>
               <Select
                 value={selectedShitsukeProjectId}
@@ -1181,10 +1181,10 @@ const Planejador = () => {
                 disabled={isLoading}
               >
                 <SelectTrigger className="w-full mt-1">
-                  <SelectValue placeholder="Todos os Projetos Shitsuke" />
+                  <SelectValue placeholder="Todos os Projetos 5W2H" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os Projetos Shitsuke</SelectItem>
+                  <SelectItem value="all">Todos os Projetos 5W2H</SelectItem>
                   {shitsukeProjects.map(project => (
                     <SelectItem key={project.id} value={project.id}>
                       {project.what}

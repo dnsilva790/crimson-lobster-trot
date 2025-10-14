@@ -1,6 +1,6 @@
 import { Project } from "@/lib/types";
 
-const PROJECTS_STORAGE_KEY = "shitsuke_projects";
+const PROJECTS_STORAGE_KEY = "project_management_projects"; // Renomeado
 
 /**
  * Carrega todos os projetos do localStorage.

@@ -114,7 +114,7 @@ export interface Project {
   howMuch?: string; // Quanto (custo, recursos)
   createdAt: string; // Data de criação (ISO string)
   status: "ativo" | "concluido" | "arquivado" | "cancelado"; // Status do projeto
-  todoistTaskId?: string; // Opcional: ID da tarefa Todoist que originou o projeto
+  todoistMainTaskId?: string; // Opcional: ID da tarefa Todoist que originou o projeto (renomeado de todoistTaskId)
   subtasks: string[]; // Subtarefas geradas a partir do campo 'how'
 }
 
@@ -147,4 +147,13 @@ export interface DurationRange {
 
 export interface DurationRangeConfig {
   ranges: DurationRange[];
+}
+
+// Nova interface para o módulo Shitsuke (Revisão Diária)
+export interface DailyReviewEntry {
+  date: string; // YYYY-MM-DD
+  reflection: string;
+  improvements: string;
+  createdAt: string;
+  updatedAt: string;
 }

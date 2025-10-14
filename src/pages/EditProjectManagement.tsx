@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,26 +10,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, PlusCircle, Save } from "lucide-react";
-import { format, isValid } from "date-fns";
+import { CalendarIcon, Save, ArrowLeft } from "lucide-react";
+import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Project } from "@/lib/types";
-import { addProject } from "@/utils/projectStorage";
+import { getProjects, updateProject } from "@/utils/projectStorage";
 import { toast } from "sonner";
-import { useTodoist } from "@/context/TodoistContext";
 
-const CreateProject = () => {
+const EditProjectManagement = () => {
+  const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
-  const { updateTask } = useTodoist();
 
-  const { initialWhat, initialTodoistTaskId } = (location.state || {}) as {
-    initialWhat?: string;
-    initialTodoistTaskId?: string;
-  };
-
-  const [what, setWhat] = useState(initialWhat || "");
+  const [project, setProject] = useState<Project | null>(null);
+  const [what, setWhat] = useState("");
   const [why, setWhy] = useState("");
   const [who, setWho] = useState("");
   const [where, setWhere] = useState("");
@@ -38,16 +32,37 @@ const CreateProject = () => {
   const [howMuch, setHowMuch] = useState("");
   const [status, setStatus] = useState<Project['status']>("ativo");
 
-  const handleCreateProject = useCallback(async () => {
-    if (!what.trim() || !why.trim() || !who.trim() || !when || !isValid(when) || !how.trim()) {
+  useEffect(() => {
+    if (projectId) {
+      const projects = getProjects();
+      const foundProject = projects.find((p) => p.id === projectId);
+      if (foundProject) {
+        setProject(foundProject);
+        setWhat(foundProject.what);
+        setWhy(foundProject.why);
+        setWho(foundProject.who);
+        setWhere(foundProject.where);
+        setWhen((typeof foundProject.when === 'string' && foundProject.when) ? parseISO(foundProject.when) : undefined);
+        setHow(foundProject.how);
+        setHowMuch(foundProject.howMuch || "");
+        setStatus(foundProject.status);
+      } else {
+        toast.error("Projeto não encontrado para edição.");
+        navigate("/project-management");
+      }
+    }
+  }, [projectId, navigate]);
+
+  const handleUpdateProject = useCallback(() => {
+    if (!project || !what.trim() || !why.trim() || !who.trim() || !when || !isValid(when) || !how.trim()) {
       toast.error("Por favor, preencha todos os campos obrigatórios (O Quê, Por Quê, Quem, Quando, Como) com dados válidos.");
       return;
     }
 
     const subtasks = how.split('\n').map(s => s.trim()).filter(s => s.length > 0);
 
-    const newProject: Project = {
-      id: Date.now().toString(),
+    const updatedProject: Project = {
+      ...project,
       what: what.trim(),
       why: why.trim(),
       who: who.trim(),
@@ -55,39 +70,33 @@ const CreateProject = () => {
       when: format(when, "yyyy-MM-dd"),
       how: how.trim(),
       howMuch: howMuch.trim(),
-      createdAt: new Date().toISOString(),
       status: status,
       subtasks: subtasks,
-      todoistTaskId: initialTodoistTaskId,
     };
 
-    addProject(newProject);
-    toast.success("Projeto 5W2H criado com sucesso!");
+    updateProject(updatedProject);
+    toast.success("Projeto 5W2H atualizado com sucesso!");
+    navigate(`/project-management/${project.id}`);
+  }, [project, what, why, who, when, how, howMuch, status, navigate]);
 
-    if (initialTodoistTaskId) {
-      const updated = await updateTask(initialTodoistTaskId, {
-        labels: ["projeto", "gtd_processada"],
-        due_date: null,
-        due_datetime: null,
-        description: `[PROJETO SHITSUKE]: ${newProject.what}\n[ID]: ${newProject.id}\n[LINK]: /shitsuke/${newProject.id}\n\n${newProject.why}`,
-      });
-      if (updated) {
-        toast.info("Tarefa original do Todoist atualizada e vinculada ao projeto Shitsuke.");
-      } else {
-        toast.error("Falha ao atualizar a tarefa original do Todoist.");
-      }
-    }
-
-    navigate("/shitsuke");
-  }, [what, why, who, when, how, howMuch, status, initialTodoistTaskId, navigate, updateTask]);
+  if (!project) {
+    return (
+      <div className="p-4 text-center">
+        <p className="text-lg text-gray-600">Carregando projeto para edição...</p>
+        <Button onClick={() => navigate("/project-management")} className="mt-4">
+          <ArrowLeft className="h-4 w-4 mr-2" /> Voltar para Projetos
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4">
       <h2 className="text-3xl font-bold mb-2 text-gray-800">
-        <PlusCircle className="inline-block h-8 w-8 mr-2 text-indigo-600" /> Criar Novo Projeto 5W2H
+        <Save className="inline-block h-8 w-8 mr-2 text-blue-600" /> Editar Projeto 5W2H
       </h2>
       <p className="text-lg text-gray-600 mb-6">
-        Defina os detalhes do seu novo projeto usando a metodologia 5W2H.
+        Ajuste os detalhes do seu projeto existente.
       </p>
 
       <Card className="p-6 max-w-3xl mx-auto">
@@ -218,10 +227,10 @@ const CreateProject = () => {
             </Select>
           </div>
 
-          <Button onClick={handleCreateProject} className="w-full mt-4 flex items-center gap-2">
-            <Save className="h-4 w-4" /> Salvar Projeto
+          <Button onClick={handleUpdateProject} className="w-full mt-4 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <Save className="h-4 w-4" /> Salvar Alterações
           </Button>
-          <Button onClick={() => navigate("/shitsuke")} variant="outline" className="w-full mt-2">
+          <Button onClick={() => navigate(`/project-management/${projectId}`)} variant="outline" className="w-full mt-2">
             Cancelar
           </Button>
         </CardContent>
@@ -230,4 +239,4 @@ const CreateProject = () => {
   );
 };
 
-export default CreateProject;
+export default EditProjectManagement;

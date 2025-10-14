@@ -16,15 +16,16 @@ import Seiton from "./pages/Seiton";
 import NovoSeiso from "./pages/NovoSeiso"; // Renomeado de Execucao
 import InternalTasks from "./pages/InternalTasks";
 import Planejador from "./pages/Planejador";
-import Shitsuke from "./pages/Shitsuke";
-import CreateProject from "./pages/CreateProject";
-import ProjectDetail from "./pages/ProjectDetail"; // Importar a nova página ProjectDetail
-import EditProject from "./pages/EditProject";
+import ProjectManagement from "./pages/ProjectManagement"; // Renomeado de Shitsuke
+import CreateProjectManagement from "./pages/CreateProjectManagement"; // Renomeado de CreateProject
+import ProjectManagementDetail from "./pages/ProjectManagementDetail"; // Renomeado de ProjectDetail
+import EditProjectManagement from "./pages/EditProjectManagement"; // Renomeado de EditProject
 import FollowUp from "./pages/FollowUp";
 import SeitonReview from "./pages/SeitonReview"; // Importar a nova página SeitonReview
 import Deadlines from "./pages/Deadlines"; // Importar a nova página Deadlines
 import AIAgent from "./pages/AIAgent"; // Importar a nova página AIAgent
 import FastTrack from "./pages/FastTrack"; // Importar a nova página FastTrack
+import Shitsuke from "./pages/Shitsuke"; // Importar a nova página Shitsuke (Revisão Diária)
 
 
 const queryClient = new QueryClient();
@@ -47,13 +48,14 @@ const App = () => (
               <Route path="/fast-track" element={<FastTrack />} /> {/* Nova rota para FastTrack */}
               <Route path="/internal-tasks" element={<InternalTasks />} />
               <Route path="/planejador" element={<Planejador />} />
-              <Route path="/shitsuke" element={<Shitsuke />} />
-              <Route path="/shitsuke/create" element={<CreateProject />} />
-              <Route path="/shitsuke/:projectId" element={<ProjectDetail />} /> {/* Nova rota para detalhes do projeto */}
-              <Route path="/shitsuke/edit/:projectId" element={<EditProject />} />
+              <Route path="/project-management" element={<ProjectManagement />} /> {/* Rota atualizada para Gestão de Projetos */}
+              <Route path="/project-management/create" element={<CreateProjectManagement />} />
+              <Route path="/project-management/:projectId" element={<ProjectManagementDetail />} />
+              <Route path="/project-management/edit/:projectId" element={<EditProjectManagement />} />
               <Route path="/follow-up" element={<FollowUp />} />
               <Route path="/deadlines" element={<Deadlines />} /> {/* Nova rota para Deadlines */}
               <Route path="/ai-agent" element={<AIAgent />} /> {/* Nova rota para o Tutor IA SEISO */}
+              <Route path="/shitsuke" element={<Shitsuke />} /> {/* Nova rota para SHITSUKE (Revisão Diária) */}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>

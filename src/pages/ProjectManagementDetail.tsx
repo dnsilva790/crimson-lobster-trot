@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { useTodoist } from "@/context/TodoistContext";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 
-const ProjectDetail = () => {
+const ProjectManagementDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
@@ -33,7 +33,7 @@ const ProjectDetail = () => {
         setProject(foundProject);
       } else {
         toast.error("Projeto não encontrado.");
-        navigate("/shitsuke");
+        navigate("/project-management");
       }
     }
   }, [projectId, navigate]);
@@ -54,7 +54,7 @@ const ProjectDetail = () => {
     if (project) {
       deleteProject(project.id);
       toast.success(`Projeto "${project.what}" excluído com sucesso!`);
-      navigate("/shitsuke");
+      navigate("/project-management");
     }
   }, [project, navigate]);
 
@@ -73,7 +73,7 @@ const ProjectDetail = () => {
       toast.info("Criando tarefa principal para o projeto 5W2H no Todoist...");
       const mainTask = await createTodoistTask({
         content: project.what,
-        description: `Projeto 5W2H: ${project.what}\n\n${project.why}\n\nLink Shitsuke: /shitsuke/${project.id}`,
+        description: `Projeto 5W2H: ${project.what}\n\n${project.why}\n\nLink Gestão de Projetos: /project-management/${project.id}`,
         project_id: targetProjectId,
         priority: 4,
         due_date: project.when,
@@ -173,7 +173,7 @@ const ProjectDetail = () => {
     return (
       <div className="p-4 text-center">
         <p className="text-lg text-gray-600">Carregando detalhes do projeto...</p>
-        <Button onClick={() => navigate("/shitsuke")} className="mt-4">
+        <Button onClick={() => navigate("/project-management")} className="mt-4">
           <ArrowLeft className="h-4 w-4 mr-2" /> Voltar para Projetos
         </Button>
       </div>
@@ -309,10 +309,10 @@ const ProjectDetail = () => {
           </div>
 
           <div className="flex flex-col md:flex-row gap-4 mt-4">
-            <Button onClick={() => navigate("/shitsuke")} variant="outline" className="flex-1">
+            <Button onClick={() => navigate("/project-management")} variant="outline" className="flex-1">
               <ArrowLeft className="h-4 w-4 mr-2" /> Voltar para Projetos
             </Button>
-            <Button onClick={() => navigate(`/shitsuke/edit/${project.id}`)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+            <Button onClick={() => navigate(`/project-management/edit/${project.id}`)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
               <Edit className="h-4 w-4 mr-2" /> Editar Projeto
             </Button>
             <Button onClick={handleDeleteProject} variant="destructive" className="flex-1">
@@ -325,4 +325,4 @@ const ProjectDetail = () => {
   );
 };
 
-export default ProjectDetail;
+export default ProjectManagementDetail;
