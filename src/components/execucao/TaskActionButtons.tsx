@@ -266,7 +266,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
         <ArrowRight className="mr-2 h-5 w-5" /> Pular
       </Button>
       <Button
-        onClick={() => onEmergencyFocus(currentTask.id)} {/* Novo botão */}
+        onClick={() => onEmergencyFocus(currentTask.id)}
         disabled={isLoading}
         className="bg-red-600 hover:bg-red-700 text-white py-3 text-md flex items-center justify-center"
       >
