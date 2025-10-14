@@ -8,7 +8,6 @@ import {
   BarChart,
   ListTodo,
   CalendarDays,
-  Star, // Ícone para Seiton Review
   Users, // Ícone para Follow-Up
   CalendarClock, // Ícone para Deadlines
   Bot, // Ícone para o Tutor IA SEISO
@@ -33,14 +32,6 @@ const modules = [
     description: "Padronização",
     colorClass: "bg-purple-100 hover:bg-purple-200",
     activeColor: "border-purple-600",
-  },
-  {
-    path: "/seiton-review", // Nova rota para o Seiton de Revisão
-    icon: Star, // Usando Star para o novo Seiton
-    title: "SEITON",
-    description: "Revisão de Prioridades",
-    colorClass: "bg-yellow-100 hover:bg-yellow-200",
-    activeColor: "border-yellow-600",
   },
   {
     path: "/seiton", // O Seiton original (Torneio)

@@ -51,6 +51,7 @@ export interface SeitonStateSnapshot {
   comparisonCandidate: TodoistTask | null;
   comparisonIndex: number;
   tournamentState: "initial" | "comparing" | "finished";
+  selectedPrioritizationContext: "none" | "pessoal" | "profissional"; // Adicionado
 }
 
 // Nova interface para tarefas gerenciadas internamente
@@ -114,7 +115,7 @@ export interface Project {
   howMuch?: string; // Quanto (custo, recursos)
   createdAt: string; // Data de criação (ISO string)
   status: "ativo" | "concluido" | "arquivado" | "cancelado"; // Status do projeto
-  todoistMainTaskId?: string; // Opcional: ID da tarefa Todoist que originou o projeto (renomeado de todoistTaskId)
+  todoistTaskId?: string; // Opcional: ID da tarefa Todoist que originou o projeto
   subtasks: string[]; // Subtarefas geradas a partir do campo 'how'
 }
 

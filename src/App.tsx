@@ -21,7 +21,6 @@ import CreateProjectManagement from "./pages/CreateProjectManagement"; // Renome
 import ProjectManagementDetail from "./pages/ProjectManagementDetail"; // Renomeado de ProjectDetail
 import EditProjectManagement from "./pages/EditProjectManagement"; // Renomeado de EditProject
 import FollowUp from "./pages/FollowUp";
-import SeitonReview from "./pages/SeitonReview"; // Importar a nova página SeitonReview
 import Deadlines from "./pages/Deadlines"; // Importar a nova página Deadlines
 import AIAgent from "./pages/AIAgent"; // Importar a nova página AIAgent
 import FastTrack from "./pages/FastTrack"; // Importar a nova página FastTrack
@@ -42,7 +41,6 @@ const App = () => (
             <Route element={<MainLayout />}>
               <Route path="/seiri" element={<Seiri />} />
               <Route path="/seiketsu" element={<Seiketsu />} /> {/* Rota atualizada para Seiketsu */}
-              <Route path="/seiton-review" element={<SeitonReview />} /> {/* Nova rota para SeitonReview */}
               <Route path="/seiton" element={<Seiton />} />
               <Route path="/novoseiso" element={<NovoSeiso />} /> {/* Rota atualizada para NovoSeiso */}
               <Route path="/fast-track" element={<FastTrack />} /> {/* Nova rota para FastTrack */}

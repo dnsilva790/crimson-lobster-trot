@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 
 
 type TournamentState = "initial" | "comparing" | "finished";
+type PrioritizationContext = "none" | "pessoal" | "profissional";
 
 interface SeitonStateSnapshot {
   tasksToProcess: TodoistTask[];
@@ -26,11 +27,13 @@ interface SeitonStateSnapshot {
   comparisonCandidate: TodoistTask | null;
   comparisonIndex: number;
   tournamentState: TournamentState;
+  selectedPrioritizationContext: PrioritizationContext; // Adicionado
 }
 
 const LOCAL_STORAGE_KEY = "seitonTournamentState";
 const SEITON_FILTER_INPUT_STORAGE_KEY = "seiton_filter_input";
 const SEITON_CATEGORY_FILTER_STORAGE_KEY = "seiton_category_filter";
+const SEITON_PRIORITIZATION_CONTEXT_STORAGE_KEY = "seiton_prioritization_context"; // Novo
 
 const Seiton = () => {
   console.log("Seiton component rendering...");
@@ -56,6 +59,12 @@ const Seiton = () => {
     }
     return "all";
   });
+  const [selectedPrioritizationContext, setSelectedPrioritizationContext] = useState<PrioritizationContext>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(SEITON_PRIORITIZATION_CONTEXT_STORAGE_KEY) as PrioritizationContext) || "none";
+    }
+    return "none";
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -68,6 +77,12 @@ const Seiton = () => {
       localStorage.setItem(SEITON_CATEGORY_FILTER_STORAGE_KEY, selectedCategoryFilter);
     }
   }, [selectedCategoryFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SEITON_PRIORITIZATION_CONTEXT_STORAGE_KEY, selectedPrioritizationContext);
+    }
+  }, [selectedPrioritizationContext]);
 
   const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
     4: "bg-red-500",
@@ -83,8 +98,22 @@ const Seiton = () => {
     1: "P4 - Baixo",
   };
 
-  const sortTasks = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
+  const sortTasks = useCallback((tasks: TodoistTask[], prioritizationContext: PrioritizationContext): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
+      // 0. Prioritization Context (New primary sorting rule)
+      if (prioritizationContext !== "none") {
+        const categoryA = getTaskCategory(a);
+        const categoryB = getTaskCategory(b);
+
+        if (prioritizationContext === "pessoal") {
+          if (categoryA === "pessoal" && categoryB !== "pessoal") return -1;
+          if (categoryB === "pessoal" && categoryA !== "pessoal") return 1;
+        } else if (prioritizationContext === "profissional") {
+          if (categoryA === "profissional" && categoryB !== "profissional") return -1;
+          if (categoryB === "profissional" && categoryA !== "profissional") return 1;
+        }
+      }
+
       // 1. Starred tasks first
       const isAStarred = a.content.startsWith("*");
       const isBStarred = b.content.startsWith("*");
@@ -148,9 +177,10 @@ const Seiton = () => {
         comparisonCandidate,
         comparisonIndex,
         tournamentState,
+        selectedPrioritizationContext, // Adicionado
       },
     ]);
-  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState]);
+  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState, selectedPrioritizationContext]);
 
   const undoLastAction = useCallback(() => {
     if (history.length > 0) {
@@ -161,6 +191,7 @@ const Seiton = () => {
       setComparisonCandidate(lastState.comparisonCandidate);
       setComparisonIndex(lastState.comparisonIndex);
       setTournamentState(lastState.tournamentState);
+      setSelectedPrioritizationContext(lastState.selectedPrioritizationContext); // Adicionado
       setHistory((prev) => prev.slice(0, prev.length - 1));
       toast.info("Última ação desfeita.");
     } else {
@@ -243,7 +274,7 @@ const Seiton = () => {
 
     console.log("startTournament: tasksToLoad before setting state:", tasksToLoad.length, tasksToLoad);
 
-    const sortedTasksToLoad = sortTasks(tasksToLoad);
+    const sortedTasksToLoad = sortTasks(tasksToLoad, selectedPrioritizationContext); // Passar o contexto
     setTasksToProcess(sortedTasksToLoad);
     setRankedTasks(currentRankedTasks);
 
@@ -277,7 +308,7 @@ const Seiton = () => {
       setTournamentState("finished");
       toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
     }
-  }, [fetchTasks, sortTasks, tasksToProcess, rankedTasks, filterInput, selectedCategoryFilter, resetTournamentState]);
+  }, [fetchTasks, sortTasks, tasksToProcess, rankedTasks, filterInput, selectedCategoryFilter, selectedPrioritizationContext, resetTournamentState]);
 
   const startNextPlacement = useCallback(() => {
     console.log("startNextPlacement called. tasksToProcess.length:", tasksToProcess.length, "rankedTasks.length:", rankedTasks.length);
@@ -312,6 +343,7 @@ const Seiton = () => {
         setComparisonCandidate(parsedState.comparisonCandidate);
         setComparisonIndex(parsedState.comparisonIndex);
         setTournamentState(parsedState.tournamentState);
+        setSelectedPrioritizationContext(parsedState.selectedPrioritizationContext); // Adicionado
         setHasSavedState(true);
         toast.info("Estado do torneio carregado. Clique em 'Continuar Torneio' para prosseguir.");
         console.log("Seiton: Successfully parsed saved state from localStorage:", parsedState);
@@ -334,12 +366,13 @@ const Seiton = () => {
         comparisonCandidate,
         comparisonIndex,
         tournamentState,
+        selectedPrioritizationContext, // Adicionado
       };
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
       console.log("Seiton: In-progress state saved to localStorage:", stateToSave);
       setHasSavedState(true);
     }
-  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState]);
+  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState, selectedPrioritizationContext]);
 
   // Effect to save final state when tournament finishes
   useEffect(() => {
@@ -351,12 +384,13 @@ const Seiton = () => {
         comparisonCandidate: null,
         comparisonIndex: 0,
         tournamentState: "finished",
+        selectedPrioritizationContext, // Adicionado
       };
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalStateToSave));
       console.log("Seiton: Final state saved to localStorage (tournament finished):", finalStateToSave);
       setHasSavedState(true);
     }
-  }, [tournamentState, rankedTasks]); // Depend on tournamentState and rankedTasks
+  }, [tournamentState, rankedTasks, selectedPrioritizationContext]); // Depend on tournamentState and rankedTasks
 
   // Nova função para aplicar as regras de prioridade baseadas no ranking
   const applyRankingPriorityRules = useCallback(async () => {
@@ -655,6 +689,25 @@ const Seiton = () => {
                   <SelectItem value="all">Todas as Categorias</SelectItem>
                   <SelectItem value="pessoal">Pessoal</SelectItem>
                   <SelectItem value="profissional">Profissional</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">
+              <Label htmlFor="prioritization-context" className="text-left text-gray-600 font-medium">
+                Priorizar Contexto
+              </Label>
+              <Select
+                value={selectedPrioritizationContext}
+                onValueChange={(value: PrioritizationContext) => setSelectedPrioritizationContext(value)}
+                disabled={isLoadingTodoist}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Não Priorizar Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Não Priorizar Categoria</SelectItem>
+                  <SelectItem value="pessoal">Priorizar Pessoal</SelectItem>
+                  <SelectItem value="profissional">Priorizar Profissional</SelectItem>
                 </SelectContent>
               </Select>
             </div>
