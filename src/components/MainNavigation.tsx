@@ -12,6 +12,7 @@ import {
   Users, // Ícone para Follow-Up
   CalendarClock, // Ícone para Deadlines
   Bot, // Ícone para o Tutor IA SEISO
+  Rocket, // Ícone para Fast Track
 } from "lucide-react";
 
 const modules = [
@@ -54,6 +55,14 @@ const modules = [
     description: "Modo Foco Total", // Descrição mantida
     colorClass: "bg-blue-100 hover:bg-blue-200", // Cor atualizada
     activeColor: "border-blue-600",
+  },
+  {
+    path: "/fast-track", // Novo módulo Fast Track
+    icon: Rocket, // Ícone para Fast Track
+    title: "FAST TRACK",
+    description: "Backlog por Duração",
+    colorClass: "bg-blue-50 hover:bg-blue-100", // Cor para Fast Track
+    activeColor: "border-blue-500",
   },
   {
     path: "/internal-tasks",

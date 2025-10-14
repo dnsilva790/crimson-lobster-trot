@@ -24,6 +24,7 @@ import FollowUp from "./pages/FollowUp";
 import SeitonReview from "./pages/SeitonReview"; // Importar a nova página SeitonReview
 import Deadlines from "./pages/Deadlines"; // Importar a nova página Deadlines
 import AIAgent from "./pages/AIAgent"; // Importar a nova página AIAgent
+import FastTrack from "./pages/FastTrack"; // Importar a nova página FastTrack
 
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="/seiton-review" element={<SeitonReview />} /> {/* Nova rota para SeitonReview */}
               <Route path="/seiton" element={<Seiton />} />
               <Route path="/novoseiso" element={<NovoSeiso />} /> {/* Rota atualizada para NovoSeiso */}
+              <Route path="/fast-track" element={<FastTrack />} /> {/* Nova rota para FastTrack */}
               <Route path="/internal-tasks" element={<InternalTasks />} />
               <Route path="/planejador" element={<Planejador />} />
               <Route path="/shitsuke" element={<Shitsuke />} />

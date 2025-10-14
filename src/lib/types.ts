@@ -36,11 +36,11 @@ export interface TodoistProject {
   id: string;
   name: string;
   color: string;
-  comment_count: number;
   is_shared: boolean;
   is_favorite: boolean;
   sync_id: number;
   url: string;
+  comment_count: number;
 }
 
 // Interface para o estado salvo do Seiton
@@ -135,4 +135,16 @@ export interface TodoistCustomFieldDefinition {
 export interface TodoistCustomField {
   id: string; // ID da definição do campo personalizado
   value: string | null; // Valor do campo
+}
+
+// Novas interfaces para o módulo Fast Track
+export interface DurationRange {
+  id: string;
+  label: string;
+  minMinutes: number | null; // null para 0 ou não definido
+  maxMinutes: number | null; // null para infinito
+}
+
+export interface DurationRangeConfig {
+  ranges: DurationRange[];
 }
