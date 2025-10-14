@@ -56,9 +56,10 @@ const FastTrackTaskCard: React.FC<FastTrackTaskCardProps> = ({
 
   const initialDueDate = task.due?.date ? parseISO(task.due.date) : undefined;
   const initialDueTime = task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "";
+  // Alterado para que o campo de duração fique vazio se não houver duração definida
   const initialDuration = task.duration?.amount && task.duration.unit === "minute"
     ? String(task.duration.amount)
-    : (task.estimatedDurationMinutes ? String(task.estimatedDurationMinutes) : "15");
+    : (task.estimatedDurationMinutes ? String(task.estimatedDurationMinutes) : ""); // Alterado de "15" para ""
   const initialDeadline = task.deadline ? parseISO(task.deadline) : undefined;
 
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(initialDueDate);
