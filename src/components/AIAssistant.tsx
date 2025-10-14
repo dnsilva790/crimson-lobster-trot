@@ -10,6 +10,8 @@ import { Send, Bot, User, ClipboardCopy } from "lucide-react";
 import { TodoistTask } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { format, parseISO, isValid } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface AIAssistantProps {
   aiPrompt: string;
@@ -24,7 +26,7 @@ interface AIAssistantProps {
     labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
-    deadline?: string | null; // Adicionado
+    deadline?: string | null;
   }) => Promise<TodoistTask | undefined>;
   closeTask: (taskId: string) => Promise<void>;
 }
@@ -78,6 +80,27 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     setMessages((prev) => [...prev, { id: Date.now().toString(), sender, text }]);
   }, []);
 
+  const parseDelegateInfo = useCallback(() => {
+    const delegateSectionMatch = aiPrompt.match(/EQUIPE \(PARA DELEGAÇÃO\)\n([\s\S]*?)(?=\n\n[A-Z]|$)/);
+    if (!delegateSectionMatch) return [];
+
+    const delegateLines = delegateSectionMatch[1].split('\n').filter(line => line.trim().startsWith('*'));
+    return delegateLines.map(line => {
+      const match = line.match(/\* \*\*([A-Za-z\s]+):\*\*(.*)/);
+      if (match) {
+        return { name: match[1].trim(), responsibilities: match[2].trim() };
+      }
+      return null;
+    }).filter(Boolean);
+  }, [aiPrompt]);
+
+  const generateTodoistUpdateSuggestion = useCallback((progress: string, nextStep: string) => {
+    return `\`\`\`
+[PROGRESSO]: ${progress}
+[PRÓXIMO PASSO]: _${nextStep}_
+\`\`\``;
+  }, []);
+
   const simulateAIResponse = useCallback(async (userMessage: string) => {
     setIsThinking(true);
     let responseText = "Não entendi sua solicitação. Por favor, tente novamente.";
@@ -93,22 +116,46 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     const taskDescription = currentTask.description;
     const taskPriority = currentTask.priority;
     const remainingTasksCount = focusTasks.length;
+    const delegates = parseDelegateInfo();
 
-    // Simple keyword-based responses for demonstration
-    if (userMessage.toLowerCase().includes("próximo passo") || userMessage.toLowerCase().includes("o que fazer")) {
-      responseText = `Para a tarefa "${taskContent}", o próximo passo é: **Analisar a descrição e identificar a primeira micro-ação.**`;
-      if (taskDescription) {
-        responseText += `\n\nDescrição: "${taskDescription}"`;
+    const lowerCaseMessage = userMessage.toLowerCase();
+
+    if (lowerCaseMessage.includes("próximo passo") || lowerCaseMessage.includes("o que fazer")) {
+      let nextStepSuggestion = "";
+      if (taskDescription && taskDescription.trim().length > 0) {
+        nextStepSuggestion = `Para a tarefa "${taskContent}", vamos quebrar a descrição em micro-ações. Qual é a primeira ação concreta que você pode tirar da descrição?`;
+        responseText = `${nextStepSuggestion}\n\nDescrição da Tarefa:\n\`\`\`\n${taskDescription}\n\`\`\``;
+      } else {
+        nextStepSuggestion = `Para a tarefa "${taskContent}", o próximo passo é: **Definir a primeira micro-ação clara e sob seu controle.**`;
+        responseText = `${nextStepSuggestion}\n\n${generateTodoistUpdateSuggestion("Nenhum progresso registrado ainda.", nextStepSuggestion.replace('Para a tarefa "' + taskContent + '", o próximo passo é: ', ''))}`;
       }
-    } else if (userMessage.toLowerCase().includes("delegar")) {
-      responseText = `Para delegar "${taskContent}", preciso saber: **Para quem você gostaria de delegar esta tarefa?**`;
-    } else if (userMessage.toLowerCase().includes("status")) {
-      responseText = `O status atual da tarefa "${taskContent}" é P${taskPriority}. Você tem ${remainingTasksCount} tarefas restantes no seu foco.`;
-    } else if (userMessage.toLowerCase().includes("ajuda") || userMessage.toLowerCase().includes("coach")) {
-      responseText = `Estou aqui para te ajudar a quebrar a tarefa "${taskContent}" em micro-ações. Qual é a sua maior dificuldade com ela?`;
-    } else if (userMessage.toLowerCase().includes("concluir")) {
+    } else if (lowerCaseMessage.includes("delegar")) {
+      if (delegates.length > 0) {
+        const delegateList = delegates.map(d => `* **${d.name}**: ${d.responsibilities}`).join('\n');
+        responseText = `Para quem você gostaria de delegar a tarefa "${taskContent}"? Minha equipe disponível é:\n\n${delegateList}\n\nPor favor, me diga o nome do responsável.`;
+      } else {
+        responseText = `Para delegar "${taskContent}", preciso saber: **Para quem você gostaria de delegar esta tarefa?** (Não encontrei informações de equipe no seu prompt de IA.)`;
+      }
+    } else if (lowerCaseMessage.includes("status")) {
+      const dueDate = currentTask.due?.datetime 
+        ? format(parseISO(currentTask.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })
+        : currentTask.due?.date
+        ? format(parseISO(currentTask.due.date), "dd/MM/yyyy", { locale: ptBR })
+        : "sem prazo definido";
+      
+      const deadline = currentTask.deadline 
+        ? format(parseISO(currentTask.deadline), "dd/MM/yyyy", { locale: ptBR })
+        : "não definido";
+
+      responseText = `O status atual da tarefa "${taskContent}" é P${taskPriority}. Vencimento: ${dueDate}. Deadline: ${deadline}. Você tem ${remainingTasksCount} tarefas restantes no seu foco.`;
+      responseText += `\n\nSe precisar de um relatório formatado para o Todoist, use os botões "Gerar Status" ou "Gerar Próximo Passo" abaixo.`;
+    } else if (lowerCaseMessage.includes("ajuda") || lowerCaseMessage.includes("coach")) {
+      responseText = `Estou aqui para te ajudar a quebrar a tarefa "${taskContent}" em micro-ações e manter o foco. Qual é a sua maior dificuldade com ela agora? Ou podemos definir o próximo passo?`;
+    } else if (lowerCaseMessage.includes("concluir")) {
       await closeTask(currentTask.id);
       responseText = `Excelente! Tarefa "${taskContent}" concluída. Parabéns!`;
+    } else if (lowerCaseMessage.includes("gerar status") || lowerCaseMessage.includes("gerar próximo passo")) {
+      responseText = `Para gerar um relatório formatado para o Todoist, por favor, use os botões dedicados "Gerar Status" ou "Gerar Próximo Passo" abaixo do campo de texto.`;
     } else {
       responseText = `Com a tarefa "${taskContent}" em foco, como posso te auxiliar? Posso te ajudar a definir o próximo passo, delegar, ou analisar o status?`;
     }
@@ -117,7 +164,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
       addMessage("ai", responseText);
       setIsThinking(false);
     }, 1500); // Simulate AI thinking time
-  }, [addMessage, currentTask, focusTasks, closeTask]);
+  }, [addMessage, currentTask, focusTasks, closeTask, aiPrompt, parseDelegateInfo, generateTodoistUpdateSuggestion]);
 
   const handleSendMessage = async () => {
     if (inputMessage.trim() === "" || isThinking) return;
@@ -135,27 +182,29 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
       return;
     }
     // Simplificado, pois o AI Assistant não tem memória de 'últimos passos concluídos'
-    const statusText = `[STATUS]: Nesta sessão de foco, você trabalhou na tarefa: ${currentTask.content}.`;
-    const nextStepText = `[PRÓXIMO PASSO - AÇÃO IMEDIATA]: _Definir a próxima micro-ação para avançar com a tarefa._`;
-    const report = `${statusText}\n${nextStepText}`;
+    const statusText = `Nesta sessão de foco, você trabalhou na tarefa: ${currentTask.content}.`;
+    const nextStepText = `Definir a próxima micro-ação para avançar com a tarefa.`;
+    const report = generateTodoistUpdateSuggestion(statusText, nextStepText);
     setLastGeneratedReport(report);
     toast.success("Relatório de status gerado!");
-  }, [currentTask]);
+  }, [currentTask, generateTodoistUpdateSuggestion]);
 
   const handleGenerateNextStepReport = useCallback(() => {
     if (!currentTask) {
       toast.error("Selecione uma tarefa para gerar o relatório de próximo passo.");
       return;
     }
-    const nextStepText = `[PRÓXIMO PASSO - AÇÃO IMEDIATA]: _${currentTask.content} (Definir a próxima micro-ação)._`;
-    const report = `[STATUS]: (Preencha aqui o que foi feito na última sessão)\n${nextStepText}`;
+    const nextStepText = `${currentTask.content} (Definir a próxima micro-ação).`;
+    const report = generateTodoistUpdateSuggestion("(Preencha aqui o que foi feito na última sessão)", nextStepText);
     setLastGeneratedReport(report);
     toast.success("Relatório de próximo passo gerado!");
-  }, [currentTask]);
+  }, [currentTask, generateTodoistUpdateSuggestion]);
 
   const handleCopyReport = useCallback(() => {
     if (lastGeneratedReport) {
-      navigator.clipboard.writeText(lastGeneratedReport);
+      // Remove markdown code block fences for actual copy
+      const textToCopy = lastGeneratedReport.replace(/```\n/g, '').replace(/\n```/g, '');
+      navigator.clipboard.writeText(textToCopy);
       toast.success("Relatório copiado para a área de transferência!");
     }
   }, [lastGeneratedReport]);
