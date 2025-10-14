@@ -49,14 +49,6 @@ const modules = [
     activeColor: "border-blue-600",
   },
   {
-    path: "/internal-tasks",
-    icon: ListTodo,
-    title: "INTERNAS",
-    description: "Tarefas Pessoais/Profissionais",
-    colorClass: "bg-gray-100 hover:bg-gray-200",
-    activeColor: "border-gray-600",
-  },
-  {
     path: "/planejador",
     icon: CalendarDays,
     title: "PLANEJADOR",
@@ -103,6 +95,14 @@ const modules = [
     description: "Revisão Diária",
     colorClass: "bg-green-50 hover:bg-green-100", // Cor para Revisão Diária
     activeColor: "border-green-500",
+  },
+  {
+    path: "/internal-tasks",
+    icon: ListTodo,
+    title: "INTERNAS",
+    description: "Tarefas Pessoais/Profissionais",
+    colorClass: "bg-gray-100 hover:bg-gray-200",
+    activeColor: "border-gray-600",
   },
 ];
 
