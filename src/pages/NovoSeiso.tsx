@@ -189,6 +189,7 @@ const NovoSeiso = () => {
     due_datetime?: string | null;
     duration?: number;
     duration_unit?: "minute" | "day";
+    deadline?: string | null;
   }) => {
     const updated = await updateTask(taskId, data);
     if (updated) {
@@ -199,18 +200,27 @@ const NovoSeiso = () => {
   }, [updateTask, updateTaskInFocusList]);
 
   const handlePostpone = useCallback(async (taskId: string) => {
+    if (!currentTask) return; // Ensure currentTask is available
+
     const nextInterval = calculateNext15MinInterval(new Date());
+    
+    // Remove '🎯 Foco' and add '⚡ Rápida' labels
+    const updatedLabels = new Set(currentTask.labels);
+    updatedLabels.delete('🎯 Foco');
+    updatedLabels.add('⚡ Rápida');
+
     const updated = await updateTask(taskId, {
       due_date: nextInterval.date,
       due_datetime: nextInterval.datetime,
+      labels: Array.from(updatedLabels), // Convert Set back to Array
     });
     if (updated) {
-      toast.success(`Tarefa postergada para ${format(parseISO(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
+      toast.success(`Tarefa postergada para ${format(parseISO(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })} e atualizada!`);
       advanceToNextTask();
     } else {
       toast.error("Falha ao postergar a tarefa.");
     }
-  }, [updateTask, advanceToNextTask]);
+  }, [updateTask, advanceToNextTask, currentTask]); // Add currentTask to dependencies
 
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
 
