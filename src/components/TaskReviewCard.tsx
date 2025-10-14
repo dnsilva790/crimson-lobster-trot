@@ -22,7 +22,7 @@ interface TaskReviewCardProps {
   onUpdateCategory: (taskId: string, newCategory: "pessoal" | "profissional" | "none") => void;
   onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void;
   onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>;
-  onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>; // Adicionado
+  onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
   onPostpone: (taskId: string) => Promise<void>;
   onUpdateDuration: (taskId: string, duration: number | null) => Promise<void>;
   isLoading: boolean;
@@ -50,7 +50,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onUpdateCategory,
   onUpdatePriority,
   onUpdateDeadline,
-  onUpdateFieldDeadline, // Adicionado
+  onUpdateFieldDeadline,
   onPostpone,
   onUpdateDuration,
   isLoading,
@@ -63,12 +63,12 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   const [selectedDueTime, setSelectedDueTime] = useState<string>("");
   const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
 
-  const [selectedFieldDeadlineDate, setSelectedFieldDeadlineDate] = useState<Date | undefined>(undefined); // Adicionado
-  const [isFieldDeadlinePopoverOpen, setIsFieldDeadlinePopoverOpen] = useState(false); // Adicionado
+  const [selectedFieldDeadlineDate, setSelectedFieldDeadlineDate] = useState<Date | undefined>(undefined);
+  const [isFieldDeadlinePopoverOpen, setIsFieldDeadlinePopoverOpen] = useState(false);
 
   const [selectedDuration, setSelectedDuration] = useState<string>(
-    task.duration?.amount && task.duration.unit === "minute"
-      ? String(task.duration.amount)
+    task.estimatedDurationMinutes
+      ? String(task.estimatedDurationMinutes)
       : ""
   );
 
@@ -114,14 +114,14 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     console.log(`DEBUG (useEffect init): Task ID: ${task.id}, initialDueTime = '${initialDueTime}', type = ${typeof initialDueTime}`);
 
     // For task.deadline, ensure it's a string before parsing
-    setSelectedFieldDeadlineDate((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined); // Adicionado
+    setSelectedFieldDeadlineDate((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
     setSelectedDuration(
-      task.duration?.amount && task.duration.unit === "minute"
-        ? String(task.duration.amount)
+      task.estimatedDurationMinutes
+        ? String(task.estimatedDurationMinutes)
         : ""
     );
-    console.log("TaskReviewCard: New task.deadline:", task.deadline); // Adicionado
-    console.log("TaskReviewCard: New selectedFieldDeadlineDate:", (typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined); // Adicionado
+    console.log("TaskReviewCard: New task.deadline:", task.deadline);
+    console.log("TaskReviewCard: New selectedFieldDeadlineDate:", (typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
   }, [task]);
 
   const handleCategoryChange = (newCategory: "pessoal" | "profissional" | "none") => {
@@ -174,7 +174,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     setIsDeadlinePopoverOpen(false);
   };
 
-  const handleSetFieldDeadline = async () => { // Adicionado
+  const handleSetFieldDeadline = async () => {
     console.log("TaskReviewCard: handleSetFieldDeadline called.");
     if (!selectedFieldDeadlineDate) {
       toast.error("Por favor, selecione uma data para o deadline.");
@@ -186,7 +186,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     setIsFieldDeadlinePopoverOpen(false);
   };
 
-  const handleClearFieldDeadline = async () => { // Adicionado
+  const handleClearFieldDeadline = async () => {
     console.log("TaskReviewCard: handleClearFieldDeadline called.");
     await onUpdateFieldDeadline(task.id, null);
     setSelectedFieldDeadlineDate(undefined);
@@ -256,6 +256,14 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           </span>
         );
       }
+    }
+
+    if (task.estimatedDurationMinutes) {
+      dateElements.push(
+        <span key="duration" className="block">
+          Duração: {task.estimatedDurationMinutes} min
+        </span>
+      );
     }
 
     if (dateElements.length === 0) {
@@ -383,7 +391,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           <Clock className="mr-2 h-5 w-5" /> Postergue
         </Button>
       </div>
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Ajustado para 2 colunas */}
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         <Popover open={isDeadlinePopoverOpen} onOpenChange={setIsDeadlinePopoverOpen}>
           <PopoverTrigger asChild>
             <Button
