@@ -80,14 +80,7 @@ const modules = [
     colorClass: "bg-pink-100 hover:bg-pink-200",
     activeColor: "border-pink-600",
   },
-  {
-    path: "/deadlines", // Nova rota para Deadlines
-    icon: CalendarClock, // Ícone para Deadlines
-    title: "DEADLINES",
-    description: "Tarefas com Prazo Final",
-    colorClass: "bg-red-100 hover:bg-red-200", // Cor para Deadlines
-    activeColor: "border-red-600",
-  },
+  // Removido o módulo DEADLINES
   {
     path: "/ai-agent", // Nova rota para o Tutor IA SEISO
     icon: Bot, // Ícone para o Tutor IA SEISO
