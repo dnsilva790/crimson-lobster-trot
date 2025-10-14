@@ -54,9 +54,7 @@ const FastTrack = () => {
   }, [selectedCategoryFilter]);
 
   const loadDurationRanges = useCallback(() => {
-    const loadedRanges = getDurationRanges();
-    setDurationRanges(loadedRanges);
-    console.log("FastTrack: Loaded duration ranges from storage:", loadedRanges);
+    setDurationRanges(getDurationRanges());
   }, []);
 
   useEffect(() => {
@@ -124,7 +122,6 @@ const FastTrack = () => {
   }, [fetchAndFilterTasks]);
 
   const handleDurationRangesSave = useCallback((newRanges: DurationRange[]) => {
-    console.log("FastTrack: handleDurationRangesSave called with new ranges:", newRanges);
     setDurationRanges(newRanges);
     fetchAndFilterTasks(); // Re-fetch and re-group tasks with new ranges
   }, [fetchAndFilterTasks]);
@@ -168,7 +165,6 @@ const FastTrack = () => {
   }, [updateTask, fetchAndFilterTasks]);
 
   const groupedTasks = useMemo(() => {
-    console.log("FastTrack: Recalculating groupedTasks. Current durationRanges:", durationRanges);
     const groups: { [key: string]: TodoistTask[] } = {};
     const noDurationKey = "no-duration";
 
@@ -182,23 +178,17 @@ const FastTrack = () => {
       const duration = task.estimatedDurationMinutes;
       let assigned = false;
 
-      console.log(`  Task: "${task.content}" (ID: ${task.id}), estimatedDurationMinutes: ${duration}`);
-
       if (duration === undefined || duration === null) {
         groups[noDurationKey].push(task);
         assigned = true;
-        console.log(`    -> Assigned to "Sem Duração Definida" (no duration).`);
       } else {
         for (const range of durationRanges) {
           const min = range.minMinutes === null ? -Infinity : range.minMinutes;
           const max = range.maxMinutes === null ? Infinity : range.maxMinutes;
 
-          console.log(`    Comparing with range "${range.label}" (min: ${min}, max: ${max})`);
-
           if (duration >= min && duration <= max) {
             groups[range.id].push(task);
             assigned = true;
-            console.log(`    -> Assigned to range "${range.label}".`);
             break;
           }
         }
@@ -207,7 +197,6 @@ const FastTrack = () => {
       if (!assigned && (duration !== undefined && duration !== null)) {
         // Fallback for tasks that don't fit any defined range (e.g., if ranges are not exhaustive)
         groups[noDurationKey].push(task);
-        console.log(`    -> Assigned to "Sem Duração Definida" (did not fit any custom range).`);
       }
     });
 
@@ -223,7 +212,6 @@ const FastTrack = () => {
       sortedGroupedTasks.push({ range: { id: noDurationKey, label: "Sem Duração Definida" }, tasks: groups[noDurationKey] });
     }
 
-    console.log("FastTrack: Grouped tasks result:", sortedGroupedTasks);
     return sortedGroupedTasks;
   }, [filteredTasks, durationRanges]);
 

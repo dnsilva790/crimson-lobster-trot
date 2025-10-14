@@ -78,7 +78,7 @@ const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
   } else if (typeof task.deadline !== 'string') {
     if (typeof task.deadline === 'object' && task.deadline !== null && 'date' in task.deadline && typeof (task.deadline as any).date === 'string') {
       task.deadline = (task.deadline as any).date;
-      console.log(`TodoistContext: Successfully extracted date from object deadline for task ${task.id}. New deadline:`, task.deadline);
+      // console.log(`TodoistContext: Successfully extracted date from object deadline for task ${task.id}. New deadline:`, task.deadline);
     } else {
       console.warn(`TodoistContext: Task ${task.id} (${task.content}) has unexpected deadline format:`, task.deadline, ". Converting to null.");
       task.deadline = null;
@@ -112,7 +112,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
     try {
       const cache = await todoistService.fetchSyncItems(key);
       setSyncItemsCache(cache);
-      console.log("TodoistContext: Sync items cache loaded successfully.", cache.size, "items.");
+      // console.log("TodoistContext: Sync items cache loaded successfully.", cache.size, "items.");
     } catch (error) {
       console.error("TodoistContext: Failed to load sync items cache:", error);
       toast.error("Falha ao carregar dados de sincronização do Todoist.");
@@ -178,10 +178,10 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
       const rawTasks = await makeApiCall(todoistService.fetchTasks, filter, syncItemsCacheRef.current);
       
-      console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
-      rawTasks.forEach(task => {
-        console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}, is_completed: ${task.is_completed}, duration: ${JSON.stringify(task.duration)}, deadline: ${task.deadline}`);
-      });
+      // console.log("TodoistContext: Tarefas brutas da API (verificando status de recorrência):");
+      // rawTasks.forEach(task => {
+      //   console.log(`  Task ID: ${task.id}, Content: "${task.content}", is_recurring: ${task.due?.is_recurring}, due.string: "${task.due?.string}", parent_id: ${task.parent_id}, is_completed: ${task.is_completed}, duration: ${JSON.stringify(task.duration)}, deadline: ${task.deadline}`);
+      // });
 
       const sanitizedTasks = rawTasks.map(sanitizeTodoistTask);
 
@@ -189,20 +189,20 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
         return !(task.due?.is_recurring === true && task.due?.string?.toLowerCase().includes("every hour"));
       });
 
-      console.log("TodoistContext: Tarefas após filtro 'every hour'. Original:", rawTasks.length, "Filtrado:", filteredHourlyRecurring.length);
+      // console.log("TodoistContext: Tarefas após filtro 'every hour'. Original:", rawTasks.length, "Filtrado:", filteredHourlyRecurring.length);
 
       const tasksWithDuration = filteredHourlyRecurring.map(task => {
         let estimatedDurationMinutes = 15; // Default
         if (task.duration) {
           if (task.duration.unit === "minute") {
             estimatedDurationMinutes = task.duration.amount;
-            console.log(`  Task ID: ${task.id}, Content: "${task.content}", API Duration (min): ${task.duration.amount}, Estimated: ${estimatedDurationMinutes}`);
+            // console.log(`  Task ID: ${task.id}, Content: "${task.content}", API Duration (min): ${task.duration.amount}, Estimated: ${estimatedDurationMinutes}`);
           } else if (task.duration.unit === "day") {
             estimatedDurationMinutes = task.duration.amount * 8 * 60; // Assuming 8 hours per day
-            console.log(`  Task ID: ${task.id}, Content: "${task.content}", API Duration (days): ${task.duration.amount}, Estimated: ${estimatedDurationMinutes}`);
+            // console.log(`  Task ID: ${task.id}, Content: "${task.content}", API Duration (days): ${task.duration.amount}, Estimated: ${estimatedDurationMinutes}`);
           }
         } else {
-          console.log(`  Task ID: ${task.id}, Content: "${task.content}", No API Duration, Estimated: ${estimatedDurationMinutes} (default)`);
+          // console.log(`  Task ID: ${task.id}, Content: "${task.content}", No API Duration, Estimated: ${estimatedDurationMinutes} (default)`);
         }
         return { ...task, estimatedDurationMinutes };
       });
@@ -211,15 +211,15 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
       if (!finalOptions.includeSubtasks) {
         processedTasks = processedTasks.filter(task => task.parent_id === null);
-        console.log("TodoistContext: Filtrando subtarefas. Contagem:", processedTasks.length);
+        // console.log("TodoistContext: Filtrando subtarefas. Contagem:", processedTasks.length);
       }
       
       if (!finalOptions.includeRecurring) {
         processedTasks = processedTasks.filter(task => task.due?.is_recurring !== true);
-        console.log("TodoistContext: Filtrando tarefas recorrentes. Contagem:", processedTasks.length);
+        // console.log("TodoistContext: Filtrando tarefas recorrentes. Contagem:", processedTasks.length);
       }
       
-      console.log("TodoistContext: fetchTasks finalizado. Contagem:", processedTasks.length);
+      // console.log("TodoistContext: fetchTasks finalizado. Contagem:", processedTasks.length);
       return processedTasks;
     },
     [makeApiCall, syncItemsCacheRef],

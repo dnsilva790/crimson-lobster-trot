@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -86,7 +87,6 @@ const DurationRangeConfig: React.FC<DurationRangeConfigProps> = ({ onSave }) => 
       }
     }
 
-    console.log("DurationRangeConfig: Saving ranges to storage:", ranges);
     saveDurationRanges(ranges);
     onSave(ranges);
     toast.success("Períodos de duração salvos com sucesso!");
