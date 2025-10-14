@@ -7,7 +7,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, ArrowRight, CalendarIcon, Clock, XCircle } from "lucide-react";
+import { Check, ArrowRight, CalendarIcon, Clock, XCircle, Target } from "lucide-react"; // Importar o ícone Target
 import { TodoistTask } from "@/lib/types";
 import { format, parseISO, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -28,6 +28,7 @@ interface TaskActionButtonsProps {
     deadline?: string | null; // Adicionado
   }) => Promise<TodoistTask | undefined>;
   onPostpone: (taskId: string) => Promise<void>;
+  onEmergencyFocus: (taskId: string) => Promise<void>; // Nova prop para o botão de emergência
 }
 
 const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
@@ -37,6 +38,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   onSkip,
   onUpdateTask,
   onPostpone,
+  onEmergencyFocus, // Nova prop
 }) => {
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
 
@@ -154,7 +156,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-6"> {/* Ajustado para 5 colunas */}
       <Button
         onClick={() => onComplete(currentTask.id)}
         disabled={isLoading}
@@ -262,6 +264,13 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
         className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 text-md flex items-center justify-center"
       >
         <ArrowRight className="mr-2 h-5 w-5" /> Pular
+      </Button>
+      <Button
+        onClick={() => onEmergencyFocus(currentTask.id)} {/* Novo botão */}
+        disabled={isLoading}
+        className="bg-red-600 hover:bg-red-700 text-white py-3 text-md flex items-center justify-center"
+      >
+        <Target className="mr-2 h-5 w-5" /> Foco de Emergência
       </Button>
     </div>
   );

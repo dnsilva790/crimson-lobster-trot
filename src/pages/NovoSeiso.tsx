@@ -222,6 +222,24 @@ const NovoSeiso = () => {
     }
   }, [updateTask, advanceToNextTask, currentTask]); // Add currentTask to dependencies
 
+  const handleEmergencyFocus = useCallback(async (taskId: string) => {
+    if (!currentTask) return;
+
+    const updatedLabels = new Set(currentTask.labels);
+    updatedLabels.add('🎯 Foco'); // Adiciona a etiqueta '🎯 Foco'
+
+    const updated = await updateTask(taskId, {
+      labels: Array.from(updatedLabels),
+    });
+
+    if (updated) {
+      updateTaskInFocusList(updated); // Atualiza a tarefa na lista de foco local
+      toast.success(`Etiqueta '🎯 Foco' adicionada à tarefa "${currentTask.content}"!`);
+    } else {
+      toast.error("Falha ao adicionar a etiqueta '🎯 Foco'.");
+    }
+  }, [currentTask, updateTask, updateTaskInFocusList]);
+
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
 
   useKeyboardShortcuts({
@@ -274,6 +292,7 @@ const NovoSeiso = () => {
               onSkip={handleSkip}
               onUpdateTask={handleUpdateTaskAndRefresh}
               onPostpone={handlePostpone}
+              onEmergencyFocus={handleEmergencyFocus} {/* Passar a nova função */}
             />
 
             <div className="mt-8 text-center">
