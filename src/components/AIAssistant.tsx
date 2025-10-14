@@ -37,7 +37,7 @@ interface Message {
   text: string;
 }
 
-const AI_CHAT_HISTORY_KEY = "ai_chat_history_novoseiso";
+const AI_CHAT_HISTORY_KEY_PREFIX = "ai_chat_history_novoseiso_task_";
 
 const AIAssistant: React.FC<AIAssistantProps> = ({
   aiPrompt,
@@ -52,29 +52,39 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const [lastGeneratedReport, setLastGeneratedReport] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const savedHistory = localStorage.getItem(AI_CHAT_HISTORY_KEY);
-    if (savedHistory) {
-      setMessages(JSON.parse(savedHistory));
-    } else {
-      addMessage("ai", "Olá! Sou o Tutor IA SEISO. Como posso te ajudar a focar e executar suas tarefas hoje?");
-    }
+  const getTaskHistoryKey = useCallback((taskId: string) => {
+    return `${AI_CHAT_HISTORY_KEY_PREFIX}${taskId}`;
   }, []);
 
+  // Load messages for the current task
   useEffect(() => {
-    localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(messages));
-  }, [messages]);
+    if (currentTask) {
+      const savedHistory = localStorage.getItem(getTaskHistoryKey(currentTask.id));
+      if (savedHistory) {
+        setMessages(JSON.parse(savedHistory));
+      } else {
+        setMessages([]);
+        addMessage("ai", `Olá! Sou o Tutor IA SEISO. Como posso te ajudar a focar e executar a tarefa "${currentTask.content}" hoje?`);
+      }
+    } else {
+      setMessages([]); // Clear messages if no task is in focus
+      addMessage("ai", "Olá! Sou o Tutor IA SEISO. Por favor, selecione uma tarefa para que eu possa te ajudar com o foco.");
+    }
+    setLastGeneratedReport(null); // Clear last generated report when task changes
+  }, [currentTask, getTaskHistoryKey]);
+
+  // Save messages whenever they change for the current task
+  useEffect(() => {
+    if (currentTask && messages.length > 0) {
+      localStorage.setItem(getTaskHistoryKey(currentTask.id), JSON.stringify(messages));
+    }
+  }, [messages, currentTask, getTaskHistoryKey]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [messages]);
-
-  // Limpar relatório gerado quando a tarefa muda ou uma nova mensagem é enviada
-  useEffect(() => {
-    setLastGeneratedReport(null);
-  }, [currentTask, messages]);
 
   const addMessage = useCallback((sender: "user" | "ai", text: string) => {
     setMessages((prev) => [...prev, { id: Date.now().toString(), sender, text }]);
