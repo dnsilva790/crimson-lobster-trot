@@ -23,7 +23,6 @@ import EditProjectManagement from "./pages/EditProjectManagement"; // Renomeado 
 import FollowUp from "./pages/FollowUp";
 import Deadlines from "./pages/Deadlines"; // Importar a nova página Deadlines
 import AIAgent from "./pages/AIAgent"; // Importar a nova página AIAgent
-import FastTrack from "./pages/FastTrack"; // Importar a nova página FastTrack
 import Shitsuke from "./pages/Shitsuke"; // Importar a nova página Shitsuke (Revisão Diária)
 
 
@@ -43,7 +42,6 @@ const App = () => (
               <Route path="/seiketsu" element={<Seiketsu />} /> {/* Rota atualizada para Seiketsu */}
               <Route path="/seiton" element={<Seiton />} />
               <Route path="/novoseiso" element={<NovoSeiso />} /> {/* Rota atualizada para NovoSeiso */}
-              <Route path="/fast-track" element={<FastTrack />} /> {/* Nova rota para FastTrack */}
               <Route path="/internal-tasks" element={<InternalTasks />} />
               <Route path="/planejador" element={<Planejador />} />
               <Route path="/project-management" element={<ProjectManagement />} /> {/* Rota atualizada para Gestão de Projetos */}

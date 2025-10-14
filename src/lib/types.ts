@@ -138,18 +138,6 @@ export interface TodoistCustomField {
   value: string | null; // Valor do campo
 }
 
-// Novas interfaces para o módulo Fast Track
-export interface DurationRange {
-  id: string;
-  label: string;
-  minMinutes: number | null; // null para 0 ou não definido
-  maxMinutes: number | null; // null para infinito
-}
-
-export interface DurationRangeConfig {
-  ranges: DurationRange[];
-}
-
 // Nova interface para o módulo Shitsuke (Revisão Diária)
 export interface DailyReviewEntry {
   date: string; // YYYY-MM-DD
