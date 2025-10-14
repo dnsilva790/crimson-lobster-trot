@@ -10,13 +10,13 @@ import { Send, Bot, User, ClipboardCopy } from "lucide-react";
 import { TodoistTask } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { format, parseISO, isValid, isToday, isTomorrow, isPast, addHours, getHours } from "date-fns";
+import { format, parseISO, isValid, isToday, isTomorrow, isPast, addHours, getHours, differenceInDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface AIAgentAssistantProps {
   aiPrompt: string;
-  currentTask: TodoistTask | null;
-  allTasks: TodoistTask[]; // For "Radar de Produtividade"
+  currentTask: TodoistTask | null; // Tarefa selecionada no dropdown
+  allTasks: TodoistTask[]; // Todas as tarefas para o Radar de Produtividade
   updateTask: (taskId: string, data: {
     content?: string;
     description?: string;
@@ -46,7 +46,7 @@ const AI_CHAT_HISTORY_KEY_PREFIX = "ai_agent_chat_history_task_";
 
 const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
   aiPrompt,
-  currentTask,
+  currentTask, // Tarefa selecionada no dropdown
   allTasks,
   updateTask,
   closeTask,
@@ -55,13 +55,14 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
   const [inputMessage, setInputMessage] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [lastGeneratedReport, setLastGeneratedReport] = useState<string | null>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [suggestedTaskForGuidance, setSuggestedTaskForGuidance] = useState<TodoistTask | null>(null); // Nova tarefa sugerida pelo IA
+  const scrollAreaRef = useRef<HTMLDivAreaElement>(null);
 
   const getTaskHistoryKey = useCallback((taskId: string) => {
     return `${AI_CHAT_HISTORY_KEY_PREFIX}${taskId}`;
   }, []);
 
-  // Load messages for the current task
+  // Load messages for the current task (from dropdown) or clear if none selected
   useEffect(() => {
     if (currentTask) {
       const savedHistory = localStorage.getItem(getTaskHistoryKey(currentTask.id));
@@ -71,19 +72,21 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
         setMessages([]);
         addMessage("ai", `Olá! Sou o Tutor IA SEISO. Como posso te ajudar a focar e executar a tarefa "${currentTask.content}" hoje?`);
       }
+      setSuggestedTaskForGuidance(null); // Clear suggested task if user explicitly selects one
     } else {
       setMessages([]); // Clear messages if no task is in focus
-      addMessage("ai", "Olá! Sou o Tutor IA SEISO. Por favor, selecione uma tarefa para que eu possa te ajudar com o foco.");
+      addMessage("ai", "Olá! Sou o Tutor IA SEISO. Estou pronto para te ajudar a organizar suas tarefas. Qual a próxima tarefa que devo executar?");
     }
     setLastGeneratedReport(null); // Clear last generated report when task changes
   }, [currentTask, getTaskHistoryKey]);
 
-  // Save messages whenever they change for the current task
+  // Save messages whenever they change for the current task (from dropdown) or suggested task
   useEffect(() => {
-    if (currentTask && messages.length > 0) {
-      localStorage.setItem(getTaskHistoryKey(currentTask.id), JSON.stringify(messages));
+    const taskIdToSave = currentTask?.id || suggestedTaskForGuidance?.id;
+    if (taskIdToSave && messages.length > 0) {
+      localStorage.setItem(getTaskHistoryKey(taskIdToSave), JSON.stringify(messages));
     }
-  }, [messages, currentTask, getTaskHistoryKey]);
+  }, [messages, currentTask, suggestedTaskForGuidance, getTaskHistoryKey]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -129,16 +132,19 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     setIsThinking(true);
     let responseText = "Não entendi sua solicitação. Por favor, tente novamente.";
 
-    if (!currentTask) {
-      responseText = "Por favor, selecione uma tarefa para que eu possa te ajudar com o foco.";
+    // Determine the task context: explicit selection first, then AI suggestion
+    const taskContext = currentTask || suggestedTaskForGuidance;
+
+    if (!taskContext && !userMessage.toLowerCase().includes("radar") && !userMessage.toLowerCase().includes("sugerir próxima tarefa")) {
+      responseText = "Por favor, selecione uma tarefa ou me peça para sugerir a próxima tarefa com o 'Radar de Produtividade'.";
       addMessage("ai", responseText);
       setIsThinking(false);
       return;
     }
 
-    const taskContent = currentTask.content;
-    const taskDescription = currentTask.description;
-    const taskPriority = currentTask.priority;
+    const taskContent = taskContext?.content || "a tarefa atual";
+    const taskDescription = taskContext?.description;
+    const taskPriority = taskContext?.priority || 1;
     const delegates = parseDelegateInfo();
     const criticalStakeholders = parseCriticalStakeholders();
 
@@ -161,14 +167,14 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
         responseText = `Para delegar "${taskContent}", preciso saber: **Para quem você gostaria de delegar esta tarefa?** (Não encontrei informações de equipe no seu prompt de IA.)`;
       }
     } else if (lowerCaseMessage.includes("status")) {
-      const dueDate = currentTask.due?.datetime 
-        ? format(parseISO(currentTask.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })
-        : currentTask.due?.date
-        ? format(parseISO(currentTask.due.date), "dd/MM/yyyy", { locale: ptBR })
+      const dueDate = taskContext?.due?.datetime 
+        ? format(parseISO(taskContext.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })
+        : taskContext?.due?.date
+        ? format(parseISO(taskContext.due.date), "dd/MM/yyyy", { locale: ptBR })
         : "sem prazo definido";
       
-      const deadline = currentTask.deadline 
-        ? format(parseISO(currentTask.deadline), "dd/MM/yyyy", { locale: ptBR })
+      const deadline = taskContext?.deadline 
+        ? format(parseISO(taskContext.deadline), "dd/MM/yyyy", { locale: ptBR })
         : "não definido";
 
       responseText = `O status atual da tarefa "${taskContent}" é P${taskPriority}. Vencimento: ${dueDate}. Deadline: ${deadline}.`;
@@ -176,19 +182,24 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     } else if (lowerCaseMessage.includes("ajuda") || lowerCaseMessage.includes("coach")) {
       responseText = `Estou aqui para te ajudar a quebrar a tarefa "${taskContent}" em micro-ações e manter o foco. Qual é a sua maior dificuldade com ela agora? Ou podemos definir o próximo passo?`;
     } else if (lowerCaseMessage.includes("concluir")) {
-      await closeTask(currentTask.id);
-      responseText = `Excelente! Tarefa "${taskContent}" concluída. Parabéns!`;
+      if (taskContext) {
+        await closeTask(taskContext.id);
+        responseText = `Excelente! Tarefa "${taskContent}" concluída. Parabéns!`;
+        setSuggestedTaskForGuidance(null); // Clear suggested task after completion
+      } else {
+        responseText = "Não há uma tarefa em foco para concluir.";
+      }
     } else if (lowerCaseMessage.includes("gerar status") || lowerCaseMessage.includes("gerar próximo passo")) {
       responseText = `Para gerar um relatório formatado para o Todoist, por favor, use os botões dedicados "Gerar Status" ou "Gerar Próximo Passo" abaixo do campo de texto.`;
-    } else if (lowerCaseMessage.includes("radar") || lowerCaseMessage.includes("sugerir próxima tarefa")) {
-      // Simplified simulation of "Radar de Produtividade"
+    } else if (lowerCaseMessage.includes("radar") || lowerCaseMessage.includes("sugerir próxima tarefa") || lowerCaseMessage.includes("qual a próxima tarefa")) {
       const now = new Date();
-      const today = format(now, "yyyy-MM-dd");
-      const tomorrow = format(addHours(now, 24), "yyyy-MM-dd");
+      const startOfToday = startOfDay(now);
 
+      // 1. PRIORIDADE ZERO: Deadlines hoje ou amanhã
       const priorityZeroTasks = allTasks.filter(task => 
         task.deadline && isValid(parseISO(task.deadline)) && 
-        (isToday(parseISO(task.deadline)) || isTomorrow(parseISO(task.deadline)))
+        (isToday(parseISO(task.deadline)) || isTomorrow(parseISO(task.deadline))) &&
+        !task.is_completed
       ).sort((a, b) => {
         const deadlineA = a.deadline ? parseISO(a.deadline).getTime() : Infinity;
         const deadlineB = b.deadline ? parseISO(b.deadline).getTime() : Infinity;
@@ -197,36 +208,75 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
 
       if (priorityZeroTasks.length > 0) {
         const nextPriorityZeroTask = priorityZeroTasks[0];
+        setSuggestedTaskForGuidance(nextPriorityZeroTask);
         responseText = `PRIORIDADE ZERO: A tarefa "${nextPriorityZeroTask.content}" tem um deadline para ${format(parseISO(nextPriorityZeroTask.deadline!), "dd/MM/yyyy", { locale: ptBR })}. Recomendo focar nela para zerar pendências.`;
       } else {
-        // Simulate identifying next urgent action (A)
-        const urgentTasks = allTasks.filter(task => {
+        // 2. LÓGICA DE SUGESTÃO INTEGRADA (RADAR DE PRODUTIVIDADE)
+        let bestTaskA: TodoistTask | null = null;
+        let bestScoreA = -Infinity;
+
+        // Score tasks for "Próxima Ação Urgente (A)"
+        allTasks.filter(task => !task.is_completed).forEach(task => {
+          let score = 0;
           const isCriticalStakeholder = criticalStakeholders.some(cs => task.content.toLowerCase().includes(cs.toLowerCase()) || task.description.toLowerCase().includes(cs.toLowerCase()));
-          const isP1 = task.priority === 4;
-          const isP2 = task.priority === 3;
           
-          // Simplified: consider tasks with critical stakeholders or high priority as urgent
-          return isCriticalStakeholder || isP1 || isP2;
-        }).sort((a, b) => {
-          // Sort by priority, then deadline, then due date
-          if (b.priority !== a.priority) return b.priority - a.priority;
-          const deadlineA = a.deadline ? parseISO(a.deadline).getTime() : Infinity;
-          const deadlineB = b.deadline ? parseISO(b.deadline).getTime() : Infinity;
-          if (deadlineA !== deadlineB) return deadlineA - deadlineB;
-          const dueA = a.due?.datetime ? parseISO(a.due.datetime).getTime() : (a.due?.date ? parseISO(a.due.date).getTime() : Infinity);
-          const dueB = b.due?.datetime ? parseISO(b.due.datetime).getTime() : (b.due?.date ? parseISO(b.due.date).getTime() : Infinity);
-          return dueA - dueB;
+          if (isCriticalStakeholder) score += 500; // High impact for critical stakeholders
+
+          // Priority scoring
+          switch (task.priority) {
+            case 4: score += 100; break; // P1
+            case 3: score += 70; break; // P2
+            case 2: score += 40; break; // P3
+            case 1: score += 10; break; // P4
+          }
+
+          // Deadline proximity
+          if (task.deadline && isValid(parseISO(task.deadline))) {
+            const daysUntilDeadline = differenceInDays(parseISO(task.deadline), startOfToday);
+            if (daysUntilDeadline <= 0) score += 200; // Overdue or today
+            else if (daysUntilDeadline <= 3) score += 150 - (daysUntilDeadline * 10); // Very close
+            else if (daysUntilDeadline <= 7) score += 50 - (daysUntilDeadline * 5); // Close
+          }
+
+          // Due date/time proximity
+          let effectiveDueDate: Date | null = null;
+          if (task.due?.datetime && isValid(parseISO(task.due.datetime))) {
+            effectiveDueDate = parseISO(task.due.datetime);
+          } else if (task.due?.date && isValid(parseISO(task.due.date))) {
+            effectiveDueDate = parseISO(task.due.date);
+          }
+
+          if (effectiveDueDate) {
+            const daysUntilDue = differenceInDays(effectiveDueDate, startOfToday);
+            if (daysUntilDue <= 0) score += 100; // Overdue or today
+            else if (daysUntilDue <= 3) score += 70 - (daysUntilDue * 5);
+            else if (daysUntilDue <= 7) score += 30 - (daysUntilDue * 2);
+          }
+
+          if (score > bestScoreA) {
+            bestScoreA = score;
+            bestTaskA = task;
+          }
         });
 
-        if (urgentTasks.length > 0) {
-          const nextUrgentTask = urgentTasks[0];
-          responseText = `RADAR DE PRODUTIVIDADE: A próxima ação urgente identificada é "${nextUrgentTask.content}" (P${nextUrgentTask.priority}).`;
-          if (nextUrgentTask.deadline) {
-            responseText += ` Com deadline para ${format(parseISO(nextUrgentTask.deadline), "dd/MM/yyyy", { locale: ptBR })}.`;
-          } else if (nextUrgentTask.due?.date || nextUrgentTask.due?.datetime) {
-            responseText += ` Com vencimento para ${format(parseISO(nextUrgentTask.due?.datetime || nextUrgentTask.due?.date!), "dd/MM/yyyy", { locale: ptBR })}.`;
+        // Simplified "Tarefa de Preparação Candidata (B)" and "Compare A e B"
+        // For simulation, we'll just suggest the bestTaskA, and add a note about preparation if relevant.
+        if (bestTaskA) {
+          setSuggestedTaskForGuidance(bestTaskA);
+          responseText = `RADAR DE PRODUTIVIDADE: A próxima ação urgente identificada é "${bestTaskA.content}" (P${bestTaskA.priority}).`;
+          if (bestTaskA.deadline) {
+            responseText += ` Com deadline para ${format(parseISO(bestTaskA.deadline), "dd/MM/yyyy", { locale: ptBR })}.`;
+          } else if (bestTaskA.due?.date || bestTaskA.due?.datetime) {
+            responseText += ` Com vencimento para ${format(parseISO(bestTaskA.due?.datetime || bestTaskA.due?.date!), "dd/MM/yyyy", { locale: ptBR })}.`;
           }
-          responseText += `\n\nLembre-se do seu pico de produtividade (06h-10h) após o Concerta.`;
+
+          // Consideração de Energia (Concerta peak)
+          const currentHour = getHours(now);
+          if (bestTaskA.labels.includes("profissional") && currentHour >= 6 && currentHour < 10) {
+            responseText += `\n\nLembre-se: você está no seu pico de produtividade (06h-10h) após o Concerta. Aproveite para focar nesta tarefa profissional!`;
+          } else {
+            responseText += `\n\nLembre-se do seu ciclo de energia.`;
+          }
         } else {
           responseText = `RADAR DE PRODUTIVIDADE: Não identifiquei tarefas com Prioridade Zero ou ações urgentes no momento. Podemos focar na tarefa atual ou buscar por outras prioridades?`;
         }
@@ -240,7 +290,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       addMessage("ai", responseText);
       setIsThinking(false);
     }, 1500); // Simulate AI thinking time
-  }, [addMessage, currentTask, allTasks, closeTask, aiPrompt, parseDelegateInfo, parseCriticalStakeholders, generateTodoistUpdateSuggestion, updateTask]);
+  }, [addMessage, currentTask, allTasks, closeTask, aiPrompt, parseDelegateInfo, parseCriticalStakeholders, generateTodoistUpdateSuggestion, updateTask, suggestedTaskForGuidance]);
 
   const handleSendMessage = async () => {
     if (inputMessage.trim() === "" || isThinking) return;
@@ -253,28 +303,29 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
   };
 
   const handleGenerateStatusReport = useCallback(() => {
-    if (!currentTask) {
-      toast.error("Selecione uma tarefa para gerar o relatório de status.");
+    const taskToReport = currentTask || suggestedTaskForGuidance;
+    if (!taskToReport) {
+      toast.error("Selecione uma tarefa ou peça uma sugestão para gerar o relatório de status.");
       return;
     }
-    // Simplificado, pois o AI Assistant não tem memória de 'últimos passos concluídos'
-    const statusText = `Nesta sessão de foco, você trabalhou na tarefa: ${currentTask.content}.`;
+    const statusText = `Nesta sessão de foco, você trabalhou na tarefa: ${taskToReport.content}.`;
     const nextStepText = `Definir a próxima micro-ação para avançar com a tarefa.`;
     const report = generateTodoistUpdateSuggestion(statusText, nextStepText);
     setLastGeneratedReport(report);
     toast.success("Relatório de status gerado!");
-  }, [currentTask, generateTodoistUpdateSuggestion]);
+  }, [currentTask, suggestedTaskForGuidance, generateTodoistUpdateSuggestion]);
 
   const handleGenerateNextStepReport = useCallback(() => {
-    if (!currentTask) {
-      toast.error("Selecione uma tarefa para gerar o relatório de próximo passo.");
+    const taskToReport = currentTask || suggestedTaskForGuidance;
+    if (!taskToReport) {
+      toast.error("Selecione uma tarefa ou peça uma sugestão para gerar o relatório de próximo passo.");
       return;
     }
-    const nextStepText = `${currentTask.content} (Definir a próxima micro-ação).`;
+    const nextStepText = `${taskToReport.content} (Definir a próxima micro-ação).`;
     const report = generateTodoistUpdateSuggestion("(Preencha aqui o que foi feito na última sessão)", nextStepText);
     setLastGeneratedReport(report);
     toast.success("Relatório de próximo passo gerado!");
-  }, [currentTask, generateTodoistUpdateSuggestion]);
+  }, [currentTask, suggestedTaskForGuidance, generateTodoistUpdateSuggestion]);
 
   const handleCopyReport = useCallback(() => {
     if (lastGeneratedReport) {
@@ -344,10 +395,10 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
             </div>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <Button onClick={handleGenerateStatusReport} disabled={!currentTask} className="flex items-center gap-1">
+            <Button onClick={handleGenerateStatusReport} disabled={!currentTask && !suggestedTaskForGuidance} className="flex items-center gap-1">
               <ClipboardCopy className="h-4 w-4" /> Gerar Status
             </Button>
-            <Button onClick={handleGenerateNextStepReport} disabled={!currentTask} className="flex items-center gap-1">
+            <Button onClick={handleGenerateNextStepReport} disabled={!currentTask && !suggestedTaskForGuidance} className="flex items-center gap-1">
               <ClipboardCopy className="h-4 w-4" /> Gerar Próximo Passo
             </Button>
           </div>
@@ -361,10 +412,10 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
                   handleSendMessage();
                 }
               }}
-              disabled={isThinking || !currentTask}
+              disabled={isThinking}
               className="flex-grow"
             />
-            <Button onClick={handleSendMessage} disabled={isThinking || !currentTask}>
+            <Button onClick={handleSendMessage} disabled={isThinking}>
               <Send className="h-4 w-4" />
             </Button>
           </div>
