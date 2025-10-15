@@ -7,12 +7,12 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { format, parseISO, isValid, isPast, isToday, addHours, isBefore } from "date-fns"; // Adicionado addHours e isBefore
+import { format, parseISO, isValid, isPast, isToday, addHours, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CheckSquare } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { calculateNext15MinInterval, calculateNextFullHour } from "@/utils/dateUtils"; // Importar calculateNextFullHour
+import { calculateNext15MinInterval, calculateNextFullHour } from "@/utils/dateUtils";
 import TaskReviewCard from "@/components/TaskReviewCard";
 
 // Storage keys for daily review entries
@@ -31,15 +31,16 @@ const Shitsuke = () => {
   const [tasksToReview, setTasksToReview] = useState<TodoistTask[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [reviewState, setReviewState] = useState<"initial" | "reviewing" | "finished">("initial");
-  const [reflection, setReflection] = useState<string>("");
-  const [improvements, setImprovements] = useState<string>("");
-  const [currentReviewEntry, setCurrentReviewEntry] = useState<DailyReviewEntry | null>(null);
-  const [nextRescheduleTime, setNextRescheduleTime] = useState<Date | null>(null); // Novo estado para a próxima hora de reprogramação
+  const [reflection, setReflection] = useState<string>(""); // Manter estado, mas não será usado na UI
+  const [improvements, setImprovements] = useState<string>(""); // Manter estado, mas não será usado na UI
+  const [currentReviewEntry, setCurrentReviewEntry] = useState<DailyReviewEntry | null>(null); // Manter estado, mas não será usado na UI
+  const [nextRescheduleTime, setNextRescheduleTime] = useState<Date | null>(null);
 
   const todayKey = format(new Date(), "yyyy-MM-dd");
   const dailyReviewStorageKey = `${DAILY_REVIEW_STORAGE_KEY_PREFIX}${todayKey}`;
 
   const loadDailyReview = useCallback(() => {
+    // A lógica de carregamento ainda existe, mas a UI não a exibirá
     const storedEntry = localStorage.getItem(dailyReviewStorageKey);
     if (storedEntry) {
       const parsedEntry: DailyReviewEntry = JSON.parse(storedEntry);
@@ -54,6 +55,7 @@ const Shitsuke = () => {
   }, [dailyReviewStorageKey]);
 
   const saveDailyReview = useCallback(() => {
+    // A lógica de salvamento ainda existe, mas não será acionada pela UI
     const now = new Date().toISOString();
     const entry: DailyReviewEntry = {
       date: todayKey,
@@ -64,7 +66,7 @@ const Shitsuke = () => {
     };
     localStorage.setItem(dailyReviewStorageKey, JSON.stringify(entry));
     setCurrentReviewEntry(entry);
-    toast.success("Revisão diária salva!");
+    // toast.success("Revisão diária salva!"); // Remover toast, pois a ação não será visível
   }, [reflection, improvements, todayKey, dailyReviewStorageKey, currentReviewEntry]);
 
   const sortTasksForShitsuke = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
@@ -143,7 +145,7 @@ const Shitsuke = () => {
 
   useEffect(() => {
     loadTasksForReview();
-    loadDailyReview();
+    loadDailyReview(); // Ainda carrega, mas não será exibido
   }, [loadTasksForReview, loadDailyReview]);
 
   const handleNextTask = useCallback(() => {
@@ -334,7 +336,7 @@ const Shitsuke = () => {
       )}
 
       {!isLoadingTodoist && reviewState === "reviewing" && currentTask && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6"> {/* Alterado para 1 coluna */}
           <div>
             <p className="text-center text-xl font-medium mb-6 text-gray-700">
               Revisando tarefa {currentTaskIndex + 1} de {tasksToReview.length}
@@ -348,47 +350,10 @@ const Shitsuke = () => {
               onUpdatePriority={handleUpdatePriority}
               onUpdateDeadline={handleUpdateDeadline}
               onUpdateFieldDeadline={handleUpdateFieldDeadline}
-              onReschedule={handleRescheduleTask} // Alterado de onPostpone para onReschedule
+              onPostpone={handleRescheduleTask}
               onUpdateDuration={handleUpdateDuration}
               isLoading={isLoadingTodoist}
             />
-          </div>
-
-          <div>
-            <Card className="mb-6 p-6">
-              <CardHeader>
-                <CardTitle className="text-xl font-bold text-gray-800">
-                  Reflexão do Dia ({format(new Date(), "dd/MM/yyyy", { locale: ptBR })})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <div>
-                  <Label htmlFor="reflection" className="text-gray-700">O que funcionou bem hoje?</Label>
-                  <Textarea
-                    id="reflection"
-                    value={reflection}
-                    onChange={(e) => setReflection(e.target.value)}
-                    placeholder="Ex: Consegui manter o foco nas P1s, a técnica Pomodoro ajudou."
-                    rows={5}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="improvements" className="text-gray-700">O que poderia ser melhorado amanhã?</Label>
-                  <Textarea
-                    id="improvements"
-                    value={improvements}
-                    onChange={(e) => setImprovements(e.target.value)}
-                    placeholder="Ex: Preciso planejar melhor as pausas, evitar distrações no celular."
-                    rows={5}
-                    className="mt-1"
-                  />
-                </div>
-                <Button onClick={saveDailyReview} className="w-full">
-                  Salvar Reflexão
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </div>
       )}
