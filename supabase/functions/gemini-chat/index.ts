@@ -9,19 +9,31 @@ serve(async (req) => {
   }
 
   try {
-    const { aiPrompt, userMessage, currentTask, allTasks } = await req.json();
+    const { aiPrompt, userMessage, currentTask, allTasks, listModelsOnly } = await req.json();
 
-    // Ensure GEMINI_API_KEY is set in Supabase environment variables
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not set in environment variables.');
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    // Alterando o modelo para 'gemini-1.0-pro' para maior compatibilidade e estabilidade
+
+    if (listModelsOnly) {
+      const models = await genAI.listModels();
+      const modelNames = models.map(model => ({
+        name: model.name,
+        version: model.version,
+        supportedGenerationMethods: model.supportedGenerationMethods,
+      }));
+      return new Response(JSON.stringify({ availableModels: modelNames }), {
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        status: 200,
+      });
+    }
+
+    // Usaremos 'gemini-1.0-pro' como fallback, mas você poderá ajustar após ver a lista de modelos.
     const model = genAI.getGenerativeModel({ model: 'gemini-1.0-pro' });
 
-    // Construct the full prompt for Gemini
     const fullPrompt = `
       ${aiPrompt}
 
@@ -49,8 +61,8 @@ serve(async (req) => {
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
       generationConfig: {
-        temperature: 0.4, // Um valor mais baixo para respostas mais focadas e menos criativas
-        maxOutputTokens: 1024, // Limite de tokens para a resposta, ajuste conforme necessário
+        temperature: 0.4,
+        maxOutputTokens: 1024,
       },
     });
     const response = await result.response;

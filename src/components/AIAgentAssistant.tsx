@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Bot, User, ClipboardCopy, RotateCcw } from "lucide-react";
+import { Send, Bot, User, ClipboardCopy, RotateCcw, List } from "lucide-react"; // Importar o ícone List
 import { TodoistTask } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -89,7 +89,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       if (taskContext) {
         addMessage("ai", `Olá! Sou o Tutor IA SEISO. Como posso te ajudar a focar e executar a tarefa "${taskContext.content}" hoje?`);
       } else {
-        addMessage("ai", "Olá! Sou o Tutor IA SEISO. Estou pronto para te ajudar a organizar suas tarefas. Posso sugerir a próxima tarefa com o 'Radar de Produtividade', responder a perguntas gerais sobre GTD/produtividade, ou te ajudar com uma tarefa específica se você a selecionar.");
+        addMessage("ai", "Olá! Sou o Tutor IA SEISO. Estou pronto para te ajudar a organizar suas tarefas. Posso sugerir a próxima tarefa com o 'Radar de Produtividade', responder a perguntas gerais sobre GTD/produtividade, ou te ajudar com uma tarefa específica se você a seleciona.");
       }
     }
 
@@ -122,7 +122,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
 \`\`\``;
   }, []);
 
-  const callGeminiChatFunction = useCallback(async (userMessage: string) => {
+  const callGeminiChatFunction = useCallback(async (userMessage: string, listModelsOnly: boolean = false) => {
     setIsThinking(true);
     try {
       const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
@@ -136,6 +136,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
           userMessage,
           currentTask: taskContext, // Pass the task in context
           allTasks, // Pass all tasks for Radar functionality
+          listModelsOnly, // Novo parâmetro
         }),
       });
 
@@ -145,8 +146,15 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       }
 
       const data = await response.json();
-      addMessage("ai", data.response);
-      setDialogueState(taskContext ? 'awaiting_task_action' : 'general_conversation'); // Adjust state based on context
+
+      if (listModelsOnly) {
+        console.log("Modelos Gemini disponíveis na função Edge:", data.availableModels);
+        addMessage("ai", "Verifique o console do navegador para a lista de modelos Gemini disponíveis.");
+        toast.info("Lista de modelos Gemini disponível no console do navegador.");
+      } else {
+        addMessage("ai", data.response);
+        setDialogueState(taskContext ? 'awaiting_task_action' : 'general_conversation'); // Adjust state based on context
+      }
     } catch (error: any) {
       console.error("Erro ao chamar a função Gemini Chat:", error);
       toast.error(`Erro no Tutor IA: ${error.message || "Não foi possível obter uma resposta."}`);
@@ -226,10 +234,14 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       if (taskContext) {
         localStorage.removeItem(getTaskHistoryKey(taskContext.id));
       }
-      addMessage("ai", "Olá! Sou o Tutor IA SEISO. Estou pronto para te ajudar a organizar suas tarefas. Posso sugerir a próxima tarefa com o 'Radar de Produtividade', responder a perguntas gerais sobre GTD/produtividade, ou te ajudar com uma tarefa específica se você a selecionar.");
+      addMessage("ai", "Olá! Sou o Tutor IA SEISO. Estou pronto para te ajudar a organizar suas tarefas. Posso sugerir a próxima tarefa com o 'Radar de Produtividade', responder a perguntas gerais sobre GTD/produtividade, ou te ajudar com uma tarefa específica se você a seleciona.");
       toast.success("Chat reiniciado!");
     }
   }, [taskContext, getTaskHistoryKey, addMessage]);
+
+  const handleListModels = useCallback(() => {
+    callGeminiChatFunction("Listar modelos", true);
+  }, [callGeminiChatFunction]);
 
   return (
     <Card className="h-[calc(100vh-100px)] flex flex-col">
@@ -238,6 +250,10 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
           <Bot className="h-5 w-5 text-indigo-600" /> Tutor IA SEISO
           <Button variant="ghost" size="icon" onClick={handleResetChat} className="ml-auto">
             <RotateCcw className="h-4 w-4 text-gray-500" />
+          </Button>
+          {/* Botão temporário para listar modelos */}
+          <Button variant="ghost" size="icon" onClick={handleListModels} disabled={isLoadingTodoist || isThinking}>
+            <List className="h-4 w-4 text-gray-500" />
           </Button>
         </CardTitle>
       </CardHeader>
