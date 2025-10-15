@@ -54,6 +54,8 @@ type MakeApiCallFn = <T>(
 
 const TodoistContext = createContext<TodoistContextType | undefined>(undefined);
 
+const TODOIST_API_KEY_STORAGE_KEY = "todoist_api_key"; // Chave para o localStorage
+
 const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
   if (task.due === undefined || (typeof task.due === 'string' && task.due === 'undefined')) {
     task.due = null;
@@ -88,7 +90,13 @@ const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
 };
 
 export const TodoistProvider = ({ children }: { children: ReactNode }) => {
-  const [apiKey, setApiKeyInternal] = useState<string | null>(null);
+  const [apiKey, setApiKeyInternal] = useState<string | null>(() => {
+    // Carregar a chave da API do localStorage na inicialização
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(TODOIST_API_KEY_STORAGE_KEY);
+    }
+    return null;
+  });
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [syncItemsCache, setSyncItemsCache] = useState<Map<string, any>>(new Map());
   const syncItemsCacheRef = useRef(syncItemsCache); // Use ref for immediate access in callbacks
@@ -99,10 +107,18 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => {
 
   const setApiKey = useCallback((key: string) => {
     setApiKeyInternal(key);
+    // Salvar a chave da API no localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(TODOIST_API_KEY_STORAGE_KEY, key);
+    }
   }, []);
 
   const clearApiKey = useCallback(() => {
     setApiKeyInternal(null);
+    // Remover a chave da API do localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(TODOIST_API_KEY_STORAGE_KEY);
+    }
     setSyncItemsCache(new Map()); // Clear cache on API key clear
   }, []);
 
