@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.1.3'; // Versão fixada
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.1.3'; // Mantendo a versão fixada para estabilidade
 
 console.log('Hello from Gemini Chat Edge Function!');
 
@@ -18,8 +18,34 @@ serve(async (req) => {
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-    // Usando 'gemini-pro' como um modelo mais amplamente disponível
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    // Usando 'gemini-2.5-flash' conforme sua sugestão, com configurações adicionais
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        temperature: 0.9,
+        topP: 1,
+        topK: 40,
+        maxOutputTokens: 8192,
+      },
+      safetySettings: [
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+      ],
+    });
 
     const fullPrompt = `
       ${aiPrompt}
@@ -47,10 +73,7 @@ serve(async (req) => {
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
-      generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 1024,
-      },
+      // generationConfig e safetySettings já estão no getGenerativeModel, não precisam ser repetidos aqui
     });
     const response = await result.response;
     const text = response.text();
