@@ -65,8 +65,8 @@ Stakeholders Críticos: Carlos Botelho, Paulo Pontes, Dallmann, Anaterra, Felipe
     *   **Objetivo:** Responda a perguntas estratégicas ou dúvidas de alto nível. Ajude o usuário a desbloquear o pensamento e definir a próxima ação de maior impacto e sob o controle imediato.
     *   **Método de Condução:** Execução passo a passo, sem atalhos.
     *   **Instruções de Resposta:** Para cada micro-ação, forneça:
-        *   Nome da Tarefa: [Use `currentTask.content`]
-        *   Link da Tarefa: [Use `currentTask.url`]
+        *   Nome da Tarefa: [Use \`currentTask.content\`]
+        *   Link da Tarefa: [Use \`currentTask.url\`]
         *   Próximo Passo: [Uma única ação, clara e concisa, sob controle do usuário]
     *   **Template de Atualização Todoist (copiar/colar):**
         \`\`\`
@@ -76,7 +76,7 @@ Stakeholders Críticos: Carlos Botelho, Paulo Pontes, Dallmann, Anaterra, Felipe
         *   **Atenção:** O "PROGRESSO" deve ser um resumo acumulativo e conciso do que já foi feito na sessão atual da tarefa. O "PRÓXIMO PASSO" é sempre a instrução mais recente.
     *   **Condução Passo a Passo:** Após o usuário confirmar a execução de um passo, **primeiro forneça feedback positivo e, em seguida, apresente o próximo micro-passo. Imediatamente após, forneça o bloco conciso de texto "Template de Atualização Todoist" para o usuário copiar e colar na descrição da tarefa no Todoist.** Continue até a tarefa ser 100% concluída ou bloqueada.
     *   **Finalização (ou Bloqueio):** Ao final de uma tarefa ou quando houver um bloqueio (ex: atendimento indisponível):
-        *   Forneça um template de atualização *final e consolidado* para o Todoist (seguindo a estrutura de `[PROGRESSO]` e `[PRÓXIMO PASSO]`), que resuma *todo* o progresso da tarefa até aquele momento.
+        *   Forneça um template de atualização *final e consolidado* para o Todoist (seguindo a estrutura de \`[PROGRESSO]\` e \`[PRÓXIMO PASSO]\`), que resuma *todo* o progresso da tarefa até aquele momento.
         *   Avalie se um feedback ao stakeholder é necessário e forneça um template.
     *   **Adaptabilidade:** A linguagem de coaching deve ser adaptável, sendo profunda e instigante quando apropriado, mas priorizando a concisão e a direcionalidade quando o usuário expressar a necessidade (ex: TDAH). Evite listas ou formatações rígidas, a menos que seja para destacar uma única e clara instrução de ação.
 
@@ -92,9 +92,9 @@ Stakeholders Críticos: Carlos Botelho, Paulo Pontes, Dallmann, Anaterra, Felipe
     *   **Apresente-se:** "Olá! Sou o Tutor IA SEISO. Estou pronto para te ajudar a organizar suas tarefas."
     *   **Ofereça Opções:** "Posso sugerir a próxima tarefa com o 'Radar de Produtividade', responder a perguntas gerais sobre GTD/produtividade, ou te ajudar com uma tarefa específica se você a selecionar."
     *   **Redirecione:** Se o usuário tentar um comando de tarefa específica sem contexto, redirecione-o para o "Radar" ou para selecionar uma tarefa.
-2.  **Com Tarefa em Foco (Usando `taskContext`):**
-    *   **Mantenha o Foco:** Responda a perguntas sobre "próximo passo", "delegar", "status", "concluir" para a `taskContext` atual.
-    *   **Radar (com foco):** Se o usuário pedir o "Radar" enquanto uma tarefa está em foco, use `allTasks` para identificar e **sugira a tarefa mais crítica do radar**, perguntando se o usuário quer mudar o foco para ela.
+2.  **Com Tarefa em Foco (Usando \`taskContext\`):**
+    *   **Mantenha o Foco:** Responda a perguntas sobre "próximo passo", "delegar", "status", "concluir" para a \`taskContext\` atual.
+    *   **Radar (com foco):** Se o usuário pedir o "Radar" enquanto uma tarefa está em foco, use \`allTasks\` para identificar e **sugira a tarefa mais crítica do radar**, perguntando se o usuário quer mudar o foco para ela.
 3.  **Reconhecimento de Intenção Flexível:**
     *   **Interprete:** Tente entender a intenção do usuário mesmo com frases variadas (ex: "Quero passar isso para outra pessoa" -> Delegar; "Me ajuda a decidir o que fazer" -> Próximo Passo; "Terminei" -> Concluir).
 4.  **Feedback e Esclarecimento:**
@@ -104,256 +104,4 @@ Stakeholders Críticos: Carlos Botelho, Paulo Pontes, Dallmann, Anaterra, Felipe
 **PERSONA DO MENTOR:**
 *   **Clara, Objetiva e Focada na Ação:** Sua comunicação é direta e prática.
 *   **Positiva e Encorajadora:** Apesar da firmeza, sua linguagem é positiva e construtiva, para construir disciplina sem gerar sobrecarga emocional. Você reconhece o esforço e celebra as vitórias.
-*   **Anti-Procrastinação:** Você é especialista em quebrar a inércia, transformando tarefas vagas em ações concretas e imediatas.`;
-
-const NovoSeiso = () => {
-  console.log("NovoSeiso component started rendering."); // Add this log
-
-  const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
-  const [filterInput, setFilterInput] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(NOVO_SEISO_FILTER_INPUT_STORAGE_KEY) || "";
-    }
-    return "";
-  });
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<"all" | "pessoal" | "profissional">(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem(NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all";
-    }
-    return "all";
-  });
-  const [selectedTaskSource, setSelectedTaskSource] = useState<"filter" | "planner" | "ranking" | "all">(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem(NOVO_SEISO_TASK_SOURCE_STORAGE_KEY) as "filter" | "planner" | "ranking" | "all") || "filter";
-    }
-    return "filter";
-  });
-  const [aiPrompt, setAiPrompt] = useState<string>(defaultAiPrompt);
-  const [allTodoistTasks, setAllTodoistTasks] = useState<TodoistTask[]>([]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(NOVO_SEISO_FILTER_INPUT_STORAGE_KEY, filterInput);
-    }
-  }, [filterInput]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY, selectedCategoryFilter);
-    }
-  }, [selectedCategoryFilter]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(NOVO_SEISO_TASK_SOURCE_STORAGE_KEY, selectedTaskSource);
-    }
-  }, [selectedTaskSource]);
-
-  const {
-    focusTasks,
-    initialTotalTasks,
-    currentTaskIndex,
-    execucaoState,
-    isLoadingTasks,
-    loadTasksForFocus,
-    advanceToNextTask,
-    updateTaskInFocusList,
-    setFocusTaskById,
-  } = useExecucaoTasks(filterInput, selectedCategoryFilter, selectedTaskSource);
-
-  const currentTask = focusTasks[currentTaskIndex];
-
-  const fetchAllTodoistTasks = useCallback(async () => {
-    const tasks = await fetchTasks(undefined, { includeSubtasks: false, includeRecurring: false });
-    setAllTodoistTasks(tasks);
-  }, [fetchTasks]);
-
-  useEffect(() => {
-    fetchAllTodoistTasks();
-  }, [fetchAllTodoistTasks]);
-
-  useEffect(() => {
-    const savedPrompt = localStorage.getItem(AI_AGENT_PROMPT_STORAGE_KEY);
-    if (savedPrompt) {
-      setAiPrompt(savedPrompt);
-    }
-  }, []);
-
-  const handleSaveAiPrompt = useCallback((newPrompt: string) => {
-    setAiPrompt(newPrompt);
-    localStorage.setItem(AI_AGENT_PROMPT_STORAGE_KEY, newPrompt);
-  }, []);
-
-  const handleComplete = useCallback(async (taskId: string) => {
-    const success = await closeTask(taskId);
-    if (success !== undefined) {
-      advanceToNextTask();
-      toast.success("Tarefa concluída com sucesso!");
-      fetchAllTodoistTasks();
-    }
-  }, [closeTask, advanceToNextTask, fetchAllTodoistTasks]);
-
-  const handleSkip = useCallback(async () => {
-    advanceToNextTask();
-    toast.info("Tarefa pulada.");
-  }, [advanceToNextTask]);
-
-  const handleUpdateTaskAndRefresh = useCallback(async (taskId: string, data: {
-    priority?: 1 | 2 | 3 | 4;
-    due_date?: string | null;
-    due_datetime?: string | null;
-    duration?: number;
-    duration_unit?: "minute" | "day";
-    deadline?: string | null;
-  }) => {
-    const updated = await updateTask(taskId, data);
-    if (updated) {
-      updateTaskInFocusList(updated);
-      toast.success("Tarefa atualizada com sucesso!");
-      fetchAllTodoistTasks();
-    }
-    return updated;
-  }, [updateTask, updateTaskInFocusList, fetchAllTodoistTasks]);
-
-  const handlePostpone = useCallback(async (taskId: string) => {
-    if (!currentTask) return;
-
-    const nextInterval = calculateNext15MinInterval(new Date());
-    
-    const updatedLabels = new Set(currentTask.labels);
-    updatedLabels.delete('🎯 Foco');
-    updatedLabels.add('⚡ Rápida');
-
-    const updated = await updateTask(taskId, {
-      due_date: nextInterval.date,
-      due_datetime: nextInterval.datetime,
-      labels: Array.from(updatedLabels),
-    });
-    if (updated) {
-      toast.success(`Tarefa postergada para ${format(parseISO(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })} e atualizada!`);
-      advanceToNextTask();
-      fetchAllTodoistTasks();
-    } else {
-      toast.error("Falha ao postergar a tarefa.");
-    }
-  }, [updateTask, advanceToNextTask, currentTask, fetchAllTodoistTasks]);
-
-  const handleEmergencyFocus = useCallback(async (taskId: string) => {
-    if (!currentTask) return;
-
-    const updatedLabels = new Set(currentTask.labels);
-    updatedLabels.add('🎯 Foco');
-
-    const updated = await updateTask(taskId, {
-      labels: Array.from(updatedLabels),
-    });
-
-    if (updated) {
-      updateTaskInFocusList(updated);
-      toast.success(`Etiqueta '🎯 Foco' adicionada à tarefa "${currentTask.content}"!`);
-      fetchAllTodoistTasks();
-    } else {
-      toast.error("Falha ao adicionar a etiqueta '🎯 Foco'.");
-    }
-  }, [currentTask, updateTask, updateTaskInFocusList, fetchAllTodoistTasks]);
-
-  const handleAISuggestTask = useCallback((suggestedTask: TodoistTask) => {
-    setFocusTaskById(suggestedTask.id);
-  }, [setFocusTaskById]);
-
-  const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
-
-  useKeyboardShortcuts({
-    execucaoState,
-    isLoading: isLoadingTodoist || isLoadingTasks,
-    currentTask,
-    onComplete: handleComplete,
-    onSkip: handleSkip,
-    onOpenReschedulePopover: () => setIsReschedulePopoverOpen(true),
-  });
-
-  const tasksProcessed = initialTotalTasks - focusTasks.length;
-  const progressValue = initialTotalTasks > 0 ? (tasksProcessed / initialTotalTasks) * 100 : 0;
-  
-  const isLoading = isLoadingTodoist || isLoadingTasks;
-
-  return (
-    <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Debug Info removido */}
-
-      <div className="lg:col-span-2">
-        <h2 className="text-3xl font-bold mb-2 text-gray-800">✨ NOVO SEISO - Modo Foco Total</h2>
-        <p className="text-lg text-gray-600 mb-6">Concentre-se em uma tarefa por vez.</p>
-
-        {isLoading && (
-          <div className="flex justify-center items-center h-48">
-            <LoadingSpinner size={40} />
-          </div>
-        )}
-
-        {!isLoading && execucaoState === "initial" && (
-          <ExecucaoInitialState
-            filterInput={filterInput}
-            setFilterInput={setFilterInput}
-            selectedCategoryFilter={selectedCategoryFilter}
-            setSelectedCategoryFilter={setSelectedCategoryFilter}
-            selectedTaskSource={selectedTaskSource}
-            setSelectedTaskSource={setSelectedTaskSource}
-            onStartFocus={() => loadTasksForFocus(selectedTaskSource)}
-            isLoading={isLoading}
-          />
-        )}
-
-        {!isLoading && execucaoState === "focusing" && currentTask && (
-          <div className="mt-8">
-            <FocusTaskCard task={currentTask} />
-
-            <TaskActionButtons
-              currentTask={currentTask}
-              isLoading={isLoading}
-              onComplete={handleComplete}
-              onSkip={handleSkip}
-              onUpdateTask={handleUpdateTaskAndRefresh}
-              onPostpone={handlePostpone}
-              onEmergencyFocus={handleEmergencyFocus}
-            />
-
-            <div className="mt-8 text-center">
-              <p className="text-lg font-medium text-gray-700 mb-2">
-                Tarefas restantes: {focusTasks.length} de {initialTotalTasks}
-              </p>
-              <Progress value={progressValue} className="w-full max-w-md mx-auto h-3" />
-            </div>
-          </div>
-        )}
-
-        {!isLoading && execucaoState === "finished" && (
-          <ExecucaoFinishedState
-            originalTasksCount={initialTotalTasks}
-            onStartNewFocus={() => loadTasksForFocus(selectedTaskSource)}
-          />
-        )}
-      </div>
-
-      <div className="lg:col-span-1 flex flex-col gap-4">
-        <div className="flex justify-end">
-          <AIAgentPromptEditor
-            initialPrompt={aiPrompt}
-            onSave={handleSaveAiPrompt}
-            storageKey={AI_AGENT_PROMPT_STORAGE_KEY}
-          />
-        </div>
-        <AIAgentAssistant
-          aiPrompt={aiPrompt}
-          currentTask={currentTask}
-          allTasks={allTodoistTasks}
-          updateTask={handleUpdateTaskAndRefresh}
-          closeTask={handleComplete}
-          onTaskSuggested={handleAISuggestTask}
-        />
-      </div>
-    </div>
-  );
-};
-
-export default NovoSeiso;
+*   **Anti-Procrastinação:** Você é especialista em quebrar a inércia, transformando tarefas vagas em ações concretas e imediatas.
