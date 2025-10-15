@@ -9,7 +9,7 @@ serve(async (req) => {
   }
 
   try {
-    const { aiPrompt, userMessage, currentTask, allTasks } = await req.json(); // Removido debugAIOnly e listModelsOnly
+    const { aiPrompt, userMessage, currentTask, allTasks } = await req.json();
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     if (!GEMINI_API_KEY) {
@@ -17,10 +17,9 @@ serve(async (req) => {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    // Removidos os logs de depuração do genAI object
 
-    // Usando 'gemini-1.5-flash' conforme sua sugestão
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Usando 'gemini-pro' como um modelo mais amplamente disponível
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
     const fullPrompt = `
       ${aiPrompt}
