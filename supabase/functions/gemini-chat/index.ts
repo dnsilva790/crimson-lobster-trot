@@ -18,8 +18,8 @@ serve(async (req) => {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    // Alterando o modelo para 'gemini-1.5-flash' para maior compatibilidade e desempenho
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Alterando o modelo para 'gemini-1.0-pro' para maior compatibilidade e estabilidade
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.0-pro' });
 
     // Construct the full prompt for Gemini
     const fullPrompt = `
