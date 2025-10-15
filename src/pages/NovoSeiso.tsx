@@ -25,6 +25,7 @@ const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input";
 const NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY = "novoseiso_category_filter";
 const NOVO_SEISO_TASK_SOURCE_STORAGE_KEY = "novoseiso_task_source";
 const FOCO_LABEL_ID = "🎯 Foco"; // Definindo a constante para a etiqueta de foco
+const RAPIDA_LABEL_ID = "⚡ Rápida"; // Nova constante para a etiqueta Rápida
 
 const defaultAiPrompt = `**TUTOR IA SEISO - COACH DE EXECUÇÃO ESTRATÉGICA E PRODUTIVIDADE**
 
@@ -222,18 +223,32 @@ const NovoSeiso = () => {
   }, [updateTask, updateTaskInFocusList]);
 
   const handlePostpone = useCallback(async (taskId: string) => {
+    const taskToUpdate = focusTasks.find(task => task.id === taskId);
+    if (!taskToUpdate) {
+      toast.error("Tarefa não encontrada para postergar.");
+      return;
+    }
+
     const nextInterval = calculateNext15MinInterval(new Date());
+    
+    // Remove FOCO_LABEL_ID and add RAPIDA_LABEL_ID
+    const updatedLabels = [...new Set([
+      ...taskToUpdate.labels.filter(label => label !== FOCO_LABEL_ID),
+      RAPIDA_LABEL_ID
+    ])];
+
     const updated = await updateTask(taskId, {
       due_date: nextInterval.date,
       due_datetime: nextInterval.datetime,
+      labels: updatedLabels, // Atualiza as etiquetas
     });
     if (updated) {
-      toast.success(`Tarefa postergada para ${format(parseISO(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
+      toast.success(`Tarefa postergada para ${format(parseISO(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })} e marcada como rápida!`);
       updateTaskInFocusList(updated);
     } else {
       toast.error("Falha ao postergar a tarefa.");
     }
-  }, [updateTask, updateTaskInFocusList]);
+  }, [updateTask, updateTaskInFocusList, focusTasks]);
 
   const handleEmergencyFocus = useCallback(async (taskId: string) => {
     const taskToUpdate = focusTasks.find(task => task.id === taskId);
