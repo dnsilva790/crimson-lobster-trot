@@ -7,15 +7,13 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { format, parseISO, isValid, isPast, isToday, addHours, isBefore } from "date-fns";
+import { format, parseISO, isValid, addHours, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CheckSquare } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { calculateNext15MinInterval, calculateNextFullHour } from "@/utils/dateUtils";
 import TaskReviewCard from "@/components/TaskReviewCard";
+import { calculateNextFullHour } from "@/utils/dateUtils";
 
-// Storage keys for daily review entries
+// Storage keys for daily review entries (not used in UI, but kept for data integrity)
 const DAILY_REVIEW_STORAGE_KEY_PREFIX = "shitsuke_daily_review_";
 
 interface DailyReviewEntry {
@@ -31,43 +29,31 @@ const Shitsuke = () => {
   const [tasksToReview, setTasksToReview] = useState<TodoistTask[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [reviewState, setReviewState] = useState<"initial" | "reviewing" | "finished">("initial");
-  const [reflection, setReflection] = useState<string>(""); // Manter estado, mas não será usado na UI
-  const [improvements, setImprovements] = useState<string>(""); // Manter estado, mas não será usado na UI
-  const [currentReviewEntry, setCurrentReviewEntry] = useState<DailyReviewEntry | null>(null); // Manter estado, mas não será usado na UI
   const [nextRescheduleTime, setNextRescheduleTime] = useState<Date | null>(null);
 
   const todayKey = format(new Date(), "yyyy-MM-dd");
   const dailyReviewStorageKey = `${DAILY_REVIEW_STORAGE_KEY_PREFIX}${todayKey}`;
 
+  // Placeholder for daily review loading/saving logic (not exposed in UI)
   const loadDailyReview = useCallback(() => {
-    // A lógica de carregamento ainda existe, mas a UI não a exibirá
     const storedEntry = localStorage.getItem(dailyReviewStorageKey);
     if (storedEntry) {
       const parsedEntry: DailyReviewEntry = JSON.parse(storedEntry);
-      setCurrentReviewEntry(parsedEntry);
-      setReflection(parsedEntry.reflection);
-      setImprovements(parsedEntry.improvements);
-    } else {
-      setCurrentReviewEntry(null);
-      setReflection("");
-      setImprovements("");
+      // Do something with parsedEntry if needed, but not for UI display
     }
   }, [dailyReviewStorageKey]);
 
   const saveDailyReview = useCallback(() => {
-    // A lógica de salvamento ainda existe, mas não será acionada pela UI
     const now = new Date().toISOString();
     const entry: DailyReviewEntry = {
       date: todayKey,
-      reflection: reflection.trim(),
-      improvements: improvements.trim(),
-      createdAt: currentReviewEntry?.createdAt || now,
+      reflection: "", // Not collecting from UI
+      improvements: "", // Not collecting from UI
+      createdAt: "", // Placeholder
       updatedAt: now,
     };
     localStorage.setItem(dailyReviewStorageKey, JSON.stringify(entry));
-    setCurrentReviewEntry(entry);
-    // toast.success("Revisão diária salva!"); // Remover toast, pois a ação não será visível
-  }, [reflection, improvements, todayKey, dailyReviewStorageKey, currentReviewEntry]);
+  }, [todayKey, dailyReviewStorageKey]);
 
   const sortTasksForShitsuke = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
@@ -116,14 +102,13 @@ const Shitsuke = () => {
   }, []);
 
   const loadTasksForReview = useCallback(async () => {
-    setReviewState("initial"); // Set to initial to show loading state
-    setCurrentTaskIndex(0); // Reset index
-    setNextRescheduleTime(null); // Reset reschedule time
+    setReviewState("initial");
+    setCurrentTaskIndex(0);
+    setNextRescheduleTime(null);
 
     try {
-      // Filtro para tarefas com vencimento no passado ou agora
       const tasks = await fetchTasks("due before: in 0 min", { includeSubtasks: false, includeRecurring: false });
-      const filtered = tasks.filter(task => !task.is_completed); // Only show incomplete tasks
+      const filtered = tasks.filter(task => !task.is_completed);
       
       if (filtered.length > 0) {
         const sortedTasks = sortTasksForShitsuke(filtered);
@@ -145,7 +130,7 @@ const Shitsuke = () => {
 
   useEffect(() => {
     loadTasksForReview();
-    loadDailyReview(); // Ainda carrega, mas não será exibido
+    loadDailyReview();
   }, [loadTasksForReview, loadDailyReview]);
 
   const handleNextTask = useCallback(() => {
@@ -277,26 +262,23 @@ const Shitsuke = () => {
     let newRescheduleDateTime: Date;
 
     if (nextRescheduleTime) {
-      // Se já há um tempo de reprogramação anterior, adicione 1 hora
       newRescheduleDateTime = addHours(nextRescheduleTime, 1);
-      // Garante que não reprogramamos para o passado se o nextRescheduleTime for muito antigo
       if (isBefore(newRescheduleDateTime, now)) {
         newRescheduleDateTime = parseISO(calculateNextFullHour(now).datetime);
       }
     } else {
-      // Se for a primeira reprogramação, use a próxima hora cheia
       newRescheduleDateTime = parseISO(calculateNextFullHour(now).datetime);
     }
 
     const formattedDateTime = format(newRescheduleDateTime, "yyyy-MM-dd'T'HH:mm:ss");
 
     const updated = await updateTask(taskId, {
-      due_date: null, // Limpa due_date se due_datetime for definido
+      due_date: null,
       due_datetime: formattedDateTime,
     });
 
     if (updated) {
-      setNextRescheduleTime(newRescheduleDateTime); // Atualiza o estado para a próxima reprogramação
+      setNextRescheduleTime(newRescheduleDateTime);
       toast.success(`Tarefa reprogramada para ${format(newRescheduleDateTime, "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
       handleNextTask();
     } else {
@@ -336,7 +318,7 @@ const Shitsuke = () => {
       )}
 
       {!isLoadingTodoist && reviewState === "reviewing" && currentTask && (
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6"> {/* Alterado para 1 coluna */}
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
           <div>
             <p className="text-center text-xl font-medium mb-6 text-gray-700">
               Revisando tarefa {currentTaskIndex + 1} de {tasksToReview.length}
@@ -350,7 +332,7 @@ const Shitsuke = () => {
               onUpdatePriority={handleUpdatePriority}
               onUpdateDeadline={handleUpdateDeadline}
               onUpdateFieldDeadline={handleUpdateFieldDeadline}
-              onReschedule={handleRescheduleTask} {/* CORREÇÃO AQUI */}
+              onReschedule={handleRescheduleTask}
               onUpdateDuration={handleUpdateDuration}
               isLoading={isLoadingTodoist}
             />
