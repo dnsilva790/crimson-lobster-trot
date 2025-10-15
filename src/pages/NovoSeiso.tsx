@@ -26,6 +26,7 @@ const NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY = "novoseiso_category_filter";
 const NOVO_SEISO_TASK_SOURCE_STORAGE_KEY = "novoseiso_task_source";
 const FOCO_LABEL_ID = "🎯 Foco"; // Definindo a constante para a etiqueta de foco
 const RAPIDA_LABEL_ID = "⚡ Rápida"; // Nova constante para a etiqueta Rápida
+const CRONOGRAMA_HOJE_LABEL = "📆 Cronograma de hoje"; // Nova constante para a etiqueta Cronograma de hoje
 
 const defaultAiPrompt = `**TUTOR IA SEISO - COACH DE EXECUÇÃO ESTRATÉGICA E PRODUTIVIDADE**
 
@@ -231,9 +232,9 @@ const NovoSeiso = () => {
 
     const nextInterval = calculateNext15MinInterval(new Date());
     
-    // Remove FOCO_LABEL_ID and add RAPIDA_LABEL_ID
+    // Remove FOCO_LABEL_ID e CRONOGRAMA_HOJE_LABEL, e adiciona RAPIDA_LABEL_ID
     const updatedLabels = [...new Set([
-      ...taskToUpdate.labels.filter(label => label !== FOCO_LABEL_ID),
+      ...taskToUpdate.labels.filter(label => label !== FOCO_LABEL_ID && label !== CRONOGRAMA_HOJE_LABEL),
       RAPIDA_LABEL_ID
     ])];
 
