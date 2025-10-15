@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid, isToday, isTomorrow, isPast, addHours, getHours, differenceInDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useTodoist } from "@/context/TodoistContext"; // Import useTodoist
+import { useTodoist } from "@/context/TodoistContext";
 
 interface AIAgentAssistantProps {
   aiPrompt: string;
@@ -60,7 +60,10 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
   const [isThinking, setIsThinking] = useState(false);
   const [lastGeneratedReport, setLastGeneratedReport] = useState<string | null>(null);
   const [suggestedTaskForGuidance, setSuggestedTaskForGuidance] = useState<TodoistTask | null>(null); // Nova tarefa sugerida pelo IA
-  const scrollAreaRef = useRef<HTMLDivAreaElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null); // Corrigido o tipo para HTMLDivElement
+
+  // Determine the task context: explicit selection first, then AI suggestion
+  const taskContext = currentTask || suggestedTaskForGuidance;
 
   const getTaskHistoryKey = useCallback((taskId: string) => {
     return `${AI_CHAT_HISTORY_KEY_PREFIX}${taskId}`;
@@ -68,29 +71,28 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
 
   // Load messages for the current task (from dropdown) or clear if none selected
   useEffect(() => {
-    const taskInFocus = currentTask || suggestedTaskForGuidance;
-    if (taskInFocus) {
-      const savedHistory = localStorage.getItem(getTaskHistoryKey(taskInFocus.id));
+    if (taskContext) {
+      const savedHistory = localStorage.getItem(getTaskHistoryKey(taskContext.id));
       if (savedHistory) {
         setMessages(JSON.parse(savedHistory));
       } else {
         setMessages([]);
-        addMessage("ai", `Olá! Sou o Tutor IA SEISO. Como posso te ajudar a focar e executar a tarefa "${taskInFocus.content}" hoje?`);
+        addMessage("ai", `Olá! Sou o Tutor IA SEISO. Como posso te ajudar a focar e executar a tarefa "${taskContext.content}" hoje?`);
       }
     } else {
       setMessages([]); // Clear messages if no task is in focus
       addMessage("ai", "Olá! Sou o Tutor IA SEISO. Estou pronto para te ajudar a organizar suas tarefas. Qual a próxima tarefa que devo executar?");
     }
     setLastGeneratedReport(null); // Clear last generated report when task changes
-  }, [currentTask, suggestedTaskForGuidance, getTaskHistoryKey]);
+  }, [taskContext, getTaskHistoryKey]);
 
   // Save messages whenever they change for the current task (from dropdown) or suggested task
   useEffect(() => {
-    const taskIdToSave = currentTask?.id || suggestedTaskForGuidance?.id;
+    const taskIdToSave = taskContext?.id; // Usar taskContext aqui
     if (taskIdToSave && messages.length > 0) {
       localStorage.setItem(getTaskHistoryKey(taskIdToSave), JSON.stringify(messages));
     }
-  }, [messages, currentTask, suggestedTaskForGuidance, getTaskHistoryKey]);
+  }, [messages, taskContext, getTaskHistoryKey]); // Depender de taskContext
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -135,9 +137,6 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
   const simulateAIResponse = useCallback(async (userMessage: string) => {
     setIsThinking(true);
     let responseText = "Não entendi sua solicitação. Por favor, tente novamente.";
-
-    // Determine the task context: explicit selection first, then AI suggestion
-    const taskContext = currentTask || suggestedTaskForGuidance;
 
     if (!taskContext && !userMessage.toLowerCase().includes("radar") && !userMessage.toLowerCase().includes("sugerir próxima tarefa")) {
       responseText = "Por favor, selecione uma tarefa ou me peça para sugerir a próxima tarefa com o 'Radar de Produtividade'.";
@@ -296,7 +295,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       addMessage("ai", responseText);
       setIsThinking(false);
     }, 1500); // Simulate AI thinking time
-  }, [addMessage, currentTask, allTasks, closeTask, aiPrompt, parseDelegateInfo, parseCriticalStakeholders, generateTodoistUpdateSuggestion, updateTask, suggestedTaskForGuidance, onTaskSuggested]);
+  }, [addMessage, currentTask, allTasks, closeTask, aiPrompt, parseDelegateInfo, parseCriticalStakeholders, generateTodoistUpdateSuggestion, updateTask, suggestedTaskForGuidance, onTaskSuggested, taskContext]);
 
   const handleSendMessage = async () => {
     if (inputMessage.trim() === "" || isThinking) return;
@@ -309,7 +308,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
   };
 
   const handleGenerateStatusReport = useCallback(() => {
-    const taskToReport = currentTask || suggestedTaskForGuidance;
+    const taskToReport = taskContext; // Usar taskContext aqui
     if (!taskToReport) {
       toast.error("Selecione uma tarefa ou peça uma sugestão para gerar o relatório de status.");
       return;
@@ -319,10 +318,10 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     const report = generateTodoistUpdateSuggestion(statusText, nextStepText);
     setLastGeneratedReport(report);
     toast.success("Relatório de status gerado!");
-  }, [currentTask, suggestedTaskForGuidance, generateTodoistUpdateSuggestion]);
+  }, [taskContext, generateTodoistUpdateSuggestion]); // Depender de taskContext
 
   const handleGenerateNextStepReport = useCallback(() => {
-    const taskToReport = currentTask || suggestedTaskForGuidance;
+    const taskToReport = taskContext; // Usar taskContext aqui
     if (!taskToReport) {
       toast.error("Selecione uma tarefa ou peça uma sugestão para gerar o relatório de próximo passo.");
       return;
@@ -331,7 +330,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     const report = generateTodoistUpdateSuggestion("(Preencha aqui o que foi feito na última sessão)", nextStepText);
     setLastGeneratedReport(report);
     toast.success("Relatório de próximo passo gerado!");
-  }, [currentTask, suggestedTaskForGuidance, generateTodoistUpdateSuggestion]);
+  }, [taskContext, generateTodoistUpdateSuggestion]); // Depender de taskContext
 
   const handleCopyReport = useCallback(() => {
     if (lastGeneratedReport) {
