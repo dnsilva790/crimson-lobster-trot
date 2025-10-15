@@ -218,18 +218,22 @@ const Seiri = () => {
   }, [tasksToReview, updateTask]);
 
   const handleUpdateDuration = useCallback(async (taskId: string, duration: number | null) => {
+    console.log(`Seiri: handleUpdateDuration called for task ${taskId} with duration: ${duration}`);
     const updated = await updateTask(taskId, {
       duration: duration,
       duration_unit: duration !== null ? "minute" : undefined,
     });
     if (updated) {
+      console.log(`Seiri: Task ${taskId} updated successfully. New duration from API:`, updated.duration);
+      console.log(`Seiri: New estimatedDurationMinutes from API:`, updated.estimatedDurationMinutes);
       setTasksToReview(prevTasks =>
         prevTasks.map(task =>
-          task.id === taskId ? { ...task, duration: updated.duration } : task
+          task.id === taskId ? { ...task, duration: updated.duration, estimatedDurationMinutes: updated.estimatedDurationMinutes } : task
         )
       );
       toast.success(`Duração da tarefa atualizada para: ${duration !== null ? `${duration} minutos` : 'nenhuma'}!`);
     } else {
+      console.error(`Seiri: Failed to update duration for task ${taskId}.`);
       toast.error("Falha ao atualizar a duração da tarefa.");
     }
   }, [tasksToReview, updateTask]);
