@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Bot, User, ClipboardCopy, RotateCcw } from "lucide-react"; // Remover o ícone List
+import { Send, Bot, User, ClipboardCopy, RotateCcw } from "lucide-react";
 import { TodoistTask } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -122,7 +122,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
 \`\`\``;
   }, []);
 
-  const callGeminiChatFunction = useCallback(async (userMessage: string, listModelsOnly: boolean = false) => {
+  const callGeminiChatFunction = useCallback(async (userMessage: string, debugAIOnly: boolean = false) => { // Alterado para debugAIOnly
     setIsThinking(true);
     try {
       const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
@@ -136,7 +136,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
           userMessage,
           currentTask: taskContext, // Pass the task in context
           allTasks, // Pass all tasks for Radar functionality
-          listModelsOnly, // Novo parâmetro
+          debugAIOnly, // Novo parâmetro
         }),
       });
 
@@ -147,10 +147,10 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
 
       const data = await response.json();
 
-      if (listModelsOnly) {
-        console.log("Modelos Gemini disponíveis na função Edge:", data.availableModels);
-        addMessage("ai", "Verifique o console do navegador para a lista de modelos Gemini disponíveis.");
-        toast.info("Lista de modelos Gemini disponível no console do navegador.");
+      if (debugAIOnly) { // Nova lógica de depuração
+        console.log("DEBUG INFO from Edge Function:", data.debugInfo);
+        addMessage("ai", `Informações de depuração da IA enviadas para o console do navegador. Verifique os logs 'DEBUG INFO'.`);
+        toast.info("Informações de depuração da IA disponíveis no console do navegador.");
       } else {
         addMessage("ai", data.response);
         setDialogueState(taskContext ? 'awaiting_task_action' : 'general_conversation'); // Adjust state based on context
@@ -184,6 +184,11 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
         addMessage("ai", "Não há uma tarefa em foco para concluir.");
         setDialogueState('awaiting_task_action');
       }
+      return;
+    }
+    
+    if (lowerCaseMessage.includes("depurar ia")) { // Novo comando para depuração
+      await callGeminiChatFunction(userMsg, true);
       return;
     }
 
@@ -238,9 +243,6 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       toast.success("Chat reiniciado!");
     }
   }, [taskContext, getTaskHistoryKey, addMessage]);
-
-  // A função handleListModels não será mais chamada por um botão, mas sim por um comando de texto.
-  // Ela ainda precisa existir para ser chamada pelo `callGeminiChatFunction`.
 
   return (
     <Card className="h-[calc(100vh-100px)] flex flex-col">

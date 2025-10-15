@@ -9,7 +9,7 @@ serve(async (req) => {
   }
 
   try {
-    const { aiPrompt, userMessage, currentTask, allTasks, listModelsOnly } = await req.json();
+    const { aiPrompt, userMessage, currentTask, allTasks, debugAIOnly } = await req.json(); // Alterado para debugAIOnly
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     if (!GEMINI_API_KEY) {
@@ -18,28 +18,24 @@ serve(async (req) => {
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     console.log('DEBUG: typeof genAI:', typeof genAI);
-    console.log('DEBUG: genAI object:', genAI);
+    console.log('DEBUG: genAI object (raw):', genAI);
+    console.log('DEBUG: genAI keys:', Object.keys(genAI));
+    console.log('DEBUG: genAI prototype keys:', Object.keys(Object.getPrototypeOf(genAI)));
 
-    if (listModelsOnly) {
-      // Verifique se listModels existe antes de chamar
-      if (typeof genAI.listModels === 'function') {
-        const models = await genAI.listModels();
-        const modelNames = models.map(model => ({
-          name: model.name,
-          version: model.version,
-          supportedGenerationMethods: model.supportedGenerationMethods,
-        }));
-        return new Response(JSON.stringify({ availableModels: modelNames }), {
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-          status: 200,
-        });
-      } else {
-        console.error('ERROR: genAI.listModels is not a function even after import. genAI:', genAI);
-        return new Response(JSON.stringify({ error: 'listModels method not found on GoogleGenerativeAI instance.' }), {
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-          status: 500,
-        });
-      }
+
+    if (debugAIOnly) { // Nova lógica de depuração
+      return new Response(JSON.stringify({ 
+        debugInfo: {
+          typeOfGenAI: typeof genAI,
+          genAIKeys: Object.keys(genAI),
+          genAIPrototypeKeys: Object.keys(Object.getPrototypeOf(genAI)),
+          hasListModelsMethod: typeof genAI.listModels === 'function',
+          // Adicione mais propriedades se necessário para depuração
+        }
+      }), {
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        status: 200,
+      });
     }
 
     // Usaremos 'gemini-1.0-pro' como fallback, mas você poderá ajustar após ver a lista de modelos.
