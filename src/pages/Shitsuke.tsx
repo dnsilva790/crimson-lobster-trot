@@ -12,8 +12,8 @@ import { ptBR } from "date-fns/locale";
 import { CheckSquare } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { calculateNext15MinInterval } from "@/utils/dateUtils";
-import TaskReviewCard from "@/components/TaskReviewCard"; // Importar TaskReviewCard
+import { calculateNext15MinInterval, calculateNextFullHour } from "@/utils/dateUtils"; // Importar calculateNextFullHour
+import TaskReviewCard from "@/components/TaskReviewCard";
 
 // Storage keys for daily review entries
 const DAILY_REVIEW_STORAGE_KEY_PREFIX = "shitsuke_daily_review_";
@@ -34,6 +34,7 @@ const Shitsuke = () => {
   const [reflection, setReflection] = useState<string>("");
   const [improvements, setImprovements] = useState<string>("");
   const [currentReviewEntry, setCurrentReviewEntry] = useState<DailyReviewEntry | null>(null);
+  const [nextRescheduleTime, setNextRescheduleTime] = useState<Date | null>(null); // Novo estado para a próxima hora de reprogramação
 
   const todayKey = format(new Date(), "yyyy-MM-dd");
   const dailyReviewStorageKey = `${DAILY_REVIEW_STORAGE_KEY_PREFIX}${todayKey}`;
@@ -66,46 +67,104 @@ const Shitsuke = () => {
     toast.success("Revisão diária salva!");
   }, [reflection, improvements, todayKey, dailyReviewStorageKey, currentReviewEntry]);
 
-  const fetchTodayTasks = useCallback(async () => {
+  const sortTasksForShitsuke = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
+    return [...tasks].sort((a, b) => {
+      // 1. Starred tasks first
+      const isAStarred = a.content.startsWith("*");
+      const isBStarred = b.content.startsWith("*");
+      if (isAStarred && !isBStarred) return -1;
+      if (!isAStarred && isBStarred) return 1;
+
+      // 2. Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
+      if (b.priority !== a.priority) {
+        return b.priority - a.priority;
+      }
+
+      // Helper to get date value, handling null/undefined and invalid dates
+      const getDateValue = (dateString: string | null | undefined) => {
+        if (typeof dateString === 'string' && dateString) {
+          const parsedDate = parseISO(dateString);
+          return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
+        }
+        return Infinity; // Tasks without a date go last
+      };
+
+      // 3. Deadline: earliest first
+      const deadlineA = getDateValue(a.deadline);
+      const deadlineB = getDateValue(b.deadline);
+      if (deadlineA !== deadlineB) {
+        return deadlineA - deadlineB;
+      }
+
+      // 4. Due date/time: earliest first
+      const dueDateTimeA = getDateValue(a.due?.datetime);
+      const dueDateTimeB = getDateValue(b.due?.datetime);
+      if (dueDateTimeA !== dueDateTimeB) {
+        return dueDateTimeA - dueDateTimeB;
+      }
+
+      const dueDateA = getDateValue(a.due?.date);
+      const dueDateB = getDateValue(b.due?.date);
+      if (dueDateA !== dueDateB) { 
+        return dueDateA - dueDateB;
+      }
+
+      return 0; // No difference
+    });
+  }, []);
+
+  const loadTasksForReview = useCallback(async () => {
     setReviewState("initial"); // Set to initial to show loading state
     setCurrentTaskIndex(0); // Reset index
+    setNextRescheduleTime(null); // Reset reschedule time
+
     try {
-      const tasks = await fetchTasks("today | overdue", { includeSubtasks: false, includeRecurring: false });
+      // Filtro para tarefas com vencimento no passado ou agora
+      const tasks = await fetchTasks("due before: in 0 min", { includeSubtasks: false, includeRecurring: false });
       const filtered = tasks.filter(task => !task.is_completed); // Only show incomplete tasks
       
       if (filtered.length > 0) {
-        setTasksToReview(filtered);
+        const sortedTasks = sortTasksForShitsuke(filtered);
+        setTasksToReview(sortedTasks);
         setReviewState("reviewing");
-        toast.success(`Carregadas ${filtered.length} tarefas para revisão diária.`);
+        toast.success(`Carregadas ${sortedTasks.length} tarefas do backlog para revisão.`);
       } else {
         setTasksToReview([]);
         setReviewState("finished");
-        toast.info("Nenhuma tarefa para hoje ou atrasada. Bom trabalho!");
+        toast.info("Nenhuma tarefa no backlog para revisar. Bom trabalho!");
       }
     } catch (error) {
-      console.error("Failed to fetch today's tasks:", error);
-      toast.error("Falha ao carregar tarefas do dia.");
+      console.error("Failed to fetch backlog tasks:", error);
+      toast.error("Falha ao carregar tarefas do backlog.");
       setTasksToReview([]);
       setReviewState("finished");
     }
-  }, [fetchTasks]);
+  }, [fetchTasks, sortTasksForShitsuke]);
 
   useEffect(() => {
-    fetchTodayTasks();
+    loadTasksForReview();
     loadDailyReview();
-  }, [fetchTodayTasks, loadDailyReview]);
+  }, [loadTasksForReview, loadDailyReview]);
 
   const handleNextTask = useCallback(() => {
-    if (currentTaskIndex < tasksToReview.length - 1) {
-      setCurrentTaskIndex((prev) => prev + 1);
-    } else {
-      setReviewState("finished");
-      toast.success("Revisão de tarefas concluída!");
-    }
-  }, [currentTaskIndex, tasksToReview.length]);
+    setTasksToReview(prevTasks => {
+      const updatedTasks = prevTasks.filter((_, index) => index !== currentTaskIndex);
+      
+      if (updatedTasks.length === 0) {
+        setReviewState("finished");
+        setCurrentTaskIndex(0);
+        toast.success("Revisão de tarefas concluída!");
+        return [];
+      } else {
+        const newIndex = currentTaskIndex >= updatedTasks.length ? 0 : currentTaskIndex;
+        setCurrentTaskIndex(newIndex);
+        return updatedTasks;
+      }
+    });
+  }, [currentTaskIndex]);
 
-  const handleKeep = useCallback((taskId: string) => {
-    toast.info("Tarefa mantida para revisão posterior.");
+  const handleKeepCurrentDate = useCallback(() => {
+    toast.info("Tarefa mantida com a data atual.");
     handleNextTask();
   }, [handleNextTask]);
 
@@ -211,29 +270,47 @@ const Shitsuke = () => {
     }
   }, [tasksToReview, updateTask]);
 
-  const handlePostpone = useCallback(async (taskId: string) => {
-    const nextInterval = calculateNext15MinInterval(new Date());
+  const handleRescheduleTask = useCallback(async (taskId: string) => {
+    const now = new Date();
+    let newRescheduleDateTime: Date;
+
+    if (nextRescheduleTime) {
+      // Se já há um tempo de reprogramação anterior, adicione 1 hora
+      newRescheduleDateTime = addHours(nextRescheduleTime, 1);
+      // Garante que não reprogramamos para o passado se o nextRescheduleTime for muito antigo
+      if (isBefore(newRescheduleDateTime, now)) {
+        newRescheduleDateTime = parseISO(calculateNextFullHour(now).datetime);
+      }
+    } else {
+      // Se for a primeira reprogramação, use a próxima hora cheia
+      newRescheduleDateTime = parseISO(calculateNextFullHour(now).datetime);
+    }
+
+    const formattedDateTime = format(newRescheduleDateTime, "yyyy-MM-dd'T'HH:mm:ss");
+
     const updated = await updateTask(taskId, {
-      due_date: nextInterval.date,
-      due_datetime: nextInterval.datetime,
+      due_date: null, // Limpa due_date se due_datetime for definido
+      due_datetime: formattedDateTime,
     });
+
     if (updated) {
-      toast.success(`Tarefa postergada para ${format(parseISO(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
+      setNextRescheduleTime(newRescheduleDateTime); // Atualiza o estado para a próxima reprogramação
+      toast.success(`Tarefa reprogramada para ${format(newRescheduleDateTime, "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
       handleNextTask();
     } else {
-      toast.error("Falha ao postergar a tarefa.");
+      toast.error("Falha ao reprogramar a tarefa.");
     }
-  }, [updateTask, handleNextTask]);
+  }, [updateTask, handleNextTask, nextRescheduleTime]);
 
   const currentTask = tasksToReview[currentTaskIndex];
 
   return (
     <div className="p-4">
       <h2 className="text-3xl font-bold mb-2 text-gray-800">
-        <CheckSquare className="inline-block h-8 w-8 mr-2 text-green-600" /> SHITSUKE - Revisão Diária
+        <CheckSquare className="inline-block h-8 w-8 mr-2 text-green-600" /> SHITSUKE - Revisão de Backlog
       </h2>
       <p className="text-lg text-gray-600 mb-6">
-        Reflita sobre o seu dia, celebre conquistas e prepare-se para amanhã.
+        Repasse seu backlog, decida o que fazer e organize suas tarefas.
       </p>
 
       {isLoadingTodoist && (
@@ -245,13 +322,13 @@ const Shitsuke = () => {
       {!isLoadingTodoist && reviewState === "initial" && (
         <div className="text-center mt-10">
           <p className="text-lg text-gray-600 mb-6">
-            Clique no botão abaixo para carregar as tarefas de hoje e atrasadas para revisão.
+            Clique no botão abaixo para carregar as tarefas do seu backlog (`due before: in 0 min`) para revisão.
           </p>
           <Button
-            onClick={fetchTodayTasks}
+            onClick={loadTasksForReview}
             className="px-8 py-4 text-xl bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-200"
           >
-            Iniciar Revisão Diária
+            Iniciar Revisão de Backlog
           </Button>
         </div>
       )}
@@ -264,14 +341,14 @@ const Shitsuke = () => {
             </p>
             <TaskReviewCard
               task={currentTask}
-              onKeep={handleKeep}
+              onKeep={handleKeepCurrentDate} // Alterado para Manter Data Atual
               onComplete={handleComplete}
               onDelete={handleDelete}
               onUpdateCategory={handleUpdateCategory}
               onUpdatePriority={handleUpdatePriority}
               onUpdateDeadline={handleUpdateDeadline}
               onUpdateFieldDeadline={handleUpdateFieldDeadline}
-              onPostpone={handlePostpone}
+              onPostpone={handleRescheduleTask} // Alterado para Reprogramar
               onUpdateDuration={handleUpdateDuration}
               isLoading={isLoadingTodoist}
             />
@@ -319,13 +396,13 @@ const Shitsuke = () => {
       {!isLoadingTodoist && reviewState === "finished" && (
         <div className="text-center mt-10">
           <p className="text-2xl font-semibold text-gray-700 mb-4">
-            ✅ Revisão de tarefas concluída!
+            ✅ Revisão de backlog concluída!
           </p>
           <p className="text-lg text-gray-600 mb-6">
             Você revisou todas as {tasksToReview.length} tarefas.
           </p>
           <Button
-            onClick={fetchTodayTasks}
+            onClick={loadTasksForReview}
             className="px-8 py-4 text-xl bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-200"
           >
             Revisar Novamente
