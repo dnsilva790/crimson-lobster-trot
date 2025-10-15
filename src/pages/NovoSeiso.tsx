@@ -338,7 +338,7 @@ const NovoSeiso = () => {
         {!isLoadingCombined && execucaoState === "finished" && (
           <ExecucaoFinishedState
             originalTasksCount={initialTotalTasks}
-            onStartNewFocus={() => setExecucaoState("initial")} {/* Alterado aqui */}
+            onStartNewFocus={() => setExecucaoState("initial")}
           />
         )}
       </div>
