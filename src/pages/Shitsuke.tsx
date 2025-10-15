@@ -350,7 +350,7 @@ const Shitsuke = () => {
               onUpdatePriority={handleUpdatePriority}
               onUpdateDeadline={handleUpdateDeadline}
               onUpdateFieldDeadline={handleUpdateFieldDeadline}
-              onPostpone={handleRescheduleTask}
+              onReschedule={handleRescheduleTask} {/* CORREÇÃO AQUI */}
               onUpdateDuration={handleUpdateDuration}
               isLoading={isLoadingTodoist}
             />
