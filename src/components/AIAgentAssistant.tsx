@@ -161,7 +161,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       } else if (lowerCaseMessage.includes("como delego") || lowerCaseMessage.includes("como delegar")) {
         responseText = `Delegar é passar uma tarefa para outra pessoa. Para fazer isso, você precisa identificar a tarefa, o responsável e o que precisa ser feito. Minha equipe disponível para delegação é:\n\n${delegates.map(d => `* **${d.name}**: ${d.responsibilities}`).join('\n')}\n\nSelecione uma tarefa ou use o 'Radar de Produtividade' para encontrar uma tarefa e então podemos delegá-la.`;
         setDialogueState('general_conversation');
-      } else if (lowerCaseMessage.includes("radar") || lowerCaseMessage.includes("sugerir próxima tarefa") || lowerCaseMessage.includes("qual a próxima tarefa")) {
+      } else if (lowerCaseMessage.includes("radar") || lowerCaseMessage.includes("sugerir próxima tarefa") || lowerCaseMessage.includes("qual a próxima tarefa") || lowerCaseMessage.includes("o que vem depois")) {
         // Trigger Radar logic
         const now = new Date();
         const startOfToday = startOfDay(now);
@@ -267,9 +267,11 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
         lowerCaseMessage.includes("próximo passo") ||
         lowerCaseMessage.includes("o que fazer") ||
         lowerCaseMessage.includes("me ajuda a decidir") ||
-        lowerCaseMessage.includes("o que devo fazer") || // Adicionado
-        lowerCaseMessage.includes("sugere o que fazer") || // Adicionado
-        lowerCaseMessage.includes("sugere que eu faça") // Adicionado
+        lowerCaseMessage.includes("o que devo fazer") ||
+        lowerCaseMessage.includes("sugere o que fazer") ||
+        lowerCaseMessage.includes("sugere que eu faça") ||
+        lowerCaseMessage.includes("próxima ação") || // Adicionado
+        lowerCaseMessage.includes("qual a próxima ação") // Adicionado
       ) {
         let nextStepSuggestion = "";
         if (taskDescription && taskDescription.trim().length > 0) {
@@ -280,7 +282,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
           responseText = `${nextStepSuggestion}\n\n${generateTodoistUpdateSuggestion("Nenhum progresso registrado ainda.", nextStepSuggestion.replace('Para a tarefa "' + taskContent + '", o próximo passo é: ', ''))}`;
         }
         setDialogueState('awaiting_task_action');
-      } else if (lowerCaseMessage.includes("delegar") || lowerCaseMessage.includes("passar para outra pessoa")) {
+      } else if (lowerCaseMessage.includes("delegar") || lowerCaseMessage.includes("passar para outra pessoa") || lowerCaseMessage.includes("quem pode fazer") || lowerCaseMessage.includes("passar para") || lowerCaseMessage.includes("atribuir a")) {
         if (delegates.length > 0) {
           const delegateList = delegates.map(d => `* **${d.name}**: ${d.responsibilities}`).join('\n');
           responseText = `Para quem você gostaria de delegar a tarefa "${taskContent}"? Minha equipe disponível é:\n\n${delegateList}\n\nPor favor, me diga o nome do responsável.`;
@@ -288,7 +290,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
           responseText = `Para delegar "${taskContent}", preciso saber: **Para quem você gostaria de delegar esta tarefa?** (Não encontrei informações de equipe no seu prompt de IA.)`;
         }
         setDialogueState('awaiting_task_action');
-      } else if (lowerCaseMessage.includes("status") || lowerCaseMessage.includes("como está essa tarefa")) {
+      } else if (lowerCaseMessage.includes("status") || lowerCaseMessage.includes("como está essa tarefa") || lowerCaseMessage.includes("qual o andamento") || lowerCaseMessage.includes("situação da tarefa")) {
         const dueDate = taskContext?.due?.datetime 
           ? format(parseISO(taskContext.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })
           : taskContext?.due?.date
@@ -305,7 +307,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       } else if (lowerCaseMessage.includes("ajuda") || lowerCaseMessage.includes("coach")) {
         responseText = `Estou aqui para te ajudar a quebrar a tarefa "${taskContent}" em micro-ações e manter o foco. Qual é a sua maior dificuldade com ela agora? Ou podemos definir o próximo passo?`;
         setDialogueState('awaiting_task_action');
-      } else if (lowerCaseMessage.includes("concluir") || lowerCaseMessage.includes("terminei")) {
+      } else if (lowerCaseMessage.includes("concluir") || lowerCaseMessage.includes("terminei") || lowerCaseMessage.includes("finalizei") || lowerCaseMessage.includes("acabei") || lowerCaseMessage.includes("feito")) {
         if (taskContext) {
           await closeTask(taskContext.id);
           responseText = `Excelente! Tarefa "${taskContent}" concluída. Parabéns!`;
@@ -318,7 +320,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       } else if (lowerCaseMessage.includes("gerar status") || lowerCaseMessage.includes("gerar próximo passo")) {
         responseText = `Para gerar um relatório formatado para o Todoist, por favor, use os botões dedicados "Gerar Status" ou "Gerar Próximo Passo" abaixo do campo de texto.`;
         setDialogueState('awaiting_task_action');
-      } else if (lowerCaseMessage.includes("radar") || lowerCaseMessage.includes("sugerir próxima tarefa") || lowerCaseMessage.includes("qual a próxima tarefa")) {
+      } else if (lowerCaseMessage.includes("radar") || lowerCaseMessage.includes("sugerir próxima tarefa") || lowerCaseMessage.includes("qual a próxima tarefa") || lowerCaseMessage.includes("próxima prioridade") || lowerCaseMessage.includes("o que vem depois")) {
         // If user asks for radar while a task is in focus, suggest switching focus
         const now = new Date();
         const startOfToday = startOfDay(now);
