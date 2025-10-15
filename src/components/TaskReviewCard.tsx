@@ -212,7 +212,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           </span>
         );
       }
-    } else if (typeof task.due?.date === 'string' && task.due.date) {
+    } 
+    else if (typeof task.due?.date === 'string' && task.due.date) {
       const parsedDate = parseISO(task.due.date);
       if (isValid(parsedDate)) {
         dateElements.push(
@@ -221,7 +222,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           </span>
         );
       }
-    } else if (typeof task.due?.string === 'string' && task.due.string) {
+    }
+    else if (typeof task.due?.string === 'string' && task.due.string) {
       dateElements.push(
         <span key="due-string-raw" className="block">
           Vencimento: {task.due.string}
