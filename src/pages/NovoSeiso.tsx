@@ -106,3 +106,231 @@ Stakeholders Críticos: Carlos Botelho, Paulo Pontes, Dallmann, Anaterra, Felipe
 *   **Positiva e Encorajadora:** Apesar da firmeza, sua linguagem é positiva e construtiva, para construir disciplina sem gerar sobrecarga emocional. Você reconhece o esforço e celebra as vitórias.
 *   **Anti-Procrastinação:** Você é especialista em quebrar a inércia, transformando tarefas vagas em ações concretas e imediatas.
 `;
+
+const NovoSeiso = () => {
+  const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
+  const [filterInput, setFilterInput] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(NOVO_SEISO_FILTER_INPUT_STORAGE_KEY) || "";
+    }
+    return "";
+  });
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<"all" | "pessoal" | "profissional">(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all";
+    }
+    return "all";
+  });
+  const [selectedTaskSource, setSelectedTaskSource] = useState<"filter" | "planner" | "ranking" | "all">(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(NOVO_SEISO_TASK_SOURCE_STORAGE_KEY) as "filter" | "planner" | "ranking" | "all") || "all";
+    }
+    return "all";
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(NOVO_SEISO_FILTER_INPUT_STORAGE_KEY, filterInput);
+    }
+  }, [filterInput]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY, selectedCategoryFilter);
+    }
+  }, [selectedCategoryFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(NOVO_SEISO_TASK_SOURCE_STORAGE_KEY, selectedTaskSource);
+    }
+  }, [selectedTaskSource]);
+
+  const [aiAgentPrompt, setAiAgentPrompt] = useState<string>(defaultAiPrompt);
+  const [allTasksForAI, setAllTasksForAI] = useState<TodoistTask[]>([]); // Todas as tarefas para o Radar de Produtividade
+
+  const {
+    focusTasks,
+    initialTotalTasks,
+    currentTaskIndex,
+    execucaoState,
+    isLoadingTasks,
+    loadTasksForFocus,
+    advanceToNextTask,
+    updateTaskInFocusList,
+    setFocusTaskById,
+  } = useExecucaoTasks(filterInput, selectedCategoryFilter, selectedTaskSource);
+
+  const currentTask = focusTasks[currentTaskIndex] || null;
+
+  const handleSaveAiAgentPrompt = useCallback((newPrompt: string) => {
+    setAiAgentPrompt(newPrompt);
+    localStorage.setItem(AI_AGENT_PROMPT_STORAGE_KEY, newPrompt);
+  }, []);
+
+  useEffect(() => {
+    const savedPrompt = localStorage.getItem(AI_AGENT_PROMPT_STORAGE_KEY);
+    if (savedPrompt) {
+      setAiAgentPrompt(savedPrompt);
+    }
+  }, []);
+
+  // Fetch all tasks for the AI Assistant's "Radar de Produtividade"
+  useEffect(() => {
+    const fetchAllTasks = async () => {
+      const tasks = await fetchTasks(undefined, { includeSubtasks: false, includeRecurring: false });
+      setAllTasksForAI(tasks);
+    };
+    if (execucaoState === "focusing" || execucaoState === "initial") {
+      fetchAllTasks();
+    }
+  }, [execucaoState, fetchTasks]);
+
+
+  const handleComplete = useCallback(async (taskId: string) => {
+    const success = await closeTask(taskId);
+    if (success !== undefined) {
+      toast.success("Tarefa concluída com sucesso!");
+      advanceToNextTask();
+    }
+  }, [closeTask, advanceToNextTask]);
+
+  const handleSkip = useCallback(() => {
+    toast.info("Tarefa pulada.");
+    advanceToNextTask();
+  }, [advanceToNextTask]);
+
+  const handleUpdateTask = useCallback(async (taskId: string, data: {
+    priority?: 1 | 2 | 3 | 4;
+    due_date?: string | null;
+    due_datetime?: string | null;
+    duration?: number;
+    duration_unit?: "minute" | "day";
+    deadline?: string | null;
+  }) => {
+    const updated = await updateTask(taskId, data);
+    if (updated) {
+      updateTaskInFocusList(updated);
+      toast.success("Tarefa atualizada no Todoist!");
+      return updated;
+    } else {
+      toast.error("Falha ao atualizar a tarefa.");
+      return undefined;
+    }
+  }, [updateTask, updateTaskInFocusList]);
+
+  const handlePostpone = useCallback(async (taskId: string) => {
+    const nextInterval = calculateNext15MinInterval(new Date());
+    const updated = await updateTask(taskId, {
+      due_date: nextInterval.date,
+      due_datetime: nextInterval.datetime,
+    });
+    if (updated) {
+      toast.success(`Tarefa postergada para ${format(parseISO(nextInterval.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}!`);
+      updateTaskInFocusList(updated);
+    } else {
+      toast.error("Falha ao postergar a tarefa.");
+    }
+  }, [updateTask, updateTaskInFocusList]);
+
+  const handleEmergencyFocus = useCallback(async (taskId: string) => {
+    const updated = await updateTask(taskId, { priority: 4 }); // Set to P1
+    if (updated) {
+      updateTaskInFocusList(updated);
+      setFocusTaskById(taskId); // Change focus to this task
+      toast.success("Foco de emergência ativado! Tarefa definida como P1.");
+    } else {
+      toast.error("Falha ao ativar foco de emergência.");
+    }
+  }, [updateTask, updateTaskInFocusList, setFocusTaskById]);
+
+  useKeyboardShortcuts({
+    execucaoState,
+    isLoading: isLoadingTodoist || isLoadingTasks,
+    currentTask,
+    onComplete: handleComplete,
+    onSkip: handleSkip,
+    onOpenReschedulePopover: () => { /* Popover handled by TaskActionButtons */ },
+  });
+
+  const progressValue = initialTotalTasks > 0 ? ((initialTotalTasks - focusTasks.length) / initialTotalTasks) * 100 : 0;
+
+  const isLoadingCombined = isLoadingTodoist || isLoadingTasks;
+
+  return (
+    <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2">
+        <h2 className="text-3xl font-bold mb-2 text-gray-800">✨ NOVO SEISO - Modo Foco Total</h2>
+        <p className="text-lg text-gray-600 mb-6">
+          Concentre-se em uma tarefa por vez, com o apoio do seu Tutor IA.
+        </p>
+
+        {isLoadingCombined && (
+          <div className="flex justify-center items-center h-48">
+            <LoadingSpinner size={40} />
+          </div>
+        )}
+
+        {!isLoadingCombined && execucaoState === "initial" && (
+          <ExecucaoInitialState
+            filterInput={filterInput}
+            setFilterInput={setFilterInput}
+            selectedCategoryFilter={selectedCategoryFilter}
+            setSelectedCategoryFilter={setSelectedCategoryFilter}
+            selectedTaskSource={selectedTaskSource}
+            setSelectedTaskSource={setSelectedTaskSource}
+            onStartFocus={() => loadTasksForFocus(selectedTaskSource)}
+            isLoading={isLoadingCombined}
+          />
+        )}
+
+        {!isLoadingCombined && execucaoState === "focusing" && currentTask && (
+          <div className="mt-8">
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-xl font-medium text-gray-700">
+                Tarefa {currentTaskIndex + 1} de {focusTasks.length}
+              </p>
+              <Progress value={progressValue} className="w-1/2 h-3" />
+            </div>
+            <FocusTaskCard task={currentTask} />
+            <TaskActionButtons
+              currentTask={currentTask}
+              isLoading={isLoadingCombined}
+              onComplete={handleComplete}
+              onSkip={handleSkip}
+              onUpdateTask={handleUpdateTask}
+              onPostpone={handlePostpone}
+              onEmergencyFocus={handleEmergencyFocus}
+            />
+          </div>
+        )}
+
+        {!isLoadingCombined && execucaoState === "finished" && (
+          <ExecucaoFinishedState
+            originalTasksCount={initialTotalTasks}
+            onStartNewFocus={() => setExecucaoState("initial")}
+          />
+        )}
+      </div>
+      <div className="lg:col-span-1">
+        <div className="flex justify-end mb-4">
+          <AIAgentPromptEditor
+            initialPrompt={aiAgentPrompt}
+            onSave={handleSaveAiAgentPrompt}
+            storageKey={AI_AGENT_PROMPT_STORAGE_KEY}
+          />
+        </div>
+        <AIAgentAssistant
+          aiPrompt={aiAgentPrompt}
+          currentTask={currentTask}
+          allTasks={allTasksForAI}
+          updateTask={handleUpdateTask}
+          closeTask={handleComplete}
+          onTaskSuggested={setFocusTaskById}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default NovoSeiso;
