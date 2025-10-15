@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { format, parseISO, isValid, isToday, isTomorrow, isPast, addHours, getHours, differenceInDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useTodoist } from "@/context/TodoistContext";
+import { Label } from "@/components/ui/label"; // Importação adicionada
 
 interface AIAgentAssistantProps {
   aiPrompt: string;
