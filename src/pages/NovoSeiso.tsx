@@ -24,6 +24,7 @@ const AI_AGENT_PROMPT_STORAGE_KEY = "ai_agent_tutor_seiso_prompt";
 const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input";
 const NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY = "novoseiso_category_filter";
 const NOVO_SEISO_TASK_SOURCE_STORAGE_KEY = "novoseiso_task_source";
+const FOCO_LABEL_ID = "🎯 Foco"; // Definindo a constante para a etiqueta de foco
 
 const defaultAiPrompt = `**TUTOR IA SEISO - COACH DE EXECUÇÃO ESTRATÉGICA E PRODUTIVIDADE**
 
@@ -207,6 +208,7 @@ const NovoSeiso = () => {
     duration?: number;
     duration_unit?: "minute" | "day";
     deadline?: string | null;
+    labels?: string[]; // Adicionado labels aqui
   }) => {
     const updated = await updateTask(taskId, data);
     if (updated) {
@@ -234,15 +236,27 @@ const NovoSeiso = () => {
   }, [updateTask, updateTaskInFocusList]);
 
   const handleEmergencyFocus = useCallback(async (taskId: string) => {
-    const updated = await updateTask(taskId, { priority: 4 }); // Set to P1
+    const taskToUpdate = focusTasks.find(task => task.id === taskId);
+    if (!taskToUpdate) {
+      toast.error("Tarefa não encontrada para foco de emergência.");
+      return;
+    }
+
+    const updatedLabels = [...new Set([...taskToUpdate.labels, FOCO_LABEL_ID])]; // Adiciona a etiqueta de foco
+    
+    const updated = await updateTask(taskId, { 
+      priority: 4, // Define como P1
+      labels: updatedLabels, // Atualiza as etiquetas
+    }); 
+
     if (updated) {
       updateTaskInFocusList(updated);
-      setFocusTaskById(taskId); // Change focus to this task
-      toast.success("Foco de emergência ativado! Tarefa definida como P1.");
+      setFocusTaskById(taskId); // Muda o foco para esta tarefa
+      toast.success("Foco de emergência ativado! Tarefa definida como P1 e com etiqueta de foco.");
     } else {
       toast.error("Falha ao ativar foco de emergência.");
     }
-  }, [updateTask, updateTaskInFocusList, setFocusTaskById]);
+  }, [updateTask, updateTaskInFocusList, setFocusTaskById, focusTasks]);
 
   useKeyboardShortcuts({
     execucaoState,
