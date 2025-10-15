@@ -9,15 +9,15 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { format, parseISO, isValid, addHours, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckSquare, XCircle } from "lucide-react"; // Importar XCircle
+import { CheckSquare, XCircle } from "lucide-react";
 import TaskReviewCard from "@/components/TaskReviewCard";
 import { calculateNextFullHour } from "@/utils/dateUtils";
-import { Input } from "@/components/ui/input"; // Importar Input
-import { Label } from "@/components/ui/label"; // Importar Label
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // Storage keys for daily review entries (not used in UI, but kept for data integrity)
 const DAILY_REVIEW_STORAGE_KEY_PREFIX = "shitsuke_daily_review_";
-const SHITSUKE_FILTER_INPUT_STORAGE_KEY = "shitsuke_filter_input"; // Nova chave para o filtro
+const SHITSUKE_FILTER_INPUT_STORAGE_KEY = "shitsuke_filter_input"; // Chave para o filtro
 
 interface DailyReviewEntry {
   date: string; // YYYY-MM-DD
@@ -145,7 +145,7 @@ const Shitsuke = () => {
       setTasksToReview([]);
       setReviewState("finished");
     }
-  }, [fetchTasks, sortTasksForShitsuke, filterInput]); // Adicionar filterInput como dependência
+  }, [fetchTasks, sortTasksForShitsuke, filterInput]);
 
   useEffect(() => {
     loadTasksForReview();
