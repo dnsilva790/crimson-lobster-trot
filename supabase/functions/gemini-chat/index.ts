@@ -45,7 +45,13 @@ serve(async (req) => {
       Tutor IA:
     `;
 
-    const result = await model.generateContent(fullPrompt);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
+      generationConfig: {
+        temperature: 0.4, // Um valor mais baixo para respostas mais focadas e menos criativas
+        maxOutputTokens: 1024, // Limite de tokens para a resposta, ajuste conforme necessário
+      },
+    });
     const response = await result.response;
     const text = response.text();
 
