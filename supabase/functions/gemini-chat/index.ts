@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { GoogleGenerativeAI } from 'npm:@google/generative-ai';
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.1.3'; // Versão fixada
 
 console.log('Hello from Gemini Chat Edge Function!');
 
@@ -17,18 +17,29 @@ serve(async (req) => {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    console.log('DEBUG: typeof genAI:', typeof genAI);
+    console.log('DEBUG: genAI object:', genAI);
 
     if (listModelsOnly) {
-      const models = await genAI.listModels();
-      const modelNames = models.map(model => ({
-        name: model.name,
-        version: model.version,
-        supportedGenerationMethods: model.supportedGenerationMethods,
-      }));
-      return new Response(JSON.stringify({ availableModels: modelNames }), {
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        status: 200,
-      });
+      // Verifique se listModels existe antes de chamar
+      if (typeof genAI.listModels === 'function') {
+        const models = await genAI.listModels();
+        const modelNames = models.map(model => ({
+          name: model.name,
+          version: model.version,
+          supportedGenerationMethods: model.supportedGenerationMethods,
+        }));
+        return new Response(JSON.stringify({ availableModels: modelNames }), {
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          status: 200,
+        });
+      } else {
+        console.error('ERROR: genAI.listModels is not a function even after import. genAI:', genAI);
+        return new Response(JSON.stringify({ error: 'listModels method not found on GoogleGenerativeAI instance.' }), {
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          status: 500,
+        });
+      }
     }
 
     // Usaremos 'gemini-1.0-pro' como fallback, mas você poderá ajustar após ver a lista de modelos.

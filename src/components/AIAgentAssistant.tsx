@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Bot, User, ClipboardCopy, RotateCcw, List } from "lucide-react"; // Importar o ícone List
+import { Send, Bot, User, ClipboardCopy, RotateCcw } from "lucide-react"; // Remover o ícone List
 import { TodoistTask } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -239,9 +239,8 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     }
   }, [taskContext, getTaskHistoryKey, addMessage]);
 
-  const handleListModels = useCallback(() => {
-    callGeminiChatFunction("Listar modelos", true);
-  }, [callGeminiChatFunction]);
+  // A função handleListModels não será mais chamada por um botão, mas sim por um comando de texto.
+  // Ela ainda precisa existir para ser chamada pelo `callGeminiChatFunction`.
 
   return (
     <Card className="h-[calc(100vh-100px)] flex flex-col">
@@ -250,10 +249,6 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
           <Bot className="h-5 w-5 text-indigo-600" /> Tutor IA SEISO
           <Button variant="ghost" size="icon" onClick={handleResetChat} className="ml-auto">
             <RotateCcw className="h-4 w-4 text-gray-500" />
-          </Button>
-          {/* Botão temporário para listar modelos */}
-          <Button variant="ghost" size="icon" onClick={handleListModels} disabled={isLoadingTodoist || isThinking}>
-            <List className="h-4 w-4 text-gray-500" />
           </Button>
         </CardTitle>
       </CardHeader>
