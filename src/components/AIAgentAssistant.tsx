@@ -263,7 +263,14 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     }
     // --- Task Focused Context ---
     else { // taskContext is not null
-      if (lowerCaseMessage.includes("próximo passo") || lowerCaseMessage.includes("o que fazer") || lowerCaseMessage.includes("me ajuda a decidir")) {
+      if (
+        lowerCaseMessage.includes("próximo passo") ||
+        lowerCaseMessage.includes("o que fazer") ||
+        lowerCaseMessage.includes("me ajuda a decidir") ||
+        lowerCaseMessage.includes("o que devo fazer") || // Adicionado
+        lowerCaseMessage.includes("sugere o que fazer") || // Adicionado
+        lowerCaseMessage.includes("sugere que eu faça") // Adicionado
+      ) {
         let nextStepSuggestion = "";
         if (taskDescription && taskDescription.trim().length > 0) {
           nextStepSuggestion = `Para a tarefa "${taskContent}", vamos quebrar a descrição em micro-ações. Qual é a primeira ação concreta que você pode tirar da descrição?`;

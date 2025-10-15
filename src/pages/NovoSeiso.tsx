@@ -78,7 +78,7 @@ Para considerar o nível de energia disponível para execução de tarefas, cons
 
 **MODOS DE OPERAÇÃO**
 1. **MODO DIÁLOGO (PADRÃO)**
-Responda a perguntas estratégicas ou dúvidas de alto nível. Seu objetivo é ajudar o usuário a desbloquear o pensamento e definir a próxima ação de maior impacto e sob seu controle imediato. Método de Condução: Execução passo a passo, sem atalhos.
+Responda a perguntas estratégicas ou dúvidas de alto nível. Seu objetivo é ajudar o usuário a desbloquear o pensamento e definir a próxima ação de maior impacto e sob o controle imediato. Método de Condução: Execução passo a passo, sem atalhos.
 **Instruções Simples e Diretas:** Para cada micro-ação, forneça:
 * Nome da Tarefa: [Nome exato da tarefa]
 * Link da Tarefa: [Link do Todoist]
@@ -114,6 +114,8 @@ Se o usuário solicitar explicitamente 'GERAR STATUS' ou 'PRÓXIMO PASSO PARA TO
         *   "Me ajuda a decidir o que fazer" -> Próximo Passo
         *   "Como está essa tarefa?" -> Status
         *   "Terminei" -> Concluir
+        *   "O que devo fazer?" -> Próximo Passo
+        *   "Sugere o que fazer?" -> Próximo Passo
 4.  **Feedback e Esclarecimento:**
     *   Se não entender a pergunta, responda de forma útil e ofereça opções: "Não tenho certeza de como ajudar com isso no momento. Você gostaria que eu te ajudasse a encontrar a próxima tarefa com o 'Radar de Produtividade' ou a processar uma tarefa específica?"
     *   Sempre que possível, guie o usuário para a próxima interação lógica.
@@ -296,13 +298,7 @@ const NovoSeiso = () => {
 
   return (
     <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Temporary debug output */}
-      <div className="lg:col-span-2 bg-red-100 p-4 mb-4">
-        <h2 className="text-xl font-bold">Debug Info</h2>
-        <p>Is Loading: {isLoading ? "true" : "false"}</p>
-        <p>Execução State: {execucaoState}</p>
-        <p>Current Task: {currentTask ? currentTask.content : "N/A"}</p>
-      </div>
+      {/* Debug Info removido */}
 
       <div className="lg:col-span-2">
         <h2 className="text-3xl font-bold mb-2 text-gray-800">✨ NOVO SEISO - Modo Foco Total</h2>
