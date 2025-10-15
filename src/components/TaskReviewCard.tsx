@@ -7,7 +7,7 @@ import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format, setHours, setMinutes, parseISO, isValid, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw } from "lucide-react"; // Alterado Clock para RotateCcw
+import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
@@ -23,16 +23,16 @@ interface TaskReviewCardProps {
   onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void;
   onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>;
   onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
-  onReschedule: (taskId: string) => Promise<void>; // Renomeado de onPostpone para onReschedule
+  onReschedule: (taskId: string) => Promise<void>;
   onUpdateDuration: (taskId: string, duration: number | null) => Promise<void>;
   isLoading: boolean;
 }
 
 const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
-  4: "bg-red-500", // P1 - Urgente
-  3: "bg-orange-500", // P2 - Alto
-  2: "bg-yellow-500", // P3 - Médio
-  1: "bg-gray-400", // P4 - Baixo
+  4: "bg-red-500",
+  3: "bg-orange-500",
+  2: "bg-yellow-500",
+  1: "bg-gray-400",
 };
 
 const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
@@ -51,11 +51,10 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onUpdatePriority,
   onUpdateDeadline,
   onUpdateFieldDeadline,
-  onReschedule, // Renomeado
+  onReschedule,
   onUpdateDuration,
   isLoading,
 }) => {
-  // Log da tarefa completa para depuração
   console.log(`TaskReviewCard: Rendering task ${task.id} (${task.content})`, task);
 
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
@@ -76,7 +75,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
 
   useEffect(() => {
     console.log("TaskReviewCard: Task prop changed. Updating local states.");
-    console.log(`TaskReviewCard: Task ID: ${task.id}, current task.deadline: ${task.deadline}`); // Debug log
+    console.log(`TaskReviewCard: Task ID: ${task.id}, current task.deadline: ${task.deadline}`);
     if (task.labels.includes("pessoal")) {
       setSelectedCategory("pessoal");
     } else if (task.labels.includes("profissional")) {
@@ -88,32 +87,23 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     let initialDueDate: Date | undefined = undefined;
     let initialDueTime: string = "";
 
-    // 1. Prioritize task.due?.datetime
     if (typeof task.due?.datetime === 'string' && task.due.datetime) {
       const parsed = parseISO(task.due.datetime);
       if (isValid(parsed)) {
         initialDueDate = parsed;
         initialDueTime = format(parsed, "HH:mm");
       }
-    }
-
-    // 2. If due.datetime didn't set a valid date, try with due.date
-    if (initialDueDate === undefined && typeof task.due?.date === 'string' && task.due.date) {
+    } else if (initialDueDate === undefined && typeof task.due?.date === 'string' && task.due.date) {
       const parsed = parseISO(task.due.date);
       if (isValid(parsed)) {
         initialDueDate = parsed;
-        // No time to extract from due.date
       }
     }
-
-    // 3. For editing fields, explicitly ignore task.due?.string if due.datetime and due.date were not valid.
-    // This prevents ambiguous formats like "11 Oct" from populating the date/time selectors.
 
     setSelectedDueDate(initialDueDate);
     setSelectedDueTime(initialDueTime);
     console.log(`DEBUG (useEffect init): Task ID: ${task.id}, initialDueTime = '${initialDueTime}', type = ${typeof initialDueTime}`);
 
-    // For task.deadline, ensure it's a string before parsing
     setSelectedFieldDeadlineDate((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
     setSelectedDuration(
       task.estimatedDurationMinutes
@@ -140,10 +130,9 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     let finalDueDate: string | null = null;
     let finalDueDateTime: string | null = null;
 
-    // Usar o padrão (value || '') para garantir que .split() seja chamado em uma string
     const timeToSplit = selectedDueTime || ''; 
 
-    if (timeToSplit) { // Se houver uma string de hora (mesmo que vazia, mas não null/undefined)
+    if (timeToSplit) {
       console.log(`DEBUG (handleSetDeadline - inside time block): timeToSplit = '${timeToSplit}', type = ${typeof timeToSplit}`);
       try {
         console.trace("About to split timeToSplit:", timeToSplit, "Type:", typeof timeToSplit);
@@ -159,7 +148,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         toast.error("Erro ao processar a hora de vencimento. Verifique o formato.");
         return;
       }
-    } else { // selectedDueTime era falsy (vazio, null, undefined)
+    } else {
       finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
     }
 
@@ -206,15 +195,14 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       if (!isNaN(duration) && duration > 0) {
         await onUpdateDuration(task.id, duration);
       } else if (value === "") {
-        await onUpdateDuration(task.id, null); // Clear duration if input is empty
+        await onUpdateDuration(task.id, null);
       }
-    }, 500); // 500ms debounce
+    }, 500);
   }, [onUpdateDuration, task.id]);
 
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
-    // 1. Prioritize due.datetime
     if (typeof task.due?.datetime === 'string' && task.due.datetime) {
       const parsedDate = parseISO(task.due.datetime);
       if (isValid(parsedDate)) {
@@ -224,9 +212,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           </span>
         );
       }
-    } 
-    // 2. If due.datetime didn't add an element, try with due.date
-    else if (typeof task.due?.date === 'string' && task.due.date) {
+    } else if (typeof task.due?.date === 'string' && task.due.date) {
       const parsedDate = parseISO(task.due.date);
       if (isValid(parsedDate)) {
         dateElements.push(
@@ -235,10 +221,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           </span>
         );
       }
-    }
-    // 3. If neither due.datetime nor due.date added an element, and due.string exists, display it directly.
-    // This handles "11 Oct" without parsing.
-    else if (typeof task.due?.string === 'string' && task.due.string) {
+    } else if (typeof task.due?.string === 'string' && task.due.string) {
       dateElements.push(
         <span key="due-string-raw" className="block">
           Vencimento: {task.due.string}
@@ -246,7 +229,6 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       );
     }
 
-    // 4. Always include task.deadline (if exists and is valid)
     if (typeof task.deadline === 'string' && task.deadline) {
       const parsedDeadline = parseISO(task.deadline);
       if (isValid(parsedDeadline)) {
@@ -384,7 +366,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           <Check className="mr-2 h-5 w-5" /> Concluir
         </Button>
         <Button
-          onClick={() => onReschedule(task.id)} // Renomeado
+          onClick={() => onReschedule(task.id)}
           disabled={isLoading}
           className="bg-yellow-500 hover:bg-yellow-600 text-white py-3 text-md flex items-center justify-center"
         >
@@ -447,7 +429,6 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           </PopoverContent>
         </Popover>
 
-        {/* Popover para Field Deadline */}
         <Popover open={isFieldDeadlinePopoverOpen} onOpenChange={setIsFieldDeadlinePopoverOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -495,3 +476,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         </a>
       </div>
     </Card>
+  );
+};
+
+export default TaskReviewCard;
