@@ -181,7 +181,8 @@ export const useExecucaoTasks = (
     };
 
     const _loadFromDefaultSmartFilter = async (): Promise<TodoistTask[]> => {
-        const defaultSmartFilter = `(%23%F0%9F%93%85%20Reuni%C3%B5es%20%26%20due%20before%3A%20in%205%20min)%20%7C%20%40%F0%9F%8E%AF%20Foco%20%7C%20((%40%F0%9F%93%86%20Cronograma%20de%20hoje%20%26%20due%20before%3A%20in%203%20min)%20%7C%20(%40%F0%9F%93%86%20Cronograma%20de%20hoje%20%26%20today%20%26%20no%20time))%20%7C%20((%40%E2%9A%A1%20R%C3%A1pida%20%7C%20%40r%C3%A1pida)%20%26%20due%20before%3A%20in%200%20min)`;
+        // Ajustado para remover emojis e usar sintaxe de filtro mais robusta
+        const defaultSmartFilter = `(project: "Reuniões" & due before: +5 minutes) | @Foco | ((@Cronograma de hoje & due before: +3 minutes) | (@Cronograma de hoje & today & no time)) | ((@Rápida | @rapida) & due before: +0 minutes)`;
         let tasks = await fetchTasks(defaultSmartFilter, fetchOptions);
         tasks = sortTasksForFocus(tasks);
         if (tasks.length > 0) {
