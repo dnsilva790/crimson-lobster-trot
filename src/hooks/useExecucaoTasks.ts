@@ -200,7 +200,16 @@ export const useExecucaoTasks = (
           return [];
         }
 
-        const { schedules: storedSchedules } = JSON.parse(plannerStorage);
+        let parsedPlannerData;
+        try {
+          parsedPlannerData = JSON.parse(plannerStorage);
+        } catch (e) {
+          console.error("useExecucaoTasks: Failed to parse planner data from localStorage:", e);
+          toast.error("Erro ao carregar dados do Planejador. Dados corrompidos.");
+          return [];
+        }
+
+        const { schedules: storedSchedules } = parsedPlannerData;
         const now = new Date();
         const allRelevantScheduledTasks: (ScheduledTask & { scheduledDateTime: Date })[] = [];
 
