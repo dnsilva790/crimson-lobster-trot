@@ -7,7 +7,7 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { format, parseISO, isValid, isPast, isToday } from "date-fns";
+import { format, parseISO, isValid, isPast, isToday, addHours, isBefore } from "date-fns"; // Adicionado addHours e isBefore
 import { ptBR } from "date-fns/locale";
 import { CheckSquare } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -341,14 +341,14 @@ const Shitsuke = () => {
             </p>
             <TaskReviewCard
               task={currentTask}
-              onKeep={handleKeepCurrentDate} // Alterado para Manter Data Atual
+              onKeep={handleKeepCurrentDate}
               onComplete={handleComplete}
               onDelete={handleDelete}
               onUpdateCategory={handleUpdateCategory}
               onUpdatePriority={handleUpdatePriority}
               onUpdateDeadline={handleUpdateDeadline}
               onUpdateFieldDeadline={handleUpdateFieldDeadline}
-              onPostpone={handleRescheduleTask} // Alterado para Reprogramar
+              onReschedule={handleRescheduleTask} // Alterado de onPostpone para onReschedule
               onUpdateDuration={handleUpdateDuration}
               isLoading={isLoadingTodoist}
             />

@@ -7,7 +7,7 @@ import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format, setHours, setMinutes, parseISO, isValid, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock } from "lucide-react";
+import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw } from "lucide-react"; // Alterado Clock para RotateCcw
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
@@ -23,7 +23,7 @@ interface TaskReviewCardProps {
   onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void;
   onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>;
   onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
-  onPostpone: (taskId: string) => Promise<void>;
+  onReschedule: (taskId: string) => Promise<void>; // Renomeado de onPostpone para onReschedule
   onUpdateDuration: (taskId: string, duration: number | null) => Promise<void>;
   isLoading: boolean;
 }
@@ -51,7 +51,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onUpdatePriority,
   onUpdateDeadline,
   onUpdateFieldDeadline,
-  onPostpone,
+  onReschedule, // Renomeado
   onUpdateDuration,
   isLoading,
 }) => {
@@ -374,7 +374,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           disabled={isLoading}
           className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 text-md flex items-center justify-center"
         >
-          <ArrowRight className="mr-2 h-5 w-5" /> Manter
+          <ArrowRight className="mr-2 h-5 w-5" /> Manter Data Atual
         </Button>
         <Button
           onClick={() => onComplete(task.id)}
@@ -384,11 +384,11 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           <Check className="mr-2 h-5 w-5" /> Concluir
         </Button>
         <Button
-          onClick={() => onPostpone(task.id)}
+          onClick={() => onReschedule(task.id)} // Renomeado
           disabled={isLoading}
           className="bg-yellow-500 hover:bg-yellow-600 text-white py-3 text-md flex items-center justify-center"
         >
-          <Clock className="mr-2 h-5 w-5" /> Postergue
+          <RotateCcw className="mr-2 h-5 w-5" /> Reprogramar (Próx. Hora)
         </Button>
       </div>
       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -495,7 +495,3 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         </a>
       </div>
     </Card>
-  );
-};
-
-export default TaskReviewCard;
