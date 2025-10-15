@@ -122,7 +122,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
 \`\`\``;
   }, []);
 
-  const callGeminiChatFunction = useCallback(async (userMessage: string, debugAIOnly: boolean = false) => { // Alterado para debugAIOnly
+  const callGeminiChatFunction = useCallback(async (userMessage: string) => { // Removido debugAIOnly
     setIsThinking(true);
     try {
       const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
@@ -136,7 +136,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
           userMessage,
           currentTask: taskContext, // Pass the task in context
           allTasks, // Pass all tasks for Radar functionality
-          debugAIOnly, // Novo parâmetro
+          // Removido debugAIOnly
         }),
       });
 
@@ -147,14 +147,9 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
 
       const data = await response.json();
 
-      if (debugAIOnly) { // Nova lógica de depuração
-        console.log("DEBUG INFO from Edge Function:", data.debugInfo);
-        addMessage("ai", `Informações de depuração da IA enviadas para o console do navegador. Verifique os logs 'DEBUG INFO'.`);
-        toast.info("Informações de depuração da IA disponíveis no console do navegador.");
-      } else {
-        addMessage("ai", data.response);
-        setDialogueState(taskContext ? 'awaiting_task_action' : 'general_conversation'); // Adjust state based on context
-      }
+      // Removida a lógica de depuração
+      addMessage("ai", data.response);
+      setDialogueState(taskContext ? 'awaiting_task_action' : 'general_conversation'); // Adjust state based on context
     } catch (error: any) {
       console.error("Erro ao chamar a função Gemini Chat:", error);
       toast.error(`Erro no Tutor IA: ${error.message || "Não foi possível obter uma resposta."}`);
@@ -187,10 +182,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       return;
     }
     
-    if (lowerCaseMessage.includes("depurar ia")) { // Novo comando para depuração
-      await callGeminiChatFunction(userMsg, true);
-      return;
-    }
+    // Removido o comando "depurar ia"
 
     // Otherwise, send to Gemini
     await callGeminiChatFunction(userMsg);
