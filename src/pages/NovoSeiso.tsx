@@ -93,7 +93,7 @@ Stakeholders Críticos: Carlos Botelho, Paulo Pontes, Dallmann, Anaterra, Felipe
 
 1.  **Início da Conversa / Sem Tarefa em Foco:**
     *   **Apresente-se:** "Olá! Sou o Tutor IA SEISO. Estou pronto para te ajudar a organizar suas tarefas."
-    *   **Ofereça Opções:** "Posso sugerir a próxima tarefa com o 'Radar de Produtividade', responder a perguntas gerais sobre GTD/produtividade, ou te ajudar com uma tarefa específica se você a selecionar."
+    *   **Ofereça Opções:** "Posso sugerir a próxima tarefa com o 'Radar de Produtividade', responder a perguntas gerais sobre GTD/produtividade, ou te ajudar com uma tarefa específica se você a seleciona."
     *   **Redirecione:** Se o usuário tentar um comando de tarefa específica sem contexto, redirecione-o para o "Radar" ou para selecionar uma tarefa.
 2.  **Com Tarefa em Foco (Usando \`taskContext\`):**
     *   **Mantenha o Foco:** Responda a perguntas sobre "próximo passo", "delegar", "status", "concluir" para a \`taskContext\` atual.
@@ -212,13 +212,15 @@ const NovoSeiso = () => {
   }, [advanceToNextTask]);
 
   const handleUpdateTask = useCallback(async (taskId: string, data: {
+    content?: string;
+    description?: string;
     priority?: 1 | 2 | 3 | 4;
     due_date?: string | null;
     due_datetime?: string | null;
+    labels?: string[];
     duration?: number;
     duration_unit?: "minute" | "day";
     deadline?: string | null;
-    labels?: string[]; // Adicionado labels aqui
   }) => {
     const updated = await updateTask(taskId, data);
     if (updated) {
@@ -282,6 +284,39 @@ const NovoSeiso = () => {
     }
   }, [updateTask, updateTaskInFocusList, setFocusTaskById, focusTasks]);
 
+  // Funções para toggle de etiquetas
+  const handleToggleLabel = useCallback(async (taskId: string, currentLabels: string[], labelToToggle: string) => {
+    const isLabelActive = currentLabels.includes(labelToToggle);
+    let newLabels: string[];
+
+    if (isLabelActive) {
+      newLabels = currentLabels.filter(label => label !== labelToToggle);
+    } else {
+      newLabels = [...new Set([...currentLabels, labelToToggle])];
+    }
+
+    const updated = await updateTask(taskId, { labels: newLabels });
+    if (updated) {
+      updateTaskInFocusList(updated);
+      toast.success(`Etiqueta "${labelToToggle}" ${isLabelActive ? 'removida' : 'adicionada'}!`);
+    } else {
+      toast.error(`Falha ao atualizar etiqueta "${labelToToggle}".`);
+    }
+  }, [updateTask, updateTaskInFocusList]);
+
+  const handleToggleFoco = useCallback(async (taskId: string, currentLabels: string[]) => {
+    await handleToggleLabel(taskId, currentLabels, FOCO_LABEL_ID);
+  }, [handleToggleLabel]);
+
+  const handleToggleRapida = useCallback(async (taskId: string, currentLabels: string[]) => {
+    await handleToggleLabel(taskId, currentLabels, RAPIDA_LABEL_ID);
+  }, [handleToggleLabel]);
+
+  const handleToggleCronograma = useCallback(async (taskId: string, currentLabels: string[]) => {
+    await handleToggleLabel(taskId, currentLabels, CRONOGRAMA_HOJE_LABEL);
+  }, [handleToggleLabel]);
+
+
   useKeyboardShortcuts({
     execucaoState,
     isLoading: isLoadingTodoist || isLoadingTasks,
@@ -339,6 +374,9 @@ const NovoSeiso = () => {
               onUpdateTask={handleUpdateTask}
               onPostpone={handlePostpone}
               onEmergencyFocus={handleEmergencyFocus}
+              onToggleFoco={handleToggleFoco}
+              onToggleRapida={handleToggleRapida}
+              onToggleCronograma={handleToggleCronograma}
             />
           </div>
         )}

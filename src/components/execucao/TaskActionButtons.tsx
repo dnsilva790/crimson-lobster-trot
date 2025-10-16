@@ -7,12 +7,17 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, ArrowRight, CalendarIcon, Clock, XCircle, Target } from "lucide-react"; // Importar o ícone Target
+import { Check, ArrowRight, CalendarIcon, Clock, XCircle, Target, Tag } from "lucide-react"; // Importar o ícone Target e Tag
 import { TodoistTask } from "@/lib/types";
 import { format, parseISO, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  FOCO_LABEL_ID,
+  RAPIDA_LABEL_ID,
+  CRONOGRAMA_HOJE_LABEL,
+} from "@/pages/NovoSeiso"; // Importar as constantes das etiquetas
 
 interface TaskActionButtonsProps {
   currentTask: TodoistTask;
@@ -25,10 +30,13 @@ interface TaskActionButtonsProps {
     due_datetime?: string | null;
     duration?: number;
     duration_unit?: "minute" | "day";
-    deadline?: string | null; // Adicionado
+    deadline?: string | null;
   }) => Promise<TodoistTask | undefined>;
   onPostpone: (taskId: string) => Promise<void>;
-  onEmergencyFocus: (taskId: string) => Promise<void>; // Nova prop para o botão de emergência
+  onEmergencyFocus: (taskId: string) => Promise<void>;
+  onToggleFoco: (taskId: string, currentLabels: string[]) => Promise<void>; // Nova prop
+  onToggleRapida: (taskId: string, currentLabels: string[]) => Promise<void>; // Nova prop
+  onToggleCronograma: (taskId: string, currentLabels: string[]) => Promise<void>; // Nova prop
 }
 
 const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
@@ -38,7 +46,10 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   onSkip,
   onUpdateTask,
   onPostpone,
-  onEmergencyFocus, // Nova prop
+  onEmergencyFocus,
+  onToggleFoco, // Nova prop
+  onToggleRapida, // Nova prop
+  onToggleCronograma, // Nova prop
 }) => {
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
 
@@ -47,13 +58,13 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   const initialDuration = currentTask.duration?.amount && currentTask.duration.unit === "minute"
     ? String(currentTask.duration.amount)
     : "15"; // Default to 15 minutes
-  const initialDeadline = currentTask.deadline ? parseISO(currentTask.deadline) : undefined; // Adicionado
+  const initialDeadline = currentTask.deadline ? parseISO(currentTask.deadline) : undefined;
 
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(initialDueDate);
   const [selectedDueTime, setSelectedDueTime] = useState<string>(initialDueTime);
   const [selectedPriority, setSelectedPriority] = useState<1 | 2 | 3 | 4>(currentTask.priority);
   const [selectedDuration, setSelectedDuration] = useState<string>(initialDuration);
-  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(initialDeadline); // Adicionado
+  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(initialDeadline);
 
   const handleReschedule = async () => {
     const updateData: {
@@ -62,7 +73,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
       due_datetime?: string | null;
       duration?: number;
       duration_unit?: "minute" | "day";
-      deadline?: string | null; // Adicionado
+      deadline?: string | null;
     } = {};
     let changed = false;
 
@@ -119,7 +130,7 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
       changed = true;
     }
 
-    // Handle Deadline (Adicionado)
+    // Handle Deadline
     if (selectedDeadlineDate && isValid(selectedDeadlineDate)) {
       const formattedDeadline = format(selectedDeadlineDate, "yyyy-MM-dd");
       if (formattedDeadline !== currentTask.deadline) {
@@ -148,15 +159,19 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
     setIsReschedulePopoverOpen(false);
   };
 
-  const handleClearDeadline = async () => { // Adicionado
+  const handleClearDeadline = async () => {
     await onUpdateTask(currentTask.id, { deadline: null });
     setSelectedDeadlineDate(undefined);
     toast.success("Deadline removido!");
     setIsReschedulePopoverOpen(false);
   };
 
+  const isFocoActive = currentTask.labels?.includes(FOCO_LABEL_ID);
+  const isRapidaActive = currentTask.labels?.includes(RAPIDA_LABEL_ID);
+  const isCronogramaActive = currentTask.labels?.includes(CRONOGRAMA_HOJE_LABEL);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-6"> {/* Ajustado para 5 colunas */}
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-6">
       <Button
         onClick={() => onComplete(currentTask.id)}
         disabled={isLoading}
@@ -227,7 +242,6 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
                 className="mt-1"
               />
             </div>
-            {/* Campo Deadline Adicionado */}
             <div>
               <Label htmlFor="reschedule-deadline">Deadline (Opcional)</Label>
               <Calendar
@@ -271,6 +285,41 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
         className="bg-red-600 hover:bg-red-700 text-white py-3 text-md flex items-center justify-center"
       >
         <Target className="mr-2 h-5 w-5" /> Foco de Emergência
+      </Button>
+
+      {/* Novos botões para etiquetas */}
+      <Button
+        onClick={() => onToggleFoco(currentTask.id, currentTask.labels || [])}
+        disabled={isLoading}
+        variant={isFocoActive ? "default" : "outline"}
+        className={cn(
+          "py-3 text-md flex items-center justify-center",
+          isFocoActive ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "text-indigo-600 border-indigo-600 hover:bg-indigo-50"
+        )}
+      >
+        <Tag className="mr-2 h-5 w-5" /> {FOCO_LABEL_ID}
+      </Button>
+      <Button
+        onClick={() => onToggleRapida(currentTask.id, currentTask.labels || [])}
+        disabled={isLoading}
+        variant={isRapidaActive ? "default" : "outline"}
+        className={cn(
+          "py-3 text-md flex items-center justify-center",
+          isRapidaActive ? "bg-purple-600 hover:bg-purple-700 text-white" : "text-purple-600 border-purple-600 hover:bg-purple-50"
+        )}
+      >
+        <Tag className="mr-2 h-5 w-5" /> {RAPIDA_LABEL_ID}
+      </Button>
+      <Button
+        onClick={() => onToggleCronograma(currentTask.id, currentTask.labels || [])}
+        disabled={isLoading}
+        variant={isCronogramaActive ? "default" : "outline"}
+        className={cn(
+          "py-3 text-md flex items-center justify-center",
+          isCronogramaActive ? "bg-teal-600 hover:bg-teal-700 text-white" : "text-teal-600 border-teal-600 hover:bg-teal-50"
+        )}
+      >
+        <Tag className="mr-2 h-5 w-5" /> {CRONOGRAMA_HOJE_LABEL}
       </Button>
     </div>
   );
