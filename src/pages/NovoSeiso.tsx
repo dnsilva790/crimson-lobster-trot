@@ -14,7 +14,7 @@ import ExecucaoFinishedState from "@/components/execucao/ExecucaoFinishedState";
 import TaskActionButtons from "@/components/execucao/TaskActionButtons";
 import { useExecucaoTasks } from "@/hooks/useExecucaoTasks";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { calculateNext15MinInterval } from '@/utils/dateUtils';
+import { calculateNext15MinInterval, calculateNextFullHour } from '@/utils/dateUtils'; // Importar calculateNextFullHour
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from "sonner";
@@ -240,7 +240,8 @@ const NovoSeiso = () => {
       return;
     }
 
-    const nextInterval = calculateNext15MinInterval(new Date());
+    // Alterado para usar calculateNextFullHour
+    const nextInterval = calculateNextFullHour(new Date());
     
     // Remove FOCO_LABEL_ID e CRONOGRAMA_HOJE_LABEL, e adiciona RAPIDA_LABEL_ID
     const updatedLabels = [...new Set([
