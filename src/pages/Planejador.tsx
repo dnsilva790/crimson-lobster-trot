@@ -394,80 +394,102 @@ const Planejador = () => {
   // NEW: Function to sync scheduled tasks with Todoist status
   const syncScheduledTasks = useCallback(async () => {
     console.log("Planejador: Iniciando sincronização de tarefas agendadas com o Todoist.");
-    let updatedSchedules = { ...schedules };
-    let changesMade = false;
+    let changesMadeOverall = false; // Flag to track if any changes were made across all dates
 
-    for (const dateKey in updatedSchedules) {
-      const daySchedule = updatedSchedules[dateKey];
-      const originalScheduledTasks = [...daySchedule.scheduledTasks];
-      const newScheduledTasks: ScheduledTask[] = [];
+    // Fetch all active Todoist tasks once for efficiency
+    const allActiveTodoistTasks = await fetchTasks(undefined, { includeSubtasks: true, includeRecurring: true });
+    const fetchedTodoistTasksMap = new Map<string, TodoistTask>();
+    allActiveTodoistTasks.forEach(task => fetchedTodoistTasksMap.set(task.id, task));
 
-      for (const scheduledTask of originalScheduledTasks) {
-        if (scheduledTask.originalTask && 'project_id' in scheduledTask.originalTask) { // It's a Todoist task
-          const todoistTask = await fetchTaskById(scheduledTask.originalTask.id);
-          if (todoistTask === undefined || todoistTask.is_completed) {
-            console.log(`Planejador: Tarefa Todoist agendada "${scheduledTask.content}" (ID: ${scheduledTask.taskId}) está concluída ou não existe mais. Removendo da agenda.`);
-            changesMade = true;
-            // Also remove the "📆 Cronograma de hoje" label if the task is completed/deleted
-            if (todoistTask?.labels.includes(CRONOGRAMA_HOJE_LABEL)) {
-              const updatedLabels = todoistTask.labels.filter(label => label !== CRONOGRAMA_HOJE_LABEL);
-              await updateTask(todoistTask.id, { labels: updatedLabels });
-            }
-          } else {
-            // NEW LOGIC: Check if the Todoist task's due date/time still matches the scheduled slot
-            const scheduledStartDateTime = parse(`${scheduledTask.start}`, "HH:mm", parseISO(dateKey));
-            
-            let todoistDueDateTime: Date | null = null;
-            if (todoistTask.due?.datetime) {
-                todoistDueDateTime = parseISO(todoistTask.due.datetime);
-            } else if (todoistTask.due?.date) {
-                // If only a date is set in Todoist, compare with start of scheduled day
-                // This will likely not match a scheduled task with a specific time, which is desired.
-                todoistDueDateTime = startOfDay(parseISO(todoistTask.due.date));
-            }
+    // Collect all Todoist API updates to perform them after setSchedules
+    const todoistUpdates: { taskId: string; data: { labels: string[] } }[] = [];
 
-            // Compare scheduled time with Todoist's due time
-            // A match requires both date and time to be equal.
-            const isDueDateTimeMatch = todoistDueDateTime && isValid(todoistDueDateTime) &&
-                                        isEqual(scheduledStartDateTime, todoistDueDateTime);
-            
-            if (!isDueDateTimeMatch) {
-                console.log(`Planejador: Tarefa Todoist agendada "${scheduledTask.content}" (ID: ${scheduledTask.taskId}) tem prazo diferente no Todoist. Removendo da agenda.`);
-                changesMade = true;
-                // Remove the "📆 Cronograma de hoje" label from Todoist task
-                if (todoistTask.labels.includes(CRONOGRAMA_HOJE_LABEL)) {
-                    const updatedLabels = todoistTask.labels.filter(label => label !== CRONOGRAMA_HOJE_LABEL);
-                    await updateTask(todoistTask.id, { labels: updatedLabels });
-                }
+    setSchedules(prevSchedules => {
+      let updatedSchedules = { ...prevSchedules };
+      let changesMadeInThisCycle = false;
+
+      for (const dateKey in updatedSchedules) {
+        const daySchedule = updatedSchedules[dateKey];
+        const originalScheduledTasks = [...daySchedule.scheduledTasks];
+        const newScheduledTasks: ScheduledTask[] = [];
+        let changesMadeForDay = false;
+
+        for (const scheduledTask of originalScheduledTasks) {
+          if (scheduledTask.originalTask && 'project_id' in scheduledTask.originalTask) { // It's a Todoist task
+            const todoistTask = fetchedTodoistTasksMap.get(scheduledTask.originalTask.id);
+
+            if (todoistTask === undefined || todoistTask.is_completed) {
+              console.log(`Planejador: Tarefa Todoist agendada "${scheduledTask.content}" (ID: ${scheduledTask.taskId}) está concluída ou não existe mais. Removendo da agenda.`);
+              changesMadeForDay = true;
+              // Check the *fetched* task's labels for CRONOGRAMA_HOJE_LABEL
+              if (scheduledTask.originalTask.labels.includes(CRONOGRAMA_HOJE_LABEL)) { // Use originalTask labels for check
+                const updatedLabels = scheduledTask.originalTask.labels.filter(label => label !== CRONOGRAMA_HOJE_LABEL);
+                todoistUpdates.push({ taskId: scheduledTask.originalTask.id, data: { labels: updatedLabels } });
+              }
             } else {
-                newScheduledTasks.push(scheduledTask);
+              const scheduledStartDateTime = parse(`${scheduledTask.start}`, "HH:mm", parseISO(dateKey));
+              
+              let todoistDueDateTime: Date | null = null;
+              if (todoistTask.due?.datetime) {
+                  todoistDueDateTime = parseISO(todoistTask.due.datetime);
+              } else if (todoistTask.due?.date) {
+                  todoistDueDateTime = startOfDay(parseISO(todoistTask.due.date));
+              }
+
+              const isDueDateTimeMatch = todoistDueDateTime && isValid(todoistDueDateTime) &&
+                                          isEqual(scheduledStartDateTime, todoistDueDateTime);
+              
+              if (!isDueDateTimeMatch) {
+                  console.log(`Planejador: Tarefa Todoist agendada "${scheduledTask.content}" (ID: ${scheduledTask.taskId}) tem prazo diferente no Todoist. Removendo da agenda.`);
+                  changesMadeForDay = true;
+                  if (todoistTask.labels.includes(CRONOGRAMA_HOJE_LABEL)) {
+                      const updatedLabels = todoistTask.labels.filter(label => label !== CRONOGRAMA_HOJE_LABEL);
+                      todoistUpdates.push({ taskId: todoistTask.id, data: { labels: updatedLabels } });
+                  }
+              } else {
+                  newScheduledTasks.push(scheduledTask);
+              }
             }
+          } else { // Internal task
+            newScheduledTasks.push(scheduledTask);
           }
-        } else { // Internal task, keep as is (completion handled internally)
-          newScheduledTasks.push(scheduledTask);
+        }
+        if (changesMadeForDay) {
+          updatedSchedules[dateKey] = { ...daySchedule, scheduledTasks: newScheduledTasks };
+          changesMadeInThisCycle = true;
         }
       }
-      if (newScheduledTasks.length !== originalScheduledTasks.length) {
-        updatedSchedules[dateKey] = { ...daySchedule, scheduledTasks: newScheduledTasks };
-        changesMade = true;
+      if (changesMadeInThisCycle) {
+        changesMadeOverall = true;
+        return updatedSchedules;
+      }
+      return prevSchedules;
+    });
+
+    // Perform all Todoist API updates after the state has been updated
+    if (todoistUpdates.length > 0) {
+      console.log(`Planejador: Realizando ${todoistUpdates.length} atualizações de etiquetas no Todoist.`);
+      for (const update of todoistUpdates) {
+        await updateTask(update.taskId, update.data);
       }
     }
 
-    if (changesMade) {
-      setSchedules(updatedSchedules);
+    if (changesMadeOverall) {
       toast.info("Agenda sincronizada com o status das tarefas do Todoist.");
     }
     console.log("Planejador: Sincronização de tarefas agendadas concluída.");
-  }, [schedules, fetchTaskById, updateTask]);
+  }, [fetchTasks, updateTask]);
 
 
   useEffect(() => {
-    fetchBacklogTasks();
-    // Call syncScheduledTasks after fetching backlog to ensure schedule is up-to-date
-    syncScheduledTasks();
-  }, [fetchBacklogTasks, syncScheduledTasks, backlogSortOrder]); // Add backlogSortOrder to dependency array
+    const initPlanner = async () => {
+      await syncScheduledTasks(); // Primeiro, sincroniza as tarefas agendadas
+      fetchBacklogTasks(); // Depois, busca o backlog
+    };
+    initPlanner();
+  }, [syncScheduledTasks, fetchBacklogTasks, backlogSortOrder]); // `selectedDate` é tratado em outro useEffect
 
-  // Also call syncScheduledTasks when selectedDate changes to ensure the current view is fresh
+  // Também chama syncScheduledTasks quando selectedDate muda para garantir que a visualização atual esteja fresca
   useEffect(() => {
     syncScheduledTasks();
   }, [selectedDate, syncScheduledTasks]);
