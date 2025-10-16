@@ -414,7 +414,34 @@ const Planejador = () => {
               await updateTask(todoistTask.id, { labels: updatedLabels });
             }
           } else {
-            newScheduledTasks.push(scheduledTask);
+            // NEW LOGIC: Check if the Todoist task's due date/time still matches the scheduled slot
+            const scheduledStartDateTime = parse(`${scheduledTask.start}`, "HH:mm", parseISO(dateKey));
+            
+            let todoistDueDateTime: Date | null = null;
+            if (todoistTask.due?.datetime) {
+                todoistDueDateTime = parseISO(todoistTask.due.datetime);
+            } else if (todoistTask.due?.date) {
+                // If only a date is set in Todoist, compare with start of scheduled day
+                // This will likely not match a scheduled task with a specific time, which is desired.
+                todoistDueDateTime = startOfDay(parseISO(todoistTask.due.date));
+            }
+
+            // Compare scheduled time with Todoist's due time
+            // A match requires both date and time to be equal.
+            const isDueDateTimeMatch = todoistDueDateTime && isValid(todoistDueDateTime) &&
+                                        isEqual(scheduledStartDateTime, todoistDueDateTime);
+            
+            if (!isDueDateTimeMatch) {
+                console.log(`Planejador: Tarefa Todoist agendada "${scheduledTask.content}" (ID: ${scheduledTask.taskId}) tem prazo diferente no Todoist. Removendo da agenda.`);
+                changesMade = true;
+                // Remove the "📆 Cronograma de hoje" label from Todoist task
+                if (todoistTask.labels.includes(CRONOGRAMA_HOJE_LABEL)) {
+                    const updatedLabels = todoistTask.labels.filter(label => label !== CRONOGRAMA_HOJE_LABEL);
+                    await updateTask(todoistTask.id, { labels: updatedLabels });
+                }
+            } else {
+                newScheduledTasks.push(scheduledTask);
+            }
           }
         } else { // Internal task, keep as is (completion handled internally)
           newScheduledTasks.push(scheduledTask);
