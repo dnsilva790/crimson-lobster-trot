@@ -14,6 +14,11 @@ import { format, parseISO, isValid, isToday, isTomorrow, isPast, addHours, getHo
 import { ptBR } from "date-fns/locale";
 import { useTodoist } from "@/context/TodoistContext";
 import { Label } from "@/components/ui/label";
+import {
+  FOCO_LABEL_ID,
+  RAPIDA_LABEL_ID,
+  CRONOGRAMA_HOJE_LABEL,
+} from "@/pages/NovoSeiso"; // Importar as constantes das etiquetas
 
 interface AIAgentAssistantProps {
   aiPrompt: string;
@@ -158,6 +163,30 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     }
   }, [aiPrompt, taskContext, allTasks, addMessage, messages]); // Add messages to dependencies
 
+  // Helper functions for label management
+  const addLabelToTask = useCallback(async (taskId: string, label: string, currentLabels: string[]) => {
+    const newLabels = [...new Set([...currentLabels, label])];
+    const updated = await updateTask(taskId, { labels: newLabels });
+    if (updated) {
+      toast.success(`Etiqueta "${label}" adicionada à tarefa "${updated.content}".`);
+    } else {
+      toast.error(`Falha ao adicionar etiqueta "${label}".`);
+    }
+    return updated;
+  }, [updateTask]);
+
+  const removeLabelFromTask = useCallback(async (taskId: string, label: string, currentLabels: string[]) => {
+    const newLabels = currentLabels.filter(l => l !== label);
+    const updated = await updateTask(taskId, { labels: newLabels });
+    if (updated) {
+      toast.success(`Etiqueta "${label}" removida da tarefa "${updated.content}".`);
+    } else {
+      toast.error(`Falha ao remover etiqueta "${label}".`);
+    }
+    return updated;
+  }, [updateTask]);
+
+
   const handleSendMessage = async () => {
     if (inputMessage.trim() === "" || isThinking) return;
 
@@ -165,19 +194,61 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     const userMsg = inputMessage;
     setInputMessage("");
 
+    setIsThinking(true); // Start thinking state for all commands initially
+
     // Check for specific commands that don't need AI processing
     const lowerCaseMessage = userMsg.toLowerCase();
+    let handled = false;
 
+    if (!taskContext) {
+      addMessage("ai", "Por favor, selecione uma tarefa para que eu possa gerenciar as etiquetas.");
+      setIsThinking(false);
+      return;
+    }
+
+    const currentLabels = taskContext.labels || [];
+
+    // Handle "Concluir" command
     if (lowerCaseMessage.includes("concluir") || lowerCaseMessage.includes("terminei") || lowerCaseMessage.includes("finalizei") || lowerCaseMessage.includes("acabei") || lowerCaseMessage.includes("feito")) {
-      if (taskContext) {
-        await closeTask(taskContext.id);
-        addMessage("ai", `Excelente! Tarefa "${taskContext.content}" concluída. Parabéns!`);
-        setSuggestedTaskForGuidance(null); // Clear suggested task after completion
-        setDialogueState('initial'); // Go back to initial state
-      } else {
-        addMessage("ai", "Não há uma tarefa em foco para concluir.");
-        setDialogueState('awaiting_task_action');
-      }
+      await closeTask(taskContext.id);
+      addMessage("ai", `Excelente! Tarefa "${taskContext.content}" concluída. Parabéns!`);
+      setSuggestedTaskForGuidance(null); // Clear suggested task after completion
+      setDialogueState('initial'); // Go back to initial state
+      handled = true;
+    }
+    // Handle "Foco" label
+    else if (lowerCaseMessage.includes("adicionar foco") || lowerCaseMessage.includes("colocar foco") || lowerCaseMessage.includes("marcar como foco")) {
+      await addLabelToTask(taskContext.id, FOCO_LABEL_ID, currentLabels);
+      addMessage("ai", `Etiqueta "${FOCO_LABEL_ID}" adicionada à tarefa "${taskContext.content}".`);
+      handled = true;
+    } else if (lowerCaseMessage.includes("remover foco") || lowerCaseMessage.includes("tirar foco") || lowerCaseMessage.includes("desmarcar foco")) {
+      await removeLabelFromTask(taskContext.id, FOCO_LABEL_ID, currentLabels);
+      addMessage("ai", `Etiqueta "${FOCO_LABEL_ID}" removida da tarefa "${taskContext.content}".`);
+      handled = true;
+    }
+    // Handle "Rápida" label
+    else if (lowerCaseMessage.includes("adicionar rapida") || lowerCaseMessage.includes("colocar rapida") || lowerCaseMessage.includes("marcar como rapida")) {
+      await addLabelToTask(taskContext.id, RAPIDA_LABEL_ID, currentLabels);
+      addMessage("ai", `Etiqueta "${RAPIDA_LABEL_ID}" adicionada à tarefa "${taskContext.content}".`);
+      handled = true;
+    } else if (lowerCaseMessage.includes("remover rapida") || lowerCaseMessage.includes("tirar rapida") || lowerCaseMessage.includes("desmarcar rapida")) {
+      await removeLabelFromTask(taskContext.id, RAPIDA_LABEL_ID, currentLabels);
+      addMessage("ai", `Etiqueta "${RAPIDA_LABEL_ID}" removida da tarefa "${taskContext.content}".`);
+      handled = true;
+    }
+    // Handle "Cronograma de hoje" label
+    else if (lowerCaseMessage.includes("adicionar cronograma") || lowerCaseMessage.includes("colocar cronograma") || lowerCaseMessage.includes("marcar cronograma")) {
+      await addLabelToTask(taskContext.id, CRONOGRAMA_HOJE_LABEL, currentLabels);
+      addMessage("ai", `Etiqueta "${CRONOGRAMA_HOJE_LABEL}" adicionada à tarefa "${taskContext.content}".`);
+      handled = true;
+    } else if (lowerCaseMessage.includes("remover cronograma") || lowerCaseMessage.includes("tirar cronograma") || lowerCaseMessage.includes("desmarcar cronograma")) {
+      await removeLabelFromTask(taskContext.id, CRONOGRAMA_HOJE_LABEL, currentLabels);
+      addMessage("ai", `Etiqueta "${CRONOGRAMA_HOJE_LABEL}" removida da tarefa "${taskContext.content}".`);
+      handled = true;
+    }
+
+    if (handled) {
+      setIsThinking(false);
       return;
     }
     

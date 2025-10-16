@@ -24,9 +24,9 @@ const AI_AGENT_PROMPT_STORAGE_KEY = "ai_agent_tutor_seiso_prompt";
 const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input";
 const NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY = "novoseiso_category_filter";
 const NOVO_SEISO_TASK_SOURCE_STORAGE_KEY = "novoseiso_task_source";
-const FOCO_LABEL_ID = "🎯 Foco"; // Definindo a constante para a etiqueta de foco
-const RAPIDA_LABEL_ID = "⚡ Rápida"; // Nova constante para a etiqueta Rápida
-const CRONOGRAMA_HOJE_LABEL = "📆 Cronograma de hoje"; // Nova constante para a etiqueta Cronograma de hoje
+export const FOCO_LABEL_ID = "🎯 Foco"; // Definindo a constante para a etiqueta de foco
+export const RAPIDA_LABEL_ID = "⚡ Rápida"; // Nova constante para a etiqueta Rápida
+export const CRONOGRAMA_HOJE_LABEL = "📆 Cronograma de hoje"; // Nova constante para a etiqueta Cronograma de hoje
 
 const defaultAiPrompt = `**TUTOR IA SEISO - COACH DE EXECUÇÃO ESTRATÉGICA E PRODUTIVIDADE**
 
@@ -103,6 +103,14 @@ Stakeholders Críticos: Carlos Botelho, Paulo Pontes, Dallmann, Anaterra, Felipe
 4.  **Feedback e Esclarecimento:**
     *   **Se não entender:** Responda de forma útil e ofereça opções: "Não tenho certeza de como ajudar com isso no momento. Você gostaria que eu te ajudasse a encontrar a próxima tarefa com o 'Radar de Produtividade' ou a processar uma tarefa específica?"
     *   **Guie:** Sempre que possível, guie o usuário para a próxima interação lógica.
+
+**COMANDOS DE ETIQUETAS (CLIENT-SIDE):**
+*   **Adicionar "🎯 Foco":** "adicionar foco", "colocar foco", "marcar como foco"
+*   **Remover "🎯 Foco":** "remover foco", "tirar foco", "desmarcar foco"
+*   **Adicionar "⚡ Rápida":** "adicionar rapida", "colocar rapida", "marcar como rapida"
+*   **Remover "⚡ Rápida":** "remover rapida", "tirar rapida", "desmarcar rapida"
+*   **Adicionar "📆 Cronograma de hoje":** "adicionar cronograma", "colocar cronograma", "marcar cronograma"
+*   **Remover "📆 Cronograma de hoje":** "remover cronograma", "tirar cronograma", "desmarcar cronograma"
 
 **PERSONA DO MENTOR:**
 *   **Clara, Objetiva e Focada na Ação:** Sua comunicação é direta e prática.
