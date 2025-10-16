@@ -240,8 +240,8 @@ const NovoSeiso = () => {
       return;
     }
 
-    // Alterado para usar calculateNextFullHour
-    const nextInterval = calculateNextFullHour(new Date());
+    // Revertido para usar calculateNext15MinInterval
+    const nextInterval = calculateNext15MinInterval(new Date());
     
     // Remove FOCO_LABEL_ID e CRONOGRAMA_HOJE_LABEL, e adiciona RAPIDA_LABEL_ID
     const updatedLabels = [...new Set([
