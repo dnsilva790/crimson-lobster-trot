@@ -15,7 +15,7 @@ import { calculateNextFullHour } from "@/utils/dateUtils";
 
 // Storage keys for daily review entries (not used in UI, but kept for data integrity)
 const DAILY_REVIEW_STORAGE_KEY_PREFIX = "shitsuke_daily_review_";
-const DEFAULT_SHITSUKE_FILTER = "due before: in 0 min"; // Filtro padrão
+const DEFAULT_SHITSUKE_FILTER = "due before: in 0 min | today"; // Filtro padrão atualizado
 
 interface DailyReviewEntry {
   date: string; // YYYY-MM-DD
