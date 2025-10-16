@@ -9,15 +9,12 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { format, parseISO, isValid, addHours, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckSquare, XCircle, RotateCcw } from "lucide-react";
+import { CheckSquare } from "lucide-react";
 import TaskReviewCard from "@/components/TaskReviewCard";
 import { calculateNextFullHour } from "@/utils/dateUtils";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 // Storage keys for daily review entries (not used in UI, but kept for data integrity)
 const DAILY_REVIEW_STORAGE_KEY_PREFIX = "shitsuke_daily_review_";
-const SHITSUKE_FILTER_INPUT_STORAGE_KEY = "shitsuke_filter_input"; // Chave para o filtro
 const DEFAULT_SHITSUKE_FILTER = "due before: in 0 min"; // Filtro padrão
 
 interface DailyReviewEntry {
@@ -34,22 +31,9 @@ const Shitsuke = () => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [reviewState, setReviewState] = useState<"initial" | "reviewing" | "finished">("initial");
   const [nextRescheduleTime, setNextRescheduleTime] = useState<Date | null>(null);
-  const [filterInput, setFilterInput] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(SHITSUKE_FILTER_INPUT_STORAGE_KEY) || DEFAULT_SHITSUKE_FILTER;
-    }
-    return DEFAULT_SHITSUKE_FILTER;
-  });
 
   const todayKey = format(new Date(), "yyyy-MM-dd");
   const dailyReviewStorageKey = `${DAILY_REVIEW_STORAGE_KEY_PREFIX}${todayKey}`;
-
-  // Persistir o filtro no localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(SHITSUKE_FILTER_INPUT_STORAGE_KEY, filterInput);
-    }
-  }, [filterInput]);
 
   // Placeholder for daily review loading/saving logic (not exposed in UI)
   const loadDailyReview = useCallback(() => {
@@ -124,10 +108,7 @@ const Shitsuke = () => {
     setNextRescheduleTime(null);
 
     try {
-      const todoistFilter = filterInput.trim();
-      const finalFilter = todoistFilter || undefined; 
-      
-      const tasks = await fetchTasks(finalFilter, { includeSubtasks: false, includeRecurring: false });
+      const tasks = await fetchTasks(DEFAULT_SHITSUKE_FILTER, { includeSubtasks: false, includeRecurring: false });
       const filtered = tasks.filter(task => !task.is_completed);
       
       if (filtered.length > 0) {
@@ -146,7 +127,7 @@ const Shitsuke = () => {
       setTasksToReview([]);
       setReviewState("finished");
     }
-  }, [fetchTasks, sortTasksForShitsuke, filterInput]);
+  }, [fetchTasks, sortTasksForShitsuke]);
 
   useEffect(() => {
     loadTasksForReview();
@@ -306,16 +287,6 @@ const Shitsuke = () => {
     }
   }, [updateTask, handleNextTask, nextRescheduleTime]);
 
-  const handleClearFilter = useCallback(() => {
-    setFilterInput("");
-  }, []);
-
-  const handleResetFilter = useCallback(() => {
-    setFilterInput(DEFAULT_SHITSUKE_FILTER);
-    setReviewState("initial"); // Volta para a tela inicial do filtro
-    toast.success("Filtro resetado para o padrão!");
-  }, []); // Removido loadTasksForReview daqui, pois setReviewState("initial") já fará isso indiretamente
-
   const currentTask = tasksToReview[currentTaskIndex];
 
   return (
@@ -335,52 +306,13 @@ const Shitsuke = () => {
 
       {!isLoadingTodoist && reviewState === "initial" && (
         <div className="text-center mt-10">
-          <div className="grid w-full items-center gap-1.5 mb-6 max-w-md mx-auto">
-            <Label htmlFor="task-filter" className="text-left text-gray-600 font-medium">
-              Filtro de Tarefas (Todoist)
-            </Label>
-            <div className="relative flex items-center mt-1">
-              <Input
-                type="text"
-                id="task-filter"
-                placeholder="Ex: 'due before: in 0 min' (padrão: tarefas atrasadas)"
-                value={filterInput}
-                onChange={(e) => setFilterInput(e.target.value)}
-                className="pr-10"
-                disabled={isLoadingTodoist}
-              />
-              {filterInput && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleClearFilter}
-                  className="absolute right-0 top-0 h-full px-3"
-                  disabled={isLoadingTodoist}
-                >
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            <p className="text-xs text-gray-500 text-left mt-1">
-              Use a sintaxe de filtro do Todoist. Subtarefas e tarefas recorrentes são excluídas automaticamente.
-            </p>
-          </div>
-          <div className="flex flex-col md:flex-row justify-center gap-4 mt-6">
-            <Button
-              onClick={loadTasksForReview}
-              className="px-8 py-4 text-xl bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-200"
-              disabled={isLoadingTodoist}
-            >
-              Iniciar Revisão de Backlog
-            </Button>
-            <Button
-              onClick={handleResetFilter}
-              className="px-8 py-4 text-xl bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200"
-              disabled={isLoadingTodoist}
-            >
-              <RotateCcw className="h-5 w-5 mr-2" /> Resetar Filtro
-            </Button>
-          </div>
+          <Button
+            onClick={loadTasksForReview}
+            className="px-8 py-4 text-xl bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-200"
+            disabled={isLoadingTodoist}
+          >
+            Iniciar Revisão de Backlog
+          </Button>
         </div>
       )}
 
