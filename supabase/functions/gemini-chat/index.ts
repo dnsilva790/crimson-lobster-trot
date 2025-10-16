@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
-import { GoogleGenerativeAI } from 'https://esm.sh/@google/generative-ai@0.14.1'; // Importado via esm.sh
+import { GoogleGenerativeAI } from 'https://esm.sh/@google/generative-ai@0.14.1';
 
 console.log('Hello from Gemini Chat Edge Function!');
 
