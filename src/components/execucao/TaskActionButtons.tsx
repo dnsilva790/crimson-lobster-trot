@@ -293,33 +293,33 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
         disabled={isLoading}
         variant={isFocoActive ? "default" : "outline"}
         className={cn(
-          "py-3 text-md flex items-center justify-center",
+          "py-3 text-sm flex items-center justify-center", // Alterado para text-sm
           isFocoActive ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "text-indigo-600 border-indigo-600 hover:bg-indigo-50"
         )}
       >
-        <Tag className="mr-2 h-5 w-5" /> {FOCO_LABEL_ID}
+        <Tag className="mr-1 h-4 w-4" /> {FOCO_LABEL_ID} {/* Ícone e margem ajustados */}
       </Button>
       <Button
         onClick={() => onToggleRapida(currentTask.id, currentTask.labels || [])}
         disabled={isLoading}
         variant={isRapidaActive ? "default" : "outline"}
         className={cn(
-          "py-3 text-md flex items-center justify-center",
+          "py-3 text-sm flex items-center justify-center", // Alterado para text-sm
           isRapidaActive ? "bg-purple-600 hover:bg-purple-700 text-white" : "text-purple-600 border-purple-600 hover:bg-purple-50"
         )}
       >
-        <Tag className="mr-2 h-5 w-5" /> {RAPIDA_LABEL_ID}
+        <Tag className="mr-1 h-4 w-4" /> {RAPIDA_LABEL_ID} {/* Ícone e margem ajustados */}
       </Button>
       <Button
         onClick={() => onToggleCronograma(currentTask.id, currentTask.labels || [])}
         disabled={isLoading}
         variant={isCronogramaActive ? "default" : "outline"}
         className={cn(
-          "py-3 text-md flex items-center justify-center",
+          "py-3 text-sm flex items-center justify-center", // Alterado para text-sm
           isCronogramaActive ? "bg-teal-600 hover:bg-teal-700 text-white" : "text-teal-600 border-teal-600 hover:bg-teal-50"
         )}
       >
-        <Tag className="mr-2 h-5 w-5" /> {CRONOGRAMA_HOJE_LABEL}
+        <Tag className="mr-1 h-4 w-4" /> {CRONOGRAMA_HOJE_LABEL} {/* Ícone e margem ajustados */}
       </Button>
     </div>
   );
