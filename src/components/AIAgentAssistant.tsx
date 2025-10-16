@@ -122,7 +122,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
 \`\`\``;
   }, []);
 
-  const callGeminiChatFunction = useCallback(async (userMessage: string) => { // Removido debugAIOnly
+  const callGeminiChatFunction = useCallback(async (userMessage: string) => {
     setIsThinking(true);
     try {
       const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
@@ -136,7 +136,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
           userMessage,
           currentTask: taskContext, // Pass the task in context
           allTasks, // Pass all tasks for Radar functionality
-          // Removido debugAIOnly
+          chatHistory: messages.map(msg => ({ role: msg.sender === 'user' ? 'user' : 'model', parts: [{ text: msg.text }] })), // Pass the chat history
         }),
       });
 
@@ -147,7 +147,6 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
 
       const data = await response.json();
 
-      // Removida a lógica de depuração
       addMessage("ai", data.response);
       setDialogueState(taskContext ? 'awaiting_task_action' : 'general_conversation'); // Adjust state based on context
     } catch (error: any) {
@@ -157,7 +156,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     } finally {
       setIsThinking(false);
     }
-  }, [aiPrompt, taskContext, allTasks, addMessage]);
+  }, [aiPrompt, taskContext, allTasks, addMessage, messages]); // Add messages to dependencies
 
   const handleSendMessage = async () => {
     if (inputMessage.trim() === "" || isThinking) return;
@@ -182,8 +181,6 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       return;
     }
     
-    // Removido o comando "depurar ia"
-
     // Otherwise, send to Gemini
     await callGeminiChatFunction(userMsg);
   };

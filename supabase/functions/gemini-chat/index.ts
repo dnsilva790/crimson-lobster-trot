@@ -9,7 +9,7 @@ serve(async (req) => {
   }
 
   try {
-    const { aiPrompt, userMessage, currentTask, allTasks } = await req.json();
+    const { aiPrompt, userMessage, currentTask, allTasks, chatHistory } = await req.json(); // Receive chatHistory
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     if (!GEMINI_API_KEY) {
@@ -46,6 +46,15 @@ serve(async (req) => {
       ],
     });
 
+    // Format chat history for Gemini
+    const formattedChatHistory = chatHistory.map((msg: any) => ({
+      role: msg.role,
+      parts: [{ text: msg.text }],
+    }));
+
+    // Add the current user message to the history for the model
+    formattedChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
+
     const fullPrompt = `
       ${aiPrompt}
 
@@ -62,16 +71,18 @@ serve(async (req) => {
       ` : 'Nenhuma tarefa específica em foco.'}
 
       ${allTasks && allTasks.length > 0 ? `Todas as Tarefas (para Radar de Produtividade, se aplicável):
-      ${allTasks.map(task => `- [P${task.priority}] ${task.content} (ID: ${task.id}, Venc: ${task.due?.datetime || task.due?.date || 'N/A'}, Deadline: ${task.deadline || 'N/A'}, Labels: ${task.labels.join(', ') || 'N/A'})`).join('\n')}
+      ${allTasks.map((task: any) => `- [P${task.priority}] ${task.content} (ID: ${task.id}, Venc: ${task.due?.datetime || task.due?.date || 'N/A'}, Deadline: ${task.deadline || 'N/A'}, Labels: ${task.labels.join(', ') || 'N/A'})`).join('\n')}
       ` : 'Nenhuma outra tarefa disponível para contexto.'}
 
       --- CONVERSA ---
-      Usuário: ${userMessage}
-      Tutor IA:
+      (O histórico de conversas abaixo é fornecido para contexto. A última mensagem é a do usuário atual.)
     `;
 
     const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
+      contents: [
+        { role: "user", parts: [{ text: fullPrompt }] }, // System instruction + context
+        ...formattedChatHistory, // The actual conversation history
+      ],
     });
     const response = await result.response;
     const text = response.text();
