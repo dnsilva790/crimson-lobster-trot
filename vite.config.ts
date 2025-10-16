@@ -9,7 +9,7 @@ export default defineConfig(() => ({
     port: 8080,
     proxy: {
       '/api/todoist': {
-        target: 'https://api.todoist.com', // Removida a barra final
+        target: 'https://api.todoist.com/', // Adicionada a barra final novamente
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/todoist/, ''),
         secure: true, // Use true for HTTPS targets
