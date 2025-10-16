@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.1.3'; // Mantendo a versão fixada para estabilidade
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.12.0'; // Atualizado para uma versão mais recente
 
 console.log('Hello from Gemini Chat Edge Function!');
 
