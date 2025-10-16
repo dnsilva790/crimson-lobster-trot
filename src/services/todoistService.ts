@@ -1,7 +1,7 @@
 import { TodoistTask, TodoistProject, TodoistCustomFieldDefinition } from "@/lib/types";
 
-const TODOIST_API_BASE_URL = "https://api.todoist.com/rest/v2";
-const TODOIST_SYNC_API_BASE_URL = "https://api.todoist.com/sync/v9";
+const TODOIST_API_BASE_URL = "/api/todoist/rest/v2"; // Atualizado para usar o proxy
+const TODOIST_SYNC_API_BASE_URL = "/api/todoist/sync/v9"; // Atualizado para usar o proxy
 
 interface TodoistError {
   status: number;
@@ -178,7 +178,7 @@ export const todoistService = {
         } else if (syncItem.deadline && typeof syncItem.deadline === 'string') {
           deadlineValue = syncItem.deadline;
         } else if (syncItem.deadline !== null && syncItem.deadline !== undefined) {
-          console.warn(`TodoistService: Task ${taskId} (${restTask.content}) has unexpected deadline object format:`, syncItem.deadline);
+          console.warn(`TodoistService: Task ${taskId} (${restTask.content}) has unexpected deadline format:`, syncItem.deadline);
         }
         return { ...restTask, deadline: deadlineValue, custom_fields: syncItem.custom_fields };
       }
