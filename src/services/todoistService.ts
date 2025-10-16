@@ -136,7 +136,9 @@ export const todoistService = {
   },
 
   fetchTasks: async (apiKey: string, filter?: string, syncItemsCache?: Map<string, any>): Promise<TodoistTask[]> => {
-    const endpoint = filter ? `/tasks?filter=${encodeURIComponent(filter)}` : "/tasks";
+    // If filter is an empty string, treat it as undefined to fetch all tasks
+    const effectiveFilter = (filter === "" || filter === undefined) ? undefined : filter;
+    const endpoint = effectiveFilter ? `/tasks?filter=${encodeURIComponent(effectiveFilter)}` : "/tasks";
     const restTasks = await todoistApiCall<TodoistTask[]>(endpoint, apiKey);
 
     if (!restTasks || restTasks.length === 0) {

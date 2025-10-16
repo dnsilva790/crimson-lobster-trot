@@ -46,44 +46,50 @@ serve(async (req) => {
       ],
     });
 
-    // Format chat history for Gemini
-    const formattedChatHistory = chatHistory.map((msg: any) => ({
-      role: msg.role,
-      parts: [{ text: msg.text }],
+    // Ensure all text parts are strings and roles are correct for Gemini
+    const safeAiPrompt = aiPrompt || '';
+    const safeCurrentTask = currentTask || {};
+    const safeAllTasks = allTasks || [];
+
+    // The chatHistory from the client already includes the latest user message.
+    // We need to map it to Gemini's expected format and ensure text is always a string.
+    const formattedChatHistoryForGemini = chatHistory.map((msg: any) => ({
+      role: msg.sender === 'user' ? 'user' : 'model', // Ensure role is 'user' or 'model'
+      parts: [{ text: msg.text || '' }], // Ensure text is always a string
     }));
 
-    // Add the current user message to the history for the model
-    formattedChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
-
-    const fullPrompt = `
-      ${aiPrompt}
+    // Construct fullPrompt with safe string interpolations
+    const fullPromptContent = `
+      ${safeAiPrompt}
 
       --- CONTEXTO ATUAL ---
-      ${currentTask ? `Tarefa em Foco:
-      ID: ${currentTask.id}
-      Conteúdo: ${currentTask.content}
-      Descrição: ${currentTask.description || 'N/A'}
-      Prioridade: P${currentTask.priority}
-      Vencimento: ${currentTask.due?.datetime || currentTask.due?.date || 'N/A'}
-      Deadline: ${currentTask.deadline || 'N/A'}
-      Etiquetas: ${currentTask.labels.join(', ') || 'N/A'}
-      URL: ${currentTask.url}
+      ${safeCurrentTask.id ? `Tarefa em Foco:
+      ID: ${safeCurrentTask.id}
+      Conteúdo: ${safeCurrentTask.content || 'N/A'}
+      Descrição: ${safeCurrentTask.description || 'N/A'}
+      Prioridade: P${safeCurrentTask.priority || 'N/A'}
+      Vencimento: ${safeCurrentTask.due?.datetime || safeCurrentTask.due?.date || 'N/A'}
+      Deadline: ${safeCurrentTask.deadline || 'N/A'}
+      Etiquetas: ${(safeCurrentTask.labels || []).join(', ') || 'N/A'}
+      URL: ${safeCurrentTask.url || 'N/A'}
       ` : 'Nenhuma tarefa específica em foco.'}
 
-      ${allTasks && allTasks.length > 0 ? `Todas as Tarefas (para Radar de Produtividade, se aplicável):
-      ${allTasks.map((task: any) => `- [P${task.priority}] ${task.content} (ID: ${task.id}, Venc: ${task.due?.datetime || task.due?.date || 'N/A'}, Deadline: ${task.deadline || 'N/A'}, Labels: ${task.labels.join(', ') || 'N/A'})`).join('\n')}
+      ${safeAllTasks.length > 0 ? `Todas as Tarefas (para Radar de Produtividade, se aplicável):
+      ${safeAllTasks.map((task: any) => `- [P${task.priority || 'N/A'}] ${task.content || 'N/A'} (ID: ${task.id || 'N/A'}, Venc: ${task.due?.datetime || task.due?.date || 'N/A'}, Deadline: ${task.deadline || 'N/A'}, Labels: ${(task.labels || []).join(', ') || 'N/A'})`).join('\n')}
       ` : 'Nenhuma outra tarefa disponível para contexto.'}
 
       --- CONVERSA ---
       (O histórico de conversas abaixo é fornecido para contexto. A última mensagem é a do usuário atual.)
     `;
 
-    const result = await model.generateContent({
-      contents: [
-        { role: "user", parts: [{ text: fullPrompt }] }, // System instruction + context
-        ...formattedChatHistory, // The actual conversation history
-      ],
-    });
+    // The first message to Gemini should set the context/system instruction.
+    // Then, the actual chat history follows.
+    const contents = [
+      { role: "user", parts: [{ text: fullPromptContent }] }, // This is the initial context-setting message
+      ...formattedChatHistoryForGemini, // This includes the user's latest message
+    ];
+
+    const result = await model.generateContent({ contents });
     const response = await result.response;
     const text = response.text();
 
