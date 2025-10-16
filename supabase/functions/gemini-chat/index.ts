@@ -1,5 +1,5 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.12.0'; // Atualizado para uma versão mais recente
+import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'; // Atualizado para 0.224.0
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.14.1'; // Atualizado para 0.14.1
 
 console.log('Hello from Gemini Chat Edge Function!');
 
@@ -18,7 +18,6 @@ serve(async (req) => {
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-    // Usando 'gemini-2.5-flash' conforme sua sugestão, com configurações adicionais
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.5-flash",
       generationConfig: {
@@ -73,7 +72,6 @@ serve(async (req) => {
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
-      // generationConfig e safetySettings já estão no getGenerativeModel, não precisam ser repetidos aqui
     });
     const response = await result.response;
     const text = response.text();
