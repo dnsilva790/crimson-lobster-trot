@@ -312,9 +312,9 @@ const Shitsuke = () => {
 
   const handleResetFilter = useCallback(() => {
     setFilterInput(DEFAULT_SHITSUKE_FILTER);
-    loadTasksForReview();
+    setReviewState("initial"); // Volta para a tela inicial do filtro
     toast.success("Filtro resetado para o padrão!");
-  }, [loadTasksForReview]);
+  }, []); // Removido loadTasksForReview daqui, pois setReviewState("initial") já fará isso indiretamente
 
   const currentTask = tasksToReview[currentTaskIndex];
 
