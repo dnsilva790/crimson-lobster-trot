@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -66,53 +66,63 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   const [selectedDuration, setSelectedDuration] = useState<string>(initialDuration);
   const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(initialDeadline);
 
+  // Helper to get the canonical due string for comparison
+  const getCanonicalDueString = useCallback((date: Date | undefined, time: string | undefined, taskDue: TodoistTask['due']) => {
+    if (date && isValid(date)) {
+      if (time) {
+        const [hours, minutes] = time.split(":").map(Number);
+        const dateTime = setMinutes(setHours(date, hours), minutes);
+        return format(dateTime, "yyyy-MM-dd'T'HH:mm:ss");
+      } else {
+        return format(date, "yyyy-MM-dd");
+      }
+    } else if (taskDue?.datetime) {
+      return format(parseISO(taskDue.datetime), "yyyy-MM-dd'T'HH:mm:ss");
+    } else if (taskDue?.date) {
+      return format(parseISO(taskDue.date), "yyyy-MM-dd");
+    }
+    return null;
+  }, []);
+
+
   const handleReschedule = async () => {
     const updateData: {
       priority?: 1 | 2 | 3 | 4;
       due_date?: string | null;
       due_datetime?: string | null;
-      duration?: number;
+      duration?: number | null; // Changed to allow null
       duration_unit?: "minute" | "day";
       deadline?: string | null;
     } = {};
     let changed = false;
 
-    // Handle Due Date and Time
-    if (selectedDueDate && isValid(selectedDueDate)) {
-      let finalDate = selectedDueDate;
-      if (selectedDueTime) {
-        const [hours, minutes] = (selectedDueTime || '').split(":").map(Number);
-        finalDate = setMinutes(setHours(selectedDueDate, hours), minutes);
-        updateData.due_datetime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
+    // --- Handle Due Date and Time ---
+    const oldDueString = getCanonicalDueString(undefined, undefined, currentTask.due);
+    const newDueString = getCanonicalDueString(selectedDueDate, selectedDueTime, null);
+
+    if (oldDueString !== newDueString) {
+      changed = true;
+      if (newDueString) {
+        if (newDueString.includes('T')) { // It's a datetime
+          updateData.due_datetime = newDueString;
+          updateData.due_date = null;
+        } else { // It's a date
+          updateData.due_date = newDueString;
+          updateData.due_datetime = null;
+        }
+      } else { // newDueString is null, meaning cleared
         updateData.due_date = null;
-      } else {
-        updateData.due_date = format(finalDate, "yyyy-MM-dd");
         updateData.due_datetime = null;
       }
-
-      const currentTaskDueDateTime = currentTask.due?.datetime ? format(parseISO(currentTask.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
-      const currentTaskDueDate = currentTask.due?.date ? format(parseISO(currentTask.due.date), "yyyy-MM-dd") : null;
-
-      if (updateData.due_datetime && updateData.due_datetime !== currentTaskDueDateTime) {
-        changed = true;
-      } else if (updateData.due_date && updateData.due_date !== currentTaskDueDate && !currentTaskDueDateTime) {
-        changed = true;
-      } else if (!updateData.due_date && !updateData.due_datetime && (currentTaskDueDate || currentTaskDueDateTime)) {
-        changed = true;
-      }
-    } else if (!selectedDueDate && (currentTask.due?.date || currentTask.due?.datetime)) {
-      updateData.due_date = null;
-      updateData.due_datetime = null;
-      changed = true;
     }
 
-    // Handle Priority
+    // --- Handle Priority ---
     if (selectedPriority !== currentTask.priority) {
       updateData.priority = selectedPriority;
       changed = true;
     }
 
-    // Handle Duration
+    // --- Handle Duration ---
     const newDurationAmount = parseInt(selectedDuration, 10);
     const currentDurationAmount = currentTask.duration?.amount;
     const currentDurationUnit = currentTask.duration?.unit;
@@ -126,11 +136,11 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
     } else if (currentDurationAmount !== undefined || currentDurationUnit !== undefined) {
       // If duration was present but now cleared or invalid
       updateData.duration = null; // Explicitly set to null to clear
-      updateData.duration_unit = undefined; // Clear unit as well
+      // Do NOT set updateData.duration_unit here if duration is null, let the API handle default or omit.
       changed = true;
     }
 
-    // Handle Deadline
+    // --- Handle Deadline ---
     if (selectedDeadlineDate && isValid(selectedDeadlineDate)) {
       const formattedDeadline = format(selectedDeadlineDate, "yyyy-MM-dd");
       if (formattedDeadline !== currentTask.deadline) {
