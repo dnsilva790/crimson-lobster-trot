@@ -251,59 +251,117 @@ const Planejador = () => {
         if (rankB !== undefined) return 1; // B is in Seiton, A is not
 
         // Fallback to default sorting if neither is in Seiton ranking
+        // 1. Starred tasks first
         const isAStarred = a.content.startsWith("*");
         const isBStarred = b.content.startsWith("*");
         if (isAStarred && !isBStarred) return -1;
         if (!isAStarred && isBStarred) return 1;
 
+        // Helper to get date value, handling null/undefined and invalid dates
+        const getDateValue = (task: TodoistTask | InternalTask, dateField: 'deadline' | 'due_datetime' | 'due_date' | 'createdAt' | 'created_at') => {
+          let dateString: string | null | undefined;
+          if (dateField === 'deadline' && 'deadline' in task) dateString = task.deadline;
+          else if (dateField === 'due_datetime' && 'due' in task) dateString = task.due?.datetime;
+          else if (dateField === 'due_date' && 'due' in task) dateString = task.due?.date;
+          else if (dateField === 'createdAt' && 'createdAt' in task) dateString = task.createdAt;
+          else if (dateField === 'created_at' && 'created_at' in task) dateString = task.created_at;
+          
+          if (typeof dateString === 'string' && dateString) {
+            const parsedDate = parseISO(dateString);
+            return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
+          }
+          return Infinity;
+        };
+
+        // 2. Deadline: earliest first
+        const deadlineA = getDateValue(a, 'deadline');
+        const deadlineB = getDateValue(b, 'deadline');
+        if (deadlineA !== deadlineB) {
+          return deadlineA - deadlineB;
+        }
+
+        // 3. Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
         const priorityA = 'priority' in a ? a.priority : 1;
         const priorityB = 'priority' in b ? b.priority : 1;
         if (priorityA !== priorityB) return priorityB - priorityA;
 
-        const getTaskDateValue = (task: TodoistTask | InternalTask) => {
-          if ('due' in task && typeof task.due?.datetime === 'string' && task.due.datetime) return parseISO(task.due.datetime).getTime();
-          if ('due' in task && typeof task.due?.date === 'string' && task.due.date) return parseISO(task.due.date).getTime();
-          return Infinity;
-        };
-
-        const dateA = getTaskDateValue(a);
-        const dateB = getTaskDateValue(b);
-
-        if (dateA !== dateB) {
-          return dateA - dateB;
+        // 4. Due date/time: earliest first
+        const dueDateTimeA = getDateValue(a, 'due_datetime');
+        const dueDateTimeB = getDateValue(b, 'due_datetime');
+        if (dueDateTimeA !== dueDateTimeB) {
+          return dueDateTimeA - dueDateTimeB;
         }
 
-        const createdAtA = 'createdAt' in a ? parseISO(a.createdAt).getTime() : ('created_at' in a ? parseISO(a.created_at).getTime() : Infinity);
-        const createdAtB = 'createdAt' in b ? parseISO(b.createdAt).getTime() : ('created_at' in b ? parseISO(b.created_at).getTime() : Infinity);
-        return createdAtA - createdAtB;
+        const dueDateA = getDateValue(a, 'due_date');
+        const dueDateB = getDateValue(b, 'due_date');
+        if (dueDateA !== dueDateB) { 
+          return dueDateA - dueDateB;
+        }
+
+        // 5. Created at: earliest first (tie-breaker)
+        const createdAtA = getDateValue(a, 'createdAt');
+        const createdAtB = getDateValue(b, 'createdAt');
+        if (createdAtA !== createdAtB) {
+          return createdAtA - createdAtB;
+        }
+        return 0;
       });
     } else { // Default sorting
       return [...tasks].sort((a, b) => {
+        // 1. Starred tasks first
         const isAStarred = a.content.startsWith("*");
         const isBStarred = b.content.startsWith("*");
         if (isAStarred && !isBStarred) return -1;
         if (!isAStarred && isBStarred) return 1;
 
+        // Helper to get date value, handling null/undefined and invalid dates
+        const getDateValue = (task: TodoistTask | InternalTask, dateField: 'deadline' | 'due_datetime' | 'due_date' | 'createdAt' | 'created_at') => {
+          let dateString: string | null | undefined;
+          if (dateField === 'deadline' && 'deadline' in task) dateString = task.deadline;
+          else if (dateField === 'due_datetime' && 'due' in task) dateString = task.due?.datetime;
+          else if (dateField === 'due_date' && 'due' in task) dateString = task.due?.date;
+          else if (dateField === 'createdAt' && 'createdAt' in task) dateString = task.createdAt;
+          else if (dateField === 'created_at' && 'created_at' in task) dateString = task.created_at;
+          
+          if (typeof dateString === 'string' && dateString) {
+            const parsedDate = parseISO(dateString);
+            return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
+          }
+          return Infinity;
+        };
+
+        // 2. Deadline: earliest first
+        const deadlineA = getDateValue(a, 'deadline');
+        const deadlineB = getDateValue(b, 'deadline');
+        if (deadlineA !== deadlineB) {
+          return deadlineA - deadlineB;
+        }
+
+        // 3. Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
         const priorityA = 'priority' in a ? a.priority : 1;
         const priorityB = 'priority' in b ? b.priority : 1;
         if (priorityA !== priorityB) return priorityB - priorityA;
 
-        const getTaskDateValue = (task: TodoistTask | InternalTask) => {
-          if ('due' in task && typeof task.due?.datetime === 'string' && task.due.datetime) return parseISO(task.due.datetime).getTime();
-          if ('due' in task && typeof task.due?.date === 'string' && task.due.date) return parseISO(task.due.date).getTime();
-          return Infinity;
-        };
-
-        const dateA = getTaskDateValue(a);
-        const dateB = getTaskDateValue(b);
-
-        if (dateA !== dateB) {
-          return dateA - dateB;
+        // 4. Due date/time: earliest first
+        const dueDateTimeA = getDateValue(a, 'due_datetime');
+        const dueDateTimeB = getDateValue(b, 'due_datetime');
+        if (dueDateTimeA !== dueDateTimeB) {
+          return dueDateTimeA - dueDateTimeB;
         }
 
-        const createdAtA = 'createdAt' in a ? parseISO(a.createdAt).getTime() : ('created_at' in a ? parseISO(a.created_at).getTime() : Infinity);
-        const createdAtB = 'createdAt' in b ? parseISO(b.createdAt).getTime() : ('created_at' in b ? parseISO(b.created_at).getTime() : Infinity);
-        return createdAtA - createdAtB;
+        const dueDateA = getDateValue(a, 'due_date');
+        const dueDateB = getDateValue(b, 'due_date');
+        if (dueDateA !== dueDateB) { 
+          return dueDateA - dueDateB;
+        }
+
+        // 5. Created at: earliest first (tie-breaker)
+        const createdAtA = getDateValue(a, 'createdAt');
+        const createdAtB = getDateValue(b, 'createdAt');
+        if (createdAtA !== createdAtB) {
+          return createdAtA - createdAtB;
+        }
+        return 0;
       });
     }
   }, [backlogSortOrder, seitonRankedTasks]);

@@ -64,11 +64,6 @@ const Shitsuke = () => {
       if (isAStarred && !isBStarred) return -1;
       if (!isAStarred && isBStarred) return 1;
 
-      // 2. Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
-      if (b.priority !== a.priority) {
-        return b.priority - a.priority;
-      }
-
       // Helper to get date value, handling null/undefined and invalid dates
       const getDateValue = (dateString: string | null | undefined) => {
         if (typeof dateString === 'string' && dateString) {
@@ -78,11 +73,16 @@ const Shitsuke = () => {
         return Infinity; // Tasks without a date go last
       };
 
-      // 3. Deadline: earliest first
+      // 2. Deadline: earliest first
       const deadlineA = getDateValue(a.deadline);
       const deadlineB = getDateValue(b.deadline);
       if (deadlineA !== deadlineB) {
         return deadlineA - deadlineB;
+      }
+
+      // 3. Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
+      if (b.priority !== a.priority) {
+        return b.priority - a.priority;
       }
 
       // 4. Due date/time: earliest first
@@ -98,7 +98,13 @@ const Shitsuke = () => {
         return dueDateA - dueDateB;
       }
 
-      return 0; // No difference
+      // 5. Created at: earliest first (tie-breaker)
+      const createdAtA = getDateValue(a.created_at);
+      const createdAtB = getDateValue(b.created_at);
+      if (createdAtA !== createdAtB) {
+        return createdAtA - createdAtB;
+      }
+      return 0;
     });
   }, []);
 
