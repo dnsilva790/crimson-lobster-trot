@@ -19,14 +19,16 @@ import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from "sonner";
 import { TodoistTask } from "@/lib/types";
+import {
+  FOCO_LABEL_ID,
+  RAPIDA_LABEL_ID,
+  CRONOGRAMA_HOJE_LABEL,
+} from "@/lib/constants"; // Importar as constantes das etiquetas
 
 const AI_AGENT_PROMPT_STORAGE_KEY = "ai_agent_tutor_seiso_prompt";
 const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input";
 const NOVO_SEISO_CATEGORY_FILTER_STORAGE_KEY = "novoseiso_category_filter";
 const NOVO_SEISO_TASK_SOURCE_STORAGE_KEY = "novoseiso_task_source";
-export const FOCO_LABEL_ID = "🎯 Foco"; // Definindo a constante para a etiqueta de foco
-export const RAPIDA_LABEL_ID = "⚡ Rápida"; // Nova constante para a etiqueta Rápida
-export const CRONOGRAMA_HOJE_LABEL = "📆 Cronograma de hoje"; // Nova constante para a etiqueta Cronograma de hoje
 
 const defaultAiPrompt = `**TUTOR IA SEISO - COACH DE EXECUÇÃO ESTRATÉGICA E PRODUTIVIDADE**
 
@@ -100,8 +102,6 @@ Stakeholders Críticos: Carlos Botelho, Paulo Pontes, Dallmann, Anaterra, Felipe
     *   **Radar (com foco):** Se o usuário pedir o "Radar" enquanto uma tarefa está em foco, use \`allTasks\` para identificar e **sugira a tarefa mais crítica do radar**, perguntando se o usuário quer mudar o foco para ela.
 3.  **Reconhecimento de Intenção Flexível:**
     *   **Interprete:** Tente entender a intenção do usuário mesmo com frases variadas (ex: "Quero passar isso para outra pessoa" -> Delegar; "Me ajuda a decidir o que fazer" -> Próximo Passo; "Terminei" -> Concluir).
-4.  **Feedback e Esclarecimento:**
-    *   **Se não entender:** Responda de forma útil e ofereça opções: "Não tenho certeza de como ajudar com isso no momento. Você gostaria que eu te ajudasse a encontrar a próxima tarefa com o 'Radar de Produtividade' ou a processar uma tarefa específica?"
     *   **Guie:** Sempre que possível, guie o usuário para a próxima interação lógica.
 
 **COMANDOS DE ETIQUETAS (CLIENT-SIDE):**

@@ -7,12 +7,17 @@ import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format, setHours, setMinutes, parseISO, isValid, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw } from "lucide-react";
+import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw, Tag } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import {
+  FOCO_LABEL_ID,
+  RAPIDA_LABEL_ID,
+  CRONOGRAMA_HOJE_LABEL,
+} from "@/lib/constants"; // Importar as constantes das etiquetas
 
 interface TaskReviewCardProps {
   task: TodoistTask;
@@ -25,6 +30,9 @@ interface TaskReviewCardProps {
   onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
   onReschedule: (taskId: string) => Promise<void>;
   onUpdateDuration: (taskId: string, duration: number | null) => Promise<void>;
+  onToggleFoco: (taskId: string, currentLabels: string[]) => Promise<void>; // Nova prop
+  onToggleRapida: (taskId: string, currentLabels: string[]) => Promise<void>; // Nova prop
+  onToggleCronograma: (taskId: string, currentLabels: string[]) => Promise<void>; // Nova prop
   isLoading: boolean;
 }
 
@@ -53,6 +61,9 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onUpdateFieldDeadline,
   onReschedule,
   onUpdateDuration,
+  onToggleFoco, // Nova prop
+  onToggleRapida, // Nova prop
+  onToggleCronograma, // Nova prop
   isLoading,
 }) => {
   console.log(`TaskReviewCard: Rendering task ${task.id} (${task.content})`, task);
@@ -257,6 +268,10 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     return <div className="space-y-1">{dateElements}</div>;
   };
 
+  const isFocoActive = task.labels?.includes(FOCO_LABEL_ID);
+  const isRapidaActive = task.labels?.includes(RAPIDA_LABEL_ID);
+  const isCronogramaActive = task.labels?.includes(CRONOGRAMA_HOJE_LABEL);
+
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
       <div className="flex-grow">
@@ -335,6 +350,45 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
               P{p}
             </Button>
           ))}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <p className="text-gray-700 mb-2">Gerenciar Etiquetas:</p>
+        <div className="grid grid-cols-3 gap-2">
+          <Button
+            onClick={() => onToggleFoco(task.id, task.labels || [])}
+            disabled={isLoading}
+            variant={isFocoActive ? "default" : "outline"}
+            className={cn(
+              "py-3 text-sm flex items-center justify-center",
+              isFocoActive ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "text-indigo-600 border-indigo-600 hover:bg-indigo-50"
+            )}
+          >
+            <Tag className="mr-1 h-4 w-4" /> {FOCO_LABEL_ID}
+          </Button>
+          <Button
+            onClick={() => onToggleRapida(task.id, task.labels || [])}
+            disabled={isLoading}
+            variant={isRapidaActive ? "default" : "outline"}
+            className={cn(
+              "py-3 text-sm flex items-center justify-center",
+              isRapidaActive ? "bg-purple-600 hover:bg-purple-700 text-white" : "text-purple-600 border-purple-600 hover:bg-purple-50"
+            )}
+          >
+            <Tag className="mr-1 h-4 w-4" /> {RAPIDA_LABEL_ID}
+          </Button>
+          <Button
+            onClick={() => onToggleCronograma(task.id, task.labels || [])}
+            disabled={isLoading}
+            variant={isCronogramaActive ? "default" : "outline"}
+            className={cn(
+              "py-3 text-sm flex items-center justify-center",
+              isCronogramaActive ? "bg-teal-600 hover:bg-teal-700 text-white" : "text-teal-600 border-teal-600 hover:bg-teal-50"
+            )}
+          >
+            <Tag className="mr-1 h-4 w-4" /> {CRONOGRAMA_HOJE_LABEL}
+          </Button>
         </div>
       </div>
 
