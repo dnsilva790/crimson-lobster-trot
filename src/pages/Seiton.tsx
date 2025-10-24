@@ -7,33 +7,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTodoist } from "@/context/TodoistContext";
-import { TodoistTask } from "@/lib/types";
+import { TodoistTask, SeitonStateSnapshot, SortingCriterion, CustomSortingPreference } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRight, Star, Scale, Zap, UserCheck, XCircle, ExternalLink, CalendarIcon, Clock, Check } from "lucide-react";
+import { ArrowRight, Star, Scale, Zap, UserCheck, XCircle, ExternalLink, CalendarIcon, Clock, Check, SortAsc, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 
 type TournamentState = "initial" | "comparing" | "finished";
 type PrioritizationContext = "none" | "pessoal" | "profissional";
 
-interface SeitonStateSnapshot {
-  tasksToProcess: TodoistTask[];
-  rankedTasks: TodoistTask[];
-  currentTaskToPlace: TodoistTask | null;
-  comparisonCandidate: TodoistTask | null;
-  comparisonIndex: number;
-  tournamentState: TournamentState;
-  selectedPrioritizationContext: PrioritizationContext; // Adicionado
-}
-
 const LOCAL_STORAGE_KEY = "seitonTournamentState";
 const SEITON_FILTER_INPUT_STORAGE_KEY = "seiton_filter_input";
 const SEITON_CATEGORY_FILTER_STORAGE_KEY = "seiton_category_filter";
-const SEITON_PRIORITIZATION_CONTEXT_STORAGE_KEY = "seiton_prioritization_context"; // Novo
+const SEITON_PRIORITIZATION_CONTEXT_STORAGE_KEY = "seiton_prioritization_context";
+const SEITON_CUSTOM_SORTING_PREFERENCES_STORAGE_KEY = "seiton_custom_sorting_preferences"; // Novo
+
+const defaultCustomSortingPreferences: CustomSortingPreference = {
+  primary: "deadline",
+  secondary: "priority",
+  tertiary: "due_date_time",
+};
 
 const Seiton = () => {
   console.log("Seiton component rendering...");
@@ -65,6 +62,13 @@ const Seiton = () => {
     }
     return "none";
   });
+  const [customSortingPreferences, setCustomSortingPreferences] = useState<CustomSortingPreference>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(SEITON_CUSTOM_SORTING_PREFERENCES_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : defaultCustomSortingPreferences;
+    }
+    return defaultCustomSortingPreferences;
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -84,6 +88,12 @@ const Seiton = () => {
     }
   }, [selectedPrioritizationContext]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SEITON_CUSTOM_SORTING_PREFERENCES_STORAGE_KEY, JSON.stringify(customSortingPreferences));
+    }
+  }, [customSortingPreferences]);
+
   const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
     4: "bg-red-500",
     3: "bg-orange-500",
@@ -98,71 +108,68 @@ const Seiton = () => {
     1: "P4 - Baixo",
   };
 
-  const sortTasks = useCallback((tasks: TodoistTask[], prioritizationContext: PrioritizationContext): TodoistTask[] => {
+  const sortingCriteriaOptions: { value: SortingCriterion | "none"; label: string }[] = [
+    { value: "none", label: "Nenhum" },
+    { value: "starred", label: "Iniciados com *" },
+    { value: "deadline", label: "Deadline" },
+    { value: "priority", label: "Prioridade" },
+    { value: "duration", label: "Duração Estimada" },
+    { value: "due_date_time", label: "Data/Hora de Vencimento" },
+    { value: "category", label: "Categoria (Pessoal/Profissional)" },
+    { value: "created_at", label: "Data de Criação" },
+  ];
+
+  const getSortingCriterionValue = useCallback((task: TodoistTask, criterion: SortingCriterion) => {
+    const getDateValue = (dateString: string | null | undefined) => {
+      if (typeof dateString === 'string' && dateString) {
+        const parsedDate = parseISO(dateString);
+        return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
+      }
+      return Infinity;
+    };
+
+    switch (criterion) {
+      case "starred":
+        return task.content.startsWith("*") ? 0 : 1; // Starred first
+      case "deadline":
+        return getDateValue(task.deadline);
+      case "priority":
+        return -task.priority; // Higher priority (4) comes first (smaller negative number)
+      case "duration":
+        return -(task.duration?.amount || 0); // Longer duration first
+      case "due_date_time":
+        return getDateValue(task.due?.datetime || task.due?.date);
+      case "category":
+        const category = getTaskCategory(task);
+        if (selectedPrioritizationContext === "pessoal") {
+          return category === "pessoal" ? 0 : 1;
+        }
+        if (selectedPrioritizationContext === "profissional") {
+          return category === "profissional" ? 0 : 1;
+        }
+        return 0; // No specific category prioritization
+      case "created_at":
+        return getDateValue(task.created_at);
+      default:
+        return 0;
+    }
+  }, [selectedPrioritizationContext]);
+
+  const sortTasks = useCallback((tasks: TodoistTask[], preferences: CustomSortingPreference): TodoistTask[] => {
     return [...tasks].sort((a, b) => {
-      // 0. Prioritization Context (New primary sorting rule)
-      if (prioritizationContext !== "none") {
-        const categoryA = getTaskCategory(a);
-        const categoryB = getTaskCategory(b);
+      const criteria = [preferences.primary, preferences.secondary, preferences.tertiary].filter(c => c !== "none") as SortingCriterion[];
 
-        if (prioritizationContext === "pessoal") {
-          if (categoryA === "pessoal" && categoryB !== "pessoal") return -1;
-          if (categoryB === "pessoal" && categoryA !== "pessoal") return 1;
-        } else if (prioritizationContext === "profissional") {
-          if (categoryA === "profissional" && categoryB !== "profissional") return -1;
-          if (categoryB === "profissional" && categoryA !== "profissional") return 1;
+      for (const criterion of criteria) {
+        const valA = getSortingCriterionValue(a, criterion);
+        const valB = getSortingCriterionValue(b, criterion);
+
+        if (valA !== valB) {
+          return valA - valB;
         }
-      }
-
-      // 1. Starred tasks first
-      const isAStarred = a.content.startsWith("*");
-      const isBStarred = b.content.startsWith("*");
-      if (isAStarred && !isBStarred) return -1;
-      if (!isAStarred && isBStarred) return 1;
-
-      // Helper to get date value, handling null/undefined and invalid dates
-      const getDateValue = (dateString: string | null | undefined) => {
-        if (typeof dateString === 'string' && dateString) {
-          const parsedDate = parseISO(dateString);
-          return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
-        }
-        return Infinity; // Tasks without a date go last
-      };
-
-      // 2. Deadline: earliest first
-      const deadlineA = getDateValue(a.deadline);
-      const deadlineB = getDateValue(b.deadline);
-      if (deadlineA !== deadlineB) {
-        return deadlineA - deadlineB;
-      }
-
-      // 3. Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
-      if (b.priority !== a.priority) {
-        return b.priority - a.priority;
-      }
-
-      // 4. Due date/time: earliest first
-      const dueDateTimeA = getDateValue(a.due?.datetime);
-      const dueDateTimeB = getDateValue(b.due?.datetime);
-      if (dueDateTimeA !== dueDateTimeB) {
-        return dueDateTimeA - dueDateTimeB;
-      }
-
-      const dueDateA = getDateValue(a.due?.date);
-      const dueDateB = getDateValue(b.due?.date);
-      if (dueDateA !== dueDateB) { 
-        return dueDateA - dueDateB;
-      }
-
-      // 5. Created at: earliest first (tie-breaker)
-      const createdAtA = getDateValue(a.created_at);
-      const createdAtB = getDateValue(b.created_at);
-      if (createdAtA !== createdAtB) {
-        return createdAtA - createdAtB;
       }
       return 0;
     });
-  }, []);
+  }, [getSortingCriterionValue]);
 
   const saveStateToHistory = useCallback(() => {
     setHistory((prev) => [
@@ -174,10 +181,11 @@ const Seiton = () => {
         comparisonCandidate,
         comparisonIndex,
         tournamentState,
-        selectedPrioritizationContext, // Adicionado
+        selectedPrioritizationContext,
+        customSortingPreferences, // Adicionado
       },
     ]);
-  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState, selectedPrioritizationContext]);
+  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState, selectedPrioritizationContext, customSortingPreferences]);
 
   const undoLastAction = useCallback(() => {
     if (history.length > 0) {
@@ -188,7 +196,8 @@ const Seiton = () => {
       setComparisonCandidate(lastState.comparisonCandidate);
       setComparisonIndex(lastState.comparisonIndex);
       setTournamentState(lastState.tournamentState);
-      setSelectedPrioritizationContext(lastState.selectedPrioritizationContext); // Adicionado
+      setSelectedPrioritizationContext(lastState.selectedPrioritizationContext);
+      setCustomSortingPreferences(lastState.customSortingPreferences); // Adicionado
       setHistory((prev) => prev.slice(0, prev.length - 1));
       toast.info("Última ação desfeita.");
     } else {
@@ -271,7 +280,7 @@ const Seiton = () => {
 
     console.log("startTournament: tasksToLoad before setting state:", tasksToLoad.length, tasksToLoad);
 
-    const sortedTasksToLoad = sortTasks(tasksToLoad, selectedPrioritizationContext); // Passar o contexto
+    const sortedTasksToLoad = sortTasks(tasksToLoad, customSortingPreferences); // Usar preferências personalizadas
     setTasksToProcess(sortedTasksToLoad);
     setRankedTasks(currentRankedTasks);
 
@@ -305,7 +314,7 @@ const Seiton = () => {
       setTournamentState("finished");
       toast.info("Nenhuma tarefa encontrada para o torneio. Adicione tarefas ao Todoist!");
     }
-  }, [fetchTasks, sortTasks, tasksToProcess, rankedTasks, filterInput, selectedCategoryFilter, selectedPrioritizationContext, resetTournamentState]);
+  }, [fetchTasks, sortTasks, tasksToProcess, rankedTasks, filterInput, selectedCategoryFilter, selectedPrioritizationContext, customSortingPreferences, resetTournamentState]);
 
   const startNextPlacement = useCallback(() => {
     console.log("startNextPlacement called. tasksToProcess.length:", tasksToProcess.length, "rankedTasks.length:", rankedTasks.length);
@@ -342,6 +351,7 @@ const Seiton = () => {
         // Always force to 'initial' when loading from localStorage to show config options
         setTournamentState("initial"); 
         setSelectedPrioritizationContext(parsedState.selectedPrioritizationContext);
+        setCustomSortingPreferences(parsedState.customSortingPreferences || defaultCustomSortingPreferences); // Adicionado
         setHasSavedState(true);
         toast.info("Estado do torneio carregado. Clique em 'Continuar Torneio' para prosseguir.");
         console.log("Seiton: Successfully parsed saved state from localStorage:", parsedState);
@@ -367,13 +377,14 @@ const Seiton = () => {
         comparisonCandidate,
         comparisonIndex,
         tournamentState,
-        selectedPrioritizationContext, // Adicionado
+        selectedPrioritizationContext,
+        customSortingPreferences, // Adicionado
       };
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
       console.log("Seiton: In-progress state saved to localStorage:", stateToSave);
       setHasSavedState(true);
     }
-  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState, selectedPrioritizationContext]);
+  }, [tasksToProcess, rankedTasks, currentTaskToPlace, comparisonCandidate, comparisonIndex, tournamentState, selectedPrioritizationContext, customSortingPreferences]);
 
   // Effect to save final state when tournament finishes
   useEffect(() => {
@@ -385,13 +396,14 @@ const Seiton = () => {
         comparisonCandidate: null,
         comparisonIndex: 0,
         tournamentState: "finished",
-        selectedPrioritizationContext, // Adicionado
+        selectedPrioritizationContext,
+        customSortingPreferences, // Adicionado
       };
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalStateToSave));
       console.log("Seiton: Final state saved to localStorage (tournament finished):", finalStateToSave);
       setHasSavedState(true);
     }
-  }, [tournamentState, rankedTasks, selectedPrioritizationContext]); // Depend on tournamentState and rankedTasks
+  }, [tournamentState, rankedTasks, selectedPrioritizationContext, customSortingPreferences]); // Depend on tournamentState and rankedTasks
 
   // Nova função para aplicar as regras de prioridade baseadas no ranking
   const applyRankingPriorityRules = useCallback(async () => {
@@ -536,7 +548,7 @@ const Seiton = () => {
       }
     }
 
-    if (typeof task.deadline === 'string' && task.deadline) { // Adicionado
+    if (typeof task.deadline === 'string' && task.deadline) {
       const parsedDeadline = parseISO(task.deadline);
       if (isValid(parsedDeadline)) {
         elements.push(
@@ -636,16 +648,50 @@ const Seiton = () => {
     );
   };
 
+  const handleSortingPreferenceChange = useCallback((level: 'primary' | 'secondary' | 'tertiary', value: SortingCriterion | "none") => {
+    setCustomSortingPreferences(prev => {
+      const newPreferences = { ...prev, [level]: value };
+      // Ensure no duplicates
+      if (level === 'primary') {
+        if (newPreferences.secondary === value) newPreferences.secondary = "none";
+        if (newPreferences.tertiary === value) newPreferences.tertiary = "none";
+      } else if (level === 'secondary') {
+        if (newPreferences.primary === value) newPreferences.primary = "none"; // Should not happen if primary is selected first
+        if (newPreferences.tertiary === value) newPreferences.tertiary = "none";
+      } else if (level === 'tertiary') {
+        if (newPreferences.primary === value) newPreferences.primary = "none";
+        if (newPreferences.secondary === value) newPreferences.secondary = "none";
+      }
+      return newPreferences;
+    });
+  }, []);
+
+  const handleResetSortingPreferences = useCallback(() => {
+    setCustomSortingPreferences(defaultCustomSortingPreferences);
+    toast.info("Preferências de ordenação resetadas para o padrão.");
+  }, []);
+
+  const getAvailableSortingOptions = (currentLevel: 'primary' | 'secondary' | 'tertiary') => {
+    return sortingCriteriaOptions.filter(option => {
+      if (option.value === "none") return true; // Always allow "None"
+
+      if (currentLevel === 'primary') return true;
+      if (currentLevel === 'secondary') {
+        return option.value !== customSortingPreferences.primary;
+      }
+      if (currentLevel === 'tertiary') {
+        return option.value !== customSortingPreferences.primary && option.value !== customSortingPreferences.secondary;
+      }
+      return true;
+    });
+  };
+
   return (
     <div className="p-4">
       <h2 className="text-3xl font-bold mb-2 text-gray-800">🏆 SEITON - Torneio de Priorização</h2>
       <p className="text-lg text-gray-600 mb-6">
         Compare 2 tarefas por vez. Qual é mais importante agora?
       </p>
-
-      {/* <div className="text-center text-sm text-gray-400 mb-4 p-2 bg-gray-100 rounded-md border border-gray-200">
-        Debug State: <span className="font-semibold">{tournamentState}</span> | Current Task: <span className="font-semibold">{currentTaskToPlace?.content || "N/A"}</span> | Candidate: <span className="font-semibold">{comparisonCandidate?.content || "N/A"}</span> | Tasks to Process: <span className="font-semibold">{tasksToProcess.length}</span> | Ranked Tasks: <span className="font-semibold">{rankedTasks.length}</span> | Is Loading: <span className="font-semibold">{isLoadingTodoist ? "Yes" : "No"}</span>
-      </div> */}
 
       {isLoadingTodoist && (
         <>
@@ -712,6 +758,81 @@ const Seiton = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Custom Sorting Preferences */}
+            <Card className="p-4 mt-6 max-w-md mx-auto text-left">
+              <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
+                <SortAsc className="h-5 w-5 text-indigo-600" /> Ordenação Personalizada
+              </CardTitle>
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="primary-sort">1º Critério de Ordenação</Label>
+                  <Select
+                    value={customSortingPreferences.primary}
+                    onValueChange={(value: SortingCriterion | "none") => handleSortingPreferenceChange('primary', value)}
+                    disabled={isLoadingTodoist}
+                  >
+                    <SelectTrigger className="w-full mt-1">
+                      <SelectValue placeholder="Selecione o 1º critério" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getAvailableSortingOptions('primary').map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="secondary-sort">2º Critério de Ordenação</Label>
+                  <Select
+                    value={customSortingPreferences.secondary}
+                    onValueChange={(value: SortingCriterion | "none") => handleSortingPreferenceChange('secondary', value)}
+                    disabled={isLoadingTodoist}
+                  >
+                    <SelectTrigger className="w-full mt-1">
+                      <SelectValue placeholder="Selecione o 2º critério" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getAvailableSortingOptions('secondary').map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="tertiary-sort">3º Critério de Ordenação</Label>
+                  <Select
+                    value={customSortingPreferences.tertiary}
+                    onValueChange={(value: SortingCriterion | "none") => handleSortingPreferenceChange('tertiary', value)}
+                    disabled={isLoadingTodoist}
+                  >
+                    <SelectTrigger className="w-full mt-1">
+                      <SelectValue placeholder="Selecione o 3º critério" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getAvailableSortingOptions('tertiary').map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleResetSortingPreferences}
+                  variant="outline"
+                  className="w-full mt-2 flex items-center gap-2"
+                  disabled={isLoadingTodoist}
+                >
+                  <RotateCcw className="h-4 w-4" /> Resetar Ordenação
+                </Button>
+              </div>
+            </Card>
+
             <div className="flex flex-col md:flex-row justify-center gap-4 mt-6">
               {hasSavedState && (
                 <Button

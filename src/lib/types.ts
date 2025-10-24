@@ -51,7 +51,8 @@ export interface SeitonStateSnapshot {
   comparisonCandidate: TodoistTask | null;
   comparisonIndex: number;
   tournamentState: "initial" | "comparing" | "finished";
-  selectedPrioritizationContext: "none" | "pessoal" | "profissional"; // Adicionado
+  selectedPrioritizationContext: "none" | "pessoal" | "profissional";
+  customSortingPreferences: CustomSortingPreference; // Adicionado
 }
 
 // Nova interface para tarefas gerenciadas internamente
@@ -145,4 +146,20 @@ export interface DailyReviewEntry {
   improvements: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Novos tipos para ordenação personalizada no Seiton
+export type SortingCriterion =
+  | "starred"
+  | "deadline"
+  | "priority"
+  | "duration"
+  | "due_date_time"
+  | "category"
+  | "created_at";
+
+export interface CustomSortingPreference {
+  primary: SortingCriterion | "none";
+  secondary: SortingCriterion | "none";
+  tertiary: SortingCriterion | "none";
 }
