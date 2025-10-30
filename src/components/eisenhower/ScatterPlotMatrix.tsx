@@ -55,84 +55,67 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
+// Função auxiliar para calcular a mediana
+const calculateMedian = (values: number[]): number => {
+  if (values.length === 0) return 50;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
+};
+
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
-  const threshold = 50;
-
-  // 1. Calcular domínios dinâmicos
-  const { urgencyDomain, importanceDomain } = useMemo(() => {
+  
+  // 1. Calcular domínios dinâmicos e thresholds (mediana)
+  const { urgencyDomain, importanceDomain, urgencyThreshold, importanceThreshold } = useMemo(() => {
     if (data.length === 0) {
-      return { urgencyDomain: [0, 100], importanceDomain: [0, 100] };
+      return { urgencyDomain: [0, 100], importanceDomain: [0, 100], urgencyThreshold: 50, importanceThreshold: 50 };
     }
 
-    const minU = Math.min(...data.map(d => d.urgency));
-    const maxU = Math.max(...data.map(d => d.urgency));
-    const minI = Math.min(...data.map(d => d.importance));
-    const maxI = Math.max(...data.map(d => d.importance));
+    const urgencyValues = data.map(d => d.urgency);
+    const importanceValues = data.map(d => d.importance);
 
-    // Garantir que o domínio sempre inclua 0 e 100, e o threshold de 50,
-    // mas se ajustando aos dados.
-    const finalMinU = Math.min(0, minU - 5);
-    const finalMaxU = Math.max(100, maxU + 5);
-    const finalMinI = Math.min(0, minI - 5);
-    const finalMaxI = Math.max(100, maxI + 5);
+    const minU = Math.min(...urgencyValues);
+    const maxU = Math.max(...urgencyValues);
+    const minI = Math.min(...importanceValues);
+    const maxI = Math.max(...importanceValues);
 
-    // Se o usuário realmente quer um eixo dinâmico, ajustamos para os dados,
-    // mas garantimos que o 0 e 100 sejam os limites absolutos.
-    const dynamicMinU = Math.max(0, minU - 5);
-    const dynamicMaxU = Math.min(100, maxU + 5);
-    const dynamicMinI = Math.max(0, minI - 5);
-    const dynamicMaxI = Math.min(100, maxI + 5);
+    // Calcular thresholds dinâmicos (mediana)
+    const uThreshold = calculateMedian(urgencyValues);
+    const iThreshold = calculateMedian(importanceValues);
 
-    // Usamos o domínio que se ajusta aos dados, mas garantimos que o 50 esteja visível
-    // se os dados estiverem próximos a ele.
-    const uDomain: [number, number] = [
-      Math.min(dynamicMinU, threshold),
-      Math.max(dynamicMaxU, threshold)
-    ];
-    const iDomain: [number, number] = [
-      Math.min(dynamicMinI, threshold),
-      Math.max(dynamicMaxI, threshold)
-    ];
+    // Definir domínios dinâmicos com buffer, respeitando 0 e 100
+    const getDomain = (min: number, max: number, threshold: number): [number, number] => {
+      let dMin = Math.max(0, min - 5);
+      let dMax = Math.min(100, max + 5);
+      
+      // Garantir que o threshold esteja dentro do domínio
+      dMin = Math.min(dMin, threshold);
+      dMax = Math.max(dMax, threshold);
 
-    // Se o domínio for muito estreito, forçamos um buffer mínimo de 10
-    if (uDomain[1] - uDomain[0] < 10) {
-      uDomain[0] = Math.max(0, uDomain[0] - 5);
-      uDomain[1] = Math.min(100, uDomain[1] + 5);
-    }
-    if (iDomain[1] - iDomain[0] < 10) {
-      iDomain[0] = Math.max(0, iDomain[0] - 5);
-      iDomain[1] = Math.min(100, iDomain[1] + 5);
-    }
+      // Garantir um buffer mínimo de 10
+      if (dMax - dMin < 10) {
+        const center = (dMin + dMax) / 2;
+        dMin = Math.max(0, center - 5);
+        dMax = Math.min(100, center + 5);
+      }
+      return [dMin, dMax];
+    };
 
-    // Se o domínio dinâmico não incluir 0 ou 100, forçamos a inclusão se os dados estiverem próximos
-    // Para simplificar e garantir que a matriz seja sempre visualmente completa (0-100),
-    // vamos usar a abordagem de 'dataMin' e 'dataMax' do Recharts, mas com limites absolutos de 0 e 100.
-    // No entanto, para que o Recharts calcule o domínio dinamicamente, passamos 'auto' ou 'dataMin'/'dataMax'.
-    // Para manter a Matriz de Eisenhower funcional, vamos usar [0, 100] como limites absolutos,
-    // mas permitindo que o Recharts ajuste o zoom se os dados estiverem muito concentrados.
-    
-    // Para um eixo dinâmico que respeite 0 e 100 como limites absolutos:
     return { 
-      urgencyDomain: [Math.max(0, minU - 5), Math.min(100, maxU + 5)], 
-      importanceDomain: [Math.max(0, minI - 5), Math.min(100, maxI + 5)] 
+      urgencyDomain: getDomain(minU, maxU, uThreshold), 
+      importanceDomain: getDomain(minI, maxI, iThreshold),
+      urgencyThreshold: uThreshold,
+      importanceThreshold: iThreshold,
     };
 
   }, [data]);
 
-  // Função para garantir que o domínio não seja invertido e tenha um buffer mínimo
-  const getSafeDomain = (domain: [number, number]): [number, number] => {
-    let [min, max] = domain;
-    if (min > max) [min, max] = [max, min];
-    if (max - min < 10) {
-      const center = (min + max) / 2;
-      min = Math.max(0, center - 5);
-      max = Math.min(100, center + 5);
-    }
-    return [min, max];
-  };
-
-  const finalUrgencyDomain = getSafeDomain(urgencyDomain);
-  const finalImportanceDomain = getSafeDomain(importanceDomain);
+  const finalUrgencyDomain = urgencyDomain;
+  const finalImportanceDomain = importanceDomain;
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -146,9 +129,9 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
       >
         <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
         
-        {/* Linhas de Referência para o Threshold */}
-        <ReferenceArea x1={threshold} x2={threshold} stroke="#4b5563" strokeDasharray="5 5" />
-        <ReferenceArea y1={threshold} y2={threshold} stroke="#4b5563" strokeDasharray="5 5" />
+        {/* Linhas de Referência para o Threshold Dinâmico */}
+        <ReferenceArea x1={urgencyThreshold} x2={urgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
+        <ReferenceArea y1={importanceThreshold} y2={importanceThreshold} stroke="#4b5563" strokeDasharray="5 5" />
 
         <XAxis
           type="number"
@@ -156,7 +139,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           name="Urgência"
           unit=""
           domain={finalUrgencyDomain} // Domínio dinâmico
-          label={{ value: "Urgência", position: "bottom", offset: 0, fill: "#4b5563" }}
+          label={{ value: `Urgência (Threshold: ${urgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
           className="text-sm text-gray-600"
         />
         <YAxis
@@ -165,38 +148,38 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           name="Importância"
           unit=""
           domain={finalImportanceDomain} // Domínio dinâmico
-          label={{ value: "Importância", angle: -90, position: "left", fill: "#4b5563" }}
+          label={{ value: `Importância (Threshold: ${importanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
           className="text-sm text-gray-600"
         />
         <ZAxis dataKey="content" name="Tarefa" />
         <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-        {/* Quadrant Reference Areas with Labels */}
+        {/* Quadrant Reference Areas com Thresholds Dinâmicos */}
         
-        {/* Q1: Do (Urgente [>=50] e Importante [>=50]) - Top Right */}
+        {/* Q1: Do (Urgente [>=T_U] e Importante [>=T_I]) - Top Right */}
         <ReferenceArea 
-          x1={threshold} x2={finalUrgencyDomain[1]} y1={threshold} y2={finalImportanceDomain[1]} 
+          x1={urgencyThreshold} x2={finalUrgencyDomain[1]} y1={importanceThreshold} y2={finalImportanceDomain[1]} 
           fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
           label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
         />
         
-        {/* Q2: Decide (Não Urgente [<50] e Importante [>=50]) - Top Left */}
+        {/* Q2: Decide (Não Urgente [<T_U] e Importante [>=T_I]) - Top Left */}
         <ReferenceArea 
-          x1={finalUrgencyDomain[0]} x2={threshold} y1={threshold} y2={finalImportanceDomain[1]} 
+          x1={finalUrgencyDomain[0]} x2={urgencyThreshold} y1={importanceThreshold} y2={finalImportanceDomain[1]} 
           fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} 
           label={{ value: "Q2: Decidir", position: 'top', fill: quadrantColors.decide, fontSize: 14, fontWeight: 'bold', dx: -40, dy: 10 }}
         />
         
-        {/* Q3: Delegate (Urgente [>=50] e Não Importante [<50]) - Bottom Right */}
+        {/* Q3: Delegate (Urgente [>=T_U] e Não Importante [<T_I]) - Bottom Right */}
         <ReferenceArea 
-          x1={threshold} x2={finalUrgencyDomain[1]} y1={finalImportanceDomain[0]} y2={threshold} 
+          x1={urgencyThreshold} x2={finalUrgencyDomain[1]} y1={finalImportanceDomain[0]} y2={importanceThreshold} 
           fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
           label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
         />
         
-        {/* Q4: Delete (Não Urgente [<50] e Não Importante [<50]) - Bottom Left */}
+        {/* Q4: Delete (Não Urgente [<T_U] e Não Importante [<T_I]) - Bottom Left */}
         <ReferenceArea 
-          x1={finalUrgencyDomain[0]} x2={threshold} y1={finalImportanceDomain[0]} y2={threshold} 
+          x1={finalUrgencyDomain[0]} x2={urgencyThreshold} y1={finalImportanceDomain[0]} y2={importanceThreshold} 
           fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} 
           label={{ value: "Q4: Eliminar", position: 'bottom', fill: quadrantBackgroundColors.delete, fontSize: 14, fontWeight: 'bold', dx: -40, dy: -10 }}
         />
