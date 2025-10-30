@@ -3,8 +3,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ListTodo, Matrix } from "lucide-react";
-import { EisenhowerTask } from "@/lib/types";
+import { ArrowLeft, ListTodo, LayoutDashboard } from "lucide-react"; // Alterado de Matrix para LayoutDashboard
 import EisenhowerMatrix from "./EisenhowerMatrix"; // Importar o EisenhowerMatrix
 
 interface EisenhowerMatrixViewProps {
@@ -18,7 +17,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
     <div className="p-4">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Matrix className="h-6 w-6 text-indigo-600" /> Sua Matriz de Eisenhower
+          <LayoutDashboard className="h-6 w-6 text-indigo-600" /> Sua Matriz de Eisenhower
         </h3>
         <div className="flex gap-2">
           <Button onClick={onBack} variant="outline" className="flex items-center gap-2">
