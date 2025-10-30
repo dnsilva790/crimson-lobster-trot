@@ -11,7 +11,6 @@ import {
   ResponsiveContainer,
   ZAxis,
   ReferenceArea,
-  ReferenceLabel, // Importar ReferenceLabel
 } from "recharts";
 import { Quadrant } from "@/lib/types";
 
@@ -102,22 +101,35 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
         <ZAxis dataKey="content" name="Tarefa" />
         <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-        {/* Quadrant Reference Areas */}
+        {/* Quadrant Reference Areas with Labels */}
+        
         {/* Q1: Do (Urgente [>=70] e Importante [>=70]) - Top Right */}
-        <ReferenceArea x1={threshold} x2={100} y1={threshold} y2={100} fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} />
-        <ReferenceLabel x={85} y={95} value="Q1: Fazer (Do)" fill={quadrantColors.do} fontSize={14} fontWeight="bold" />
+        <ReferenceArea 
+          x1={threshold} x2={100} y1={threshold} y2={100} 
+          fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
+          label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
+        />
         
         {/* Q2: Decide (Não Urgente [<70] e Importante [>=70]) - Top Left */}
-        <ReferenceArea x1={0} x2={threshold} y1={threshold} y2={100} fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} />
-        <ReferenceLabel x={35} y={95} value="Q2: Decidir" fill={quadrantColors.decide} fontSize={14} fontWeight="bold" />
+        <ReferenceArea 
+          x1={0} x2={threshold} y1={threshold} y2={100} 
+          fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} 
+          label={{ value: "Q2: Decidir", position: 'top', fill: quadrantColors.decide, fontSize: 14, fontWeight: 'bold', dx: -40, dy: 10 }}
+        />
         
         {/* Q3: Delegate (Urgente [>=70] e Não Importante [<70]) - Bottom Right */}
-        <ReferenceArea x1={threshold} x2={100} y1={0} y2={threshold} fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} />
-        <ReferenceLabel x={85} y={5} value="Q3: Delegar" fill={quadrantColors.delegate} fontSize={14} fontWeight="bold" />
+        <ReferenceArea 
+          x1={threshold} x2={100} y1={0} y2={threshold} 
+          fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
+          label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
+        />
         
         {/* Q4: Delete (Não Urgente [<70] e Não Importante [<70]) - Bottom Left */}
-        <ReferenceArea x1={0} x2={threshold} y1={0} y2={threshold} fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} />
-        <ReferenceLabel x={35} y={5} value="Q4: Eliminar" fill={quadrantColors.delete} fontSize={14} fontWeight="bold" />
+        <ReferenceArea 
+          x1={0} x2={threshold} y1={0} y2={threshold} 
+          fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} 
+          label={{ value: "Q4: Eliminar", position: 'bottom', fill: quadrantColors.delete, fontSize: 14, fontWeight: 'bold', dx: -40, dy: -10 }}
+        />
 
         <Scatter
           name="Tarefas"
