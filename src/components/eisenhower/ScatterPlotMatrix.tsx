@@ -13,6 +13,7 @@ import {
   ReferenceArea,
 } from "recharts";
 import { Quadrant } from "@/lib/types";
+import { useNavigate } from "react-router-dom"; // Importar useNavigate
 
 interface ScatterPlotData {
   id: string;
@@ -69,7 +70,8 @@ const calculateMedian = (values: number[]): number => {
 };
 
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
-  
+  const navigate = useNavigate(); // Inicializar useNavigate
+
   const { urgencyDomain, importanceDomain, urgencyThreshold, importanceThreshold } = useMemo(() => {
     if (data.length === 0) {
       return { urgencyDomain: [0, 100], importanceDomain: [0, 100], urgencyThreshold: 50, importanceThreshold: 50 };
@@ -129,10 +131,20 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   const handlePointClick = (payload: any) => {
     console.log("Eisenhower Scatter Plot: Ponto clicado! Payload:", payload);
     if (payload && payload.payload && payload.payload.url) {
-      console.log("Eisenhower Scatter Plot: Abrindo URL:", payload.payload.url);
+      // Abrir no Todoist (comportamento original)
       window.open(payload.payload.url, '_blank');
     } else {
       console.warn("Eisenhower Scatter Plot: Nenhuma URL encontrada no payload para o ponto clicado:", payload);
+    }
+  };
+
+  const handlePointDoubleClick = (payload: any) => {
+    console.log("Eisenhower Scatter Plot: Ponto com duplo clique! Payload:", payload);
+    if (payload && payload.payload && payload.payload.id) {
+      const taskId = payload.payload.id;
+      navigate(`/seiso/${taskId}`); // Navegar para a página SEISO com o ID da tarefa
+    } else {
+      console.warn("Eisenhower Scatter Plot: Nenhum ID de tarefa encontrado no payload para o duplo clique:", payload);
     }
   };
 
@@ -204,7 +216,8 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           data={data}
           shape="circle"
           isAnimationActive={false}
-          onClick={handlePointClick}
+          onClick={handlePointClick} // Mantém o clique único para abrir no Todoist
+          onDoubleClick={handlePointDoubleClick} // Adiciona o duplo clique para navegar para SEISO
         >
           {data.map((entry, index) => (
             <Scatter
