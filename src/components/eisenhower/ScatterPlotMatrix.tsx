@@ -20,6 +20,7 @@ interface ScatterPlotData {
   urgency: number;
   importance: number;
   quadrant: Quadrant | null;
+  url: string; // Adicionado URL
 }
 
 interface ScatterPlotMatrixProps {
@@ -49,6 +50,7 @@ const CustomTooltip = ({ active, payload }: any) => {
         <p className="text-gray-600">Urgência: {task.urgency}</p>
         <p className="text-gray-600">Importância: {task.importance}</p>
         <p className="text-gray-600">Quadrante: {task.quadrant ? task.quadrant.charAt(0).toUpperCase() + task.quadrant.slice(1) : 'N/A'}</p>
+        <p className="text-blue-500 mt-1">Clique para abrir no Todoist</p>
       </div>
     );
   }
@@ -117,6 +119,12 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   const finalUrgencyDomain = urgencyDomain;
   const finalImportanceDomain = importanceDomain;
 
+  const handlePointClick = (payload: any) => {
+    if (payload && payload.url) {
+      window.open(payload.url, '_blank');
+    }
+  };
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ScatterChart
@@ -172,7 +180,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
         
         {/* Q3: Delegate (Urgente [>=T_U] e Não Importante [<T_I]) - Bottom Right */}
         <ReferenceArea 
-          x1={urgencyThreshold} x2={finalUrgencyDomain[1]} y1={finalImportanceDomain[0]} y2={importanceThreshold} 
+          x1={urgencyThreshold} x2={finalUrgencyDomain[1]} y1={finalImportanceDomain[0]} y2={urgencyThreshold} 
           fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
           label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
         />
@@ -189,6 +197,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           data={data}
           shape="circle"
           isAnimationActive={false}
+          onClick={handlePointClick} // Adicionado o manipulador de clique
         >
           {data.map((entry, index) => (
             <Scatter

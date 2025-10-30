@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings, Play } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,13 +15,21 @@ interface SetupScreenProps {
 
 const SetupScreen: React.FC<SetupScreenProps> = ({ onStart }) => {
   const [filterInput, setFilterInput] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "overdue">("all");
 
   const handleStart = () => {
-    if (!filterInput.trim()) {
-      toast.error("Por favor, insira um filtro para carregar as tarefas.");
+    let finalFilter = filterInput.trim();
+    
+    if (statusFilter === "overdue") {
+      // Adiciona o filtro de atrasadas ao filtro do usuário, se houver
+      finalFilter = finalFilter ? `(${finalFilter}) & overdue` : 'overdue';
+    }
+
+    if (!finalFilter) {
+      toast.error("Por favor, insira um filtro ou selecione 'Todas as Tarefas' para carregar.");
       return;
     }
-    onStart(filterInput.trim());
+    onStart(finalFilter);
   };
 
   return (
@@ -39,19 +48,33 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onStart }) => {
         <CardContent className="grid gap-4">
           <div>
             <Label htmlFor="todoist-filter" className="text-left text-gray-600 font-medium">
-              Filtro do Todoist
+              Filtro do Todoist (Opcional)
             </Label>
             <Input
               id="todoist-filter"
               type="text"
               value={filterInput}
               onChange={(e) => setFilterInput(e.target.value)}
-              placeholder="Ex: 'hoje', 'p1', '#projeto', 'no date'"
+              placeholder="Ex: 'hoje', 'p1', '#projeto'"
               className="mt-1"
             />
             <p className="text-sm text-gray-500 text-left mt-1">
-              Use a sintaxe de filtro do Todoist para selecionar as tarefas.
+              Use a sintaxe de filtro do Todoist para refinar a seleção.
             </p>
+          </div>
+          <div>
+            <Label htmlFor="status-filter" className="text-left text-gray-600 font-medium">
+              Status da Tarefa
+            </Label>
+            <Select value={statusFilter} onValueChange={(value: "all" | "overdue") => setStatusFilter(value)}>
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Todas as Tarefas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Tarefas</SelectItem>
+                <SelectItem value="overdue">Apenas Atrasadas</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <Button onClick={handleStart} className="w-full py-3 text-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2">
             <Play className="h-5 w-5" /> Iniciar Análise

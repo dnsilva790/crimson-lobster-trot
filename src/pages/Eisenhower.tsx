@@ -21,6 +21,19 @@ type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
 
 const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState";
 
+// Função auxiliar para calcular a mediana (duplicada aqui para garantir que a categorização funcione antes de renderizar o gráfico)
+const calculateMedian = (values: number[]): number => {
+  if (values.length === 0) return 50;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
+};
+
+
 const Eisenhower = () => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
   const [currentView, setCurrentView] = useState<EisenhowerView>("setup");
@@ -59,6 +72,7 @@ const Eisenhower = () => {
         urgency: null,
         importance: null,
         quadrant: null,
+        url: task.url, // Garantir que a URL seja passada
       }));
       setTasksToProcess(initialEisenhowerTasks);
       setCurrentView("rating");
@@ -81,27 +95,44 @@ const Eisenhower = () => {
   }, []);
 
   const handleCategorizeTasks = useCallback(() => {
-    const threshold = 50; // Usando 50 como limite central
+    const ratedTasks = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null);
+    
+    if (ratedTasks.length === 0) {
+      setTasksToProcess(prev => prev.map(t => ({ ...t, quadrant: null })));
+      return;
+    }
+
+    const urgencyValues = ratedTasks.map(t => t.urgency!);
+    const importanceValues = ratedTasks.map(t => t.importance!);
+
+    const urgencyThreshold = calculateMedian(urgencyValues);
+    const importanceThreshold = calculateMedian(importanceValues);
+
     setTasksToProcess(prevTasks => {
       return prevTasks.map(task => {
         if (task.urgency !== null && task.importance !== null) {
-          // Categorização baseada no limite de 50
-          if (task.urgency >= threshold && task.importance >= threshold) {
-            return { ...task, quadrant: 'do' };
-          } else if (task.urgency < threshold && task.importance >= threshold) {
-            return { ...task, quadrant: 'decide' };
-          } else if (task.urgency >= threshold && task.importance < threshold) {
-            return { ...task, quadrant: 'delegate' };
+          // Categorização baseada nos thresholds dinâmicos
+          const isUrgent = task.urgency >= urgencyThreshold;
+          const isImportant = task.importance >= importanceThreshold;
+
+          let quadrant: EisenhowerTask['quadrant'] = null;
+
+          if (isUrgent && isImportant) {
+            quadrant = 'do';
+          } else if (!isUrgent && isImportant) {
+            quadrant = 'decide';
+          } else if (isUrgent && !isImportant) {
+            quadrant = 'delegate';
           } else {
-            return { ...task, quadrant: 'delete' };
+            quadrant = 'delete';
           }
+          return { ...task, quadrant };
         }
         return task;
       });
     });
-    // setCurrentView("matrix"); // Não muda a view aqui, apenas categoriza
     toast.success("Tarefas categorizadas na Matriz de Eisenhower!");
-  }, []);
+  }, [tasksToProcess]);
 
   const handleReset = useCallback(() => {
     setTasksToProcess([]);
