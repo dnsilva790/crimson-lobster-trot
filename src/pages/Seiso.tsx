@@ -37,6 +37,37 @@ import {
 
 const SEISO_PROCESSED_LABEL = "seiso_processada";
 
+// Helper to extract content from a specific tag in the description
+const extractSectionContent = (description: string, tag: string): string => {
+  const escapedTag = tag.replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+  const regex = new RegExp(`${escapedTag}\\s*([\\s\\S]*?)(?=\\n\\[[A-Z_]+\\]:|$|\\n\\n)`, 'i');
+  const match = description.match(regex);
+  return match && match[1] ? match[1].trim() : '';
+};
+
+// Helper to update or add a section in the description, preserving other content
+const updateDescriptionWithSection = (
+  fullDescription: string,
+  tag: string,
+  newContent: string
+): string => {
+  const escapedTag = tag.replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+  const regex = new RegExp(`(${escapedTag}\\s*)([\\s\\S]*?)(?=\\n\\[[A-Z_]+\\]:|$|\\n\\n)`, 'i');
+
+  if (newContent.trim()) {
+    if (fullDescription.match(regex)) {
+      // Replace existing section
+      return fullDescription.replace(regex, `${tag} ${newContent.trim()}\n`);
+    } else {
+      // Add new section at the end if it doesn't exist
+      return `${fullDescription.trim()}\n\n${tag} ${newContent.trim()}\n`;
+    }
+  } else {
+    // Remove section if newContent is empty
+    return fullDescription.replace(regex, '').trim();
+  }
+};
+
 const Seiso = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,6 +76,10 @@ const Seiso = () => {
 
   const [currentTask, setCurrentTask] = useState<TodoistTask | null>(null);
   const [isLoadingTask, setIsLoadingTask] = useState(true);
+
+  // New states for Objective and Next Step
+  const [objectiveInput, setObjectiveInput] = useState("");
+  const [nextStepSeisoInput, setNextStepSeisoInput] = useState("");
 
   // Delegation states
   const [delegateName, setDelegateName] = useState("");
@@ -78,6 +113,12 @@ const Seiso = () => {
           setSelectedDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined);
           setSelectedPriority(task.priority);
           setSelectedDuration(task.duration?.amount ? String(task.duration.amount) : "15");
+
+          // Initialize new fields from description
+          const description = task.description || "";
+          setObjectiveInput(extractSectionContent(description, '[OBJETIVO]:'));
+          setNextStepSeisoInput(extractSectionContent(description, '[PRÓXIMO PASSO SEISO]:'));
+
         } else {
           toast.error("Tarefa não encontrada.");
           navigate(-1); // Go back if task not found
@@ -103,11 +144,30 @@ const Seiso = () => {
     loadProjects();
   }, [fetchProjects]);
 
+  const handleSaveObjectiveAndNextStep = useCallback(async () => {
+    if (!currentTask) return;
+
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[OBJETIVO]:', objectiveInput);
+    newDescription = updateDescriptionWithSection(newDescription, '[PRÓXIMO PASSO SEISO]:', nextStepSeisoInput);
+
+    const updated = await updateTask(currentTask.id, { description: newDescription });
+    if (updated) {
+      toast.success("Objetivo e Próximo Passo atualizados na descrição da tarefa!");
+      setCurrentTask(updated); // Update local state with new description
+    } else {
+      toast.error("Falha ao atualizar objetivo e próximo passo.");
+    }
+  }, [currentTask, objectiveInput, nextStepSeisoInput, updateTask]);
+
   const handleDelegateTask = useCallback(async () => {
     if (!currentTask || !delegateName.trim()) {
       toast.error("Por favor, insira o nome do responsável.");
       return;
     }
+
+    await handleSaveObjectiveAndNextStep(); // Save objective/next step before delegating
+
     const updatedDescription = currentTask.description ? `${currentTask.description}\n\n[DELEGADO PARA]: ${delegateName.trim()}` : `[DELEGADO PARA]: ${delegateName.trim()}`;
     const updatedLabels = [...currentTask.labels.filter(l => !l.startsWith("espera_de_")), `espera_de_${delegateName.trim().toLowerCase().replace(/\s/g, '_')}`, SEISO_PROCESSED_LABEL];
 
@@ -123,13 +183,15 @@ const Seiso = () => {
     } else {
       toast.error("Falha ao delegar a tarefa.");
     }
-  }, [currentTask, delegateName, updateTask]);
+  }, [currentTask, delegateName, updateTask, handleSaveObjectiveAndNextStep]);
 
   const handleScheduleTask = useCallback(async () => {
     if (!currentTask) {
       toast.error("Nenhuma tarefa selecionada para agendar.");
       return;
     }
+
+    await handleSaveObjectiveAndNextStep(); // Save objective/next step before scheduling
 
     let finalDueDate: string | null = null;
     let finalDueDateTime: string | null = null;
@@ -168,7 +230,7 @@ const Seiso = () => {
     } else {
       toast.error("Falha ao agendar a tarefa.");
     }
-  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, selectedPriority, selectedDuration, updateTask]);
+  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, selectedPriority, selectedDuration, updateTask, handleSaveObjectiveAndNextStep]);
 
   const handleCreateSubtasks = useCallback(async () => {
     if (!currentTask || !subtaskContent.trim()) {
@@ -179,6 +241,8 @@ const Seiso = () => {
       toast.error("Por favor, selecione um projeto do Todoist para as subtarefas.");
       return;
     }
+
+    await handleSaveObjectiveAndNextStep(); // Save objective/next step before creating subtasks
 
     const subtasks = subtaskContent.split('\n').map(s => s.trim()).filter(s => s.length > 0);
     if (subtasks.length === 0) {
@@ -213,10 +277,13 @@ const Seiso = () => {
     } else {
       toast.info("Nenhuma subtarefa foi criada.");
     }
-  }, [currentTask, subtaskContent, selectedTodoistProjectId, createTodoistTask, updateTask]);
+  }, [currentTask, subtaskContent, selectedTodoistProjectId, createTodoistTask, updateTask, handleSaveObjectiveAndNextStep]);
 
   const handleMarkAsProcessed = useCallback(async () => {
     if (!currentTask) return;
+
+    await handleSaveObjectiveAndNextStep(); // Save objective/next step before marking as processed
+
     const updatedLabels = [...new Set([...currentTask.labels, SEISO_PROCESSED_LABEL])];
     const updated = await updateTask(currentTask.id, { labels: updatedLabels });
     if (updated) {
@@ -225,7 +292,7 @@ const Seiso = () => {
     } else {
       toast.error("Falha ao marcar tarefa como processada.");
     }
-  }, [currentTask, updateTask]);
+  }, [currentTask, updateTask, handleSaveObjectiveAndNextStep]);
 
   const renderTaskDetails = (task: TodoistTask) => {
     const category = getTaskCategory(task);
@@ -346,6 +413,42 @@ const Seiso = () => {
         <div>
           <h3 className="text-2xl font-bold mb-4 text-gray-800">Tarefa em Foco</h3>
           {renderTaskDetails(currentTask)}
+
+          <Card className="p-6 mt-6">
+            <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Tag className="h-5 w-5 text-orange-600" /> Definir Objetivo e Próximo Passo
+            </CardTitle>
+            <CardContent className="grid gap-4">
+              <div>
+                <Label htmlFor="objective-input">Objetivo da Tarefa</Label>
+                <Textarea
+                  id="objective-input"
+                  value={objectiveInput}
+                  onChange={(e) => setObjectiveInput(e.target.value)}
+                  placeholder="Qual é o resultado desejado para esta tarefa?"
+                  rows={3}
+                  className="mt-1"
+                  disabled={isLoadingTodoist || isProcessed}
+                />
+              </div>
+              <div>
+                <Label htmlFor="next-step-seiso-input">Próximo Passo SEISO (Ação Imediata)</Label>
+                <Textarea
+                  id="next-step-seiso-input"
+                  value={nextStepSeisoInput}
+                  onChange={(e) => setNextStepSeisoInput(e.target.value)}
+                  placeholder="Qual é a próxima micro-ação concreta e sob seu controle?"
+                  rows={3}
+                  className="mt-1"
+                  disabled={isLoadingTodoist || isProcessed}
+                />
+              </div>
+              <Button onClick={handleSaveObjectiveAndNextStep} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || isProcessed}>
+                <Save className="h-4 w-4" /> Salvar Objetivo e Próximo Passo
+              </Button>
+            </CardContent>
+          </Card>
+
           {isProcessed && (
             <p className="mt-4 text-center text-green-600 font-semibold">
               ✅ Esta tarefa já foi processada pelo SEISO.
