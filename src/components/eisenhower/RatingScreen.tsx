@@ -24,21 +24,21 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
   onBack,
 }) => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
-  const [urgencyInput, setUrgencyInput] = useState<string>("5"); // Estado para o input de texto
-  const [importanceInput, setImportanceInput] = useState<string>("5"); // Estado para o input de texto
+  const [urgencyInput, setUrgencyInput] = useState<string>("50"); // Estado para o input de texto, valor inicial 50
+  const [importanceInput, setImportanceInput] = useState<string>("50"); // Estado para o input de texto, valor inicial 50
 
   const currentTask = tasks[currentTaskIndex];
 
   useEffect(() => {
     if (currentTask) {
-      setUrgencyInput(currentTask.urgency !== null ? String(currentTask.urgency) : "5");
-      setImportanceInput(currentTask.importance !== null ? String(currentTask.importance) : "5");
+      setUrgencyInput(currentTask.urgency !== null ? String(currentTask.urgency) : "50");
+      setImportanceInput(currentTask.importance !== null ? String(currentTask.importance) : "50");
     }
   }, [currentTaskIndex, tasks]);
 
   const validateAndGetNumber = (value: string): number | null => {
     const num = parseInt(value, 10);
-    if (isNaN(num) || num < 1 || num > 10) {
+    if (isNaN(num) || num < 0 || num > 100) { // Alterado para 0 a 100
       return null;
     }
     return num;
@@ -51,7 +51,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
     const parsedImportance = validateAndGetNumber(importanceInput);
 
     if (parsedUrgency === null || parsedImportance === null) {
-      toast.error("Por favor, insira valores de Urgência e Importância entre 1 e 10.");
+      toast.error("Por favor, insira valores de Urgência e Importância entre 0 e 100."); // Alterado para 0 a 100
       return;
     }
 
@@ -119,14 +119,14 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
             <Input
               id="urgency-input"
               type="number"
-              min="1"
-              max="10"
+              min="0" // Alterado para 0
+              max="100" // Alterado para 100
               value={urgencyInput}
               onChange={(e) => setUrgencyInput(e.target.value)}
               className="mt-2 text-center text-lg"
             />
             <p className="text-sm text-gray-500 mt-2">
-              (1 = Nada Urgente, 10 = Extremamente Urgente)
+              (0 = Nada Urgente, 100 = Extremamente Urgente)
             </p>
           </div>
 
@@ -137,14 +137,14 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
             <Input
               id="importance-input"
               type="number"
-              min="1"
-              max="10"
+              min="0" // Alterado para 0
+              max="100" // Alterado para 100
               value={importanceInput}
               onChange={(e) => setImportanceInput(e.target.value)}
               className="mt-2 text-center text-lg"
             />
             <p className="text-sm text-gray-500 mt-2">
-              (1 = Nada Importante, 10 = Extremamente Importante)
+              (0 = Nada Importante, 100 = Extremamente Importante)
             </p>
           </div>
 
