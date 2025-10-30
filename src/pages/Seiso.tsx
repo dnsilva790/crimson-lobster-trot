@@ -72,7 +72,7 @@ const Seiso = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { taskId: paramTaskId } = useParams<{ taskId: string }>();
-  const { fetchTaskById, updateTask, createTodoistTask, fetchProjects, isLoading: isLoadingTodoist } = useTodoist();
+  const { fetchTaskById, updateTask, createTodoistTask, isLoading: isLoadingTodoist } = useTodoist(); // Removido fetchProjects
 
   const [currentTask, setCurrentTask] = useState<TodoistTask | null>(null);
   const [isLoadingTask, setIsLoadingTask] = useState(true);
@@ -95,8 +95,8 @@ const Seiso = () => {
 
   // Subtask creation states
   const [subtaskContent, setSubtaskContent] = useState("");
-  const [todoistProjects, setTodoistProjects] = useState<any[]>([]);
-  const [selectedTodoistProjectId, setSelectedTodoistProjectId] = useState<string | undefined>(undefined);
+  // Removido: const [todoistProjects, setTodoistProjects] = useState<any[]>([]);
+  // Removido: const [selectedTodoistProjectId, setSelectedTodoistProjectId] = useState<string | undefined>(undefined);
 
   // Initial task loading
   useEffect(() => {
@@ -132,17 +132,17 @@ const Seiso = () => {
     loadTask();
   }, [paramTaskId, location.state, fetchTaskById, navigate]);
 
-  // Load Todoist projects for subtask creation
-  useEffect(() => {
-    const loadProjects = async () => {
-      const projects = await fetchProjects();
-      if (projects && projects.length > 0) {
-        setTodoistProjects(projects);
-        setSelectedTodoistProjectId(projects[0].id); // Select the first project by default
-      }
-    };
-    loadProjects();
-  }, [fetchProjects]);
+  // Removido: useEffect para carregar projetos
+  // useEffect(() => {
+  //   const loadProjects = async () => {
+  //     const projects = await fetchProjects();
+  //     if (projects && projects.length > 0) {
+  //       setTodoistProjects(projects);
+  //       setSelectedTodoistProjectId(projects[0].id); // Select the first project by default
+  //     }
+  //   };
+  //   loadProjects();
+  // }, [fetchProjects]);
 
   const handleSaveObjectiveAndNextStep = useCallback(async () => {
     if (!currentTask) return;
@@ -237,10 +237,10 @@ const Seiso = () => {
       toast.error("Por favor, insira o conteúdo das subtarefas.");
       return;
     }
-    if (!selectedTodoistProjectId) {
-      toast.error("Por favor, selecione um projeto do Todoist para as subtarefas.");
-      return;
-    }
+    // Removido: if (!selectedTodoistProjectId) {
+    // Removido:   toast.error("Por favor, selecione um projeto do Todoist para as subtarefas.");
+    // Removido:   return;
+    // Removido: }
 
     await handleSaveObjectiveAndNextStep(); // Save objective/next step before creating subtasks
 
@@ -254,7 +254,7 @@ const Seiso = () => {
     for (const sub of subtasks) {
       const created = await createTodoistTask({
         content: sub,
-        project_id: selectedTodoistProjectId,
+        project_id: currentTask.project_id, // Usa o project_id da tarefa pai
         parent_id: currentTask.id,
         priority: 2, // Default P2 for subtasks
         labels: ["subtarefa"],
@@ -277,7 +277,7 @@ const Seiso = () => {
     } else {
       toast.info("Nenhuma subtarefa foi criada.");
     }
-  }, [currentTask, subtaskContent, selectedTodoistProjectId, createTodoistTask, updateTask, handleSaveObjectiveAndNextStep]);
+  }, [currentTask, subtaskContent, createTodoistTask, updateTask, handleSaveObjectiveAndNextStep]);
 
   const handleMarkAsProcessed = useCallback(async () => {
     if (!currentTask) return;
@@ -590,29 +590,7 @@ const Seiso = () => {
               <ListTodo className="h-5 w-5 text-purple-600" /> Quebrar em Subtarefas
             </CardTitle>
             <CardContent className="grid gap-4">
-              <div>
-                <Label htmlFor="subtask-project">Projeto do Todoist para Subtarefas</Label>
-                <Select
-                  value={selectedTodoistProjectId}
-                  onValueChange={(value) => setSelectedTodoistProjectId(value)}
-                  disabled={isLoadingTodoist || todoistProjects.length === 0 || isProcessed}
-                >
-                  <SelectTrigger className="w-full mt-1">
-                    <SelectValue placeholder="Selecione um projeto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {todoistProjects.length === 0 ? (
-                      <SelectItem value="loading" disabled>Carregando projetos...</SelectItem>
-                    ) : (
-                      todoistProjects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Removido: Div para seleção de projeto */}
               <div>
                 <Label htmlFor="subtask-content">Conteúdo das Subtarefas (uma por linha)</Label>
                 <Textarea
