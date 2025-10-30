@@ -18,7 +18,7 @@ import {
   FOCO_LABEL_ID,
   RAPIDA_LABEL_ID,
   CRONOGRAMA_HOJE_LABEL,
-} from "@/pages/NovoSeiso"; // Importar as constantes das etiquetas
+} from "@/lib/constants"; // Importar as constantes das etiquetas do local correto
 
 interface AIAgentAssistantProps {
   aiPrompt: string;
