@@ -120,8 +120,9 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   const finalImportanceDomain = importanceDomain;
 
   const handlePointClick = (payload: any) => {
-    if (payload && payload.url) {
-      window.open(payload.url, '_blank');
+    // Recharts passa o objeto de dados como payload.payload
+    if (payload && payload.payload && payload.payload.url) {
+      window.open(payload.payload.url, '_blank');
     }
   };
 
@@ -197,7 +198,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           data={data}
           shape="circle"
           isAnimationActive={false}
-          onClick={handlePointClick} // Adicionado o manipulador de clique
+          onClick={handlePointClick} // Agora o clique está ativo
         >
           {data.map((entry, index) => (
             <Scatter
