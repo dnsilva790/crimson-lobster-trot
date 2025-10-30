@@ -22,6 +22,7 @@ import ProjectManagementDetail from "./pages/ProjectManagementDetail"; // Renome
 import EditProjectManagement from "./pages/EditProjectManagement"; // Renomeado de EditProject
 import FollowUp from "./pages/FollowUp";
 import Shitsuke from "./pages/Shitsuke"; // Importar a nova página Shitsuke (Revisão Diária)
+import Eisenhower from "./pages/Eisenhower"; // Importar a nova página Eisenhower
 
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/project-management/edit/:projectId" element={<EditProjectManagement />} />
               <Route path="/follow-up" element={<FollowUp />} />
               <Route path="/shitsuke" element={<Shitsuke />} /> {/* Nova rota para SHITSUKE (Revisão Diária) */}
+              <Route path="/eisenhower" element={<Eisenhower />} /> {/* Nova rota para Eisenhower */}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>

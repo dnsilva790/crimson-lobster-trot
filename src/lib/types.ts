@@ -163,3 +163,12 @@ export interface CustomSortingPreference {
   secondary: SortingCriterion | "none";
   tertiary: SortingCriterion | "none";
 }
+
+// Novos tipos para o módulo Eisenhower
+export interface EisenhowerTask extends TodoistTask {
+  urgency: number | null; // 1-10 scale, or null if not rated
+  importance: number | null; // 1-10 scale, or null if not rated
+  quadrant: 'do' | 'decide' | 'delegate' | 'delete' | null; // The quadrant it falls into
+}
+
+export type Quadrant = 'do' | 'decide' | 'delegate' | 'delete';
