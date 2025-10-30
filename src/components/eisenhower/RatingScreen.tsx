@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input"; // Importar Input
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Scale, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Scale, Check, LayoutDashboard } from "lucide-react"; // Importar LayoutDashboard
 import { EisenhowerTask } from "@/lib/types";
 import TaskCard from "./TaskCard";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ interface RatingScreenProps {
   onUpdateTaskRating: (taskId: string, urgency: number | null, importance: number | null) => void;
   onFinishRating: () => void;
   onBack: () => void;
+  onViewMatrix: () => void; // Nova prop para ver a matriz antes de finalizar
 }
 
 const RatingScreen: React.FC<RatingScreenProps> = ({
@@ -22,10 +23,11 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
   onUpdateTaskRating,
   onFinishRating,
   onBack,
+  onViewMatrix, // Usar a nova prop
 }) => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
-  const [urgencyInput, setUrgencyInput] = useState<string>("50"); // Estado para o input de texto, valor inicial 50
-  const [importanceInput, setImportanceInput] = useState<string>("50"); // Estado para o input de texto, valor inicial 50
+  const [urgencyInput, setUrgencyInput] = useState<string>("50");
+  const [importanceInput, setImportanceInput] = useState<string>("50");
 
   const currentTask = tasks[currentTaskIndex];
 
@@ -38,7 +40,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
 
   const validateAndGetNumber = (value: string): number | null => {
     const num = parseInt(value, 10);
-    if (isNaN(num) || num < 0 || num > 100) { // Alterado para 0 a 100
+    if (isNaN(num) || num < 0 || num > 100) {
       return null;
     }
     return num;
@@ -51,7 +53,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
     const parsedImportance = validateAndGetNumber(importanceInput);
 
     if (parsedUrgency === null || parsedImportance === null) {
-      toast.error("Por favor, insira valores de Urgência e Importância entre 0 e 100."); // Alterado para 0 a 100
+      toast.error("Por favor, insira valores de Urgência e Importância entre 0 e 100.");
       return;
     }
 
@@ -61,7 +63,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
       setCurrentTaskIndex(prev => prev + 1);
     } else {
       toast.success("Todas as tarefas foram avaliadas!");
-      onFinishRating();
+      onFinishRating(); // Chamar onFinishRating apenas quando todas as tarefas forem avaliadas
     }
   }, [currentTask, currentTaskIndex, tasks.length, urgencyInput, importanceInput, onUpdateTaskRating, onFinishRating]);
 
@@ -72,6 +74,9 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
       onBack();
     }
   }, [currentTaskIndex, onBack]);
+
+  const ratedTasksCount = tasks.filter(t => t.urgency !== null && t.importance !== null).length;
+  const canViewMatrix = ratedTasksCount >= 2; // Habilitar se pelo menos 2 tarefas foram avaliadas
 
   if (!currentTask) {
     return (
@@ -119,8 +124,8 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
             <Input
               id="urgency-input"
               type="number"
-              min="0" // Alterado para 0
-              max="100" // Alterado para 100
+              min="0"
+              max="100"
               value={urgencyInput}
               onChange={(e) => setUrgencyInput(e.target.value)}
               className="mt-2 text-center text-lg"
@@ -137,8 +142,8 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
             <Input
               id="importance-input"
               type="number"
-              min="0" // Alterado para 0
-              max="100" // Alterado para 100
+              min="0"
+              max="100"
               value={importanceInput}
               onChange={(e) => setImportanceInput(e.target.value)}
               className="mt-2 text-center text-lg"
@@ -160,6 +165,11 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
               )}
             </Button>
           </div>
+          {canViewMatrix && (
+            <Button onClick={onViewMatrix} className="w-full mt-4 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white">
+              <LayoutDashboard className="h-4 w-4" /> Ver Matriz
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -85,11 +85,11 @@ const Eisenhower = () => {
       return prevTasks.map(task => {
         if (task.urgency !== null && task.importance !== null) {
           // Simple categorization for now, can be refined
-          if (task.urgency >= 7 && task.importance >= 7) {
+          if (task.urgency >= 70 && task.importance >= 70) { // Ajustado para escala 0-100
             return { ...task, quadrant: 'do' };
-          } else if (task.urgency < 7 && task.importance >= 7) {
+          } else if (task.urgency < 70 && task.importance >= 70) { // Ajustado para escala 0-100
             return { ...task, quadrant: 'decide' };
-          } else if (task.urgency >= 7 && task.importance < 7) {
+          } else if (task.urgency >= 70 && task.importance < 70) { // Ajustado para escala 0-100
             return { ...task, quadrant: 'delegate' };
           } else {
             return { ...task, quadrant: 'delete' };
@@ -98,7 +98,7 @@ const Eisenhower = () => {
         return task;
       });
     });
-    setCurrentView("matrix");
+    // setCurrentView("matrix"); // Não muda a view aqui, apenas categoriza
     toast.success("Tarefas categorizadas na Matriz de Eisenhower!");
   }, []);
 
@@ -108,6 +108,14 @@ const Eisenhower = () => {
     localStorage.removeItem(EISENHOWER_STORAGE_KEY);
     toast.info("Matriz de Eisenhower resetada.");
   }, []);
+
+  const handleViewMatrixFromRating = useCallback(() => {
+    handleCategorizeTasks(); // Categoriza as tarefas avaliadas
+    setCurrentView("matrix"); // Muda para a visualização da matriz
+  }, [handleCategorizeTasks]);
+
+  const ratedTasksCount = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null).length;
+  const canViewMatrixOrResults = ratedTasksCount >= 2; // Habilitar se pelo menos 2 tarefas foram avaliadas
 
   const renderContent = () => {
     if (isLoading || isLoadingTodoist) {
@@ -126,8 +134,9 @@ const Eisenhower = () => {
           <RatingScreen
             tasks={tasksToProcess}
             onUpdateTaskRating={handleUpdateTaskRating}
-            onFinishRating={handleCategorizeTasks}
+            onFinishRating={handleViewMatrixFromRating} // Ao finalizar, vai para a matriz
             onBack={() => setCurrentView("setup")}
+            onViewMatrix={handleViewMatrixFromRating} // Nova prop
           />
         );
       case "matrix":
@@ -187,8 +196,8 @@ const Eisenhower = () => {
         </Button>
         <Button
           variant={currentView === "matrix" ? "default" : "outline"}
-          onClick={() => setCurrentView("matrix")}
-          disabled={isLoading || isLoadingTodoist || tasksToProcess.length === 0 || tasksToProcess.some(t => t.quadrant === null)}
+          onClick={() => { handleCategorizeTasks(); setCurrentView("matrix"); }} // Categoriza e vai para a matriz
+          disabled={isLoading || isLoadingTodoist || !canViewMatrixOrResults}
           className="flex items-center gap-2"
         >
           <LayoutDashboard className="h-4 w-4" /> Matriz
@@ -196,7 +205,7 @@ const Eisenhower = () => {
         <Button
           variant={currentView === "results" ? "default" : "outline"}
           onClick={() => setCurrentView("results")}
-          disabled={isLoading || isLoadingTodoist || tasksToProcess.length === 0 || tasksToProcess.some(t => t.quadrant === null)}
+          disabled={isLoading || isLoadingTodoist || !canViewMatrixOrResults}
           className="flex items-center gap-2"
         >
           <ListTodo className="h-4 w-4" /> Resultados
@@ -204,7 +213,7 @@ const Eisenhower = () => {
         <Button
           variant={currentView === "dashboard" ? "default" : "outline"}
           onClick={() => setCurrentView("dashboard")}
-          disabled={isLoading || isLoadingTodoist || tasksToProcess.length === 0 || tasksToProcess.some(t => t.quadrant === null)}
+          disabled={isLoading || isLoadingTodoist || !canViewMatrixOrResults}
           className="flex items-center gap-2"
         >
           <LayoutDashboard className="h-4 w-4" /> Dashboard
