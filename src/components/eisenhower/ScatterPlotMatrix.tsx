@@ -63,7 +63,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   const fixedDomain = [0, 100];
 
   return (
-    <ResponsiveContainer width="100%" height={400}>
+    <ResponsiveContainer width="100%" height="100%"> {/* Alterado para height="100%" para usar o aspect-ratio do pai */}
       <ScatterChart
         margin={{
           top: 20,
