@@ -7,7 +7,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip, // Reintroduzindo o Tooltip padrão do Recharts
+  Tooltip,
   ResponsiveContainer,
   ZAxis,
   ReferenceArea,
@@ -41,7 +41,6 @@ const quadrantBackgroundColors: Record<Quadrant, string> = {
   delete: "rgba(107, 114, 128, 0.1)", // gray-100 with transparency
 };
 
-// Custom Tooltip para o hover
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const task = payload[0].payload;
@@ -58,7 +57,6 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-// Função auxiliar para calcular a mediana
 const calculateMedian = (values: number[]): number => {
   if (values.length === 0) return 50;
   const sorted = [...values].sort((a, b) => a - b);
@@ -72,7 +70,6 @@ const calculateMedian = (values: number[]): number => {
 
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   
-  // 1. Calcular domínios dinâmicos e thresholds (mediana)
   const { urgencyDomain, importanceDomain, urgencyThreshold, importanceThreshold } = useMemo(() => {
     if (data.length === 0) {
       return { urgencyDomain: [0, 100], importanceDomain: [0, 100], urgencyThreshold: 50, importanceThreshold: 50 };
@@ -116,14 +113,16 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   const finalUrgencyDomain = urgencyDomain;
   const finalImportanceDomain = importanceDomain;
 
-  // Função de clique para abrir o link diretamente
   const handlePointClick = (payload: any) => {
+    console.log("Eisenhower Scatter Plot: Ponto clicado! Payload:", payload);
     if (payload && payload.payload && payload.payload.url) {
+      console.log("Eisenhower Scatter Plot: Abrindo URL:", payload.payload.url);
       window.open(payload.payload.url, '_blank');
+    } else {
+      console.warn("Eisenhower Scatter Plot: Nenhuma URL encontrada no payload para o ponto clicado:", payload);
     }
   };
 
-  // Função para determinar a cor de preenchimento de cada ponto
   const getFillColor = (entry: ScatterPlotData) => {
     return entry.quadrant ? quadrantColors[entry.quadrant] : "#9ca3af";
   };
@@ -162,36 +161,14 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           className="text-sm text-gray-600"
         />
         <ZAxis dataKey="content" name="Tarefa" />
-        <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} /> {/* Tooltip padrão */}
-
-        {/* Quadrant Reference Areas com Thresholds Dinâmicos */}
-        <ReferenceArea 
-          x1={urgencyThreshold} x2={finalUrgencyDomain[1]} y1={importanceThreshold} y2={finalImportanceDomain[1]} 
-          fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
-          label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
-        />
-        <ReferenceArea 
-          x1={finalUrgencyDomain[0]} x2={urgencyThreshold} y1={importanceThreshold} y2={finalImportanceDomain[1]} 
-          fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} 
-          label={{ value: "Q2: Decidir", position: 'top', fill: quadrantColors.decide, fontSize: 14, fontWeight: 'bold', dx: -40, dy: 10 }}
-        />
-        <ReferenceArea 
-          x1={urgencyThreshold} x2={finalUrgencyDomain[1]} y1={finalImportanceDomain[0]} y2={importanceThreshold} 
-          fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
-          label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
-        />
-        <ReferenceArea 
-          x1={finalUrgencyDomain[0]} x2={urgencyThreshold} y1={finalImportanceDomain[0]} y2={importanceThreshold} 
-          fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} 
-          label={{ value: "Q4: Eliminar", position: 'bottom', fill: quadrantColors.delete, fontSize: 14, fontWeight: 'bold', dx: -40, dy: -10 }}
-        />
+        <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
         <Scatter
           name="Tarefas"
           data={data}
           shape="circle"
           isAnimationActive={false}
-          onClick={handlePointClick} // O clique agora abre o link diretamente
+          onClick={handlePointClick}
         >
           {data.map((entry, index) => (
             <Scatter
