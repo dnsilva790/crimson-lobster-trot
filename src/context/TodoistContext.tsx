@@ -85,11 +85,17 @@ const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
       task.deadline = null;
     }
   }
+
+  // Ensure URL is always a string
+  if (task.url === undefined || task.url === null || typeof task.url !== 'string') {
+    console.warn(`TodoistContext: Task ${task.id} (${task.content}) has invalid URL format:`, task.url, ". Converting to placeholder.");
+    task.url = `https://todoist.com/app/task/${task.id}`; // Default to Todoist task URL
+  }
   
   return task;
 };
 
-export const TodoistProvider = ({ children }: { children: ReactNode }) => {
+export const TodoistProvider = ({ children }: { ReactNode }) => {
   const [apiKey, setApiKeyInternal] = useState<string | null>(() => {
     // Carregar a chave da API do localStorage na inicialização
     if (typeof window !== 'undefined') {

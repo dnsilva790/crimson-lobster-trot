@@ -75,8 +75,14 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
       return { urgencyDomain: [0, 100], importanceDomain: [0, 100], urgencyThreshold: 50, importanceThreshold: 50 };
     }
 
-    const urgencyValues = data.map(d => d.urgency);
-    const importanceValues = data.map(d => d.importance);
+    // Filtrar valores não numéricos ou NaN antes de calcular
+    const urgencyValues = data.map(d => d.urgency!).filter(v => typeof v === 'number' && !isNaN(v));
+    const importanceValues = data.map(d => d.importance!).filter(v => typeof v === 'number' && !isNaN(v));
+
+    // Se todos os valores forem filtrados, retornar defaults
+    if (urgencyValues.length === 0 || importanceValues.length === 0) {
+        return { urgencyDomain: [0, 100], importanceDomain: [0, 100], urgencyThreshold: 50, importanceThreshold: 50 };
+    }
 
     const minU = Math.min(...urgencyValues);
     const maxU = Math.max(...urgencyValues);
@@ -90,9 +96,11 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
       let dMin = Math.max(0, min - 5);
       let dMax = Math.min(100, max + 5);
       
+      // Garantir que o domínio sempre cubra o threshold
       dMin = Math.min(dMin, threshold);
       dMax = Math.max(dMax, threshold);
 
+      // Garantir um range mínimo para o domínio
       if (dMax - dMin < 10) {
         const center = (dMin + dMax) / 2;
         dMin = Math.max(0, center - 5);
@@ -110,8 +118,13 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
 
   }, [data]);
 
-  const finalUrgencyDomain = urgencyDomain;
-  const finalImportanceDomain = importanceDomain;
+  // Garantir que os thresholds sejam sempre números válidos
+  const safeUrgencyThreshold = isNaN(urgencyThreshold) ? 50 : urgencyThreshold;
+  const safeImportanceThreshold = isNaN(importanceThreshold) ? 50 : importanceThreshold;
+
+  // Garantir que os domínios sejam sempre arrays válidos de números
+  const safeUrgencyDomain: [number, number] = (urgencyDomain && !isNaN(urgencyDomain[0]) && !isNaN(urgencyDomain[1])) ? urgencyDomain : [0, 100];
+  const safeImportanceDomain: [number, number] = (importanceDomain && !isNaN(importanceDomain[0]) && !isNaN(importanceDomain[1])) ? importanceDomain : [0, 100];
 
   const handlePointClick = (payload: any) => {
     console.log("Eisenhower Scatter Plot: Ponto clicado! Payload:", payload);
@@ -139,16 +152,17 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
       >
         <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
         
-        <ReferenceArea x1={urgencyThreshold} x2={urgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
-        <ReferenceArea y1={importanceThreshold} y2={importanceThreshold} stroke="#4b5563" strokeDasharray="5 5" />
+        {/* Linhas de referência para os thresholds */}
+        <ReferenceArea x1={safeUrgencyThreshold} x2={safeUrgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
+        <ReferenceArea y1={safeImportanceThreshold} y2={safeImportanceThreshold} stroke="#4b5563" strokeDasharray="5 5" />
 
         <XAxis
           type="number"
           dataKey="urgency"
           name="Urgência"
           unit=""
-          domain={finalUrgencyDomain}
-          label={{ value: `Urgência (Threshold: ${urgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
+          domain={safeUrgencyDomain}
+          label={{ value: `Urgência (Threshold: ${safeUrgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
           className="text-sm text-gray-600"
         />
         <YAxis
@@ -156,12 +170,34 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           dataKey="importance"
           name="Importância"
           unit=""
-          domain={finalImportanceDomain}
-          label={{ value: `Importância (Threshold: ${importanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
+          domain={safeImportanceDomain}
+          label={{ value: `Importância (Threshold: ${safeImportanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
           className="text-sm text-gray-600"
         />
         <ZAxis dataKey="content" name="Tarefa" />
         <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
+
+        {/* Quadrant Reference Areas com Thresholds Dinâmicos e Rótulos */}
+        <ReferenceArea 
+          x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
+          fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
+          label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
+        />
+        <ReferenceArea 
+          x1={safeUrgencyDomain[0]} x2={safeUrgencyThreshold} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
+          fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} 
+          label={{ value: "Q2: Decidir", position: 'top', fill: quadrantColors.decide, fontSize: 14, fontWeight: 'bold', dx: -40, dy: 10 }}
+        />
+        <ReferenceArea 
+          x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceDomain[0]} y2={safeImportanceThreshold} 
+          fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
+          label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
+        />
+        <ReferenceArea 
+          x1={safeUrgencyDomain[0]} x2={safeUrgencyThreshold} y1={safeImportanceDomain[0]} y2={safeImportanceThreshold} 
+          fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} 
+          label={{ value: "Q4: Eliminar", position: 'bottom', fill: quadrantColors.delete, fontSize: 14, fontWeight: 'bold', dx: -40, dy: -10 }}
+        />
 
         <Scatter
           name="Tarefas"
