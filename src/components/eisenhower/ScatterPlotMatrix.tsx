@@ -126,15 +126,10 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
     }
   };
 
-  // Agrupar dados por quadrante para renderizar em camadas separadas
-  const dataByQuadrant = data.reduce((acc, entry) => {
-    const quadrantKey = entry.quadrant || 'unassigned';
-    if (!acc[quadrantKey]) {
-      acc[quadrantKey] = [];
-    }
-    acc[quadrantKey].push(entry);
-    return acc;
-  }, {} as Record<string, ScatterPlotData[]>);
+  // Função para determinar a cor de preenchimento de cada ponto
+  const getFillColor = (entry: ScatterPlotData) => {
+    return entry.quadrant ? quadrantColors[entry.quadrant] : "#9ca3af";
+  };
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -203,18 +198,24 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           label={{ value: "Q4: Eliminar", position: 'bottom', fill: quadrantBackgroundColors.delete, fontSize: 14, fontWeight: 'bold', dx: -40, dy: -10 }}
         />
 
-        {/* Renderizar os pontos, aplicando o onClick ao Scatter principal */}
-        {Object.entries(dataByQuadrant).map(([quadrantKey, quadrantData]) => (
-          <Scatter
-            key={quadrantKey}
-            name={quadrantKey}
-            data={quadrantData}
-            fill={quadrantKey === 'unassigned' ? "#9ca3af" : quadrantColors[quadrantKey as Quadrant]}
-            shape="circle"
-            isAnimationActive={false}
-            onClick={handlePointClick}
-          />
-        ))}
+        {/* Renderizar todos os pontos em um único Scatter, usando a função fill para cores */}
+        <Scatter
+          name="Tarefas"
+          data={data}
+          shape="circle"
+          isAnimationActive={false}
+          onClick={handlePointClick}
+          fill={getFillColor(data[0])} // Define a cor base (será sobrescrita pelo fill individual)
+        >
+          {/* Renderiza os pontos individualmente para aplicar a cor correta e garantir o clique */}
+          {data.map((entry, index) => (
+            <Scatter
+              key={`scatter-point-${index}`}
+              data={[entry]}
+              fill={getFillColor(entry)}
+            />
+          ))}
+        </Scatter>
       </ScatterChart>
     </ResponsiveContainer>
   );
