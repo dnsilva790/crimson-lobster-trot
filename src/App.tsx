@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Configuration from "./pages/Configuration";
 import MainLayout from "./components/MainLayout";
+import { TodoistProvider } from "./context/TodoistContext"; // Import TodoistProvider
 
 // Import module pages
 import Seiri from "./pages/Seiri";
