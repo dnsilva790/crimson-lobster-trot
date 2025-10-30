@@ -23,6 +23,21 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onStart }) => {
     if (statusFilter === "overdue") {
       // Adiciona o filtro de atrasadas ao filtro do usuário, se houver
       finalFilter = finalFilter ? `(${finalFilter}) & overdue` : 'overdue';
+    } else if (statusFilter === "all" && !finalFilter) {
+      // Se for 'all' e não houver filtro de usuário, usamos um filtro amplo para evitar carregar TUDO
+      // No Todoist, 'all' sem filtro é implícito, mas para garantir que não carreguemos tarefas concluídas,
+      // o fetchTasks já cuida disso. Se o usuário não colocar filtro, ele carrega o que o Todoist considera ativo.
+      // Vamos manter o filtro vazio se for 'all' e o input estiver vazio.
+    }
+
+    if (!finalFilter && statusFilter === "all") {
+      // Se não houver filtro, passamos undefined para fetchTasks carregar o padrão (todas ativas)
+      onStart(undefined as unknown as string); // Passa undefined, mas o tipo é string, então forçamos.
+      return;
+    }
+    
+    if (!finalFilter && statusFilter === "overdue") {
+      finalFilter = 'overdue';
     }
 
     if (!finalFilter) {
@@ -68,11 +83,11 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onStart }) => {
             </Label>
             <Select value={statusFilter} onValueChange={(value: "all" | "overdue") => setStatusFilter(value)}>
               <SelectTrigger className="w-full mt-1">
-                <SelectValue placeholder="Todas as Tarefas" />
+                <SelectValue placeholder="Todas as Tarefas (Backlog)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as Tarefas</SelectItem>
-                <SelectItem value="overdue">Apenas Atrasadas</SelectItem>
+                <SelectItem value="all">Todas as Tarefas (Backlog)</SelectItem>
+                <SelectItem value="overdue">Apenas Atrasadas (Backlog)</SelectItem>
               </SelectContent>
             </Select>
           </div>

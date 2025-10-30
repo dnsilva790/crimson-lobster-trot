@@ -126,6 +126,16 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
     }
   };
 
+  // Agrupar dados por quadrante para renderizar em camadas separadas
+  const dataByQuadrant = data.reduce((acc, entry) => {
+    const quadrantKey = entry.quadrant || 'unassigned';
+    if (!acc[quadrantKey]) {
+      acc[quadrantKey] = [];
+    }
+    acc[quadrantKey].push(entry);
+    return acc;
+  }, {} as Record<string, ScatterPlotData[]>);
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ScatterChart
@@ -181,7 +191,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
         
         {/* Q3: Delegate (Urgente [>=T_U] e Não Importante [<T_I]) - Bottom Right */}
         <ReferenceArea 
-          x1={urgencyThreshold} x2={finalUrgencyDomain[1]} y1={finalImportanceDomain[0]} y2={urgencyThreshold} 
+          x1={urgencyThreshold} x2={finalUrgencyDomain[1]} y1={finalImportanceDomain[0]} y2={importanceThreshold} 
           fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
           label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
         />
@@ -193,21 +203,18 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           label={{ value: "Q4: Eliminar", position: 'bottom', fill: quadrantBackgroundColors.delete, fontSize: 14, fontWeight: 'bold', dx: -40, dy: -10 }}
         />
 
-        <Scatter
-          name="Tarefas"
-          data={data}
-          shape="circle"
-          isAnimationActive={false}
-          onClick={handlePointClick} // Agora o clique está ativo
-        >
-          {data.map((entry, index) => (
-            <Scatter
-              key={`scatter-${index}`}
-              data={[entry]}
-              fill={entry.quadrant ? quadrantColors[entry.quadrant] : "#9ca3af"} // Default gray for unassigned
-            />
-          ))}
-        </Scatter>
+        {/* Renderizar os pontos, aplicando o onClick ao Scatter principal */}
+        {Object.entries(dataByQuadrant).map(([quadrantKey, quadrantData]) => (
+          <Scatter
+            key={quadrantKey}
+            name={quadrantKey}
+            data={quadrantData}
+            fill={quadrantKey === 'unassigned' ? "#9ca3af" : quadrantColors[quadrantKey as Quadrant]}
+            shape="circle"
+            isAnimationActive={false}
+            onClick={handlePointClick}
+          />
+        ))}
       </ScatterChart>
     </ResponsiveContainer>
   );
