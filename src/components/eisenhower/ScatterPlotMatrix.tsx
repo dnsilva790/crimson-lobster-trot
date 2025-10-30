@@ -57,13 +57,13 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   // Threshold for quadrants (consistent with Eisenhower.tsx)
-  const threshold = 50; // Alterado para 50 para centralizar a matriz
+  const threshold = 50;
   
   // Forcing fixed domain [0, 100] for a true 2x2 matrix visualization
   const fixedDomain = [0, 100];
 
   return (
-    <ResponsiveContainer width="100%" height="100%"> {/* Alterado para height="100%" para usar o aspect-ratio do pai */}
+    <ResponsiveContainer width="100%" height="100%">
       <ScatterChart
         margin={{
           top: 20,
@@ -84,7 +84,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           name="Urgência"
           unit=""
           domain={fixedDomain} // Eixo fixo de 0 a 100
-          tickCount={11}
+          // tickCount removido para dinamizar a exibição dos rótulos
           label={{ value: "Urgência", position: "bottom", offset: 0, fill: "#4b5563" }}
           className="text-sm text-gray-600"
         />
@@ -94,7 +94,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           name="Importância"
           unit=""
           domain={fixedDomain} // Eixo fixo de 0 a 100
-          tickCount={11}
+          // tickCount removido para dinamizar a exibição dos rótulos
           label={{ value: "Importância", angle: -90, position: "left", fill: "#4b5563" }}
           className="text-sm text-gray-600"
         />
@@ -114,7 +114,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
         <ReferenceArea 
           x1={0} x2={threshold} y1={threshold} y2={100} 
           fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} 
-          label={{ value: "Q2: Decidir", position: 'top', fill: quadrantColors.decide, fontSize: 14, fontWeight: 'bold', dx: -40, dy: 10 }}
+          label={{ value: "Q2: Decidir", position: 'top', fill: quadrantBackgroundColors.decide, fontSize: 14, fontWeight: 'bold', dx: -40, dy: 10 }}
         />
         
         {/* Q3: Delegate (Urgente [>=50] e Não Importante [<50]) - Bottom Right */}
@@ -128,7 +128,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
         <ReferenceArea 
           x1={0} x2={threshold} y1={0} y2={threshold} 
           fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} 
-          label={{ value: "Q4: Eliminar", position: 'bottom', fill: quadrantColors.delete, fontSize: 14, fontWeight: 'bold', dx: -40, dy: -10 }}
+          label={{ value: "Q4: Eliminar", position: 'bottom', fill: quadrantBackgroundColors.delete, fontSize: 14, fontWeight: 'bold', dx: -40, dy: -10 }}
         />
 
         <Scatter
