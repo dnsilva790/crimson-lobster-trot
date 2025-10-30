@@ -17,14 +17,21 @@ import ResultsScreen from "@/components/eisenhower/ResultsScreen";
 import DashboardScreen from "@/components/eisenhower/DashboardScreen";
 import AiAssistantModal from "@/components/eisenhower/AiAssistantModal";
 
-// Importar a função calculateMedian do ScatterPlotMatrix para evitar duplicação
-import { calculateMedian } from "@/components/eisenhower/ScatterPlotMatrix";
+// A função calculateMedian duplicada foi removida daqui.
+const calculateMedian = (values: number[]): number => {
+  if (values.length === 0) return 50;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
+};
 
 type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
 
 const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState";
-
-// A função calculateMedian duplicada foi removida daqui.
 
 const Eisenhower = () => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
