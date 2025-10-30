@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   ZAxis,
+  ReferenceArea, // Importar ReferenceArea
 } from "recharts";
 import { Quadrant } from "@/lib/types";
 
@@ -32,6 +33,13 @@ const quadrantColors: Record<Quadrant, string> = {
   delete: "#ef4444", // red-500
 };
 
+const quadrantBackgroundColors: Record<Quadrant, string> = {
+  do: "rgba(59, 130, 246, 0.1)", // blue-100 with transparency
+  decide: "rgba(34, 197, 94, 0.1)", // green-100 with transparency
+  delegate: "rgba(234, 179, 8, 0.1)", // yellow-100 with transparency
+  delete: "rgba(239, 68, 68, 0.1)", // red-100 with transparency
+};
+
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const task = payload[0].payload;
@@ -48,6 +56,22 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
+  // Calculate dynamic domain for axes
+  const allUrgencies = data.map(d => d.urgency);
+  const allImportances = data.map(d => d.importance);
+
+  const minUrgency = Math.min(0, ...allUrgencies);
+  const maxUrgency = Math.max(100, ...allUrgencies);
+  const minImportance = Math.min(0, ...allImportances);
+  const maxImportance = Math.max(100, ...allImportances);
+
+  // Add some padding to the domain
+  const urgencyDomain = [Math.max(0, minUrgency - 5), Math.min(100, maxUrgency + 5)];
+  const importanceDomain = [Math.max(0, minImportance - 5), Math.min(100, maxImportance + 5)];
+
+  // Threshold for quadrants (consistent with Eisenhower.tsx)
+  const threshold = 70;
+
   return (
     <ResponsiveContainer width="100%" height={400}>
       <ScatterChart
@@ -64,8 +88,8 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           dataKey="urgency"
           name="Urgência"
           unit=""
-          domain={[1, 10]}
-          tickCount={10}
+          domain={urgencyDomain} // Dynamic domain
+          tickCount={11} // For 0-100 scale, 11 ticks (0, 10, ..., 100)
           label={{ value: "Urgência", position: "bottom", offset: 0, fill: "#4b5563" }}
           className="text-sm text-gray-600"
         />
@@ -74,17 +98,27 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           dataKey="importance"
           name="Importância"
           unit=""
-          domain={[1, 10]}
-          tickCount={10}
+          domain={importanceDomain} // Dynamic domain
+          tickCount={11} // For 0-100 scale, 11 ticks (0, 10, ..., 100)
           label={{ value: "Importância", angle: -90, position: "left", fill: "#4b5563" }}
           className="text-sm text-gray-600"
         />
         <ZAxis dataKey="content" name="Tarefa" />
         <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
+
+        {/* Quadrant Reference Areas */}
+        {/* Do: Urgente (>=70) e Importante (>=70) */}
+        <ReferenceArea x1={threshold} x2={100} y1={threshold} y2={100} fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} />
+        {/* Decide: Não Urgente (<70) e Importante (>=70) */}
+        <ReferenceArea x1={0} x2={threshold} y1={threshold} y2={100} fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} />
+        {/* Delegate: Urgente (>=70) e Não Importante (<70) */}
+        <ReferenceArea x1={threshold} x2={100} y1={0} y2={threshold} fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} />
+        {/* Delete: Não Urgente (<70) e Não Importante (<70) */}
+        <ReferenceArea x1={0} x2={threshold} y1={0} y2={threshold} fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} />
+
         <Scatter
           name="Tarefas"
           data={data}
-          fill="#8884d8"
           shape="circle"
           isAnimationActive={false}
         >
