@@ -42,7 +42,7 @@ const App = () => (
               <Route path="/seiketsu" element={<Seiketsu />} /> {/* Rota atualizada para Seiketsu */}
               <Route path="/seiton" element={<Seiton />} />
               <Route path="/novoseiso" element={<NovoSeiso />} /> {/* Rota atualizada para NovoSeiso */}
-              <Route path="/seiso" element={<Seiso />} /> {/* NOVA ROTA para SEISO - Planejamento de Ação */}
+              <Route path="/seiso/:taskId" element={<Seiso />} /> {/* Rota atualizada para aceitar taskId */}
               <Route path="/internal-tasks" element={<InternalTasks />} />
               <Route path="/planejador" element={<Planejador />} />
               <Route path="/project-management" element={<ProjectManagement />} /> {/* Rota atualizada para Gestão de Projetos */}
