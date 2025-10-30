@@ -13,7 +13,7 @@ import {
   Bot, // Ícone para o Tutor IA SEISO
   CheckSquare, // Ícone para o novo Shitsuke (Revisão Diária)
   FolderOpen, // Ícone para Gestão de Projetos 5W2H
-  Matrix, // Ícone para Matriz de Eisenhower
+  LayoutDashboard, // Alterado de Matrix para LayoutDashboard
 } from "lucide-react";
 
 const modules = [
@@ -91,7 +91,7 @@ const modules = [
   },
   {
     path: "/eisenhower", // Nova rota para Matriz de Eisenhower
-    icon: Matrix, // Ícone para Matriz
+    icon: LayoutDashboard, // Alterado de Matrix para LayoutDashboard
     title: "EISENHOWER",
     description: "Matriz de Priorização",
     colorClass: "bg-orange-50 hover:bg-orange-100",

@@ -7,7 +7,7 @@ import { useTodoist } from "@/context/TodoistContext";
 import { EisenhowerTask, TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { Matrix, Settings, ListTodo, LayoutDashboard, Scale, Lightbulb } from "lucide-react";
+import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb } from "lucide-react"; // Alterado de Matrix para LayoutDashboard
 
 // Importar os componentes do Eisenhower
 import SetupScreen from "@/components/eisenhower/SetupScreen";
@@ -162,7 +162,7 @@ const Eisenhower = () => {
   return (
     <div className="p-4">
       <h2 className="text-3xl font-bold mb-2 text-gray-800">
-        <Matrix className="inline-block h-8 w-8 mr-2 text-indigo-600" /> Matriz de Eisenhower
+        <LayoutDashboard className="inline-block h-8 w-8 mr-2 text-indigo-600" /> Matriz de Eisenhower
       </h2>
       <p className="text-lg text-gray-600 mb-6">
         Priorize suas tarefas com base em Urgência e Importância.
@@ -191,7 +191,7 @@ const Eisenhower = () => {
           disabled={isLoading || isLoadingTodoist || tasksToProcess.length === 0 || tasksToProcess.some(t => t.quadrant === null)}
           className="flex items-center gap-2"
         >
-          <Matrix className="h-4 w-4" /> Matriz
+          <LayoutDashboard className="h-4 w-4" /> Matriz
         </Button>
         <Button
           variant={currentView === "results" ? "default" : "outline"}
