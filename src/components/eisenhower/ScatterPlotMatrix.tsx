@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useRef } from "react"; // Importar useRef
 import {
   ScatterChart,
   Scatter,
@@ -13,7 +13,7 @@ import {
   ReferenceArea,
 } from "recharts";
 import { Quadrant } from "@/lib/types";
-import { useNavigate } from "react-router-dom"; // Importar useNavigate
+import { useNavigate } from "react-router-dom";
 
 interface ScatterPlotData {
   id: string;
@@ -52,6 +52,7 @@ const CustomTooltip = ({ active, payload }: any) => {
         <p className="text-gray-600">Importância: {task.importance}</p>
         <p className="text-gray-600">Quadrante: {task.quadrant ? task.quadrant.charAt(0).toUpperCase() + task.quadrant.slice(1) : 'N/A'}</p>
         <p className="text-blue-500 mt-1">Clique para abrir no Todoist</p>
+        <p className="text-purple-500">Duplo clique para planejar no SEISO</p>
       </div>
     );
   }
@@ -70,18 +71,17 @@ const calculateMedian = (values: number[]): number => {
 };
 
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
-  const navigate = useNavigate(); // Inicializar useNavigate
+  const navigate = useNavigate();
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { urgencyDomain, importanceDomain, urgencyThreshold, importanceThreshold } = useMemo(() => {
     if (data.length === 0) {
       return { urgencyDomain: [0, 100], importanceDomain: [0, 100], urgencyThreshold: 50, importanceThreshold: 50 };
     }
 
-    // Filtrar valores não numéricos ou NaN antes de calcular
     const urgencyValues = data.map(d => d.urgency!).filter(v => typeof v === 'number' && !isNaN(v));
     const importanceValues = data.map(d => d.importance!).filter(v => typeof v === 'number' && !isNaN(v));
 
-    // Se todos os valores forem filtrados, retornar defaults
     if (urgencyValues.length === 0 || importanceValues.length === 0) {
         return { urgencyDomain: [0, 100], importanceDomain: [0, 100], urgencyThreshold: 50, importanceThreshold: 50 };
     }
@@ -98,11 +98,9 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
       let dMin = Math.max(0, min - 5);
       let dMax = Math.min(100, max + 5);
       
-      // Garantir que o domínio sempre cubra o threshold
       dMin = Math.min(dMin, threshold);
       dMax = Math.max(dMax, threshold);
 
-      // Garantir um range mínimo para o domínio
       if (dMax - dMin < 10) {
         const center = (dMin + dMax) / 2;
         dMin = Math.max(0, center - 5);
@@ -120,29 +118,35 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
 
   }, [data]);
 
-  // Garantir que os thresholds sejam sempre números válidos
   const safeUrgencyThreshold = isNaN(urgencyThreshold) ? 50 : urgencyThreshold;
   const safeImportanceThreshold = isNaN(importanceThreshold) ? 50 : importanceThreshold;
-
-  // Garantir que os domínios sejam sempre arrays válidos de números
   const safeUrgencyDomain: [number, number] = (urgencyDomain && !isNaN(urgencyDomain[0]) && !isNaN(urgencyDomain[1])) ? urgencyDomain : [0, 100];
   const safeImportanceDomain: [number, number] = (importanceDomain && !isNaN(importanceDomain[0]) && !isNaN(importanceDomain[1])) ? importanceDomain : [0, 100];
 
-  const handlePointClick = (payload: any) => {
-    console.log("Eisenhower Scatter Plot: Ponto clicado! Payload:", payload);
-    if (payload && payload.payload && payload.payload.url) {
-      // Abrir no Todoist (comportamento original)
-      window.open(payload.payload.url, '_blank');
-    } else {
-      console.warn("Eisenhower Scatter Plot: Nenhuma URL encontrada no payload para o ponto clicado:", payload);
+  const handleSingleClick = (payload: any) => {
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current);
+      clickTimer.current = null;
     }
+    clickTimer.current = setTimeout(() => {
+      console.log("Eisenhower Scatter Plot: Clique único! Payload:", payload);
+      if (payload && payload.payload && payload.payload.url) {
+        window.open(payload.payload.url, '_blank');
+      } else {
+        console.warn("Eisenhower Scatter Plot: Nenhuma URL encontrada no payload para o clique único:", payload);
+      }
+    }, 200); // Atraso de 200ms para detectar duplo clique
   };
 
-  const handlePointDoubleClick = (payload: any) => {
-    console.log("Eisenhower Scatter Plot: Ponto com duplo clique! Payload:", payload);
+  const handleDoubleClick = (payload: any) => {
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current);
+      clickTimer.current = null;
+    }
+    console.log("Eisenhower Scatter Plot: Duplo clique! Payload:", payload);
     if (payload && payload.payload && payload.payload.id) {
       const taskId = payload.payload.id;
-      navigate(`/seiso/${taskId}`); // Navegar para a página SEISO com o ID da tarefa
+      navigate(`/seiso/${taskId}`);
     } else {
       console.warn("Eisenhower Scatter Plot: Nenhum ID de tarefa encontrado no payload para o duplo clique:", payload);
     }
@@ -164,7 +168,6 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
       >
         <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
         
-        {/* Linhas de referência para os thresholds */}
         <ReferenceArea x1={safeUrgencyThreshold} x2={safeUrgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
         <ReferenceArea y1={safeImportanceThreshold} y2={safeImportanceThreshold} stroke="#4b5563" strokeDasharray="5 5" />
 
@@ -189,7 +192,6 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
         <ZAxis dataKey="content" name="Tarefa" />
         <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-        {/* Quadrant Reference Areas com Thresholds Dinâmicos e Rótulos */}
         <ReferenceArea 
           x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
           fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
@@ -216,8 +218,8 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           data={data}
           shape="circle"
           isAnimationActive={false}
-          onClick={handlePointClick} // Mantém o clique único para abrir no Todoist
-          onDoubleClick={handlePointDoubleClick} // Adiciona o duplo clique para navegar para SEISO
+          onClick={handleSingleClick} // Usar o novo handler de clique único
+          onDoubleClick={handleDoubleClick} // Usar o novo handler de duplo clique
         >
           {data.map((entry, index) => (
             <Scatter
