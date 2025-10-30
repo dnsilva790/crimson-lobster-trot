@@ -14,6 +14,7 @@ import {
   CheckSquare, // Ícone para o novo Shitsuke (Revisão Diária)
   FolderOpen, // Ícone para Gestão de Projetos 5W2H
   LayoutDashboard, // Alterado de Matrix para LayoutDashboard
+  ClipboardCheck, // Novo ícone para SEISO - Planejamento de Ação
 } from "lucide-react";
 
 const modules = [
@@ -48,6 +49,14 @@ const modules = [
     description: "Modo Foco Total", // Descrição mantida
     colorClass: "bg-blue-100 hover:bg-blue-200", // Cor atualizada
     activeColor: "border-blue-600",
+  },
+  {
+    path: "/seiso", // NOVA ROTA para SEISO - Planejamento de Ação
+    icon: ClipboardCheck, // Ícone para Planejamento de Ação
+    title: "SEISO",
+    description: "Planejamento de Ação",
+    colorClass: "bg-cyan-100 hover:bg-cyan-200", // Nova cor
+    activeColor: "border-cyan-600",
   },
   {
     path: "/planejador",

@@ -22,6 +22,7 @@ import EditProjectManagement from "./pages/EditProjectManagement"; // Renomeado 
 import FollowUp from "./pages/FollowUp";
 import Shitsuke from "./pages/Shitsuke"; // Importar a nova página Shitsuke (Revisão Diária)
 import Eisenhower from "./pages/Eisenhower"; // Importar a nova página Eisenhower
+import Seiso from "./pages/Seiso"; // Importar a nova página Seiso
 
 
 const queryClient = new QueryClient();
@@ -32,7 +33,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        {/* TodoistProvider REMOVIDO daqui */}
+        <TodoistProvider> {/* TodoistProvider ADICIONADO de volta aqui */}
           <Routes>
             <Route path="/" element={<Configuration />} /> {/* Initial config page */}
             <Route element={<MainLayout />}>
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/seiketsu" element={<Seiketsu />} /> {/* Rota atualizada para Seiketsu */}
               <Route path="/seiton" element={<Seiton />} />
               <Route path="/novoseiso" element={<NovoSeiso />} /> {/* Rota atualizada para NovoSeiso */}
+              <Route path="/seiso" element={<Seiso />} /> {/* NOVA ROTA para SEISO - Planejamento de Ação */}
               <Route path="/internal-tasks" element={<InternalTasks />} />
               <Route path="/planejador" element={<Planejador />} />
               <Route path="/project-management" element={<ProjectManagement />} /> {/* Rota atualizada para Gestão de Projetos */}
@@ -53,7 +55,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
-        {/* TodoistProvider REMOVIDO daqui */}
+        </TodoistProvider> {/* TodoistProvider FECHADO aqui */}
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
