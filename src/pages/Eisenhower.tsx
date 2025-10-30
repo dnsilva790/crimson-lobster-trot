@@ -81,15 +81,16 @@ const Eisenhower = () => {
   }, []);
 
   const handleCategorizeTasks = useCallback(() => {
+    const threshold = 50; // Usando 50 como limite central
     setTasksToProcess(prevTasks => {
       return prevTasks.map(task => {
         if (task.urgency !== null && task.importance !== null) {
-          // Simple categorization for now, can be refined
-          if (task.urgency >= 70 && task.importance >= 70) { // Ajustado para escala 0-100
+          // Categorização baseada no limite de 50
+          if (task.urgency >= threshold && task.importance >= threshold) {
             return { ...task, quadrant: 'do' };
-          } else if (task.urgency < 70 && task.importance >= 70) { // Ajustado para escala 0-100
+          } else if (task.urgency < threshold && task.importance >= threshold) {
             return { ...task, quadrant: 'decide' };
-          } else if (task.urgency >= 70 && task.importance < 70) { // Ajustado para escala 0-100
+          } else if (task.urgency >= threshold && task.importance < threshold) {
             return { ...task, quadrant: 'delegate' };
           } else {
             return { ...task, quadrant: 'delete' };

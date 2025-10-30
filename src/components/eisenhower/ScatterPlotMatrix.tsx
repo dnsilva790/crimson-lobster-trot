@@ -57,7 +57,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   // Threshold for quadrants (consistent with Eisenhower.tsx)
-  const threshold = 70;
+  const threshold = 50; // Alterado para 50 para centralizar a matriz
   
   // Forcing fixed domain [0, 100] for a true 2x2 matrix visualization
   const fixedDomain = [0, 100];
@@ -103,28 +103,28 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
 
         {/* Quadrant Reference Areas with Labels */}
         
-        {/* Q1: Do (Urgente [>=70] e Importante [>=70]) - Top Right */}
+        {/* Q1: Do (Urgente [>=50] e Importante [>=50]) - Top Right */}
         <ReferenceArea 
           x1={threshold} x2={100} y1={threshold} y2={100} 
           fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
           label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
         />
         
-        {/* Q2: Decide (Não Urgente [<70] e Importante [>=70]) - Top Left */}
+        {/* Q2: Decide (Não Urgente [<50] e Importante [>=50]) - Top Left */}
         <ReferenceArea 
           x1={0} x2={threshold} y1={threshold} y2={100} 
           fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} 
           label={{ value: "Q2: Decidir", position: 'top', fill: quadrantColors.decide, fontSize: 14, fontWeight: 'bold', dx: -40, dy: 10 }}
         />
         
-        {/* Q3: Delegate (Urgente [>=70] e Não Importante [<70]) - Bottom Right */}
+        {/* Q3: Delegate (Urgente [>=50] e Não Importante [<50]) - Bottom Right */}
         <ReferenceArea 
           x1={threshold} x2={100} y1={0} y2={threshold} 
           fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
           label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
         />
         
-        {/* Q4: Delete (Não Urgente [<70] e Não Importante [<70]) - Bottom Left */}
+        {/* Q4: Delete (Não Urgente [<50] e Não Importante [<50]) - Bottom Left */}
         <ReferenceArea 
           x1={0} x2={threshold} y1={0} y2={threshold} 
           fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} 
