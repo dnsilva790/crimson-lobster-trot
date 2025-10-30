@@ -10,7 +10,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   ZAxis,
-  ReferenceArea, // Importar ReferenceArea
+  ReferenceArea,
+  ReferenceLabel, // Importar ReferenceLabel
 } from "recharts";
 import { Quadrant } from "@/lib/types";
 
@@ -56,21 +57,11 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
-  // Calculate dynamic domain for axes
-  const allUrgencies = data.map(d => d.urgency);
-  const allImportances = data.map(d => d.importance);
-
-  const minUrgency = Math.min(0, ...allUrgencies);
-  const maxUrgency = Math.max(100, ...allUrgencies);
-  const minImportance = Math.min(0, ...allImportances);
-  const maxImportance = Math.max(100, ...allImportances);
-
-  // Add some padding to the domain
-  const urgencyDomain = [Math.max(0, minUrgency - 5), Math.min(100, maxUrgency + 5)];
-  const importanceDomain = [Math.max(0, minImportance - 5), Math.min(100, maxImportance + 5)];
-
   // Threshold for quadrants (consistent with Eisenhower.tsx)
   const threshold = 70;
+  
+  // Forcing fixed domain [0, 100] for a true 2x2 matrix visualization
+  const fixedDomain = [0, 100];
 
   return (
     <ResponsiveContainer width="100%" height={400}>
@@ -83,13 +74,18 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
         }}
       >
         <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
+        
+        {/* Linhas de Referência para o Threshold */}
+        <ReferenceArea x1={threshold} x2={threshold} stroke="#4b5563" strokeDasharray="5 5" />
+        <ReferenceArea y1={threshold} y2={threshold} stroke="#4b5563" strokeDasharray="5 5" />
+
         <XAxis
           type="number"
           dataKey="urgency"
           name="Urgência"
           unit=""
-          domain={urgencyDomain} // Dynamic domain
-          tickCount={11} // For 0-100 scale, 11 ticks (0, 10, ..., 100)
+          domain={fixedDomain} // Eixo fixo de 0 a 100
+          tickCount={11}
           label={{ value: "Urgência", position: "bottom", offset: 0, fill: "#4b5563" }}
           className="text-sm text-gray-600"
         />
@@ -98,8 +94,8 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           dataKey="importance"
           name="Importância"
           unit=""
-          domain={importanceDomain} // Dynamic domain
-          tickCount={11} // For 0-100 scale, 11 ticks (0, 10, ..., 100)
+          domain={fixedDomain} // Eixo fixo de 0 a 100
+          tickCount={11}
           label={{ value: "Importância", angle: -90, position: "left", fill: "#4b5563" }}
           className="text-sm text-gray-600"
         />
@@ -107,14 +103,21 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
         <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
         {/* Quadrant Reference Areas */}
-        {/* Do: Urgente (>=70) e Importante (>=70) */}
+        {/* Q1: Do (Urgente [>=70] e Importante [>=70]) - Top Right */}
         <ReferenceArea x1={threshold} x2={100} y1={threshold} y2={100} fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} />
-        {/* Decide: Não Urgente (<70) e Importante (>=70) */}
+        <ReferenceLabel x={85} y={95} value="Q1: Fazer (Do)" fill={quadrantColors.do} fontSize={14} fontWeight="bold" />
+        
+        {/* Q2: Decide (Não Urgente [<70] e Importante [>=70]) - Top Left */}
         <ReferenceArea x1={0} x2={threshold} y1={threshold} y2={100} fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} />
-        {/* Delegate: Urgente (>=70) e Não Importante (<70) */}
+        <ReferenceLabel x={35} y={95} value="Q2: Decidir" fill={quadrantColors.decide} fontSize={14} fontWeight="bold" />
+        
+        {/* Q3: Delegate (Urgente [>=70] e Não Importante [<70]) - Bottom Right */}
         <ReferenceArea x1={threshold} x2={100} y1={0} y2={threshold} fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} />
-        {/* Delete: Não Urgente (<70) e Não Importante (<70) */}
+        <ReferenceLabel x={85} y={5} value="Q3: Delegar" fill={quadrantColors.delegate} fontSize={14} fontWeight="bold" />
+        
+        {/* Q4: Delete (Não Urgente [<70] e Não Importante [<70]) - Bottom Left */}
         <ReferenceArea x1={0} x2={threshold} y1={0} y2={threshold} fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} />
+        <ReferenceLabel x={35} y={5} value="Q4: Eliminar" fill={quadrantColors.delete} fontSize={14} fontWeight="bold" />
 
         <Scatter
           name="Tarefas"
