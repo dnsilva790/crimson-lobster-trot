@@ -32,7 +32,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <TodoistProvider> {/* TodoistProvider ADICIONADO de volta aqui */}
+        {/* TodoistProvider REMOVIDO daqui */}
           <Routes>
             <Route path="/" element={<Configuration />} /> {/* Initial config page */}
             <Route element={<MainLayout />}>
@@ -53,7 +53,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
-        </TodoistProvider> {/* TodoistProvider FECHADO aqui */}
+        {/* TodoistProvider REMOVIDO daqui */}
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
