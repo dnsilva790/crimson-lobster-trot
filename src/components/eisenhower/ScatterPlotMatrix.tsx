@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo } from "react";
 import {
   ScatterChart,
   Scatter,
   XAxis,
   YAxis,
   CartesianGrid,
+  Tooltip, // Reintroduzindo o Tooltip padrão do Recharts
   ResponsiveContainer,
   ZAxis,
   ReferenceArea,
@@ -40,6 +41,23 @@ const quadrantBackgroundColors: Record<Quadrant, string> = {
   delete: "rgba(107, 114, 128, 0.1)", // gray-100 with transparency
 };
 
+// Custom Tooltip para o hover
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const task = payload[0].payload;
+    return (
+      <div className="p-3 bg-white border border-gray-200 rounded-md shadow-lg text-sm">
+        <p className="font-semibold text-gray-800">{task.content}</p>
+        <p className="text-gray-600">Urgência: {task.urgency}</p>
+        <p className="text-gray-600">Importância: {task.importance}</p>
+        <p className="text-gray-600">Quadrante: {task.quadrant ? task.quadrant.charAt(0).toUpperCase() + task.quadrant.slice(1) : 'N/A'}</p>
+        <p className="text-blue-500 mt-1">Clique para abrir no Todoist</p>
+      </div>
+    );
+  }
+  return null;
+};
+
 // Função auxiliar para calcular a mediana
 const calculateMedian = (values: number[]): number => {
   if (values.length === 0) return 50;
@@ -53,12 +71,7 @@ const calculateMedian = (values: number[]): number => {
 };
 
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
-  const [fixedTooltip, setFixedTooltip] = useState<{
-    task: ScatterPlotData;
-    x: number;
-    y: number;
-  } | null>(null);
-
+  
   // 1. Calcular domínios dinâmicos e thresholds (mediana)
   const { urgencyDomain, importanceDomain, urgencyThreshold, importanceThreshold } = useMemo(() => {
     if (data.length === 0) {
@@ -103,33 +116,12 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   const finalUrgencyDomain = urgencyDomain;
   const finalImportanceDomain = importanceDomain;
 
-  const handlePointClick = useCallback((payload: any, event: React.MouseEvent) => {
-    if (payload && payload.payload) {
-      const clickedTask = payload.payload;
-      const { clientX, clientY } = event;
-
-      if (fixedTooltip?.task.id === clickedTask.id) {
-        setFixedTooltip(null); // Toggle off if same task clicked
-      } else {
-        setFixedTooltip({ task: clickedTask, x: clientX, y: clientY });
-      }
+  // Função de clique para abrir o link diretamente
+  const handlePointClick = (payload: any) => {
+    if (payload && payload.payload && payload.payload.url) {
+      window.open(payload.payload.url, '_blank');
     }
-  }, [fixedTooltip]);
-
-  const handleOutsideClick = useCallback((event: MouseEvent) => {
-    // Check if the click is outside the tooltip itself
-    const tooltipElement = document.getElementById('fixed-eisenhower-tooltip');
-    if (tooltipElement && !tooltipElement.contains(event.target as Node)) {
-      setFixedTooltip(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-    };
-  }, [handleOutsideClick]);
+  };
 
   // Função para determinar a cor de preenchimento de cada ponto
   const getFillColor = (entry: ScatterPlotData) => {
@@ -170,7 +162,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           className="text-sm text-gray-600"
         />
         <ZAxis dataKey="content" name="Tarefa" />
-        {/* Removido o Tooltip padrão do Recharts */}
+        <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} /> {/* Tooltip padrão */}
 
         {/* Quadrant Reference Areas com Thresholds Dinâmicos */}
         <ReferenceArea 
@@ -199,8 +191,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           data={data}
           shape="circle"
           isAnimationActive={false}
-          onClick={handlePointClick}
-          fill={getFillColor(data[0])} // Cor padrão, será sobrescrita por fill individual
+          onClick={handlePointClick} // O clique agora abre o link diretamente
         >
           {data.map((entry, index) => (
             <Scatter
@@ -211,29 +202,6 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           ))}
         </Scatter>
       </ScatterChart>
-
-      {fixedTooltip && (
-        <div
-          id="fixed-eisenhower-tooltip"
-          className="absolute z-50 p-3 bg-white border border-gray-300 rounded-md shadow-xl text-sm max-w-xs"
-          style={{ left: fixedTooltip.x + 10, top: fixedTooltip.y + 10 }}
-          onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside tooltip
-        >
-          <p className="font-semibold text-gray-800">{fixedTooltip.task.content}</p>
-          <p className="text-gray-600">Urgência: {fixedTooltip.task.urgency}</p>
-          <p className="text-gray-600">Importância: {fixedTooltip.task.importance}</p>
-          <p className="text-gray-600">Quadrante: {fixedTooltip.task.quadrant ? fixedTooltip.task.quadrant.charAt(0).toUpperCase() + fixedTooltip.task.quadrant.slice(1) : 'N/A'}</p>
-          <a
-            href={fixedTooltip.task.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline mt-2 block"
-            onClick={() => setFixedTooltip(null)} // Close tooltip when link is clicked
-          >
-            Abrir no Todoist
-          </a>
-        </div>
-      )}
     </ResponsiveContainer>
   );
 };
