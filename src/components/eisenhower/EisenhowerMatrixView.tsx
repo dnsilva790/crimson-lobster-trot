@@ -22,6 +22,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
       urgency: task.urgency!,
       importance: task.importance!,
       quadrant: task.quadrant,
+      url: task.url, // ADICIONADO: Passa a URL para o ScatterPlotMatrix
     }));
 
   return (

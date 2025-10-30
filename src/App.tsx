@@ -7,7 +7,6 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Configuration from "./pages/Configuration";
 import MainLayout from "./components/MainLayout";
-import { TodoistProvider } from "./context/TodoistContext";
 
 // Import module pages
 import Seiri from "./pages/Seiri";
@@ -33,7 +32,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <TodoistProvider>
+        {/* TodoistProvider REMOVIDO daqui */}
           <Routes>
             <Route path="/" element={<Configuration />} /> {/* Initial config page */}
             <Route element={<MainLayout />}>
@@ -54,7 +53,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
-        </TodoistProvider>
+        {/* TodoistProvider REMOVIDO daqui */}
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
