@@ -15,25 +15,25 @@ const quadrantDefinitions: Record<Quadrant, { title: string; description: string
   do: {
     title: "Fazer (Do)",
     description: "Urgente e Importante",
-    color: "bg-blue-100 border-blue-400",
+    color: "bg-red-100 border-red-400", // Corrigido para vermelho
     icon: Check,
   },
   decide: {
     title: "Decidir (Decide)",
     description: "Não Urgente e Importante",
-    color: "bg-green-100 border-green-400",
+    color: "bg-green-100 border-green-400", // Mantido verde
     icon: Clock,
   },
   delegate: {
     title: "Delegar (Delegate)",
     description: "Urgente e Não Importante",
-    color: "bg-yellow-100 border-yellow-400",
+    color: "bg-yellow-100 border-yellow-400", // Mantido amarelo
     icon: Users,
   },
   delete: {
     title: "Eliminar (Delete)",
     description: "Não Urgente e Não Importante",
-    color: "bg-red-100 border-red-400",
+    color: "bg-gray-100 border-gray-400", // Corrigido para cinza
     icon: X,
   },
 };

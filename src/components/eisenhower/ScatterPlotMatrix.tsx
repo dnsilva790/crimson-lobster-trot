@@ -27,17 +27,17 @@ interface ScatterPlotMatrixProps {
 }
 
 const quadrantColors: Record<Quadrant, string> = {
-  do: "#3b82f6", // blue-500
-  decide: "#22c55e", // green-500
-  delegate: "#eab308", // yellow-500
-  delete: "#ef4444", // red-500
+  do: "#ef4444", // red-500 (Urgente e Importante)
+  decide: "#22c55e", // green-500 (Não Urgente e Importante)
+  delegate: "#eab308", // yellow-500 (Urgente e Não Importante)
+  delete: "#6b7280", // gray-500 (Não Urgente e Não Importante)
 };
 
 const quadrantBackgroundColors: Record<Quadrant, string> = {
-  do: "rgba(59, 130, 246, 0.1)", // blue-100 with transparency
+  do: "rgba(239, 68, 68, 0.1)", // red-100 with transparency
   decide: "rgba(34, 197, 94, 0.1)", // green-100 with transparency
   delegate: "rgba(234, 179, 8, 0.1)", // yellow-100 with transparency
-  delete: "rgba(239, 68, 68, 0.1)", // red-100 with transparency
+  delete: "rgba(107, 114, 128, 0.1)", // gray-100 with transparency
 };
 
 const CustomTooltip = ({ active, payload }: any) => {
