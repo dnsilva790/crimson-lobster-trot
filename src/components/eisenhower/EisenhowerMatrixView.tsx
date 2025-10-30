@@ -44,7 +44,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
         Suas tarefas categorizadas por Urgência e Importância.
       </p>
 
-      <div className="aspect-square max-h-[600px] mx-auto"> {/* Usando aspect-square para garantir que seja quadrado, com altura máxima */}
+      <div className="aspect-square max-h-[750px] mx-auto"> {/* Aumentado para 750px (600 * 1.25) */}
         <ScatterPlotMatrix data={dataForScatterPlot} />
       </div>
     </div>
