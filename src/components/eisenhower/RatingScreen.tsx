@@ -3,11 +3,11 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input"; // Importar Input
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, ArrowRight, Scale, Check } from "lucide-react";
 import { EisenhowerTask } from "@/lib/types";
-import TaskCard from "./TaskCard"; // Reutilizando o TaskCard
+import TaskCard from "./TaskCard";
 import { toast } from "sonner";
 
 interface RatingScreenProps {
@@ -24,22 +24,38 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
   onBack,
 }) => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
-  const [urgency, setUrgency] = useState<number[]>([5]);
-  const [importance, setImportance] = useState<number[]>([5]);
+  const [urgencyInput, setUrgencyInput] = useState<string>("5"); // Estado para o input de texto
+  const [importanceInput, setImportanceInput] = useState<string>("5"); // Estado para o input de texto
 
   const currentTask = tasks[currentTaskIndex];
 
   useEffect(() => {
     if (currentTask) {
-      setUrgency([currentTask.urgency !== null ? currentTask.urgency : 5]);
-      setImportance([currentTask.importance !== null ? currentTask.importance : 5]);
+      setUrgencyInput(currentTask.urgency !== null ? String(currentTask.urgency) : "5");
+      setImportanceInput(currentTask.importance !== null ? String(currentTask.importance) : "5");
     }
   }, [currentTaskIndex, tasks]);
+
+  const validateAndGetNumber = (value: string): number | null => {
+    const num = parseInt(value, 10);
+    if (isNaN(num) || num < 1 || num > 10) {
+      return null;
+    }
+    return num;
+  };
 
   const handleNextTask = useCallback(() => {
     if (!currentTask) return;
 
-    onUpdateTaskRating(currentTask.id, urgency[0], importance[0]);
+    const parsedUrgency = validateAndGetNumber(urgencyInput);
+    const parsedImportance = validateAndGetNumber(importanceInput);
+
+    if (parsedUrgency === null || parsedImportance === null) {
+      toast.error("Por favor, insira valores de Urgência e Importância entre 1 e 10.");
+      return;
+    }
+
+    onUpdateTaskRating(currentTask.id, parsedUrgency, parsedImportance);
 
     if (currentTaskIndex < tasks.length - 1) {
       setCurrentTaskIndex(prev => prev + 1);
@@ -47,7 +63,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
       toast.success("Todas as tarefas foram avaliadas!");
       onFinishRating();
     }
-  }, [currentTask, currentTaskIndex, tasks.length, urgency, importance, onUpdateTaskRating, onFinishRating]);
+  }, [currentTask, currentTaskIndex, tasks.length, urgencyInput, importanceInput, onUpdateTaskRating, onFinishRating]);
 
   const handlePreviousTask = useCallback(() => {
     if (currentTaskIndex > 0) {
@@ -97,17 +113,17 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
         </CardHeader>
         <CardContent className="grid gap-6">
           <div>
-            <Label htmlFor="urgency-slider" className="text-lg font-semibold text-gray-700 flex justify-between items-center">
-              Urgência: <span className="text-blue-600 text-2xl font-bold">{urgency[0]}</span>
+            <Label htmlFor="urgency-input" className="text-lg font-semibold text-gray-700 flex justify-between items-center">
+              Urgência: <span className="text-blue-600 text-2xl font-bold">{urgencyInput}</span>
             </Label>
-            <Slider
-              id="urgency-slider"
-              min={1}
-              max={10}
-              step={1}
-              value={urgency}
-              onValueChange={setUrgency}
-              className="mt-2"
+            <Input
+              id="urgency-input"
+              type="number"
+              min="1"
+              max="10"
+              value={urgencyInput}
+              onChange={(e) => setUrgencyInput(e.target.value)}
+              className="mt-2 text-center text-lg"
             />
             <p className="text-sm text-gray-500 mt-2">
               (1 = Nada Urgente, 10 = Extremamente Urgente)
@@ -115,17 +131,17 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
           </div>
 
           <div>
-            <Label htmlFor="importance-slider" className="text-lg font-semibold text-gray-700 flex justify-between items-center">
-              Importância: <span className="text-green-600 text-2xl font-bold">{importance[0]}</span>
+            <Label htmlFor="importance-input" className="text-lg font-semibold text-gray-700 flex justify-between items-center">
+              Importância: <span className="text-green-600 text-2xl font-bold">{importanceInput}</span>
             </Label>
-            <Slider
-              id="importance-slider"
-              min={1}
-              max={10}
-              step={1}
-              value={importance}
-              onValueChange={setImportance}
-              className="mt-2"
+            <Input
+              id="importance-input"
+              type="number"
+              min="1"
+              max="10"
+              value={importanceInput}
+              onChange={(e) => setImportanceInput(e.target.value)}
+              className="mt-2 text-center text-lg"
             />
             <p className="text-sm text-gray-500 mt-2">
               (1 = Nada Importante, 10 = Extremamente Importante)
