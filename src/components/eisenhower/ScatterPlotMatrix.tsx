@@ -205,7 +205,6 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           shape="circle"
           isAnimationActive={false}
           onClick={handlePointClick}
-          fill={getFillColor(data[0])} // Define a cor base (será sobrescrita pelo fill individual)
         >
           {/* Renderiza os pontos individualmente para aplicar a cor correta e garantir o clique */}
           {data.map((entry, index) => (
