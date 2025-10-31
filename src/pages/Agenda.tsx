@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ListTodo, Edit, Save, XCircle, Clock, MessageSquare } from "lucide-react"; // Importar MessageSquare
+import { CalendarIcon, ListTodo, Edit, Save, XCircle, Clock, MessageSquare, ExternalLink } from "lucide-react"; // Importar MessageSquare e ExternalLink
 import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn, getTaskCategory } from "@/lib/utils";
@@ -306,6 +306,18 @@ const Agenda = () => {
             {editingScheduledTask && (
               <div className="grid gap-4">
                 <p className="text-sm font-medium text-gray-700">{editingScheduledTask.content}</p>
+                {editingScheduledTask.originalTask && 'url' in editingScheduledTask.originalTask && editingScheduledTask.originalTask.url && (
+                  <a 
+                    href={editingScheduledTask.originalTask.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="w-full"
+                  >
+                    <Button variant="outline" className="w-full flex items-center gap-2">
+                      <ExternalLink className="h-4 w-4" /> Abrir no Todoist
+                    </Button>
+                  </a>
+                )}
                 <div>
                   <Label htmlFor="edit-due-date">Data de Vencimento</Label>
                   <Calendar

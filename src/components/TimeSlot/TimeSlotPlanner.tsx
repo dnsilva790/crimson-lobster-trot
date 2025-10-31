@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { format, parseISO, setHours, setMinutes, addMinutes, isWithinInterval, parse, isBefore, isAfter, isEqual, addDays, isToday, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ExternalLink } from "lucide-react"; // Importar o ícone ExternalLink
+import { Button } from "@/components/ui/button"; // Importar Button para o ícone
 
 interface TimeSlotPlannerProps {
   daySchedule: DaySchedule;
@@ -247,7 +249,7 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
           {tasksWithLayout.map(task => (
             <div
               key={`scheduled-task-${task.id}`}
-              className="absolute flex flex-col justify-center items-center bg-indigo-100 bg-opacity-70 text-indigo-800 text-center text-sm font-semibold overflow-hidden cursor-pointer z-30 rounded-md border border-indigo-300 p-1"
+              className="absolute flex flex-col justify-center items-center bg-indigo-100 bg-opacity-70 text-indigo-800 text-center text-sm font-semibold overflow-hidden cursor-pointer z-30 rounded-md border border-indigo-300 p-1 group" // Adicionado 'group'
               style={{
                 top: `${task.top}px`,
                 height: `${task.height}px`,
@@ -268,6 +270,19 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                 )}>
                     P{task.priority}
                 </span>
+                {task.originalTask && 'url' in task.originalTask && task.originalTask.url && (
+                  <a 
+                    href={task.originalTask.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    onClick={(e) => e.stopPropagation()} // Previne que o clique no link acione o onSelectTask do pai
+                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity" // Visível no hover
+                  >
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-indigo-600 hover:bg-indigo-200">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </a>
+                )}
             </div>
           ))}
           {renderCurrentTimeLine()}
