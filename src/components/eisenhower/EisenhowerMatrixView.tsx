@@ -47,9 +47,18 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
         Suas tarefas categorizadas por Urgência e Importância.
       </p>
 
-      <div className="aspect-square max-h-[750px] mx-auto"> {/* Aumentado para 750px (600 * 1.25) */}
-        <ScatterPlotMatrix data={dataForScatterPlot} />
-      </div>
+      {dataForScatterPlot.length === 0 ? (
+        <div className="text-center p-8 border rounded-lg bg-gray-50">
+          <p className="text-gray-600 text-lg mb-4">
+            Nenhuma tarefa encontrada para exibir no gráfico com o filtro atual.
+            Ajuste seus filtros ou avalie mais tarefas.
+          </p>
+        </div>
+      ) : (
+        <div className="aspect-square max-h-[750px] mx-auto">
+          <ScatterPlotMatrix data={dataForScatterPlot} />
+        </div>
+      )}
     </div>
   );
 };

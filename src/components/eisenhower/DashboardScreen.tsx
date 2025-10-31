@@ -52,60 +52,80 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ tasks, onBack, onRese
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="bg-blue-50 border-blue-200">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-blue-800">Fazer (Do)</CardTitle>
-          </CardHeader>
-          <CardContent className="text-4xl font-bold text-blue-700">
-            {quadrantCounts.do || 0}
-          </CardContent>
-        </Card>
-        <Card className="bg-green-50 border-green-200">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-green-800">Decidir (Decide)</CardTitle>
-          </CardHeader>
-          <CardContent className="text-4xl font-bold text-green-700">
-            {quadrantCounts.decide || 0}
-          </CardContent>
-        </Card>
-        <Card className="bg-yellow-50 border-yellow-200">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-yellow-800">Delegar (Delegate)</CardTitle>
-          </CardHeader>
-          <CardContent className="text-4xl font-bold text-yellow-700">
-            {quadrantCounts.delegate || 0}
-          </CardContent>
-        </Card>
-        <Card className="bg-red-50 border-red-200">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-red-800">Eliminar (Delete)</CardTitle>
-          </CardHeader>
-          <CardContent className="text-4xl font-bold text-red-700">
-            {quadrantCounts.delete || 0}
-          </CardContent>
-        </Card>
-      </div>
+      {totalTasks === 0 ? (
+        <div className="text-center p-8 border rounded-lg bg-gray-50">
+          <p className="text-gray-600 text-lg mb-4">
+            Nenhuma tarefa encontrada para exibir no dashboard.
+            Comece carregando e avaliando tarefas na tela de Configuração.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="bg-blue-50 border-blue-200">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-blue-800">Fazer (Do)</CardTitle>
+              </CardHeader>
+              <CardContent className="text-4xl font-bold text-blue-700">
+                {quadrantCounts.do || 0}
+              </CardContent>
+            </Card>
+            <Card className="bg-green-50 border-green-200">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-green-800">Decidir (Decide)</CardTitle>
+              </CardHeader>
+              <CardContent className="text-4xl font-bold text-green-700">
+                {quadrantCounts.decide || 0}
+              </CardContent>
+            </Card>
+            <Card className="bg-yellow-50 border-yellow-200">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-yellow-800">Delegar (Delegate)</CardTitle>
+              </CardHeader>
+              <CardContent className="text-4xl font-bold text-yellow-700">
+                {quadrantCounts.delegate || 0}
+              </CardContent>
+            </Card>
+            <Card className="bg-red-50 border-red-200">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-red-800">Eliminar (Delete)</CardTitle>
+              </CardHeader>
+              <CardContent className="text-4xl font-bold text-red-700">
+                {quadrantCounts.delete || 0}
+              </CardContent>
+            </Card>
+          </div>
 
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-800">Distribuição Urgência vs. Importância</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ScatterPlotMatrix data={dataForScatterPlot} />
-        </CardContent>
-      </Card>
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-gray-800">Distribuição Urgência vs. Importância</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {dataForScatterPlot.length === 0 ? (
+                <div className="text-center p-8">
+                  <p className="text-gray-600 text-lg mb-4">
+                    Nenhuma tarefa avaliada para exibir no gráfico.
+                    Ajuste seus filtros ou avalie mais tarefas.
+                  </p>
+                </div>
+              ) : (
+                <ScatterPlotMatrix data={dataForScatterPlot} />
+              )}
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-800">Resumo das Tarefas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-700">Total de tarefas analisadas: <span className="font-semibold">{totalTasks}</span></p>
-          <p className="text-gray-700">Tarefas sem avaliação: <span className="font-semibold">{tasks.filter(t => t.urgency === null || t.importance === null).length}</span></p>
-          <p className="text-gray-700">Tarefas categorizadas: <span className="font-semibold">{tasks.filter(t => t.quadrant !== null).length}</span></p>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-gray-800">Resumo das Tarefas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-700">Total de tarefas analisadas: <span className="font-semibold">{totalTasks}</span></p>
+              <p className="text-gray-700">Tarefas sem avaliação: <span className="font-semibold">{tasks.filter(t => t.urgency === null || t.importance === null).length}</span></p>
+              <p className="text-700">Tarefas categorizadas: <span className="font-semibold">{tasks.filter(t => t.quadrant !== null).length}</span></p>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 };
