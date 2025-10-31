@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ListTodo, Edit, Save, XCircle, Clock, MessageSquare, ExternalLink } from "lucide-react"; // Importar MessageSquare e ExternalLink
+import { CalendarIcon, ListTodo, Edit, Save, XCircle, Clock, MessageSquare, ExternalLink, Filter } from "lucide-react"; // Importar MessageSquare, ExternalLink e Filter
 import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn, getTaskCategory } from "@/lib/utils";
@@ -20,7 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area"; // Importar ScrollArea
 import { Textarea } from "@/components/ui/textarea"; // Importar Textarea
 
-const AGENDA_FILTER = `(#📅 Reuniões|@📆 Cronograma de hoje) & (p1|p2|p3|p4) & due before: in 168 hour & !@⚡ Rápida`;
+const DEFAULT_AGENDA_FILTER = `(#📅 Reuniões|@📆 Cronograma de hoje) & (p1|p2|p3|p4) & due before: in 168 hour & !@⚡ Rápida`;
+const AGENDA_FILTER_INPUT_STORAGE_KEY = "agenda_filter_input"; // Nova chave para o localStorage
 const DEFAULT_TASK_DURATION_MINUTES = 30; // Duração padrão para tarefas sem duração definida
 
 const Agenda = () => {
@@ -32,6 +33,12 @@ const Agenda = () => {
     scheduledTasks: [],
   });
   const [isLoadingAgenda, setIsLoadingAgenda] = useState(false);
+  const [agendaFilterInput, setAgendaFilterInput] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(AGENDA_FILTER_INPUT_STORAGE_KEY) || DEFAULT_AGENDA_FILTER;
+    }
+    return DEFAULT_AGENDA_FILTER;
+  });
 
   // Estados para o popover de edição
   const [isEditPopoverOpen, setIsEditPopoverOpen] = useState(false);
@@ -43,10 +50,17 @@ const Agenda = () => {
   const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined);
   const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(AGENDA_FILTER_INPUT_STORAGE_KEY, agendaFilterInput);
+    }
+  }, [agendaFilterInput]);
+
   const loadAgendaTasks = useCallback(async () => {
     setIsLoadingAgenda(true);
     try {
-      const fetchedTodoistTasks = await fetchTasks(AGENDA_FILTER, { includeSubtasks: false, includeRecurring: false });
+      const filterToUse = agendaFilterInput.trim() || undefined; // Usar o filtro customizado
+      const fetchedTodoistTasks = await fetchTasks(filterToUse, { includeSubtasks: false, includeRecurring: false });
       
       const tasksForSelectedDay: ScheduledTask[] = [];
       const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
@@ -98,7 +112,7 @@ const Agenda = () => {
     } finally {
       setIsLoadingAgenda(false);
     }
-  }, [fetchTasks, selectedDate]);
+  }, [fetchTasks, selectedDate, agendaFilterInput]); // Adicionado agendaFilterInput como dependência
 
   useEffect(() => {
     loadAgendaTasks();
@@ -260,7 +274,7 @@ const Agenda = () => {
         Visualize suas reuniões e tarefas prioritárias em um calendário diário. Clique em uma tarefa para editá-la.
       </p>
 
-      <div className="mb-6 flex items-center gap-4">
+      <div className="mb-6 flex flex-wrap items-center gap-4">
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -284,6 +298,32 @@ const Agenda = () => {
             />
           </PopoverContent>
         </Popover>
+        <div className="relative flex-grow max-w-md">
+          <Label htmlFor="agenda-filter-input" className="sr-only">Filtro da Agenda</Label>
+          <Input
+            id="agenda-filter-input"
+            type="text"
+            placeholder="Filtro do Todoist (ex: 'hoje', '#reunioes')"
+            value={agendaFilterInput}
+            onChange={(e) => setAgendaFilterInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === "Enter") {
+                loadAgendaTasks();
+              }
+            }}
+            className="pr-10"
+            disabled={isLoadingCombined}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={loadAgendaTasks}
+            className="absolute right-0 top-0 h-full px-3"
+            disabled={isLoadingCombined}
+          >
+            <Filter className="h-4 w-4" />
+          </Button>
+        </div>
         <Button onClick={loadAgendaTasks} disabled={isLoadingCombined} className="flex items-center gap-2">
           <ListTodo className="h-4 w-4" /> Recarregar Agenda
         </Button>
