@@ -21,7 +21,7 @@ import {
   Clock,
   Tag,
   ExternalLink,
-  MessageSquare, // Importar MessageSquare
+  MessageSquare,
 } from "lucide-react";
 import { format, parseISO, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -73,7 +73,7 @@ const Seiso = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { taskId: paramTaskId } = useParams<{ taskId: string }>();
-  const { fetchTaskById, updateTask, createTodoistTask, isLoading: isLoadingTodoist } = useTodoist(); // Removido fetchProjects
+  const { fetchTaskById, updateTask, createTodoistTask, isLoading: isLoadingTodoist } = useTodoist();
 
   const [currentTask, setCurrentTask] = useState<TodoistTask | null>(null);
   const [isLoadingTask, setIsLoadingTask] = useState(true);
@@ -81,7 +81,7 @@ const Seiso = () => {
   // New states for Objective and Next Step
   const [objectiveInput, setObjectiveInput] = useState("");
   const [nextStepSeisoInput, setNextStepSeisoInput] = useState("");
-  const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
+  const [observationInput, setObservationInput] = useState("");
 
   // Delegation states
   const [delegateName, setDelegateName] = useState("");
@@ -97,8 +97,6 @@ const Seiso = () => {
 
   // Subtask creation states
   const [subtaskContent, setSubtaskContent] = useState("");
-  // Removido: const [todoistProjects, setTodoistProjects] = useState<any[]>([]);
-  // Removido: const [selectedTodoistProjectId, setSelectedTodoistProjectId] = useState<string | undefined>(undefined);
 
   // Initial task loading
   useEffect(() => {
@@ -133,18 +131,6 @@ const Seiso = () => {
     };
     loadTask();
   }, [paramTaskId, location.state, fetchTaskById, navigate]);
-
-  // Removido: useEffect para carregar projetos
-  // useEffect(() => {
-  //   const loadProjects = async () => {
-  //     const projects = await fetchProjects();
-  //     if (projects && projects.length > 0) {
-  //       setTodoistProjects(projects);
-  //       setSelectedTodoistProjectId(projects[0].id); // Select the first project by default
-  //     }
-  //   };
-  //   loadProjects();
-  // }, [fetchProjects]);
 
   const handleSaveObjectiveAndNextStep = useCallback(async () => {
     if (!currentTask) return;
@@ -259,10 +245,6 @@ const Seiso = () => {
       toast.error("Por favor, insira o conteúdo das subtarefas.");
       return;
     }
-    // Removido: if (!selectedTodoistProjectId) {
-    // Removido:   toast.error("Por favor, selecione um projeto do Todoist para as subtarefas.");
-    // Removido:   return;
-    // Removido: }
 
     await handleSaveObjectiveAndNextStep(); // Save objective/next step before creating subtasks
 
@@ -315,6 +297,26 @@ const Seiso = () => {
       toast.error("Falha ao marcar tarefa como processada.");
     }
   }, [currentTask, updateTask, handleSaveObjectiveAndNextStep]);
+
+  // Funções para toggle de etiquetas
+  const handleToggleLabel = useCallback(async (taskId: string, currentLabels: string[], labelToToggle: string) => {
+    const isLabelActive = currentLabels.includes(labelToToggle);
+    let newLabels: string[];
+
+    if (isLabelActive) {
+      newLabels = currentLabels.filter(label => label !== labelToToggle);
+    } else {
+      newLabels = [...new Set([...currentLabels, labelToToggle])];
+    }
+
+    const updated = await updateTask(taskId, { labels: newLabels });
+    if (updated) {
+      setCurrentTask(prevTask => prevTask ? { ...prevTask, labels: newLabels } : null);
+      toast.success(`Etiqueta "${labelToToggle}" ${isLabelActive ? 'removida' : 'adicionada'}!`);
+    } else {
+      toast.error(`Falha ao atualizar etiqueta "${labelToToggle}".`);
+    }
+  }, [updateTask]);
 
   const renderTaskDetails = (task: TodoistTask) => {
     const category = getTaskCategory(task);
@@ -371,11 +373,6 @@ const Seiso = () => {
             {task.deadline && isValid(parseISO(task.deadline)) && (
               <span className="flex items-center gap-1 text-red-600 font-semibold">
                 <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
-              </span>
-            )}
-            {task.duration?.amount && task.duration.unit === "minute" && (
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" /> {task.duration.amount} min
               </span>
             )}
             {!task.due?.date && !task.due?.datetime && !task.deadline && <span>Sem prazo</span>}
@@ -493,6 +490,49 @@ const Seiso = () => {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Nova seção para Gerenciar Etiquetas */}
+          <Card className="p-6 mt-6">
+            <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Tag className="h-5 w-5 text-purple-600" /> Gerenciar Etiquetas
+            </CardTitle>
+            <CardContent className="grid grid-cols-3 gap-2">
+              <Button
+                onClick={() => handleToggleLabel(currentTask.id, currentTask.labels || [], CRONOGRAMA_HOJE_LABEL)}
+                disabled={isLoadingTodoist || isProcessed}
+                variant={currentTask.labels?.includes(CRONOGRAMA_HOJE_LABEL) ? "default" : "outline"}
+                className={cn(
+                  "py-3 text-sm flex items-center justify-center",
+                  currentTask.labels?.includes(CRONOGRAMA_HOJE_LABEL) ? "bg-teal-600 hover:bg-teal-700 text-white" : "text-teal-600 border-teal-600 hover:bg-teal-50"
+                )}
+              >
+                <Tag className="mr-1 h-4 w-4" /> {CRONOGRAMA_HOJE_LABEL}
+              </Button>
+              <Button
+                onClick={() => handleToggleLabel(currentTask.id, currentTask.labels || [], RAPIDA_LABEL_ID)}
+                disabled={isLoadingTodoist || isProcessed}
+                variant={currentTask.labels?.includes(RAPIDA_LABEL_ID) ? "default" : "outline"}
+                className={cn(
+                  "py-3 text-sm flex items-center justify-center",
+                  currentTask.labels?.includes(RAPIDA_LABEL_ID) ? "bg-purple-600 hover:bg-purple-700 text-white" : "text-purple-600 border-purple-600 hover:bg-purple-50"
+                )}
+              >
+                <Tag className="mr-1 h-4 w-4" /> {RAPIDA_LABEL_ID}
+              </Button>
+              <Button
+                onClick={() => handleToggleLabel(currentTask.id, currentTask.labels || [], FOCO_LABEL_ID)}
+                disabled={isLoadingTodoist || isProcessed}
+                variant={currentTask.labels?.includes(FOCO_LABEL_ID) ? "default" : "outline"}
+                className={cn(
+                  "py-3 text-sm flex items-center justify-center",
+                  currentTask.labels?.includes(FOCO_LABEL_ID) ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "text-indigo-600 border-indigo-600 hover:bg-indigo-50"
+                )}
+              >
+                <Tag className="mr-1 h-4 w-4" /> {FOCO_LABEL_ID}
+              </Button>
+            </CardContent>
+          </Card>
+          {/* Fim da nova seção para Gerenciar Etiquetas */}
 
           {isProcessed && (
             <p className="mt-4 text-center text-green-600 font-semibold">
@@ -635,7 +675,6 @@ const Seiso = () => {
               <ListTodo className="h-5 w-5 text-purple-600" /> Quebrar em Subtarefas
             </CardTitle>
             <CardContent className="grid gap-4">
-              {/* Removido: Div para seleção de projeto */}
               <div>
                 <Label htmlFor="subtask-content">Conteúdo das Subtarefas (uma por linha)</Label>
                 <Textarea
