@@ -149,6 +149,16 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                 <span className="truncate w-full px-1" title={taskInSlot.content}>
                   {taskInSlot.content}
                 </span>
+                {/* NEW: Display Priority */}
+                <span className={cn(
+                  "px-1 py-0.5 rounded-full text-white text-[8px] font-bold mt-0.5",
+                  taskInSlot.priority === 4 && "bg-red-500",
+                  taskInSlot.priority === 3 && "bg-orange-500",
+                  taskInSlot.priority === 2 && "bg-yellow-500",
+                  taskInSlot.priority === 1 && "bg-gray-400",
+                )}>
+                  P{taskInSlot.priority}
+                </span>
               </div>
             )}
           </div>
