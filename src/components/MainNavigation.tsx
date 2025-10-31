@@ -71,14 +71,6 @@ const modules = [
     activeColor: "border-blue-600",
   },
   {
-    path: "/email-triage", // Novo módulo
-    icon: Mail,
-    title: "TRIAGEM DE E-MAILS",
-    description: "Organize seu Outlook",
-    colorClass: "bg-purple-50 hover:bg-purple-100",
-    activeColor: "border-purple-500",
-  },
-  {
     path: "/seiketsu",
     icon: BarChart,
     title: "SEIKETSU",
@@ -143,7 +135,6 @@ const DEFAULT_HIDDEN_MODULES = [
   "/planejador",
   "/project-management",
   "/follow-up",
-  "/email-triage", // Ocultar por padrão
 ];
 
 const MainNavigation = () => {
