@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import SetupScreen from "@/components/eisenhower/SetupScreen"; // Reutilizando o SetupScreen
 import ResultsScreen from "@/components/eisenhower/ResultsScreen"; // Reutilizando ResultsScreen
 import EisenhowerMatrixView from "@/components/eisenhower/EisenhowerMatrixView"; // Reutilizando EisenhowerMatrixView
+import { Progress } from "@/components/ui/progress"; // Importar o componente Progress
 
 type AiEisenhowerView = "setup" | "processing" | "results" | "matrix" | "dashboard"; // Adicionado 'processing'
 
