@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area"; // Importar ScrollArea
 
 const AGENDA_FILTER = `(#📅 Reuniões|@📆 Cronograma de hoje) & (p1|p2|p3|p4) & due before: in 168 hour & !@⚡ Rápida`;
 const DEFAULT_TASK_DURATION_MINUTES = 30; // Duração padrão para tarefas sem duração definida
@@ -131,6 +132,7 @@ const Agenda = () => {
     } else {
       setEditedDeadline(undefined);
     }
+    console.log("DEBUG: handleOpenEditPopover - editedDuration:", String(task.estimatedDurationMinutes || DEFAULT_TASK_DURATION_MINUTES));
     setIsEditPopoverOpen(true);
   }, [selectedDate]);
 
@@ -284,81 +286,83 @@ const Agenda = () => {
           <Button variant="ghost" className="hidden"></Button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-4">
-          <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
-            <Edit className="h-5 w-5" /> Editar Tarefa
-          </h4>
-          {editingScheduledTask && (
-            <div className="grid gap-4">
-              <p className="text-sm font-medium text-gray-700">{editingScheduledTask.content}</p>
-              <div>
-                <Label htmlFor="edit-due-date">Data de Vencimento</Label>
-                <Calendar
-                  mode="single"
-                  selected={editedDueDate}
-                  onSelect={setEditedDueDate}
-                  initialFocus
-                  locale={ptBR}
-                  className="rounded-md border shadow"
-                />
+          <ScrollArea className="h-[400px] pr-4"> {/* Adicionado ScrollArea aqui */}
+            <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
+              <Edit className="h-5 w-5" /> Editar Tarefa
+            </h4>
+            {editingScheduledTask && (
+              <div className="grid gap-4">
+                <p className="text-sm font-medium text-gray-700">{editingScheduledTask.content}</p>
+                <div>
+                  <Label htmlFor="edit-due-date">Data de Vencimento</Label>
+                  <Calendar
+                    mode="single"
+                    selected={editedDueDate}
+                    onSelect={setEditedDueDate}
+                    initialFocus
+                    locale={ptBR}
+                    className="rounded-md border shadow"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-due-time">Hora de Vencimento (Opcional)</Label>
+                  <Input
+                    id="edit-due-time"
+                    type="time"
+                    value={editedDueTime}
+                    onChange={(e) => setEditedDueTime(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-deadline">Deadline (Opcional)</Label>
+                  <Calendar
+                    mode="single"
+                    selected={editedDeadline}
+                    onSelect={setEditedDeadline}
+                    initialFocus
+                    locale={ptBR}
+                    className="rounded-md border shadow"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-priority">Prioridade</Label>
+                  <Select
+                    value={String(editedPriority)}
+                    onValueChange={(value) => setEditedPriority(Number(value) as 1 | 2 | 3 | 4)}
+                  >
+                    <SelectTrigger className="w-full mt-1">
+                      <SelectValue placeholder="Selecione a prioridade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="4">P1 - Urgente</SelectItem>
+                      <SelectItem value="3">P2 - Alto</SelectItem>
+                      <SelectItem value="2">P3 - Médio</SelectItem>
+                      <SelectItem value="1">P4 - Baixo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-duration">Duração Estimada (minutos)</Label>
+                  <Input
+                    id="edit-duration"
+                    type="number"
+                    value={editedDuration}
+                    onChange={(e) => setEditedDuration(e.target.value)}
+                    min="1"
+                    placeholder="Ex: 30"
+                    className="mt-1"
+                  />
+                </div>
+                <Button onClick={handleSaveEditedTask} className="w-full flex items-center gap-2">
+                  <Save className="h-4 w-4" /> Salvar Alterações
+                </Button>
+                <Button onClick={() => setIsEditPopoverOpen(false)} variant="outline" className="w-full flex items-center gap-2">
+                  <XCircle className="h-4 w-4" /> Cancelar
+                </Button>
               </div>
-              <div>
-                <Label htmlFor="edit-due-time">Hora de Vencimento (Opcional)</Label>
-                <Input
-                  id="edit-due-time"
-                  type="time"
-                  value={editedDueTime}
-                  onChange={(e) => setEditedDueTime(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-deadline">Deadline (Opcional)</Label>
-                <Calendar
-                  mode="single"
-                  selected={editedDeadline}
-                  onSelect={setEditedDeadline}
-                  initialFocus
-                  locale={ptBR}
-                  className="rounded-md border shadow"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-priority">Prioridade</Label>
-                <Select
-                  value={String(editedPriority)}
-                  onValueChange={(value) => setEditedPriority(Number(value) as 1 | 2 | 3 | 4)}
-                >
-                  <SelectTrigger className="w-full mt-1">
-                    <SelectValue placeholder="Selecione a prioridade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="4">P1 - Urgente</SelectItem>
-                    <SelectItem value="3">P2 - Alto</SelectItem>
-                    <SelectItem value="2">P3 - Médio</SelectItem>
-                    <SelectItem value="1">P4 - Baixo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit-duration">Duração Estimada (minutos)</Label>
-                <Input
-                  id="edit-duration"
-                  type="number"
-                  value={editedDuration}
-                  onChange={(e) => setEditedDuration(e.target.value)}
-                  min="1"
-                  placeholder="Ex: 30"
-                  className="mt-1"
-                />
-              </div>
-              <Button onClick={handleSaveEditedTask} className="w-full flex items-center gap-2">
-                <Save className="h-4 w-4" /> Salvar Alterações
-              </Button>
-              <Button onClick={() => setIsEditPopoverOpen(false)} variant="outline" className="w-full flex items-center gap-2">
-                <XCircle className="h-4 w-4" /> Cancelar
-              </Button>
-            </div>
-          )}
+            )}
+          </ScrollArea>
         </PopoverContent>
       </Popover>
     </div>
