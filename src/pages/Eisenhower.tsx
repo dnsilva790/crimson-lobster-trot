@@ -32,6 +32,9 @@ const calculateMedian = (values: number[]): number => {
 type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
 
 const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState";
+const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input";
+const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
+const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
 
 const Eisenhower = () => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
@@ -39,6 +42,46 @@ const Eisenhower = () => {
   const [tasksToProcess, setTasksToProcess] = useState<EisenhowerTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+
+  // Novos estados para os filtros
+  const [filterInput, setFilterInput] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY) || "";
+    }
+    return "";
+  });
+  const [statusFilter, setStatusFilter] = useState<"all" | "overdue">(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(EISENHOWER_STATUS_FILTER_STORAGE_KEY) as "all" | "overdue") || "all";
+    }
+    return "all";
+  });
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "pessoal" | "profissional">(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all";
+    }
+    return "all";
+  });
+
+  // Efeitos para salvar os filtros no localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY, filterInput);
+    }
+  }, [filterInput]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(EISENHOWER_STATUS_FILTER_STORAGE_KEY, statusFilter);
+    }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY, categoryFilter);
+    }
+  }, [categoryFilter]);
+
 
   useEffect(() => {
     const savedState = localStorage.getItem(EISENHOWER_STORAGE_KEY);
@@ -159,7 +202,15 @@ const Eisenhower = () => {
 
     switch (currentView) {
       case "setup":
-        return <SetupScreen onStart={handleLoadTasks} />;
+        return <SetupScreen 
+          onStart={handleLoadTasks} 
+          initialFilterInput={filterInput}
+          initialStatusFilter={statusFilter}
+          initialCategoryFilter={categoryFilter}
+          onFilterInputChange={setFilterInput}
+          onStatusFilterChange={setStatusFilter}
+          onCategoryFilterChange={setCategoryFilter}
+        />;
       case "rating":
         return (
           <RatingScreen
@@ -195,7 +246,15 @@ const Eisenhower = () => {
           />
         );
       default:
-        return <SetupScreen onStart={handleLoadTasks} />;
+        return <SetupScreen 
+          onStart={handleLoadTasks} 
+          initialFilterInput={filterInput}
+          initialStatusFilter={statusFilter}
+          initialCategoryFilter={categoryFilter}
+          onFilterInputChange={setFilterInput}
+          onStatusFilterChange={setStatusFilter}
+          onCategoryFilterChange={setCategoryFilter}
+        />;
     }
   };
 

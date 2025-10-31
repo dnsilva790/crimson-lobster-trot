@@ -11,39 +11,48 @@ import { toast } from "sonner";
 
 interface SetupScreenProps {
   onStart: (filter: string) => void;
+  initialFilterInput: string;
+  initialStatusFilter: "all" | "overdue";
+  initialCategoryFilter: "all" | "pessoal" | "profissional";
+  onFilterInputChange: (value: string) => void;
+  onStatusFilterChange: (value: "all" | "overdue") => void;
+  onCategoryFilterChange: (value: "all" | "pessoal" | "profissional") => void;
 }
 
-const SetupScreen: React.FC<SetupScreenProps> = ({ onStart }) => {
-  const [filterInput, setFilterInput] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "overdue">("all");
-
+const SetupScreen: React.FC<SetupScreenProps> = ({ 
+  onStart, 
+  initialFilterInput,
+  initialStatusFilter,
+  initialCategoryFilter,
+  onFilterInputChange,
+  onStatusFilterChange,
+  onCategoryFilterChange,
+}) => {
   const handleStart = () => {
-    let finalFilter = filterInput.trim();
-    
-    if (statusFilter === "overdue") {
-      // Adiciona o filtro de atrasadas ao filtro do usuário, se houver
-      finalFilter = finalFilter ? `(${finalFilter}) & overdue` : 'overdue';
-    } else if (statusFilter === "all" && !finalFilter) {
-      // Se for 'all' e não houver filtro de usuário, usamos um filtro amplo para evitar carregar TUDO
-      // No Todoist, 'all' sem filtro é implícito, mas para garantir que não carreguemos tarefas concluídas,
-      // o fetchTasks já cuida disso. Se o usuário não colocar filtro, ele carrega o que o Todoist considera ativo.
-      // Vamos manter o filtro vazio se for 'all' e o input estiver vazio.
-    }
+    const filterParts: string[] = [];
 
-    if (!finalFilter && statusFilter === "all") {
-      // Se não houver filtro, passamos undefined para fetchTasks carregar o padrão (todas ativas)
-      onStart(undefined as unknown as string); // Passa undefined, mas o tipo é string, então forçamos.
-      return;
+    if (initialFilterInput.trim()) {
+      filterParts.push(`(${initialFilterInput.trim()})`);
     }
     
-    if (!finalFilter && statusFilter === "overdue") {
-      finalFilter = 'overdue';
+    if (initialStatusFilter === "overdue") {
+      filterParts.push("due before: in 0 min");
     }
 
+    if (initialCategoryFilter === "pessoal") {
+      filterParts.push("@pessoal");
+    } else if (initialCategoryFilter === "profissional") {
+      filterParts.push("@profissional");
+    }
+
+    const finalFilter = filterParts.join(" & ");
+    
     if (!finalFilter) {
-      toast.error("Por favor, insira um filtro ou selecione 'Todas as Tarefas' para carregar.");
+      // If no specific filters are applied, pass undefined to fetch all active tasks
+      onStart(undefined as unknown as string); 
       return;
     }
+    
     onStart(finalFilter);
   };
 
@@ -68,8 +77,8 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onStart }) => {
             <Input
               id="todoist-filter"
               type="text"
-              value={filterInput}
-              onChange={(e) => setFilterInput(e.target.value)}
+              value={initialFilterInput}
+              onChange={(e) => onFilterInputChange(e.target.value)}
               placeholder="Ex: 'hoje', 'p1', '#projeto'"
               className="mt-1"
             />
@@ -81,13 +90,28 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onStart }) => {
             <Label htmlFor="status-filter" className="text-left text-gray-600 font-medium">
               Status da Tarefa
             </Label>
-            <Select value={statusFilter} onValueChange={(value: "all" | "overdue") => setStatusFilter(value)}>
+            <Select value={initialStatusFilter} onValueChange={(value: "all" | "overdue") => onStatusFilterChange(value)}>
               <SelectTrigger className="w-full mt-1">
                 <SelectValue placeholder="Todas as Tarefas (Backlog)" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as Tarefas (Backlog)</SelectItem>
                 <SelectItem value="overdue">Apenas Atrasadas (Backlog)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="category-filter" className="text-left text-gray-600 font-medium">
+              Filtrar por Categoria
+            </Label>
+            <Select value={initialCategoryFilter} onValueChange={(value: "all" | "pessoal" | "profissional") => onCategoryFilterChange(value)}>
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Todas as Categorias" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Categorias</SelectItem>
+                <SelectItem value="pessoal">Pessoal</SelectItem>
+                <SelectItem value="profissional">Profissional</SelectItem>
               </SelectContent>
             </Select>
           </div>
