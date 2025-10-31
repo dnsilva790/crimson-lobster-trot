@@ -447,11 +447,11 @@ const Seiso = () => {
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-          <h3 className="text-2xl font-bold mb-4 text-gray-800">Tarefa em Foco</h3>
+        <div className="flex flex-col gap-6"> {/* Adicionado flex-col e gap-6 aqui */}
+          <h3 className="text-2xl font-bold text-gray-800">Tarefa em Foco</h3>
           {renderTaskDetails(currentTask)}
 
-          <Card className="p-6 mt-6">
+          <Card className="p-6">
             <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
               <Tag className="h-5 w-5 text-orange-600" /> Definir Objetivo e Próximo Passo
             </CardTitle>
@@ -486,7 +486,7 @@ const Seiso = () => {
             </CardContent>
           </Card>
 
-          <Card className="p-6 mt-6">
+          <Card className="p-6">
             <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-indigo-600" /> Adicionar Observação
             </CardTitle>
@@ -510,7 +510,7 @@ const Seiso = () => {
           </Card>
 
           {/* Nova seção para Gerenciar Etiquetas */}
-          <Card className="p-6 mt-6">
+          <Card className="p-6">
             <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
               <Tag className="h-5 w-5 text-purple-600" /> Gerenciar Etiquetas
             </CardTitle>
@@ -557,12 +557,12 @@ const Seiso = () => {
               ✅ Esta tarefa já foi processada pelo SEISO.
             </p>
           )}
-          <Button onClick={() => navigate(-1)} variant="outline" className="w-full mt-6 flex items-center gap-2">
+          <Button onClick={() => navigate(-1)} variant="outline" className="w-full flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
         </div>
 
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6"> {/* Adicionado flex-col e gap-6 aqui */}
           <Card className="p-6">
             <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
               <Users className="h-5 w-5 text-blue-600" /> Delegar Tarefa
@@ -576,10 +576,10 @@ const Seiso = () => {
                   onChange={(e) => setDelegateName(e.target.value)}
                   placeholder="Ex: João, Equipe Marketing"
                   className="mt-1"
-                  disabled={isLoadingTodoist || isProcessed}
+                  disabled={isLoadingTodoist} {/* Removido isProcessed */}
                 />
               </div>
-              <Button onClick={handleDelegateTask} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || isProcessed}>
+              <Button onClick={handleDelegateTask} className="w-full flex items-center gap-2" disabled={isLoadingTodoist}> {/* Removido isProcessed */}
                 <Save className="h-4 w-4" /> Delegar e Marcar como Processada
               </Button>
             </CardContent>
@@ -600,7 +600,7 @@ const Seiso = () => {
                         "w-full justify-start text-left font-normal mt-1",
                         !selectedDueDate && "text-muted-foreground"
                       )}
-                      disabled={isLoadingTodoist || isProcessed}
+                      disabled={isLoadingTodoist} {/* Removido isProcessed */}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {selectedDueDate && isValid(selectedDueDate) ? format(selectedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
@@ -670,11 +670,11 @@ const Seiso = () => {
                           className="mt-1"
                         />
                       </div>
-                      <Button onClick={handleScheduleTask} className="w-full" disabled={isLoadingTodoist || isProcessed}>
+                      <Button onClick={handleScheduleTask} className="w-full" disabled={isLoadingTodoist}> {/* Removido isProcessed */}
                         Salvar Agendamento
                       </Button>
                       {(selectedDueDate || selectedDueTime || selectedDeadlineDate) && (
-                        <Button onClick={() => { setSelectedDueDate(undefined); setSelectedDueTime(""); setSelectedDeadlineDate(undefined); }} variant="outline" className="w-full" disabled={isLoadingTodoist || isProcessed}>
+                        <Button onClick={() => { setSelectedDueDate(undefined); setSelectedDueTime(""); setSelectedDeadlineDate(undefined); }} variant="outline" className="w-full" disabled={isLoadingTodoist}> {/* Removido isProcessed */}
                           <XCircle className="mr-2 h-4 w-4" /> Limpar Datas
                         </Button>
                       )}
@@ -682,7 +682,7 @@ const Seiso = () => {
                   </PopoverContent>
                 </Popover>
               </div>
-              <Button onClick={handleScheduleTask} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || isProcessed}>
+              <Button onClick={handleScheduleTask} className="w-full flex items-center gap-2" disabled={isLoadingTodoist}> {/* Removido isProcessed */}
                 <Save className="h-4 w-4" /> Agendar e Marcar como Processada
               </Button>
             </CardContent>
@@ -702,17 +702,17 @@ const Seiso = () => {
                   placeholder="Ex:&#10;- Pesquisar fornecedores&#10;- Contatar 3 fornecedores&#10;- Analisar propostas"
                   rows={5}
                   className="mt-1"
-                  disabled={isLoadingTodoist || isProcessed}
+                  disabled={isLoadingTodoist} {/* Removido isProcessed */}
                 />
               </div>
-              <Button onClick={handleCreateSubtasks} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || isProcessed}>
+              <Button onClick={handleCreateSubtasks} className="w-full flex items-center gap-2" disabled={isLoadingTodoist}> {/* Removido isProcessed */}
                 <PlusCircle className="h-4 w-4" /> Criar Subtarefas e Marcar como Processada
               </Button>
             </CardContent>
           </Card>
 
           {!isProcessed && (
-            <Button onClick={handleMarkAsProcessed} variant="outline" className="w-full mt-6 flex items-center gap-2">
+            <Button onClick={handleMarkAsProcessed} variant="outline" className="w-full flex items-center gap-2" disabled={isLoadingTodoist}> {/* Removido isProcessed */}
               <Tag className="h-4 w-4" /> Marcar como Processada (Sem Ação Específica)
             </Button>
           )}
