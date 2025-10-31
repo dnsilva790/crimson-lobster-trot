@@ -13,6 +13,11 @@ import { XCircle } from "lucide-react";
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { calculateNext15MinInterval } from '@/utils/dateUtils';
+import {
+  FOCO_LABEL_ID,
+  RAPIDA_LABEL_ID,
+  CRONOGRAMA_HOJE_LABEL,
+} from "@/lib/constants";
 
 type ReviewState = "initial" | "reviewing" | "finished";
 
@@ -272,6 +277,43 @@ const Seiri = () => {
     setFilterInput("");
   }, []);
 
+  // Funções para toggle de etiquetas
+  const handleToggleLabel = useCallback(async (taskId: string, currentLabels: string[], labelToToggle: string) => {
+    const isLabelActive = currentLabels.includes(labelToToggle);
+    let newLabels: string[];
+
+    if (isLabelActive) {
+      newLabels = currentLabels.filter(label => label !== labelToToggle);
+    } else {
+      newLabels = [...new Set([...currentLabels, labelToToggle])];
+    }
+
+    const updated = await updateTask(taskId, { labels: newLabels });
+    if (updated) {
+      setTasksToReview(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, labels: newLabels } : task
+        )
+      );
+      toast.success(`Etiqueta "${labelToToggle}" ${isLabelActive ? 'removida' : 'adicionada'}!`);
+    } else {
+      toast.error(`Falha ao atualizar etiqueta "${labelToToggle}".`);
+    }
+  }, [tasksToReview, updateTask]);
+
+  const handleToggleFoco = useCallback(async (taskId: string, currentLabels: string[]) => {
+    await handleToggleLabel(taskId, currentLabels, FOCO_LABEL_ID);
+  }, [handleToggleLabel]);
+
+  const handleToggleRapida = useCallback(async (taskId: string, currentLabels: string[]) => {
+    await handleToggleLabel(taskId, currentLabels, RAPIDA_LABEL_ID);
+  }, [handleToggleLabel]);
+
+  const handleToggleCronograma = useCallback(async (taskId: string, currentLabels: string[]) => {
+    await handleToggleLabel(taskId, currentLabels, CRONOGRAMA_HOJE_LABEL);
+  }, [handleToggleLabel]);
+
+
   const currentTask = tasksToReview[currentTaskIndex];
 
   return (
@@ -341,9 +383,9 @@ const Seiri = () => {
             onReschedule={handlePostpone} // Usando handlePostpone para reprogramar
             onUpdateDuration={handleUpdateDuration}
             onUpdateTaskDescription={handleUpdateTaskDescription} // Passando a nova prop
-            onToggleFoco={() => {}} // Placeholder
-            onToggleRapida={() => {}} // Placeholder
-            onToggleCronograma={() => {}} // Placeholder
+            onToggleFoco={handleToggleFoco} // Passando a nova prop
+            onToggleRapida={handleToggleRapida} // Passando a nova prop
+            onToggleCronograma={handleToggleCronograma} // Passando a nova prop
             isLoading={isLoading}
           />
         </div>
