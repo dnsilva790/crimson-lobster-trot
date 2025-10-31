@@ -67,6 +67,14 @@ const modules = [
     activeColor: "border-indigo-600",
   },
   {
+    path: "/agenda", // Novo módulo Agenda
+    icon: CalendarDays, // Reutilizando CalendarDays, ou podemos escolher outro
+    title: "AGENDA",
+    description: "Visão Diária",
+    colorClass: "bg-teal-50 hover:bg-teal-100",
+    activeColor: "border-teal-500",
+  },
+  {
     path: "/shitsuke", // Nova rota para SHITSUKE (Revisão Diária)
     icon: CheckSquare, // Ícone para Revisão Diária
     title: "SHITSUKE",
