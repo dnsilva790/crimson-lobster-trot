@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   ClipboardCheck,
   Settings, // Importar o ícone Settings
+  Mail, // Importar o ícone Mail para o novo módulo
 } from "lucide-react";
 import {
   Dialog,
@@ -68,6 +69,14 @@ const modules = [
     description: "Modo Foco Total",
     colorClass: "bg-blue-100 hover:bg-blue-200",
     activeColor: "border-blue-600",
+  },
+  {
+    path: "/email-triage", // Novo módulo
+    icon: Mail,
+    title: "TRIAGEM DE E-MAILS",
+    description: "Organize seu Outlook",
+    colorClass: "bg-purple-50 hover:bg-purple-100",
+    activeColor: "border-purple-500",
   },
   {
     path: "/seiketsu",
@@ -134,6 +143,7 @@ const DEFAULT_HIDDEN_MODULES = [
   "/planejador",
   "/project-management",
   "/follow-up",
+  "/email-triage", // Ocultar por padrão
 ];
 
 const MainNavigation = () => {

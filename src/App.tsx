@@ -25,6 +25,7 @@ import Shitsuke from "./pages/Shitsuke"; // Importar a nova página Shitsuke (Re
 import Eisenhower from "./pages/Eisenhower"; // Importar a nova página Eisenhower
 import Seiso from "./pages/Seiso"; // Importar a nova página Seiso
 import Agenda from "./pages/Agenda"; // Importar a nova página Agenda
+import EmailTriage from "./pages/EmailTriage"; // Importar a nova página EmailTriage
 
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="/shitsuke" element={<Shitsuke />} /> {/* Nova rota para SHITSUKE (Revisão Diária) */}
               <Route path="/eisenhower" element={<Eisenhower />} /> {/* Nova rota para Eisenhower */}
               <Route path="/agenda" element={<Agenda />} /> {/* Nova rota para Agenda */}
+              <Route path="/email-triage" element={<EmailTriage />} /> {/* Nova rota para EmailTriage */}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>
