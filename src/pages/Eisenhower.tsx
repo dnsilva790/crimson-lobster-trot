@@ -63,6 +63,9 @@ const Eisenhower = () => {
     return "all";
   });
 
+  // Estado para tarefas que ainda precisam ser avaliadas
+  const [unratedTasks, setUnratedTasks] = useState<EisenhowerTask[]>([]);
+
   // Efeitos para salvar os filtros no localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -81,6 +84,12 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY, categoryFilter);
     }
   }, [categoryFilter]);
+
+  // Efeito para atualizar a lista de tarefas não avaliadas sempre que tasksToProcess mudar
+  useEffect(() => {
+    const filtered = tasksToProcess.filter(task => task.urgency === null || task.importance === null);
+    setUnratedTasks(filtered);
+  }, [tasksToProcess]);
 
 
   useEffect(() => {
@@ -111,8 +120,8 @@ const Eisenhower = () => {
       const fetchedTodoistTasks = await fetchTasks(filter, { includeSubtasks: false, includeRecurring: false });
       const initialEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => ({
         ...task,
-        urgency: null,
-        importance: null,
+        urgency: null, // Garantir que novas tarefas comecem sem avaliação
+        importance: null, // Garantir que novas tarefas comecem sem avaliação
         quadrant: null,
         url: task.url, // Garantir que a URL seja passada
       }));
@@ -183,8 +192,8 @@ const Eisenhower = () => {
     toast.info("Matriz de Eisenhower resetada.");
   }, []);
 
-  const handleViewMatrixFromRating = useCallback(() => {
-    handleCategorizeTasks(); // Categoriza as tarefas avaliadas
+  const handleFinishRating = useCallback(() => {
+    handleCategorizeTasks(); // Categoriza todas as tarefas (incluindo as já avaliadas)
     setCurrentView("matrix"); // Muda para a visualização da matriz
   }, [handleCategorizeTasks]);
 
@@ -214,11 +223,15 @@ const Eisenhower = () => {
       case "rating":
         return (
           <RatingScreen
-            tasks={tasksToProcess}
+            tasks={unratedTasks} // Passa apenas as tarefas não avaliadas
             onUpdateTaskRating={handleUpdateTaskRating}
-            onFinishRating={handleViewMatrixFromRating} // Ao finalizar, vai para a matriz
+            onFinishRating={handleFinishRating} // Usa a nova função handleFinishRating
             onBack={() => setCurrentView("setup")}
-            onViewMatrix={handleViewMatrixFromRating} // Nova prop
+            onViewMatrix={() => {
+              handleCategorizeTasks(); // Categoriza todas as tarefas antes de visualizar a matriz
+              setCurrentView("matrix");
+            }}
+            canViewMatrix={canViewMatrixOrResults} // Passa a prop canViewMatrixOrResults
           />
         );
       case "matrix":

@@ -16,6 +16,7 @@ interface RatingScreenProps {
   onFinishRating: () => void;
   onBack: () => void;
   onViewMatrix: () => void; // Nova prop para ver a matriz antes de finalizar
+  canViewMatrix: boolean; // Nova prop para controlar a visibilidade do botão "Ver Matriz"
 }
 
 const RatingScreen: React.FC<RatingScreenProps> = ({
@@ -23,11 +24,17 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
   onUpdateTaskRating,
   onFinishRating,
   onBack,
-  onViewMatrix, // Usar a nova prop
+  onViewMatrix,
+  canViewMatrix, // Usar a nova prop
 }) => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [urgencyInput, setUrgencyInput] = useState<string>("50");
   const [importanceInput, setImportanceInput] = useState<string>("50");
+
+  // Resetar o índice da tarefa atual sempre que a lista de tarefas mudar
+  useEffect(() => {
+    setCurrentTaskIndex(0);
+  }, [tasks]);
 
   const currentTask = tasks[currentTaskIndex];
 
@@ -36,7 +43,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
       setUrgencyInput(currentTask.urgency !== null ? String(currentTask.urgency) : "50");
       setImportanceInput(currentTask.importance !== null ? String(currentTask.importance) : "50");
     }
-  }, [currentTaskIndex, tasks]);
+  }, [currentTaskIndex, currentTask]); // Depender de currentTask para atualizar inputs
 
   const validateAndGetNumber = (value: string): number | null => {
     const num = parseInt(value, 10);
@@ -75,16 +82,18 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
     }
   }, [currentTaskIndex, onBack]);
 
-  const ratedTasksCount = tasks.filter(t => t.urgency !== null && t.importance !== null).length;
-  const canViewMatrix = ratedTasksCount >= 2; // Habilitar se pelo menos 2 tarefas foram avaliadas
-
-  if (!currentTask) {
+  if (!currentTask && tasks.length === 0) {
     return (
       <div className="text-center p-8">
-        <p className="text-lg text-gray-600 mb-4">Nenhuma tarefa para avaliar.</p>
+        <p className="text-lg text-gray-600 mb-4">Nenhuma tarefa pendente de avaliação.</p>
         <Button onClick={onBack} className="flex items-center gap-2 mx-auto">
           <ArrowLeft className="h-4 w-4" /> Voltar
         </Button>
+        {canViewMatrix && (
+          <Button onClick={onViewMatrix} className="mt-4 flex items-center gap-2 mx-auto bg-purple-600 hover:bg-purple-700 text-white">
+            <LayoutDashboard className="h-4 w-4" /> Ver Matriz
+          </Button>
+        )}
       </div>
     );
   }
