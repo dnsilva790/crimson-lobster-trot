@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Clock, ListTodo, Play, RotateCcw, PlusCircle, Trash2, Briefcase, Home, Bed } from "lucide-react";
-import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes, getDay, addDays, isBefore, isEqual } from "date-fns";
+import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes, getDay, addDays, isBefore, isEqual, isToday } from "date-fns"; // Adicionado isToday e isBefore
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { useTodoist } from "@/context/TodoistContext";
@@ -227,7 +227,9 @@ const MassivePlanner = () => {
         blocksForDay.sort((a, b) => a.start.localeCompare(b.start));
 
         // Fetch existing tasks for this day to avoid conflicts
-        const existingTasksForDay = await fetchTasks(`due: ${dateKey} & !is_completed`, { includeSubtasks: false, includeRecurring: false });
+        // Corrected filter syntax for Todoist API
+        const existingTasksFilter = `due: ${dateKey} & !is_completed`;
+        const existingTasksForDay = await fetchTasks(existingTasksFilter, { includeSubtasks: false, includeRecurring: false });
         existingTasksForDay.forEach(task => {
           if (task.due?.datetime && isValid(parseISO(task.due.datetime))) {
             const start = parseISO(task.due.datetime);
@@ -250,6 +252,8 @@ const MassivePlanner = () => {
           const dateKey = format(currentDay, "yyyy-MM-dd");
 
           const blocksForDay = recurringBlocks.filter(block => block.dayOfWeek === dayOfWeek);
+          blocksForDay.sort((a, b) => a.start.localeCompare(b.start));
+
           const availableBlocks = blocksForDay.filter(block => block.type !== "break"); // Exclude break blocks
 
           for (const block of availableBlocks) {
