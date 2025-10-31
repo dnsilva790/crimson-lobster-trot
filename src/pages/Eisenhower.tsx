@@ -8,6 +8,7 @@ import { EisenhowerTask, TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb } from "lucide-react"; // Alterado de Matrix para LayoutDashboard
+import { format, parseISO, isValid } from 'date-fns'; // Importar format, parseISO, isValid
 
 // Importar os componentes do Eisenhower
 import SetupScreen from "@/components/eisenhower/SetupScreen";
@@ -114,6 +115,58 @@ const Eisenhower = () => {
     }
   }, [tasksToProcess, currentView]);
 
+  const sortEisenhowerTasks = useCallback((tasks: EisenhowerTask[]): EisenhowerTask[] => {
+    return [...tasks].sort((a, b) => {
+      // 1. Starred tasks first
+      const isAStarred = a.content.startsWith("*");
+      const isBStarred = b.content.startsWith("*");
+      if (isAStarred && !isBStarred) return -1;
+      if (!isAStarred && isBStarred) return 1;
+
+      // Helper to get date value, handling null/undefined and invalid dates
+      const getDateValue = (dateString: string | null | undefined) => {
+        if (typeof dateString === 'string' && dateString) {
+          const parsedDate = parseISO(dateString);
+          return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
+        }
+        return Infinity; // Tasks without a date go last
+      };
+
+      // 2. Deadline: earliest first
+      const deadlineA = getDateValue(a.deadline);
+      const deadlineB = getDateValue(b.deadline);
+      if (deadlineA !== deadlineB) {
+        return deadlineA - deadlineB;
+      }
+
+      // 3. Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
+      if (b.priority !== a.priority) {
+        return b.priority - a.priority;
+      }
+
+      // 4. Due date/time: earliest first
+      const dueDateTimeA = getDateValue(a.due?.datetime);
+      const dueDateTimeB = getDateValue(b.due?.datetime);
+      if (dueDateTimeA !== dueDateTimeB) {
+        return dueDateTimeA - dueDateTimeB;
+      }
+
+      const dueDateA = getDateValue(a.due?.date);
+      const dueDateB = getDateValue(b.due?.date);
+      if (dueDateA !== dueDateB) { 
+        return dueDateA - dueDateB;
+      }
+
+      // 5. Created at: earliest first (tie-breaker)
+      const createdAtA = getDateValue(a.created_at);
+      const createdAtB = getDateValue(b.created_at);
+      if (createdAtA !== createdAtB) {
+        return createdAtA - createdAtB;
+      }
+      return 0;
+    });
+  }, []);
+
   const handleLoadTasks = useCallback(async (filter: string) => {
     setIsLoading(true);
     try {
@@ -125,16 +178,19 @@ const Eisenhower = () => {
         quadrant: null,
         url: task.url, // Garantir que a URL seja passada
       }));
-      setTasksToProcess(initialEisenhowerTasks);
+      
+      const sortedTasks = sortEisenhowerTasks(initialEisenhowerTasks); // Aplicar a ordenação aqui
+      
+      setTasksToProcess(sortedTasks);
       setCurrentView("rating");
-      toast.success(`Carregadas ${initialEisenhowerTasks.length} tarefas para a Matriz de Eisenhower.`);
+      toast.success(`Carregadas ${sortedTasks.length} tarefas para a Matriz de Eisenhower.`);
     } catch (error) {
       console.error("Failed to load tasks for Eisenhower Matrix:", error);
       toast.error("Falha ao carregar tarefas.");
     } finally {
       setIsLoading(false);
     }
-  }, [fetchTasks]);
+  }, [fetchTasks, sortEisenhowerTasks]);
 
   const handleUpdateTaskRating = useCallback((taskId: string, urgency: number | null, importance: number | null) => {
     setTasksToProcess(prevTasks => {
