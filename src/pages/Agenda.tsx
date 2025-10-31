@@ -63,9 +63,9 @@ const Agenda = () => {
       const filterToUse = agendaFilterInput.trim() || undefined;
       const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
       
-      console.log("Agenda: Loading tasks with filter:", filterToUse, "for date:", selectedDateKey);
+      console.log("Agenda: Filter sent to Todoist API:", filterToUse); // Log do filtro enviado
       const fetchedTodoistTasks = await fetchTasks(filterToUse, { includeSubtasks: false, includeRecurring: false });
-      console.log(`Agenda: Fetched ${fetchedTodoistTasks.length} tasks from Todoist.`);
+      console.log(`Agenda: Fetched ${fetchedTodoistTasks.length} tasks from Todoist API. Details:`, fetchedTodoistTasks); // Log das tarefas brutas
       
       const tasksForSelectedDay: ScheduledTask[] = [];
 
