@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTodoist } from "@/context/TodoistContext";
-import { EisenhowerTask, TodoistTask } from "@/lib/types";
+import { EisenhowerTask, TodoistTask, DisplayFilter } from "@/lib/types"; // Importar DisplayFilter
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw } from "lucide-react"; // Importar RefreshCw
@@ -20,7 +20,6 @@ import DashboardScreen from "@/components/eisenhower/DashboardScreen";
 import AiAssistantModal from "@/components/eisenhower/AiAssistantModal";
 
 type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
-type DisplayFilter = "all" | "overdue" | "today" | "tomorrow"; // Novo tipo para o filtro de exibição
 
 const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState";
 const EISENHOW_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input";
@@ -108,7 +107,7 @@ const Eisenhower = () => {
         toast.info("Estado da Matriz de Eisenhower carregado.");
       } catch (e) {
         console.error("Failed to load Eisenhower state from localStorage", e);
-        localStorage.removeItem(EISENHOWER_STORAGE_KEY);
+        localStorage.removeItem(EISENHOW_STORAGE_KEY);
         toast.error("Erro ao carregar estado da Matriz de Eisenhower. Reiniciando.");
       }
     }
@@ -331,6 +330,9 @@ const Eisenhower = () => {
       if (filter === "tomorrow") {
         return isTomorrow(effectiveDate);
       }
+      if (filter === "overdue_and_today") { // Nova lógica para "Atrasadas e Hoje"
+        return (isPast(effectiveDate) && !isToday(effectiveDate)) || isToday(effectiveDate);
+      }
       return true;
     });
   }, []);
@@ -535,6 +537,7 @@ const Eisenhower = () => {
               <SelectItem value="overdue">Apenas Atrasadas</SelectItem>
               <SelectItem value="today">Apenas Vencem Hoje</SelectItem>
               <SelectItem value="tomorrow">Apenas Vencem Amanhã</SelectItem>
+              <SelectItem value="overdue_and_today">Atrasadas e Hoje</SelectItem> {/* Nova opção */}
             </SelectContent>
           </Select>
         </div>
