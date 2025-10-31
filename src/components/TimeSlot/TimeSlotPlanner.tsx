@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { DaySchedule, TimeBlock, ScheduledTask, TimeBlockType } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -76,56 +76,97 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
     }
   }, [daySchedule.date]);
 
+  const pixelsPerMinute = 40 / 15; // Each 15-min slot is h-10 (40px)
+
+  // Helper function to calculate layout for scheduled tasks
+  const calculateTaskLayout = (tasks: ScheduledTask[], date: Date): ScheduledTask[] => {
+    const augmentedTasks: ScheduledTask[] = tasks.map(task => {
+      const startDateTime = parse(task.start, "HH:mm", date);
+      const endDateTime = parse(task.end, "HH:mm", date);
+
+      if (!isValid(startDateTime) || !isValid(endDateTime)) {
+        console.warn(`Invalid date/time for task: ${task.content}`);
+        return { ...task, startDateTime, endDateTime, top: 0, height: 0, left: 0, width: 100, column: 0, maxColumns: 1 };
+      }
+
+      const top = (startDateTime.getHours() * 60 + startDateTime.getMinutes()) * pixelsPerMinute;
+      const height = (task.estimatedDurationMinutes || 15) * pixelsPerMinute;
+
+      return { ...task, startDateTime, endDateTime, top, height, left: 0, width: 100, column: 0, maxColumns: 1 };
+    });
+
+    // Sort tasks by start time
+    augmentedTasks.sort((a, b) => (a.startDateTime?.getTime() || 0) - (b.startDateTime?.getTime() || 0));
+
+    const columns: { end: Date; task: ScheduledTask }[][] = []; // Each column is an array of tasks
+    
+    for (const task of augmentedTasks) {
+      let placed = false;
+      for (let i = 0; i < columns.length; i++) {
+        const column = columns[i];
+        // Check if this task can fit in this column without overlapping the last task in it
+        if (column.length === 0 || (task.startDateTime && task.startDateTime >= column[column.length - 1].end)) {
+          task.column = i;
+          column.push({ end: task.endDateTime!, task });
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        // Create a new column
+        task.column = columns.length;
+        columns.push([{ end: task.endDateTime!, task }]);
+      }
+    }
+
+    // Now, calculate maxColumns for each task based on actual overlaps
+    for (const task of augmentedTasks) {
+      let maxOverlapsAtAnyPoint = 1;
+      for (const otherTask of augmentedTasks) {
+        if (task.id === otherTask.id) continue;
+
+        // Check if they overlap
+        if (task.startDateTime! < otherTask.endDateTime! && task.endDateTime! > otherTask.startDateTime!) {
+          // If they overlap, find the maximum number of tasks that are active during their overlap interval
+          let currentOverlapCount = 0;
+          const overlapStart = new Date(Math.max(task.startDateTime!.getTime(), otherTask.startDateTime!.getTime()));
+          const overlapEnd = new Date(Math.min(task.endDateTime!.getTime(), otherTask.endDateTime!.getTime()));
+
+          for (const checkTask of augmentedTasks) {
+            if (checkTask.startDateTime! < overlapEnd && checkTask.endDateTime! > overlapStart) {
+              currentOverlapCount++;
+            }
+          }
+          maxOverlapsAtAnyPoint = Math.max(maxOverlapsAtAnyPoint, currentOverlapCount);
+        }
+      }
+      task.maxColumns = maxOverlapsAtAnyPoint;
+    }
+
+    // Final pass to set left and width based on calculated columns and maxColumns
+    for (const task of augmentedTasks) {
+      task.width = 100 / (task.maxColumns || 1);
+      task.left = (task.column || 0) * (task.width);
+    }
+
+    return augmentedTasks;
+  };
+
+  const parsedDayScheduleDate = (typeof daySchedule.date === 'string' && daySchedule.date) ? parseISO(daySchedule.date) : new Date();
+
+  const tasksWithLayout = useMemo(() => {
+    return calculateTaskLayout(daySchedule.scheduledTasks, parsedDayScheduleDate);
+  }, [daySchedule.scheduledTasks, parsedDayScheduleDate]);
+
+
   const renderTimeSlots = () => {
     const slots: JSX.Element[] = [];
-    const scheduledTaskElements: JSX.Element[] = [];
-    const today = (typeof daySchedule.date === 'string' && daySchedule.date) ? parseISO(daySchedule.date) : new Date(); // Fallback to current date if invalid
+    const today = parsedDayScheduleDate;
 
     const parsedSuggestedStart = (typeof suggestedSlotStart === 'string' && suggestedSlotStart) ? parse(suggestedSlotStart, "HH:mm", today) : null;
     const parsedSuggestedEnd = (typeof suggestedSlotEnd === 'string' && suggestedSlotEnd) ? parse(suggestedSlotEnd, "HH:mm", today) : null;
 
-    const pixelsPerMinute = 40 / 15; // Each 15-min slot is h-10 (40px)
-
-    // Render all scheduled tasks as merged blocks first
-    daySchedule.scheduledTasks.forEach(task => {
-        const taskStart = parse(task.start, "HH:mm", today);
-        const taskEnd = parse(task.end, "HH:mm", today);
-
-        if (!isValid(taskStart) || !isValid(taskEnd)) {
-            console.warn(`TimeSlotPlanner: Scheduled task ${task.content} has invalid start/end times.`);
-            return;
-        }
-
-        const startMinutes = taskStart.getHours() * 60 + taskStart.getMinutes();
-        const durationMinutes = task.estimatedDurationMinutes || 15; // Fallback to 15 min if not defined
-
-        const topPosition = startMinutes * pixelsPerMinute;
-        const height = durationMinutes * pixelsPerMinute;
-
-        scheduledTaskElements.push(
-            <div
-                key={`scheduled-task-${task.id}`}
-                className="absolute left-0 right-0 flex flex-col justify-center items-center bg-indigo-100 bg-opacity-70 text-indigo-800 text-center text-sm font-semibold overflow-hidden cursor-pointer z-30 rounded-md border border-indigo-300 p-1" // Adjusted styling
-                style={{ top: `${topPosition}px`, height: `${height}px` }}
-                onClick={(e) => { e.stopPropagation(); onSelectTask?.(task); }}
-            >
-                <span className="truncate w-full px-1" title={task.content}>
-                    {task.content}
-                </span>
-                <span className={cn(
-                    "px-1 py-0.5 rounded-full text-white text-xs font-bold mt-0.5",
-                    task.priority === 4 && "bg-red-500",
-                    task.priority === 3 && "bg-orange-500",
-                    task.priority === 2 && "bg-yellow-500",
-                    task.priority === 1 && "bg-gray-400",
-                )}>
-                    P{task.priority}
-                </span>
-            </div>
-        );
-    });
-
-    // Then, render the 15-minute time slots (backgrounds)
+    // Render the 15-minute time slots (backgrounds)
     for (let hour = 0; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 15) {
         const slotTime = setMinutes(setHours(today, hour), minute);
@@ -162,11 +203,9 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
         }
 
         // Check if this slot is covered by an already rendered merged task block
-        const isSlotCoveredByTask = daySchedule.scheduledTasks.some(task => {
-            const taskStart = parse(task.start, "HH:mm", today);
-            const taskEnd = parse(task.end, "HH:mm", today);
-            if (!isValid(taskStart) || !isValid(taskEnd)) return false;
-            return (slotTime < taskEnd && nextSlotTime > taskStart);
+        const isSlotCoveredByTask = tasksWithLayout.some(task => {
+            if (!task.startDateTime || !task.endDateTime) return false;
+            return (slotTime < task.endDateTime && nextSlotTime > task.startDateTime);
         });
 
         const isSuggestedSlot = parsedSuggestedStart && parsedSuggestedEnd && isValid(parsedSuggestedStart) && isValid(parsedSuggestedEnd) &&
@@ -184,7 +223,7 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
             )}
             onClick={() => onSelectSlot?.(formattedTime, blockType)}
           >
-            <span className="font-medium text-gray-600 bg-white z-40 relative pr-2"> {/* Added bg-white z-40 relative pr-2 */}
+            <span className="font-medium text-gray-600 bg-white z-40 relative pr-2">
               {formattedTime}
             </span>
             {blockLabel && <span className="text-gray-500 italic">{blockLabel}</span>}
@@ -192,10 +231,8 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
         );
       }
     }
-    return [...slots, ...scheduledTaskElements]; // Render tasks on top of slots
+    return slots;
   };
-
-  const parsedDayScheduleDate = (typeof daySchedule.date === 'string' && daySchedule.date) ? parseISO(daySchedule.date) : new Date();
 
   return (
     <Card className="h-full">
@@ -207,6 +244,32 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
       <CardContent className="p-0">
         <div ref={scrollAreaRef} className="overflow-y-auto h-[calc(100vh-300px)] custom-scroll relative">
           {renderTimeSlots()}
+          {tasksWithLayout.map(task => (
+            <div
+              key={`scheduled-task-${task.id}`}
+              className="absolute flex flex-col justify-center items-center bg-indigo-100 bg-opacity-70 text-indigo-800 text-center text-sm font-semibold overflow-hidden cursor-pointer z-30 rounded-md border border-indigo-300 p-1"
+              style={{
+                top: `${task.top}px`,
+                height: `${task.height}px`,
+                left: `${task.left}%`,
+                width: `${task.width}%`,
+              }}
+              onClick={(e) => { e.stopPropagation(); onSelectTask?.(task); }}
+            >
+                <span className="truncate w-full px-1" title={task.content}>
+                    {task.content}
+                </span>
+                <span className={cn(
+                    "px-1 py-0.5 rounded-full text-white text-xs font-bold mt-0.5",
+                    task.priority === 4 && "bg-red-500",
+                    task.priority === 3 && "bg-orange-500",
+                    task.priority === 2 && "bg-yellow-500",
+                    task.priority === 1 && "bg-gray-400",
+                )}>
+                    P{task.priority}
+                </span>
+            </div>
+          ))}
           {renderCurrentTimeLine()}
         </div>
       </CardContent>

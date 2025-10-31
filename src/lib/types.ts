@@ -8,7 +8,7 @@ export interface TodoistTask {
   labels: string[];
   parent_id: string | null;
   order: number;
-  priority: 1 | 2 | 3 | 4; // 1: P4 (Baixa), 2: P3 (Média), 3: P2 (Média), 4: P1 (Urgente)
+  priority: 1 | 2 | 3 | 4; // 1: P4 (Baixa), 2: P3 (Média), 3: P2 (Média), 3: P2 (Média), 4: P1 (Urgente)
   due: {
     date: string | null; // Alterado para permitir null
     string: string | null; // Alterado para permitir null
@@ -96,6 +96,15 @@ export interface ScheduledTask {
   estimatedDurationMinutes: number; // Duração da tarefa agendada
   originalTask?: TodoistTask | InternalTask; // Referência à tarefa original
   isMeeting?: boolean; // Adicionado para identificar reuniões
+  // Novas propriedades para layout de sobreposição
+  startDateTime?: Date;
+  endDateTime?: Date;
+  top?: number;
+  height?: number;
+  left?: number;
+  width?: number;
+  column?: number;
+  maxColumns?: number;
 }
 
 export interface DaySchedule {
