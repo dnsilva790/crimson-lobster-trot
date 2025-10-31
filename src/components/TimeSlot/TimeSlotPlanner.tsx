@@ -6,23 +6,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { format, parseISO, setHours, setMinutes, addMinutes, isWithinInterval, parse, isBefore, isAfter, isEqual, addDays, isToday, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink, CheckCircle } from "lucide-react"; // Importar o ícone ExternalLink e CheckCircle
-import { Button } from "@/components/ui/button"; // Importar Button para o ícone
+import { ExternalLink, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useDrag, useDrop } from 'react-dnd';
 
 interface TimeSlotPlannerProps {
   daySchedule: DaySchedule;
   onSelectSlot?: (time: string, type: TimeBlockType) => void;
   onSelectTask?: (task: ScheduledTask) => void;
-  onCompleteTask?: (taskId: string) => Promise<void>; // Nova prop
+  onCompleteTask?: (taskId: string) => Promise<void>;
+  onDropTask: (draggedTask: ScheduledTask, newStartTime: string) => void; // Nova prop para lidar com o drop
+  currentDate: Date; // Adicionado para o contexto de data
   suggestedSlotStart?: string | null;
   suggestedSlotEnd?: string | null;
 }
+
+const DRAG_ITEM_TYPE = 'SCHEDULED_TASK'; // Definir o tipo de item arrastável
 
 const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
   daySchedule,
   onSelectSlot,
   onSelectTask,
-  onCompleteTask, // Nova prop
+  onCompleteTask,
+  onDropTask, // Usar a nova prop
+  currentDate, // Usar a nova prop
   suggestedSlotStart,
   suggestedSlotEnd,
 }) => {
@@ -37,16 +44,14 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Calcula a posição da linha do horário atual
   const renderCurrentTimeLine = () => {
     const parsedDayScheduleDate = (typeof daySchedule.date === 'string' && daySchedule.date) ? parseISO(daySchedule.date) : null;
     if (!parsedDayScheduleDate || !isValid(parsedDayScheduleDate) || !isToday(parsedDayScheduleDate)) {
-      return null; // Apenas mostra para o dia atual
+      return null;
     }
 
     const now = currentTime;
     const totalMinutesToday = now.getHours() * 60 + now.getMinutes();
-    // Cada slot de 15 minutos tem 40px (h-10). Então 1 minuto = 40/15 pixels.
     const pixelsPerMinute = 40 / 15;
     const topPosition = totalMinutesToday * pixelsPerMinute;
 
@@ -63,7 +68,6 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
     );
   };
 
-  // Efeito para rolar para a linha do tempo atual ao carregar
   useEffect(() => {
     const parsedDayScheduleDate = (typeof daySchedule.date === 'string' && daySchedule.date) ? parseISO(daySchedule.date) : null;
     if (scrollAreaRef.current && parsedDayScheduleDate && isValid(parsedDayScheduleDate) && isToday(parsedDayScheduleDate)) {
@@ -72,7 +76,6 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
       const pixelsPerMinute = 40 / 15;
       const topPosition = totalMinutesToday * pixelsPerMinute;
       
-      // Rola para a posição, centralizando a linha do tempo na tela
       scrollAreaRef.current.scrollTo({
         top: Math.max(0, topPosition - scrollAreaRef.current.clientHeight / 2),
         behavior: 'smooth'
@@ -80,9 +83,8 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
     }
   }, [daySchedule.date]);
 
-  const pixelsPerMinute = 40 / 15; // Each 15-min slot is h-10 (40px)
+  const pixelsPerMinute = 40 / 15;
 
-  // Helper function to calculate layout for scheduled tasks
   const calculateTaskLayout = (tasks: ScheduledTask[], date: Date): ScheduledTask[] => {
     const augmentedTasks: ScheduledTask[] = tasks.map(task => {
       const startDateTime = parse(task.start, "HH:mm", date);
@@ -99,16 +101,14 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
       return { ...task, startDateTime, endDateTime, top, height, left: 0, width: 100, column: 0, maxColumns: 1 };
     });
 
-    // Sort tasks by start time
     augmentedTasks.sort((a, b) => (a.startDateTime?.getTime() || 0) - (b.startDateTime?.getTime() || 0));
 
-    const columns: { end: Date; task: ScheduledTask }[][] = []; // Each column is an array of tasks
+    const columns: { end: Date; task: ScheduledTask }[][] = [];
     
     for (const task of augmentedTasks) {
       let placed = false;
       for (let i = 0; i < columns.length; i++) {
         const column = columns[i];
-        // Check if this task can fit in this column without overlapping the last task in it
         if (column.length === 0 || (task.startDateTime && task.startDateTime >= column[column.length - 1].end)) {
           task.column = i;
           column.push({ end: task.endDateTime!, task });
@@ -117,21 +117,17 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
         }
       }
       if (!placed) {
-        // Create a new column
         task.column = columns.length;
         columns.push([{ end: task.endDateTime!, task }]);
       }
     }
 
-    // Now, calculate maxColumns for each task based on actual overlaps
     for (const task of augmentedTasks) {
       let maxOverlapsAtAnyPoint = 1;
       for (const otherTask of augmentedTasks) {
         if (task.id === otherTask.id) continue;
 
-        // Check if they overlap
         if (task.startDateTime! < otherTask.endDateTime! && task.endDateTime! > otherTask.startDateTime!) {
-          // If they overlap, find the maximum number of tasks that are active during their overlap interval
           let currentOverlapCount = 0;
           const overlapStart = new Date(Math.max(task.startDateTime!.getTime(), otherTask.startDateTime!.getTime()));
           const overlapEnd = new Date(Math.min(task.endDateTime!.getTime(), otherTask.endDateTime!.getTime()));
@@ -147,7 +143,6 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
       task.maxColumns = maxOverlapsAtAnyPoint;
     }
 
-    // Final pass to set left and width based on calculated columns and maxColumns
     for (const task of augmentedTasks) {
       task.width = 100 / (task.maxColumns || 1);
       task.left = (task.column || 0) * (task.width);
@@ -170,7 +165,6 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
     const parsedSuggestedStart = (typeof suggestedSlotStart === 'string' && suggestedSlotStart) ? parse(suggestedSlotStart, "HH:mm", today) : null;
     const parsedSuggestedEnd = (typeof suggestedSlotEnd === 'string' && suggestedSlotEnd) ? parse(suggestedSlotEnd, "HH:mm", today) : null;
 
-    // Render the 15-minute time slots (backgrounds)
     for (let hour = 0; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 15) {
         const slotTime = setMinutes(setHours(today, hour), minute);
@@ -206,7 +200,6 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
           }
         }
 
-        // Check if this slot is covered by an already rendered merged task block
         const isSlotCoveredByTask = tasksWithLayout.some(task => {
             if (!task.startDateTime || !task.endDateTime) return false;
             return (slotTime < task.endDateTime && nextSlotTime > task.startDateTime);
@@ -216,14 +209,25 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                                 isWithinInterval(slotTime, { start: parsedSuggestedStart, end: parsedSuggestedEnd }) &&
                                 (isBefore(nextSlotTime, parsedSuggestedEnd) || isEqual(nextSlotTime, parsedSuggestedEnd));
 
+        // Make time slots droppable
+        const [{ isOver }, drop] = useDrop(() => ({
+          accept: DRAG_ITEM_TYPE,
+          drop: (item: ScheduledTask) => onDropTask(item, formattedTime),
+          collect: (monitor) => ({
+            isOver: monitor.isOver(),
+          }),
+        }), [formattedTime, onDropTask, daySchedule.scheduledTasks]); // Adicionado daySchedule.scheduledTasks para re-renderizar o drop target se as tarefas mudarem
+
         slots.push(
           <div
             key={formattedTime}
+            ref={drop} // Atribuir ref do drop
             className={cn(
               "relative p-1 border-b border-gray-200 text-xs h-10 flex items-center justify-between",
               blockColorClass,
-              onSelectSlot && !isSlotCoveredByTask && "cursor-pointer", // Only clickable if not covered by a task
-              isSuggestedSlot && "bg-yellow-200 border-yellow-500 ring-2 ring-yellow-500 z-10"
+              onSelectSlot && !isSlotCoveredByTask && "cursor-pointer",
+              isSuggestedSlot && "bg-yellow-200 border-yellow-500 ring-2 ring-yellow-500 z-10",
+              isOver && "bg-indigo-200 border-indigo-500 ring-2 ring-indigo-500" // Estilo quando arrastado sobre
             )}
             onClick={() => onSelectSlot?.(formattedTime, blockType)}
           >
@@ -248,56 +252,71 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
       <CardContent className="p-0">
         <div ref={scrollAreaRef} className="overflow-y-auto h-[calc(100vh-300px)] custom-scroll relative">
           {renderTimeSlots()}
-          {tasksWithLayout.map(task => (
-            <div
-              key={`scheduled-task-${task.id}`}
-              className="absolute flex flex-col justify-center items-center bg-indigo-100 bg-opacity-70 text-indigo-800 text-center text-sm font-semibold overflow-hidden cursor-pointer z-30 rounded-md border border-indigo-300 p-1 group" // Adicionado 'group'
-              style={{
-                top: `${task.top}px`,
-                height: `${task.height}px`,
-                left: `${task.left}%`,
-                width: `${task.width}%`,
-              }}
-              onClick={(e) => { e.stopPropagation(); onSelectTask?.(task); }}
-            >
-                <span className="truncate w-full px-1" title={task.content}>
-                    {task.content}
-                </span>
-                <span className={cn(
-                    "px-1 py-0.5 rounded-full text-white text-xs font-bold mt-0.5",
-                    task.priority === 4 && "bg-red-500",
-                    task.priority === 3 && "bg-orange-500",
-                    task.priority === 2 && "bg-yellow-500",
-                    task.priority === 1 && "bg-gray-400",
-                )}>
-                    P{task.priority}
-                </span>
-                {task.originalTask && 'url' in task.originalTask && task.originalTask.url && (
-                  <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {onCompleteTask && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={(e) => { e.stopPropagation(); onCompleteTask(task.taskId); }} 
-                        className="h-6 w-6 text-green-600 hover:bg-green-200"
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <a 
-                      href={task.originalTask.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      onClick={(e) => e.stopPropagation()} // Previne que o clique no link acione o onSelectTask do pai
-                    >
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-indigo-600 hover:bg-indigo-200">
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                    </a>
-                  </div>
+          {tasksWithLayout.map(task => {
+            // Make scheduled tasks draggable
+            const [{ isDragging }, drag] = useDrag(() => ({
+              type: DRAG_ITEM_TYPE,
+              item: task, // Pass the entire task object
+              collect: (monitor) => ({
+                isDragging: monitor.isDragging(),
+              }),
+            }), [task]);
+
+            return (
+              <div
+                key={`scheduled-task-${task.id}`}
+                ref={drag} // Atribuir ref do drag
+                className={cn(
+                  "absolute flex flex-col justify-center items-center bg-indigo-100 bg-opacity-70 text-indigo-800 text-center text-sm font-semibold overflow-hidden cursor-pointer z-30 rounded-md border border-indigo-300 p-1 group",
+                  isDragging ? "opacity-50 border-dashed" : "opacity-100" // Estilo quando arrastando
                 )}
-            </div>
-          ))}
+                style={{
+                  top: `${task.top}px`,
+                  height: `${task.height}px`,
+                  left: `${task.left}%`,
+                  width: `${task.width}%`,
+                }}
+                onClick={(e) => { e.stopPropagation(); onSelectTask?.(task); }}
+              >
+                  <span className="truncate w-full px-1" title={task.content}>
+                      {task.content}
+                  </span>
+                  <span className={cn(
+                      "px-1 py-0.5 rounded-full text-white text-xs font-bold mt-0.5",
+                      task.priority === 4 && "bg-red-500",
+                      task.priority === 3 && "bg-orange-500",
+                      task.priority === 2 && "bg-yellow-500",
+                      task.priority === 1 && "bg-gray-400",
+                  )}>
+                      P{task.priority}
+                  </span>
+                  {task.originalTask && 'url' in task.originalTask && task.originalTask.url && (
+                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {onCompleteTask && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={(e) => { e.stopPropagation(); onCompleteTask(task.taskId); }} 
+                          className="h-6 w-6 text-green-600 hover:bg-green-200"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <a 
+                        href={task.originalTask.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-indigo-600 hover:bg-indigo-200">
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    </div>
+                  )}
+              </div>
+            );
+          })}
           {renderCurrentTimeLine()}
         </div>
       </CardContent>
