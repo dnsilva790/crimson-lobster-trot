@@ -12,11 +12,12 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo } from "lucide-react";
+import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo, Save } from "lucide-react";
 import { cn, getDelegateNameFromLabels } from "@/lib/utils";
 import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import FollowUpAIAssistant from "@/components/FollowUpAIAssistant";
+import { Textarea } from "@/components/ui/textarea"; // Importar Textarea
 
 const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
   4: "bg-red-500", // P1 - Urgente
@@ -47,7 +48,9 @@ const FollowUp = () => {
   const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(undefined);
   const [editedDueTime, setEditedDueTime] = useState<string>("");
   const [editedPriority, setEditedPriority] = useState<1 | 2 | 3 | 4>(1);
-  const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined); // Adicionado
+  const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined);
+  const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
+  const [isEditPopoverOpen, setIsEditPopoverOpen] = useState(false); // Estado para controlar o popover de edição
 
   const fetchDelegatedTasks = useCallback(async () => {
     setIsFetchingDelegatedTasks(true);
@@ -304,7 +307,9 @@ const FollowUp = () => {
     setEditedDueDate((typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : undefined);
     setEditedDueTime((typeof task.due?.datetime === 'string' && task.due.datetime) ? format(parseISO(task.due.datetime), "HH:mm") : "");
     setEditedPriority(task.priority);
-    setEditedDeadline((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined); // Adicionado
+    setEditedDeadline((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
+    setObservationInput(""); // Limpar o campo de observação ao abrir o popover
+    setIsEditPopoverOpen(true); // Abrir o popover
   }, []);
 
   const handleCancelEditing = useCallback(() => {
@@ -312,7 +317,9 @@ const FollowUp = () => {
     setEditedDueDate(undefined);
     setEditedDueTime("");
     setEditedPriority(1);
-    setEditedDeadline(undefined); // Adicionado
+    setEditedDeadline(undefined);
+    setObservationInput(""); // Limpar o campo de observação
+    setIsEditPopoverOpen(false); // Fechar o popover
   }, []);
 
   const handleSaveEdit = useCallback(async () => {
@@ -327,7 +334,8 @@ const FollowUp = () => {
       due_datetime?: string | null;
       duration?: number | null;
       duration_unit?: "minute" | "day" | undefined;
-      deadline?: string | null; // Adicionado
+      deadline?: string | null;
+      description?: string; // Adicionado para a descrição
     } = {};
     let changed = false;
 
@@ -378,6 +386,14 @@ const FollowUp = () => {
       changed = true;
     }
 
+    // Handle Observation
+    if (observationInput.trim()) {
+      const timestamp = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
+      const newObservation = `\n\n[${timestamp}] - ${observationInput.trim()}`;
+      updateData.description = (taskToEdit.description || "") + newObservation;
+      changed = true;
+    }
+
     if (changed) {
       await updateTask(editingTaskId, updateData);
       toast.success("Tarefa delegada atualizada!");
@@ -386,7 +402,7 @@ const FollowUp = () => {
       toast.info("Nenhuma alteração detectada.");
     }
     handleCancelEditing();
-  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadline, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
+  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadline, observationInput, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
 
 
   const renderTaskItem = (task: TodoistTask) => (
@@ -394,7 +410,7 @@ const FollowUp = () => {
       key={task.id} 
       className={cn(
         "p-4 border-b border-gray-200 last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors",
-        selectedTaskForAI?.id === task.id && "bg-indigo-50 border-indigo-400 ring-1 ring-indigo-400"
+        selectedTaskForAI?.id === task.id && "bg-indigo-50 border-indigo-400 ring-1 ring-blue-400"
       )}
       onClick={() => handleSelectTaskForAI(task)}
     >
@@ -484,12 +500,23 @@ const FollowUp = () => {
               </SelectContent>
             </Select>
           </div>
+          <div className="mt-2">
+            <Label htmlFor={`followup-observation-input-${task.id}`}>Adicionar Observação</Label>
+            <Textarea
+              id={`followup-observation-input-${task.id}`}
+              value={observationInput}
+              onChange={(e) => setObservationInput(e.target.value)}
+              placeholder="Adicione uma nota rápida à descrição da tarefa..."
+              rows={3}
+              className="mt-1"
+            />
+          </div>
           <div className="flex gap-2 mt-2">
             <Button onClick={handleSaveEdit} size="sm" className="flex-1" disabled={isLoadingTodoist}>
-              Salvar
+              <Save className="h-4 w-4 mr-2" /> Salvar
             </Button>
             <Button onClick={handleCancelEditing} variant="outline" size="sm" className="flex-1" disabled={isLoadingTodoist}>
-              Cancelar
+              <XCircle className="h-4 w-4 mr-2" /> Cancelar
             </Button>
           </div>
         </div>
@@ -550,65 +577,6 @@ const FollowUp = () => {
       )}
     </div>
   );
-
-  const renderAgenda = () => {
-    if (selectedDelegateFilter === "all" || !groupedFilteredTasks[selectedDelegateFilter]) {
-      return (
-        <p className="text-gray-600 italic">
-          Selecione um responsável para gerar a pauta da reunião 1:1.
-        </p>
-      );
-    }
-
-    const tasksForAgenda = groupedFilteredTasks[selectedDelegateFilter];
-
-    return (
-      <div className="prose prose-sm max-w-none">
-        <h3 className="text-xl font-bold mb-2">Pauta 1:1 com {selectedDelegateFilter}</h3>
-        <p className="text-sm text-gray-600 mb-4">Data: {format(new Date(), "dd/MM/yyyy", { locale: ptBR })}</p>
-        
-        <h4 className="text-lg font-semibold mb-2">Tarefas em Aberto:</h4>
-        {tasksForAgenda.length > 0 ? (
-          <ul className="list-disc list-inside space-y-3">
-            {tasksForAgenda.map(task => (
-              <li key={task.id}>
-                <p className="font-medium text-gray-800">
-                  <span className={cn(
-                    "px-2 py-0.5 rounded-full text-white text-xs font-medium mr-2",
-                    PRIORITY_COLORS[task.priority],
-                  )}>
-                    {PRIORITY_LABELS[task.priority]}
-                  </span>
-                  {task.content}
-                  {(typeof task.deadline === 'string' && task.deadline) && isValid(parseISO(task.deadline)) && ( // Adicionado
-                    <span className="ml-2 text-red-600 text-xs font-semibold">
-                      (Deadline: {format(parseISO(task.deadline), "dd/MM", { locale: ptBR })})
-                    </span>
-                  )}
-                  {(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.datetime)) && (
-                    <span className="ml-2 text-gray-500 text-xs">
-                      (Vencimento: {format(parseISO(task.due.datetime), "dd/MM HH:mm", { locale: ptBR })})
-                    </span>
-                  )}
-                  {(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.date)) && (
-                    <span className="ml-2 text-gray-500 text-xs">
-                      (Vencimento: {format(parseISO(task.due.date), "dd/MM", { locale: ptBR })})
-                    </span>
-                  )}
-                </p>
-                {task.description && <p className="text-sm text-gray-600 ml-6 mt-1 whitespace-pre-wrap">Descrição: {task.description}</p>}
-                <p className="text-xs text-blue-600 ml-6">
-                  <a href={task.url} target="_blank" rel="noopener noreferrer">Abrir no Todoist</a>
-                </p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-gray-600 italic">Nenhuma tarefa delegada para {selectedDelegateFilter} com o filtro atual.</p>
-        )}
-      </div>
-    );
-  };
 
   const isLoading = isLoadingTodoist || isFetchingDelegatedTasks;
 

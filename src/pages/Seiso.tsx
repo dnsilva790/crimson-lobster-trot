@@ -21,6 +21,7 @@ import {
   Clock,
   Tag,
   ExternalLink,
+  MessageSquare, // Importar MessageSquare
 } from "lucide-react";
 import { format, parseISO, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -80,6 +81,7 @@ const Seiso = () => {
   // New states for Objective and Next Step
   const [objectiveInput, setObjectiveInput] = useState("");
   const [nextStepSeisoInput, setNextStepSeisoInput] = useState("");
+  const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
 
   // Delegation states
   const [delegateName, setDelegateName] = useState("");
@@ -159,6 +161,26 @@ const Seiso = () => {
       toast.error("Falha ao atualizar objetivo e próximo passo.");
     }
   }, [currentTask, objectiveInput, nextStepSeisoInput, updateTask]);
+
+  const handleSaveObservation = useCallback(async () => {
+    if (!currentTask || !observationInput.trim()) {
+      toast.error("A observação não pode estar vazia.");
+      return;
+    }
+
+    const timestamp = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    const newObservation = `\n\n[${timestamp}] - ${observationInput.trim()}`;
+    const updatedDescription = (currentTask.description || "") + newObservation;
+
+    const updated = await updateTask(currentTask.id, { description: updatedDescription });
+    if (updated) {
+      toast.success("Observação adicionada à descrição da tarefa!");
+      setCurrentTask(updated); // Update local state with new description
+      setObservationInput("");
+    } else {
+      toast.error("Falha ao adicionar observação.");
+    }
+  }, [currentTask, observationInput, updateTask]);
 
   const handleDelegateTask = useCallback(async () => {
     if (!currentTask || !delegateName.trim()) {
@@ -445,6 +467,29 @@ const Seiso = () => {
               </div>
               <Button onClick={handleSaveObjectiveAndNextStep} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || isProcessed}>
                 <Save className="h-4 w-4" /> Salvar Objetivo e Próximo Passo
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="p-6 mt-6">
+            <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-indigo-600" /> Adicionar Observação
+            </CardTitle>
+            <CardContent className="grid gap-4">
+              <div>
+                <Label htmlFor="seiso-observation-input">Sua Observação</Label>
+                <Textarea
+                  id="seiso-observation-input"
+                  value={observationInput}
+                  onChange={(e) => setObservationInput(e.target.value)}
+                  placeholder="Adicione uma nota rápida à descrição da tarefa..."
+                  rows={3}
+                  className="mt-1"
+                  disabled={isLoadingTodoist || isProcessed}
+                />
+              </div>
+              <Button onClick={handleSaveObservation} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || isProcessed || !observationInput.trim()}>
+                <Save className="h-4 w-4" /> Adicionar Observação
               </Button>
             </CardContent>
           </Card>

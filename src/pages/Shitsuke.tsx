@@ -334,6 +334,19 @@ const Shitsuke = () => {
     await handleToggleLabel(taskId, currentLabels, CRONOGRAMA_HOJE_LABEL);
   }, [handleToggleLabel]);
 
+  const handleUpdateTaskDescription = useCallback(async (taskId: string, newDescription: string) => {
+    const updated = await updateTask(taskId, { description: newDescription });
+    if (updated) {
+      setTasksToReview(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, description: updated.description } : task
+        )
+      );
+      toast.success("Descrição da tarefa atualizada!");
+    } else {
+      toast.error("Falha ao atualizar a descrição da tarefa.");
+    }
+  }, [tasksToReview, updateTask]);
 
   const currentTask = tasksToReview[currentTaskIndex];
 
@@ -381,6 +394,7 @@ const Shitsuke = () => {
               onUpdateFieldDeadline={handleUpdateFieldDeadline}
               onReschedule={handleRescheduleTask}
               onUpdateDuration={handleUpdateDuration}
+              onUpdateTaskDescription={handleUpdateTaskDescription} // Passar a nova prop
               onToggleFoco={handleToggleFoco} // Passar a nova prop
               onToggleRapida={handleToggleRapida} // Passar a nova prop
               onToggleCronograma={handleToggleCronograma} // Passar a nova prop

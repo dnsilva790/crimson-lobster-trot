@@ -7,12 +7,13 @@ import { TodoistTask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format, setHours, setMinutes, parseISO, isValid, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw, Tag } from "lucide-react";
+import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw, Tag, MessageSquare } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea"; // Importar Textarea
 import {
   FOCO_LABEL_ID,
   RAPIDA_LABEL_ID,
@@ -30,9 +31,10 @@ interface TaskReviewCardProps {
   onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
   onReschedule: (taskId: string) => Promise<void>;
   onUpdateDuration: (taskId: string, duration: number | null) => Promise<void>;
-  onToggleFoco: (taskId: string, currentLabels: string[]) => Promise<void>; // Nova prop
-  onToggleRapida: (taskId: string, currentLabels: string[]) => Promise<void>; // Nova prop
-  onToggleCronograma: (taskId: string, currentLabels: string[]) => Promise<void>; // Nova prop
+  onUpdateTaskDescription: (taskId: string, newDescription: string) => Promise<void>; // Nova prop
+  onToggleFoco: (taskId: string, currentLabels: string[]) => Promise<void>;
+  onToggleRapida: (taskId: string, currentLabels: string[]) => Promise<void>;
+  onToggleCronograma: (taskId: string, currentLabels: string[]) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -61,9 +63,10 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   onUpdateFieldDeadline,
   onReschedule,
   onUpdateDuration,
-  onToggleFoco, // Nova prop
-  onToggleRapida, // Nova prop
-  onToggleCronograma, // Nova prop
+  onUpdateTaskDescription, // Nova prop
+  onToggleFoco,
+  onToggleRapida,
+  onToggleCronograma,
   isLoading,
 }) => {
   console.log(`TaskReviewCard: Rendering task ${task.id} (${task.content})`, task);
@@ -81,6 +84,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       ? String(task.estimatedDurationMinutes)
       : ""
   );
+  const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
 
   const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -210,6 +214,21 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       }
     }, 500);
   }, [onUpdateDuration, task.id]);
+
+  const handleSaveObservation = useCallback(async () => {
+    if (!observationInput.trim()) {
+      toast.error("A observação não pode estar vazia.");
+      return;
+    }
+
+    const timestamp = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    const newObservation = `\n\n[${timestamp}] - ${observationInput.trim()}`;
+    const updatedDescription = (task.description || "") + newObservation;
+
+    await onUpdateTaskDescription(task.id, updatedDescription);
+    setObservationInput("");
+    toast.success("Observação adicionada à descrição da tarefa!");
+  }, [observationInput, task.id, task.description, onUpdateTaskDescription]);
 
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
@@ -404,6 +423,22 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           className="mt-1"
           disabled={isLoading}
         />
+      </div>
+
+      <div className="mt-6">
+        <Label htmlFor="task-observation" className="text-gray-700">Adicionar Observação</Label>
+        <Textarea
+          id="task-observation"
+          value={observationInput}
+          onChange={(e) => setObservationInput(e.target.value)}
+          placeholder="Adicione uma nota rápida à descrição da tarefa..."
+          rows={3}
+          className="mt-1"
+          disabled={isLoading}
+        />
+        <Button onClick={handleSaveObservation} className="w-full mt-2 flex items-center gap-2" disabled={isLoading || !observationInput.trim()}>
+          <MessageSquare className="mr-2 h-4 w-4" /> Adicionar Observação
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">

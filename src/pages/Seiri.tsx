@@ -254,6 +254,19 @@ const Seiri = () => {
     }
   }, [updateTask, handleNextTask]);
 
+  const handleUpdateTaskDescription = useCallback(async (taskId: string, newDescription: string) => {
+    const updated = await updateTask(taskId, { description: newDescription });
+    if (updated) {
+      setTasksToReview(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, description: updated.description } : task
+        )
+      );
+      toast.success("Descrição da tarefa atualizada!");
+    } else {
+      toast.error("Falha ao atualizar a descrição da tarefa.");
+    }
+  }, [tasksToReview, updateTask]);
 
   const handleClearFilter = useCallback(() => {
     setFilterInput("");
@@ -325,7 +338,12 @@ const Seiri = () => {
             onUpdateDeadline={handleUpdateDeadline}
             onUpdateFieldDeadline={handleUpdateFieldDeadline} // Adicionado
             onPostpone={handlePostpone}
+            onReschedule={handlePostpone} // Usando handlePostpone para reprogramar
             onUpdateDuration={handleUpdateDuration}
+            onUpdateTaskDescription={handleUpdateTaskDescription} // Passando a nova prop
+            onToggleFoco={() => {}} // Placeholder
+            onToggleRapida={() => {}} // Placeholder
+            onToggleCronograma={() => {}} // Placeholder
             isLoading={isLoading}
           />
         </div>

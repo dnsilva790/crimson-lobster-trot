@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ListTodo, Edit, Save, XCircle, Clock } from "lucide-react";
+import { CalendarIcon, ListTodo, Edit, Save, XCircle, Clock, MessageSquare } from "lucide-react"; // Importar MessageSquare
 import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn, getTaskCategory } from "@/lib/utils";
@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area"; // Importar ScrollArea
+import { Textarea } from "@/components/ui/textarea"; // Importar Textarea
 
 const AGENDA_FILTER = `(#📅 Reuniões|@📆 Cronograma de hoje) & (p1|p2|p3|p4) & due before: in 168 hour & !@⚡ Rápida`;
 const DEFAULT_TASK_DURATION_MINUTES = 30; // Duração padrão para tarefas sem duração definida
@@ -40,6 +41,7 @@ const Agenda = () => {
   const [editedPriority, setEditedPriority] = useState<1 | 2 | 3 | 4>(1);
   const [editedDuration, setEditedDuration] = useState<string>("30");
   const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined);
+  const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
 
   const loadAgendaTasks = useCallback(async () => {
     setIsLoadingAgenda(true);
@@ -132,6 +134,7 @@ const Agenda = () => {
     } else {
       setEditedDeadline(undefined);
     }
+    setObservationInput(""); // Limpar o campo de observação ao abrir o popover
     console.log("DEBUG: handleOpenEditPopover - editedDuration:", String(task.estimatedDurationMinutes || DEFAULT_TASK_DURATION_MINUTES));
     setIsEditPopoverOpen(true);
   }, [selectedDate]);
@@ -151,6 +154,7 @@ const Agenda = () => {
       duration?: number;
       duration_unit?: "minute" | "day";
       deadline?: string | null;
+      description?: string; // Adicionado para a descrição
     } = {};
     let changed = false;
 
@@ -217,6 +221,14 @@ const Agenda = () => {
       changed = true;
     }
 
+    // Handle Observation
+    if (observationInput.trim()) {
+      const timestamp = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
+      const newObservation = `\n\n[${timestamp}] - ${observationInput.trim()}`;
+      updateData.description = (originalTodoistTask.description || "") + newObservation;
+      changed = true;
+    }
+
     if (changed) {
       await updateTask(originalTodoistTask.id, updateData);
       toast.success("Tarefa agendada atualizada no Todoist!");
@@ -226,7 +238,8 @@ const Agenda = () => {
     }
     setIsEditPopoverOpen(false);
     setEditingScheduledTask(null);
-  }, [editingScheduledTask, editedDueDate, editedDueTime, editedPriority, editedDuration, editedDeadline, updateTask, loadAgendaTasks, selectedDate]);
+    setObservationInput(""); // Limpar o campo de observação após salvar
+  }, [editingScheduledTask, editedDueDate, editedDueTime, editedPriority, editedDuration, editedDeadline, observationInput, updateTask, loadAgendaTasks, selectedDate]);
 
   const isLoadingCombined = isLoadingTodoist || isLoadingAgenda;
 
@@ -286,7 +299,7 @@ const Agenda = () => {
           <Button variant="ghost" className="hidden"></Button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-4">
-          <ScrollArea className="h-[400px] pr-4"> {/* Adicionado ScrollArea aqui */}
+          <ScrollArea className="h-[500px] pr-4"> {/* Aumentado a altura para acomodar a observação */}
             <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
               <Edit className="h-5 w-5" /> Editar Tarefa
             </h4>
@@ -351,6 +364,17 @@ const Agenda = () => {
                     onChange={(e) => setEditedDuration(e.target.value)}
                     min="1"
                     placeholder="Ex: 30"
+                    className="mt-1"
+                  />
+                </div>
+                <div className="mt-2">
+                  <Label htmlFor="agenda-observation-input">Adicionar Observação</Label>
+                  <Textarea
+                    id="agenda-observation-input"
+                    value={observationInput}
+                    onChange={(e) => setObservationInput(e.target.value)}
+                    placeholder="Adicione uma nota rápida à descrição da tarefa..."
+                    rows={3}
                     className="mt-1"
                   />
                 </div>
