@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, ListTodo, Edit, Save, XCircle, Clock, MessageSquare, ExternalLink, Filter } from "lucide-react";
-import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes } from "date-fns";
+import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { useTodoist } from "@/context/TodoistContext";
@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
-const DEFAULT_AGENDA_FILTER = `(#📅 Reuniões|@📆 Cronograma de hoje) & (p1|p2|p3|p4) & due before: in 168 hour & !@⚡ Rápida`;
+const DEFAULT_AGENDA_FILTER = `(#📅 Reuniões | @📆 Cronograma de hoje) & (p1|p2|p3|p4) & due before: in 168 hour & !@⚡ Rápida`;
 const AGENDA_FILTER_INPUT_STORAGE_KEY = "agenda_filter_input";
 const DEFAULT_TASK_DURATION_MINUTES = 30;
 
@@ -62,10 +62,11 @@ const Agenda = () => {
     try {
       const filterToUse = agendaFilterInput.trim() || undefined;
       const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
+      const now = new Date(); // Data atual para verificar atrasos
       
-      console.log("Agenda: Filter sent to Todoist API:", filterToUse); // Log do filtro enviado
+      console.log("Agenda: Filter sent to Todoist API:", filterToUse, "for date:", selectedDateKey);
       const fetchedTodoistTasks = await fetchTasks(filterToUse, { includeSubtasks: false, includeRecurring: false });
-      console.log(`Agenda: Fetched ${fetchedTodoistTasks.length} tasks from Todoist API. Details:`, fetchedTodoistTasks); // Log das tarefas brutas
+      console.log(`Agenda: Fetched ${fetchedTodoistTasks.length} tasks from Todoist API. Details:`, fetchedTodoistTasks);
       
       const tasksForSelectedDay: ScheduledTask[] = [];
 
@@ -80,7 +81,12 @@ const Agenda = () => {
           effectiveDueDate = startOfDay(taskDueDate);
         }
 
-        if (effectiveDueDate && format(effectiveDueDate, "yyyy-MM-dd") === selectedDateKey) {
+        // Lógica de filtro atualizada:
+        // Incluir se a tarefa vence no dia selecionado OU se a tarefa está atrasada (em relação à data atual)
+        const isDueOnSelectedDay = effectiveDueDate && format(effectiveDueDate, "yyyy-MM-dd") === selectedDateKey;
+        const isOverdue = effectiveDueDate && isPast(effectiveDueDate) && !isToday(effectiveDueDate);
+
+        if (isDueOnSelectedDay || isOverdue) {
           const startTime = taskDueDateTime && isValid(taskDueDateTime) ? format(taskDueDateTime, "HH:mm") : "00:00";
           const durationMinutes = task.duration?.amount && task.duration.unit === "minute"
             ? task.duration.amount
@@ -106,6 +112,8 @@ const Agenda = () => {
           console.log(`  - Effective Due Date (startOfDay): ${effectiveDueDate ? format(effectiveDueDate, "yyyy-MM-dd") : 'N/A'}`);
           console.log(`  - Selected Date Key: ${selectedDateKey}`);
           console.log(`  - Labels: ${task.labels.join(', ')}`);
+          console.log(`  - Is Due On Selected Day: ${isDueOnSelectedDay}`);
+          console.log(`  - Is Overdue (relative to ${format(now, "yyyy-MM-dd")}): ${isOverdue}`);
         }
       });
 
@@ -394,8 +402,8 @@ const Agenda = () => {
             daySchedule={agendaSchedule}
             onSelectTask={handleOpenEditPopover}
             onCompleteTask={handleCompleteScheduledTask}
-            onDropTask={handleDropTask} // Passar a nova função de drop
-            currentDate={selectedDate} // Passar a data atual para o TimeSlotPlanner
+            onDropTask={handleDropTask}
+            currentDate={selectedDate}
           />
         )}
 
