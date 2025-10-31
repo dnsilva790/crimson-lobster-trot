@@ -6,13 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { format, parseISO, setHours, setMinutes, addMinutes, isWithinInterval, parse, isBefore, isAfter, isEqual, addDays, isToday, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink } from "lucide-react"; // Importar o ícone ExternalLink
+import { ExternalLink, CheckCircle } from "lucide-react"; // Importar o ícone ExternalLink e CheckCircle
 import { Button } from "@/components/ui/button"; // Importar Button para o ícone
 
 interface TimeSlotPlannerProps {
   daySchedule: DaySchedule;
   onSelectSlot?: (time: string, type: TimeBlockType) => void;
   onSelectTask?: (task: ScheduledTask) => void;
+  onCompleteTask?: (taskId: string) => Promise<void>; // Nova prop
   suggestedSlotStart?: string | null;
   suggestedSlotEnd?: string | null;
 }
@@ -21,6 +22,7 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
   daySchedule,
   onSelectSlot,
   onSelectTask,
+  onCompleteTask, // Nova prop
   suggestedSlotStart,
   suggestedSlotEnd,
 }) => {
@@ -271,17 +273,28 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                     P{task.priority}
                 </span>
                 {task.originalTask && 'url' in task.originalTask && task.originalTask.url && (
-                  <a 
-                    href={task.originalTask.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    onClick={(e) => e.stopPropagation()} // Previne que o clique no link acione o onSelectTask do pai
-                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity" // Visível no hover
-                  >
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-indigo-600 hover:bg-indigo-200">
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </a>
+                  <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {onCompleteTask && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={(e) => { e.stopPropagation(); onCompleteTask(task.taskId); }} 
+                        className="h-6 w-6 text-green-600 hover:bg-green-200"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <a 
+                      href={task.originalTask.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      onClick={(e) => e.stopPropagation()} // Previne que o clique no link acione o onSelectTask do pai
+                    >
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-indigo-600 hover:bg-indigo-200">
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </a>
+                  </div>
                 )}
             </div>
           ))}

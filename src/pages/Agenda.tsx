@@ -24,7 +24,7 @@ const AGENDA_FILTER = `(#📅 Reuniões|@📆 Cronograma de hoje) & (p1|p2|p3|p4
 const DEFAULT_TASK_DURATION_MINUTES = 30; // Duração padrão para tarefas sem duração definida
 
 const Agenda = () => {
-  const { fetchTasks, updateTask, isLoading: isLoadingTodoist } = useTodoist();
+  const { fetchTasks, updateTask, closeTask, isLoading: isLoadingTodoist } = useTodoist(); // Adicionado closeTask
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [agendaSchedule, setAgendaSchedule] = useState<DaySchedule>({
     date: format(selectedDate, "yyyy-MM-dd"),
@@ -241,6 +241,14 @@ const Agenda = () => {
     setObservationInput(""); // Limpar o campo de observação após salvar
   }, [editingScheduledTask, editedDueDate, editedDueTime, editedPriority, editedDuration, editedDeadline, observationInput, updateTask, loadAgendaTasks, selectedDate]);
 
+  const handleCompleteScheduledTask = useCallback(async (taskId: string) => {
+    const success = await closeTask(taskId);
+    if (success !== undefined) {
+      toast.success("Tarefa concluída com sucesso!");
+      loadAgendaTasks(); // Recarregar a agenda para remover a tarefa concluída
+    }
+  }, [closeTask, loadAgendaTasks]);
+
   const isLoadingCombined = isLoadingTodoist || isLoadingAgenda;
 
   return (
@@ -289,6 +297,7 @@ const Agenda = () => {
         <TimeSlotPlanner
           daySchedule={agendaSchedule}
           onSelectTask={handleOpenEditPopover} // Passar o handler para abrir o popover de edição
+          onCompleteTask={handleCompleteScheduledTask} // Passar a nova função
         />
       )}
 
