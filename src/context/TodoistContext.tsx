@@ -204,8 +204,8 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
         return !(task.due?.is_recurring === true && task.due?.string?.toLowerCase().includes("every hour"));
       });
 
-      const tasksWithDuration = filteredHourlyRecurring.map(task => {
-        let estimatedDurationMinutes: number | undefined = undefined; // Alterado para undefined por padrão
+      let processedTasks = filteredHourlyRecurring.map(task => {
+        let estimatedDurationMinutes: number | undefined = undefined;
         if (task.duration) {
           if (task.duration.unit === "minute") {
             estimatedDurationMinutes = task.duration.amount;
@@ -213,16 +213,14 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
             estimatedDurationMinutes = task.duration.amount * 8 * 60; // Assuming 8 hours per day
           }
         }
-        // Se não houver duração na API, estimatedDurationMinutes permanece undefined
         return { ...task, estimatedDurationMinutes };
       });
-
-      let processedTasks = tasksWithDuration;
 
       if (!finalOptions.includeSubtasks) {
         processedTasks = processedTasks.filter(task => task.parent_id === null);
       }
       
+      // Only filter out recurring tasks if includeRecurring is explicitly false
       if (!finalOptions.includeRecurring) {
         processedTasks = processedTasks.filter(task => task.due?.is_recurring !== true);
       }

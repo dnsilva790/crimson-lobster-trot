@@ -65,7 +65,8 @@ const Agenda = () => {
       const now = new Date(); // Data atual para verificar atrasos
       
       console.log("Agenda: Filter sent to Todoist API:", filterToUse, "for date:", selectedDateKey);
-      const fetchedTodoistTasks = await fetchTasks(filterToUse, { includeSubtasks: false, includeRecurring: false });
+      // Alterado para incluir tarefas recorrentes
+      const fetchedTodoistTasks = await fetchTasks(filterToUse, { includeSubtasks: false, includeRecurring: true });
       console.log(`Agenda: Fetched ${fetchedTodoistTasks.length} tasks from Todoist API. Details:`, fetchedTodoistTasks);
       
       const tasksForSelectedDay: ScheduledTask[] = [];
