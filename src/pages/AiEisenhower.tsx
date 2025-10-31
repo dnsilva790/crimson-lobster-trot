@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,9 @@ import SetupScreen from "@/components/eisenhower/SetupScreen"; // Reutilizando o
 import ResultsScreen from "@/components/eisenhower/ResultsScreen"; // Reutilizando ResultsScreen
 import EisenhowerMatrixView from "@/components/eisenhower/EisenhowerMatrixView"; // Reutilizando EisenhowerMatrixView
 import { Progress } from "@/components/ui/progress"; // Importar o componente Progress
+
+// Importar o Web Worker
+import AiEisenhowerWorker from "@/workers/aiEisenhowerWorker?worker";
 
 type AiEisenhowerView = "setup" | "processing" | "results" | "matrix" | "dashboard"; // Adicionado 'processing'
 
@@ -36,6 +39,9 @@ const AiEisenhower = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false); // Novo estado para o loading da IA
   const [processedTasksCount, setProcessedTasksCount] = useState(0); // Contador de tarefas processadas
+
+  // Referência para o Web Worker
+  const workerRef = useRef<Worker | null>(null);
 
   // Filtros de carregamento
   const [filterInput, setFilterInput] = useState<string>(() => {
@@ -99,6 +105,52 @@ const AiEisenhower = () => {
       localStorage.setItem(AI_EISENHOWER_STORAGE_KEY, JSON.stringify({ tasksToProcess, currentView, processedTasksCount }));
     }
   }, [tasksToProcess, currentView, processedTasksCount]);
+
+  // Efeito para gerenciar o Web Worker
+  useEffect(() => {
+    if (isAiProcessing && !workerRef.current) {
+      workerRef.current = new AiEisenhowerWorker();
+      workerRef.current.onmessage = (event: MessageEvent) => {
+        const { type, processedCount, totalCount, updatedTasks, error } = event.data;
+        if (type === 'progress') {
+          setProcessedTasksCount(processedCount);
+          setTasksToProcess(updatedTasks); // Atualiza as tarefas no estado principal
+        } else if (type === 'complete') {
+          const categorizedTasks = handleCategorizeTasks(updatedTasks);
+          setTasksToProcess(categorizedTasks);
+          setIsAiProcessing(false);
+          setCurrentView("results");
+          toast.success("Todas as tarefas foram avaliadas pela IA!");
+          workerRef.current?.terminate();
+          workerRef.current = null;
+        } else if (type === 'error') {
+          console.error("Worker error:", error);
+          toast.error(`Erro no processamento da IA: ${error}`);
+          setIsAiProcessing(false);
+          setCurrentView("setup");
+          workerRef.current?.terminate();
+          workerRef.current = null;
+        }
+      };
+      workerRef.current.onerror = (error) => {
+        console.error("Worker encountered an error:", error);
+        toast.error("Um erro inesperado ocorreu no Web Worker.");
+        setIsAiProcessing(false);
+        setCurrentView("setup");
+        workerRef.current?.terminate();
+        workerRef.current = null;
+      };
+    }
+
+    // Terminar o worker quando o componente desmontar ou o processamento for concluído/cancelado
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+    };
+  }, [isAiProcessing, handleCategorizeTasks]);
+
 
   const sortEisenhowerTasks = useCallback((tasks: EisenhowerTask[]): EisenhowerTask[] => {
     return [...tasks].sort((a, b) => {
@@ -182,58 +234,23 @@ const AiEisenhower = () => {
     });
   }, [getDynamicDomainAndThreshold]);
 
-  const processTasksWithAI = useCallback(async (tasks: EisenhowerTask[]) => {
+  const startAiProcessing = useCallback(async (tasks: EisenhowerTask[]) => {
     setIsAiProcessing(true);
     setCurrentView("processing");
     setProcessedTasksCount(0);
-    let updatedTasks = [...tasks];
 
-    for (let i = 0; i < updatedTasks.length; i++) {
-      const task = updatedTasks[i];
-      try {
-        const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            eisenhowerRatingRequest: true,
-            currentTask: task,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Erro na função Edge: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        const aiSuggestion = data.response;
-
-        if (aiSuggestion && typeof aiSuggestion.urgency === 'number' && typeof aiSuggestion.importance === 'number') {
-          updatedTasks[i] = {
-            ...task,
-            urgency: Math.max(0, Math.min(100, Math.round(aiSuggestion.urgency))),
-            importance: Math.max(0, Math.min(100, Math.round(aiSuggestion.importance))),
-          };
-        } else {
-          console.warn(`AI did not return valid suggestions for task ${task.id}. Skipping.`);
-        }
-      } catch (error) {
-        console.error(`Error processing task ${task.id} with AI:`, error);
-        toast.error(`Falha ao avaliar tarefa "${task.content}" com IA.`);
-      }
-      setProcessedTasksCount(i + 1);
-      // Add a small delay to avoid hitting rate limits and show progress
-      await new Promise(resolve => setTimeout(resolve, 200));
+    if (workerRef.current) {
+      workerRef.current.postMessage({
+        type: 'start',
+        tasks: tasks,
+        geminiChatFunctionUrl: GEMINI_CHAT_FUNCTION_URL,
+      });
+    } else {
+      toast.error("Web Worker não inicializado. Tente novamente.");
+      setIsAiProcessing(false);
+      setCurrentView("setup");
     }
-
-    const categorizedTasks = handleCategorizeTasks(updatedTasks);
-    setTasksToProcess(categorizedTasks);
-    setIsAiProcessing(false);
-    setCurrentView("results");
-    toast.success("Todas as tarefas foram avaliadas pela IA!");
-  }, [handleCategorizeTasks]);
+  }, []);
 
   const handleLoadTasks = useCallback(async (filter: string) => {
     setIsLoading(true);
@@ -251,7 +268,7 @@ const AiEisenhower = () => {
       
       setTasksToProcess(sortedTasks);
       if (sortedTasks.length > 0) {
-        await processTasksWithAI(sortedTasks); // Inicia o processamento automático
+        await startAiProcessing(sortedTasks); // Inicia o processamento automático no worker
       } else {
         setCurrentView("results"); // Se não houver tarefas, vai direto para resultados vazios
         toast.info("Nenhuma tarefa encontrada para a Matriz de Eisenhower (IA).");
@@ -263,13 +280,18 @@ const AiEisenhower = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchTasks, sortEisenhowerTasks, processTasksWithAI]);
+  }, [fetchTasks, sortEisenhowerTasks, startAiProcessing]);
 
   const handleReset = useCallback(() => {
     setTasksToProcess([]);
     setCurrentView("setup");
     setProcessedTasksCount(0);
     localStorage.removeItem(AI_EISENHOWER_STORAGE_KEY);
+    if (workerRef.current) {
+      workerRef.current.terminate();
+      workerRef.current = null;
+    }
+    setIsAiProcessing(false);
     toast.info("Matriz de Eisenhower (IA) resetada.");
   }, []);
 
@@ -333,6 +355,14 @@ const AiEisenhower = () => {
             </p>
             <Progress value={(processedTasksCount / tasksToProcess.length) * 100} className="w-full max-w-md mx-auto h-3" />
             <LoadingSpinner size={40} className="mt-8" />
+            <Button 
+              onClick={handleReset} 
+              variant="destructive" 
+              className="mt-8 flex items-center gap-2 mx-auto"
+              disabled={!isAiProcessing} // Desabilita se não estiver processando
+            >
+              <XCircle className="h-4 w-4" /> Cancelar e Resetar
+            </Button>
           </div>
         );
       case "results":
