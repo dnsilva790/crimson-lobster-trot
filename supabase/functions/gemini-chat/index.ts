@@ -9,7 +9,7 @@ serve(async (req) => {
   }
 
   try {
-    const { aiPrompt, userMessage, currentTask, allTasks, chatHistory } = await req.json(); // Receive chatHistory
+    const { aiPrompt, userMessage, currentTask, allTasks, chatHistory, eisenhowerRatingRequest } = await req.json(); // Receive new eisenhowerRatingRequest
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     if (!GEMINI_API_KEY) {
@@ -51,52 +51,96 @@ serve(async (req) => {
     const safeCurrentTask = currentTask || {};
     const safeAllTasks = allTasks || [];
 
-    // The chatHistory from the client already includes the latest user message.
-    // We need to map it to Gemini's expected format and ensure text is always a string.
-    const formattedChatHistoryForGemini = chatHistory.map((msg: any) => ({
-      role: msg.sender === 'user' ? 'user' : 'model', // Ensure role is 'user' or 'model'
-      parts: [{ text: msg.text || '' }], // Ensure text is always a string
-    }));
+    if (eisenhowerRatingRequest && safeCurrentTask.id) {
+      // Special mode for Eisenhower rating
+      const eisenhowerPrompt = `
+        Você é um especialista em produtividade e na Matriz de Eisenhower. Sua tarefa é avaliar a seguinte tarefa e atribuir pontuações de Urgência e Importância de 0 a 100.
 
-    // Construct fullPrompt with safe string interpolations
-    const fullPromptContent = `
-      ${safeAiPrompt}
+        **Definições:**
+        *   **Urgência (0-100)**: Quão sensível ao tempo é a tarefa? Precisa ser feita imediatamente ou há um prazo muito próximo? (0 = Nenhuma urgência, 100 = Urgência máxima, precisa ser feito agora).
+        *   **Importância (0-100)**: Quão significativa é a tarefa para os objetivos de longo prazo, missão pessoal/profissional ou impacto geral? (0 = Nenhuma importância, 100 = Extremamente importante, alto impacto).
 
-      --- CONTEXTO ATUAL ---
-      ${safeCurrentTask.id ? `Tarefa em Foco:
-      ID: ${safeCurrentTask.id}
-      Conteúdo: ${safeCurrentTask.content || 'N/A'}
-      Descrição: ${safeCurrentTask.description || 'N/A'}
-      Prioridade: P${safeCurrentTask.priority || 'N/A'}
-      Vencimento: ${safeCurrentTask.due?.datetime || safeCurrentTask.due?.date || 'N/A'}
-      Deadline: ${safeCurrentTask.deadline || 'N/A'}
-      Etiquetas: ${(safeCurrentTask.labels || []).join(', ') || 'N/A'}
-      URL: ${safeCurrentTask.url || 'N/A'}
-      ` : 'Nenhuma tarefa específica em foco.'}
+        **Tarefa a ser avaliada:**
+        ID: ${safeCurrentTask.id}
+        Conteúdo: ${safeCurrentTask.content || 'N/A'}
+        Descrição: ${safeCurrentTask.description || 'N/A'}
+        Prioridade Todoist: P${safeCurrentTask.priority || 'N/A'}
+        Vencimento: ${safeCurrentTask.due?.datetime || safeCurrentTask.due?.date || 'N/A'}
+        Deadline: ${safeCurrentTask.deadline || 'N/A'}
+        Etiquetas: ${(safeCurrentTask.labels || []).join(', ') || 'N/A'}
 
-      ${safeAllTasks.length > 0 ? `Todas as Tarefas (para Radar de Produtividade, se aplicável):
-      ${safeAllTasks.map((task: any) => `- [P${task.priority || 'N/A'}] ${task.content || 'N/A'} (ID: ${task.id || 'N/A'}, Venc: ${task.due?.datetime || task.due?.date || 'N/A'}, Deadline: ${task.deadline || 'N/A'}, Labels: ${(task.labels || []).join(', ') || 'N/A'})`).join('\n')}
-      ` : 'Nenhuma outra tarefa disponível para contexto.'}
+        Por favor, retorne um objeto JSON com as pontuações de urgência e importância, e um breve raciocínio.
+        Exemplo de formato de saída:
+        {
+          "urgency": 85,
+          "importance": 90,
+          "reasoning": "Esta tarefa é urgente devido ao prazo iminente e importante por seu impacto direto nos objetivos do projeto X."
+        }
+      `;
 
-      --- CONVERSA ---
-      (O histórico de conversas abaixo é fornecido para contexto. A última mensagem é a do usuário atual.)
-    `;
+      const result = await model.generateContent({ contents: [{ role: "user", parts: [{ text: eisenhowerPrompt }] }] });
+      const response = await result.response;
+      const text = response.text();
 
-    // The first message to Gemini should set the context/system instruction.
-    // Then, the actual chat history follows.
-    const contents = [
-      { role: "user", parts: [{ text: fullPromptContent }] }, // This is the initial context-setting message
-      ...formattedChatHistoryForGemini, // This includes the user's latest message
-    ];
+      // Attempt to parse JSON, handle cases where AI might not return perfect JSON
+      try {
+        const jsonResponse = JSON.parse(text);
+        return new Response(JSON.stringify({ response: jsonResponse }), {
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          status: 200,
+        });
+      } catch (jsonError) {
+        console.error('Error parsing AI JSON response:', jsonError);
+        return new Response(JSON.stringify({ error: "AI returned malformed JSON. Raw response: " + text }), {
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          status: 500,
+        });
+      }
 
-    const result = await model.generateContent({ contents });
-    const response = await result.response;
-    const text = response.text();
+    } else {
+      // Original chat mode
+      const formattedChatHistoryForGemini = chatHistory.map((msg: any) => ({
+        role: msg.sender === 'user' ? 'user' : 'model', // Ensure role is 'user' or 'model'
+        parts: [{ text: msg.text || '' }], // Ensure text is always a string
+      }));
 
-    return new Response(JSON.stringify({ response: text }), {
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      status: 200,
-    });
+      const fullPromptContent = `
+        ${safeAiPrompt}
+
+        --- CONTEXTO ATUAL ---
+        ${safeCurrentTask.id ? `Tarefa em Foco:
+        ID: ${safeCurrentTask.id}
+        Conteúdo: ${safeCurrentTask.content || 'N/A'}
+        Descrição: ${safeCurrentTask.description || 'N/A'}
+        Prioridade: P${safeCurrentTask.priority || 'N/A'}
+        Vencimento: ${safeCurrentTask.due?.datetime || safeCurrentTask.due?.date || 'N/A'}
+        Deadline: ${safeCurrentTask.deadline || 'N/A'}
+        Etiquetas: ${(safeCurrentTask.labels || []).join(', ') || 'N/A'}
+        URL: ${safeCurrentTask.url || 'N/A'}
+        ` : 'Nenhuma tarefa específica em foco.'}
+
+        ${safeAllTasks.length > 0 ? `Todas as Tarefas (para Radar de Produtividade, se aplicável):
+        ${safeAllTasks.map((task: any) => `- [P${task.priority || 'N/A'}] ${task.content || 'N/A'} (ID: ${task.id || 'N/A'}, Venc: ${task.due?.datetime || task.due?.date || 'N/A'}, Deadline: ${task.deadline || 'N/A'}, Labels: ${(task.labels || []).join(', ') || 'N/A'})`).join('\n')}
+        ` : 'Nenhuma outra tarefa disponível para contexto.'}
+
+        --- CONVERSA ---
+        (O histórico de conversas abaixo é fornecido para contexto. A última mensagem é a do usuário atual.)
+      `;
+
+      const contents = [
+        { role: "user", parts: [{ text: fullPromptContent }] },
+        ...formattedChatHistoryForGemini,
+      ];
+
+      const result = await model.generateContent({ contents });
+      const response = await result.response;
+      const text = response.text();
+
+      return new Response(JSON.stringify({ response: text }), {
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        status: 200,
+      });
+    }
   } catch (error) {
     console.error('Error in Gemini Chat Edge Function:', error.message);
     return new Response(JSON.stringify({ error: error.message }), {

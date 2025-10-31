@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Scale, Check, LayoutDashboard } from "lucide-react"; // Importar LayoutDashboard
+import { ArrowLeft, ArrowRight, Scale, Check, LayoutDashboard, Lightbulb } from "lucide-react"; // Importar LayoutDashboard e Lightbulb
 import { EisenhowerTask } from "@/lib/types";
 import TaskCard from "./TaskCard";
 import { toast } from "sonner";
+import LoadingSpinner from "@/components/ui/loading-spinner"; // Importar LoadingSpinner
 
 interface RatingScreenProps {
   tasks: EisenhowerTask[];
@@ -18,6 +19,9 @@ interface RatingScreenProps {
   onViewMatrix: () => void; // Nova prop para ver a matriz antes de finalizar
   canViewMatrix: boolean; // Nova prop para controlar a visibilidade do botão "Ver Matriz"
 }
+
+// URL da função Edge do Supabase
+const GEMINI_CHAT_FUNCTION_URL = "https://nesiwmsujsulwncbmcnc.supabase.co/functions/v1/gemini-chat";
 
 const RatingScreen: React.FC<RatingScreenProps> = ({
   tasks,
@@ -30,6 +34,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [urgencyInput, setUrgencyInput] = useState<string>("50");
   const [importanceInput, setImportanceInput] = useState<string>("50");
+  const [isAiThinking, setIsAiThinking] = useState(false); // Novo estado para o loading da IA
 
   // Resetar o índice da tarefa atual sempre que a lista de tarefas mudar
   useEffect(() => {
@@ -81,6 +86,52 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
       onBack();
     }
   }, [currentTaskIndex, onBack]);
+
+  const handleSuggestWithAI = useCallback(async () => {
+    if (!currentTask) {
+      toast.error("Nenhuma tarefa selecionada para avaliação da IA.");
+      return;
+    }
+
+    setIsAiThinking(true);
+    try {
+      const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eisenhowerRatingRequest: true, // Sinaliza para a função Edge que é uma requisição de avaliação Eisenhower
+          currentTask: currentTask,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Erro na função Edge: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const aiSuggestion = data.response;
+
+      if (aiSuggestion && typeof aiSuggestion.urgency === 'number' && typeof aiSuggestion.importance === 'number') {
+        setUrgencyInput(String(Math.max(0, Math.min(100, Math.round(aiSuggestion.urgency)))));
+        setImportanceInput(String(Math.max(0, Math.min(100, Math.round(aiSuggestion.importance)))));
+        toast.success("Sugestões da IA carregadas! Revise e salve.");
+        if (aiSuggestion.reasoning) {
+          toast.info(`Razão da IA: ${aiSuggestion.reasoning}`, { duration: 5000 });
+        }
+      } else {
+        toast.error("A IA não retornou sugestões válidas de urgência e importância.");
+      }
+
+    } catch (error: any) {
+      console.error("Erro ao chamar a função Gemini Chat para Eisenhower:", error);
+      toast.error(`Erro no Assistente IA: ${error.message || "Não foi possível obter uma resposta."}`);
+    } finally {
+      setIsAiThinking(false);
+    }
+  }, [currentTask]);
 
   if (!currentTask && tasks.length === 0) {
     return (
@@ -161,6 +212,19 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
               (0 = Nada Importante, 100 = Extremamente Importante)
             </p>
           </div>
+
+          <Button
+            onClick={handleSuggestWithAI}
+            disabled={isAiThinking || !currentTask}
+            className="w-full py-3 text-lg bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-2"
+          >
+            {isAiThinking ? (
+              <LoadingSpinner size={20} className="text-white" />
+            ) : (
+              <Lightbulb className="h-5 w-5" />
+            )}
+            Sugerir com IA
+          </Button>
 
           <div className="flex justify-between gap-4 mt-4">
             <Button onClick={handlePreviousTask} variant="outline" className="flex-1 flex items-center gap-2">
