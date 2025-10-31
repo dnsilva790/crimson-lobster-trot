@@ -17,7 +17,7 @@ import {
   ClipboardCheck,
   Settings,
   Mail,
-  Lightbulb, // Importar Lightbulb para o novo módulo
+  Lightbulb,
 } from "lucide-react";
 import {
   Dialog,
@@ -47,14 +47,14 @@ const modules = [
     colorClass: "bg-orange-50 hover:bg-orange-100",
     activeColor: "border-orange-500",
   },
-  {
-    path: "/ai-eisenhower", // Novo módulo
-    icon: Lightbulb, // Ícone para o novo módulo
-    title: "EISENHOWER - IA",
-    description: "Priorização Automática",
-    colorClass: "bg-purple-50 hover:bg-purple-100",
-    activeColor: "border-purple-500",
-  },
+  // {
+  //   path: "/ai-eisenhower", // Novo módulo - REMOVIDO
+  //   icon: Lightbulb, // Ícone para o novo módulo
+  //   title: "EISENHOWER - IA",
+  //   description: "Priorização Automática",
+  //   colorClass: "bg-purple-50 hover:bg-purple-100",
+  //   activeColor: "border-purple-500",
+  // },
   {
     path: "/seiso",
     icon: ClipboardCheck,
@@ -152,6 +152,7 @@ const DEFAULT_HIDDEN_MODULES = [
   "/planejador",
   "/project-management",
   "/follow-up",
+  "/shitsuke", // Adicionado para arquivar o módulo Shitsuke
 ];
 
 const MainNavigation = () => {

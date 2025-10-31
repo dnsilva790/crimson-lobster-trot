@@ -1,6 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@radix-ui/react-tooltip"; // Corrigido para usar @radix-ui/react-tooltip
+import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
@@ -23,7 +23,7 @@ import EditProjectManagement from "./pages/EditProjectManagement";
 import FollowUp from "./pages/FollowUp";
 import Shitsuke from "./pages/Shitsuke";
 import Eisenhower from "./pages/Eisenhower";
-import AiEisenhower from "./pages/AiEisenhower"; // Importar o novo módulo
+// import AiEisenhower from "./pages/AiEisenhower"; // Importar o novo módulo - REMOVIDO
 import Seiso from "./pages/Seiso";
 import Agenda from "./pages/Agenda";
 import MassivePlanner from "./pages/MassivePlanner";
@@ -54,7 +54,7 @@ const App = () => (
               <Route path="/follow-up" element={<FollowUp />} />
               <Route path="/shitsuke" element={<Shitsuke />} />
               <Route path="/eisenhower" element={<Eisenhower />} />
-              <Route path="/ai-eisenhower" element={<AiEisenhower />} /> {/* Nova rota */}
+              {/* <Route path="/ai-eisenhower" element={<AiEisenhower />} /> REMOVIDO */}
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/massive-planner" element={<MassivePlanner />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
