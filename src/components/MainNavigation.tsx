@@ -15,8 +15,8 @@ import {
   FolderOpen,
   LayoutDashboard,
   ClipboardCheck,
-  Settings, // Importar o ícone Settings
-  Mail, // Importar o ícone Mail para o novo módulo
+  Settings,
+  Mail,
 } from "lucide-react";
 import {
   Dialog,
@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button"; // Importar o Button
+import { Button } from "@/components/ui/button";
 
 const modules = [
   {
@@ -93,6 +93,14 @@ const modules = [
     description: "Sequenciar Backlog",
     colorClass: "bg-indigo-100 hover:bg-indigo-200",
     activeColor: "border-indigo-600",
+  },
+  {
+    path: "/massive-planner", // Novo módulo
+    icon: CalendarClock, // Ícone para planejamento massivo
+    title: "SEISO - MASSIVO",
+    description: "Planejamento Automático",
+    colorClass: "bg-pink-50 hover:bg-pink-100",
+    activeColor: "border-pink-500",
   },
   {
     path: "/shitsuke",
