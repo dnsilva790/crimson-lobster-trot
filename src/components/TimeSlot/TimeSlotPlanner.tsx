@@ -105,7 +105,7 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
         scheduledTaskElements.push(
             <div
                 key={`scheduled-task-${task.id}`}
-                className="absolute left-0 right-0 flex flex-col justify-center items-center bg-opacity-80 bg-indigo-200 text-indigo-800 text-center text-[10px] font-semibold overflow-hidden cursor-pointer z-30 rounded-md"
+                className="absolute left-0 right-0 flex flex-col justify-center items-center bg-indigo-100 bg-opacity-70 text-indigo-800 text-center text-sm font-semibold overflow-hidden cursor-pointer z-30 rounded-md border border-indigo-300 p-1" // Adjusted styling
                 style={{ top: `${topPosition}px`, height: `${height}px` }}
                 onClick={(e) => { e.stopPropagation(); onSelectTask?.(task); }}
             >
@@ -113,7 +113,7 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                     {task.content}
                 </span>
                 <span className={cn(
-                    "px-1 py-0.5 rounded-full text-white text-[8px] font-bold mt-0.5",
+                    "px-1 py-0.5 rounded-full text-white text-xs font-bold mt-0.5",
                     task.priority === 4 && "bg-red-500",
                     task.priority === 3 && "bg-orange-500",
                     task.priority === 2 && "bg-yellow-500",
@@ -184,7 +184,9 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
             )}
             onClick={() => onSelectSlot?.(formattedTime, blockType)}
           >
-            <span className="font-medium text-gray-600">{formattedTime}</span>
+            <span className="font-medium text-gray-600 bg-white z-40 relative pr-2"> {/* Added bg-white z-40 relative pr-2 */}
+              {formattedTime}
+            </span>
             {blockLabel && <span className="text-gray-500 italic">{blockLabel}</span>}
           </div>
         );
