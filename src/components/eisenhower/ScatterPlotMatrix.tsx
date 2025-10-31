@@ -59,15 +59,14 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
+// A função calculateMedian agora retorna um valor fixo de 50.
 const calculateMedian = (values: number[]): number => {
-  if (values.length === 0) return 50;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  
-  if (sorted.length % 2 === 0) {
-    return (sorted[mid - 1] + sorted[mid]) / 2;
-  }
-  return sorted[mid];
+  return 50;
+};
+
+// A função getDomain agora sempre retorna [0, 100] para manter os eixos fixos.
+const getDomain = (min: number, max: number, threshold: number): [number, number] => {
+  return [0, 100];
 };
 
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
@@ -75,43 +74,17 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { urgencyDomain, importanceDomain, urgencyThreshold, importanceThreshold } = useMemo(() => {
-    if (data.length === 0) {
-      return { urgencyDomain: [0, 100], importanceDomain: [0, 100], urgencyThreshold: 50, importanceThreshold: 50 };
-    }
+    // Os thresholds agora são fixos em 50
+    const uThreshold = 50;
+    const iThreshold = 50;
 
-    const urgencyValues = data.map(d => d.urgency!).filter(v => typeof v === 'number' && !isNaN(v));
-    const importanceValues = data.map(d => d.importance!).filter(v => typeof v === 'number' && !isNaN(v));
-
-    if (urgencyValues.length === 0 || importanceValues.length === 0) {
-        return { urgencyDomain: [0, 100], importanceDomain: [0, 100], urgencyThreshold: 50, importanceThreshold: 50 };
-    }
-
-    const minU = Math.min(...urgencyValues);
-    const maxU = Math.max(...urgencyValues);
-    const minI = Math.min(...importanceValues);
-    const maxI = Math.max(...importanceValues);
-
-    const uThreshold = calculateMedian(urgencyValues);
-    const iThreshold = calculateMedian(importanceValues);
-
-    const getDomain = (min: number, max: number, threshold: number): [number, number] => {
-      let dMin = Math.max(0, min - 5);
-      let dMax = Math.min(100, max + 5);
-      
-      dMin = Math.min(dMin, threshold);
-      dMax = Math.max(dMax, threshold);
-
-      if (dMax - dMin < 10) {
-        const center = (dMin + dMax) / 2;
-        dMin = Math.max(0, center - 5);
-        dMax = Math.min(100, center + 5);
-      }
-      return [dMin, dMax];
-    };
+    // Os domínios agora são fixos em [0, 100]
+    const uDomain: [number, number] = [0, 100];
+    const iDomain: [number, number] = [0, 100];
 
     return { 
-      urgencyDomain: getDomain(minU, maxU, uThreshold), 
-      importanceDomain: getDomain(minI, maxI, iThreshold),
+      urgencyDomain: uDomain, 
+      importanceDomain: iDomain,
       urgencyThreshold: uThreshold,
       importanceThreshold: iThreshold,
     };

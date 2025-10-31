@@ -20,16 +20,16 @@ import DashboardScreen from "@/components/eisenhower/DashboardScreen";
 import AiAssistantModal from "@/components/eisenhower/AiAssistantModal";
 
 // A função calculateMedian duplicada foi removida daqui.
-const calculateMedian = (values: number[]): number => {
-  if (values.length === 0) return 50;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
+// const calculateMedian = (values: number[]): number => {
+//   if (values.length === 0) return 50;
+//   const sorted = [...values].sort((a, b) => a - b);
+//   const mid = Math.floor(sorted.length / 2);
   
-  if (sorted.length % 2 === 0) {
-    return (sorted[mid - 1] + sorted[mid]) / 2;
-  }
-  return sorted[mid];
-};
+//   if (sorted.length % 2 === 0) {
+//     return (sorted[mid - 1] + sorted[mid]) / 2;
+//   }
+//   return sorted[mid];
+// };
 
 type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
 type DisplayFilter = "all" | "overdue" | "today" | "tomorrow"; // Novo tipo para o filtro de exibição
@@ -226,16 +226,14 @@ const Eisenhower = () => {
       return;
     }
 
-    const urgencyValues = ratedTasks.map(t => t.urgency!);
-    const importanceValues = ratedTasks.map(t => t.importance!);
-
-    const urgencyThreshold = calculateMedian(urgencyValues);
-    const importanceThreshold = calculateMedian(importanceValues);
+    // Thresholds fixos em 50 para Urgência e Importância
+    const urgencyThreshold = 50;
+    const importanceThreshold = 50;
 
     setTasksToProcess(prevTasks => {
       return prevTasks.map(task => {
         if (task.urgency !== null && task.importance !== null) {
-          // Categorização baseada nos thresholds dinâmicos
+          // Categorização baseada nos thresholds fixos
           const isUrgent = task.urgency >= urgencyThreshold;
           const isImportant = task.importance >= importanceThreshold;
 
