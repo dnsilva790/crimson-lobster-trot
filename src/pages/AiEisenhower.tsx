@@ -18,10 +18,7 @@ import ResultsScreen from "@/components/eisenhower/ResultsScreen"; // Reutilizan
 import EisenhowerMatrixView from "@/components/eisenhower/EisenhowerMatrixView"; // Reutilizando EisenhowerMatrixView
 import { Progress } from "@/components/ui/progress"; // Importar o componente Progress
 
-// O Web Worker agora será importado dinamicamente, então removemos a importação estática aqui.
-// import AiEisenhowerWorker from "@/workers/aiEisenhowerWorker?worker";
-
-type AiEisenhowerView = "setup" | "processing" | "results" | "matrix" | "dashboard"; // Adicionado 'processing'
+type AiEisenhowerView = "setup" | "results" | "matrix" | "dashboard"; // Removido 'processing'
 
 const AI_EISENHOWER_STORAGE_KEY = "aiEisenhowerMatrixState";
 const AI_EISENHOWER_FILTER_INPUT_STORAGE_KEY = "ai_eisenhower_filter_input";
@@ -37,11 +34,6 @@ const AiEisenhower = () => {
   const [currentView, setCurrentView] = useState<AiEisenhowerView>("setup");
   const [tasksToProcess, setTasksToProcess] = useState<EisenhowerTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAiProcessing, setIsAiProcessing] = useState(false); // Novo estado para o loading da IA
-  const [processedTasksCount, setProcessedTasksCount] = useState(0); // Contador de tarefas processadas
-
-  // Referência para o Web Worker
-  const workerRef = useRef<Worker | null>(null);
 
   // Filtros de carregamento
   const [filterInput, setFilterInput] = useState<string>(() => {
@@ -89,7 +81,6 @@ const AiEisenhower = () => {
         const parsedState = JSON.parse(savedState);
         setTasksToProcess(parsedState.tasksToProcess || []);
         setCurrentView(parsedState.currentView || "setup");
-        setProcessedTasksCount(parsedState.processedTasksCount || 0);
         toast.info("Estado da Matriz de Eisenhower (IA) carregado.");
       } catch (e) {
         console.error("Failed to load AI Eisenhower state from localStorage", e);
@@ -102,56 +93,9 @@ const AiEisenhower = () => {
   // Salvar estado
   useEffect(() => {
     if (currentView !== "setup" || tasksToProcess.length > 0) {
-      localStorage.setItem(AI_EISENHOWER_STORAGE_KEY, JSON.stringify({ tasksToProcess, currentView, processedTasksCount }));
+      localStorage.setItem(AI_EISENHOWER_STORAGE_KEY, JSON.stringify({ tasksToProcess, currentView }));
     }
-  }, [tasksToProcess, currentView, processedTasksCount]);
-
-  // Efeito para gerenciar o Web Worker
-  useEffect(() => {
-    if (isAiProcessing && !workerRef.current) {
-      // Importação dinâmica do Web Worker
-      workerRef.current = new Worker(new URL('@/workers/aiEisenhowerWorker', import.meta.url), { type: 'module' });
-      workerRef.current.onmessage = (event: MessageEvent) => {
-        const { type, processedCount, totalCount, updatedTasks, error } = event.data;
-        if (type === 'progress') {
-          setProcessedTasksCount(processedCount);
-          setTasksToProcess(updatedTasks); // Atualiza as tarefas no estado principal
-        } else if (type === 'complete') {
-          const categorizedTasks = handleCategorizeTasks(updatedTasks);
-          setTasksToProcess(categorizedTasks);
-          setIsAiProcessing(false);
-          setCurrentView("results");
-          toast.success("Todas as tarefas foram avaliadas pela IA!");
-          workerRef.current?.terminate();
-          workerRef.current = null;
-        } else if (type === 'error') {
-          console.error("Worker error:", error);
-          toast.error(`Erro no processamento da IA: ${error}`);
-          setIsAiProcessing(false);
-          setCurrentView("setup");
-          workerRef.current?.terminate();
-          workerRef.current = null;
-        }
-      };
-      workerRef.current.onerror = (error) => {
-        console.error("Worker encountered an error:", error);
-        toast.error("Um erro inesperado ocorreu no Web Worker.");
-        setIsAiProcessing(false);
-        setCurrentView("setup");
-        workerRef.current?.terminate();
-        workerRef.current = null;
-      };
-    }
-
-    // Terminar o worker quando o componente desmontar ou o processamento for concluído/cancelado
-    return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
-    };
-  }, [isAiProcessing, handleCategorizeTasks]);
-
+  }, [tasksToProcess, currentView]);
 
   const sortEisenhowerTasks = useCallback((tasks: EisenhowerTask[]): EisenhowerTask[] => {
     return [...tasks].sort((a, b) => {
@@ -235,31 +179,13 @@ const AiEisenhower = () => {
     });
   }, [getDynamicDomainAndThreshold]);
 
-  const startAiProcessing = useCallback(async (tasks: EisenhowerTask[]) => {
-    setIsAiProcessing(true);
-    setCurrentView("processing");
-    setProcessedTasksCount(0);
-
-    if (workerRef.current) {
-      workerRef.current.postMessage({
-        type: 'start',
-        tasks: tasks,
-        geminiChatFunctionUrl: GEMINI_CHAT_FUNCTION_URL,
-      });
-    } else {
-      toast.error("Web Worker não inicializado. Tente novamente.");
-      setIsAiProcessing(false);
-      setCurrentView("setup");
-    }
-  }, []);
-
   const handleLoadTasks = useCallback(async (filter: string) => {
     setIsLoading(true);
     try {
       const fetchedTodoistTasks = await fetchTasks(filter, { includeSubtasks: false, includeRecurring: false });
       const initialEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => ({
         ...task,
-        urgency: null,
+        urgency: null, // Tasks start unrated in this module
         importance: null,
         quadrant: null,
         url: task.url,
@@ -269,9 +195,14 @@ const AiEisenhower = () => {
       
       setTasksToProcess(sortedTasks);
       if (sortedTasks.length > 0) {
-        await startAiProcessing(sortedTasks); // Inicia o processamento automático no worker
+        // In this reverted state, we don't automatically process with AI here.
+        // Tasks will be displayed unrated, or with ratings if loaded from saved state.
+        const categorizedTasks = handleCategorizeTasks(sortedTasks); // Categorize based on any existing ratings
+        setTasksToProcess(categorizedTasks);
+        setCurrentView("results"); // Go directly to results to show loaded tasks
+        toast.success(`Carregadas ${sortedTasks.length} tarefas para a Matriz de Eisenhower (IA).`);
       } else {
-        setCurrentView("results"); // Se não houver tarefas, vai direto para resultados vazios
+        setCurrentView("results"); // If no tasks, go to results to show empty state
         toast.info("Nenhuma tarefa encontrada para a Matriz de Eisenhower (IA).");
       }
     } catch (error) {
@@ -281,18 +212,12 @@ const AiEisenhower = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchTasks, sortEisenhowerTasks, startAiProcessing]);
+  }, [fetchTasks, sortEisenhowerTasks, handleCategorizeTasks]);
 
   const handleReset = useCallback(() => {
     setTasksToProcess([]);
     setCurrentView("setup");
-    setProcessedTasksCount(0);
     localStorage.removeItem(AI_EISENHOWER_STORAGE_KEY);
-    if (workerRef.current) {
-      workerRef.current.terminate();
-      workerRef.current = null;
-    }
-    setIsAiProcessing(false);
     toast.info("Matriz de Eisenhower (IA) resetada.");
   }, []);
 
@@ -345,27 +270,6 @@ const AiEisenhower = () => {
           onStatusFilterChange={setStatusFilter}
           onCategoryFilterChange={setCategoryFilter}
         />;
-      case "processing":
-        return (
-          <div className="text-center p-8">
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">
-              A IA está avaliando suas tarefas...
-            </h3>
-            <p className="text-lg text-gray-700 mb-6">
-              Processando {processedTasksCount} de {tasksToProcess.length} tarefas.
-            </p>
-            <Progress value={(processedTasksCount / tasksToProcess.length) * 100} className="w-full max-w-md mx-auto h-3" />
-            <LoadingSpinner size={40} className="mt-8" />
-            <Button 
-              onClick={handleReset} 
-              variant="destructive" 
-              className="mt-8 flex items-center gap-2 mx-auto"
-              disabled={!isAiProcessing} // Desabilita se não estiver processando
-            >
-              <XCircle className="h-4 w-4" /> Cancelar e Resetar
-            </Button>
-          </div>
-        );
       case "results":
         return (
           <ResultsScreen
@@ -384,7 +288,7 @@ const AiEisenhower = () => {
             onViewResults={() => setCurrentView("results")}
             displayFilter={displayFilter} // Passa o filtro de exibição
             onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
-            onRefreshMatrix={handleLoadTasks} // Usa handleLoadTasks para recarregar e reprocessar
+            onRefreshMatrix={handleLoadTasks} // Usa handleLoadTasks para recarregar
           />
         );
       case "dashboard":
@@ -423,7 +327,7 @@ const AiEisenhower = () => {
         <Button
           variant={currentView === "setup" ? "default" : "outline"}
           onClick={() => setCurrentView("setup")}
-          disabled={isLoading || isLoadingTodoist || isAiProcessing}
+          disabled={isLoading || isLoadingTodoist}
           className="flex items-center gap-2"
         >
           <Lightbulb className="h-4 w-4" /> Configurar
@@ -431,7 +335,7 @@ const AiEisenhower = () => {
         <Button
           variant={currentView === "results" ? "default" : "outline"}
           onClick={() => setCurrentView("results")}
-          disabled={isLoading || isLoadingTodoist || isAiProcessing || tasksToProcess.length === 0}
+          disabled={isLoading || isLoadingTodoist || tasksToProcess.length === 0}
           className="flex items-center gap-2"
         >
           <LayoutDashboard className="h-4 w-4" /> Resultados
@@ -439,7 +343,7 @@ const AiEisenhower = () => {
         <Button
           variant={currentView === "matrix" ? "default" : "outline"}
           onClick={() => setCurrentView("matrix")}
-          disabled={isLoading || isLoadingTodoist || isAiProcessing || tasksToProcess.length === 0}
+          disabled={isLoading || isLoadingTodoist || tasksToProcess.length === 0}
           className="flex items-center gap-2"
         >
           <LayoutDashboard className="h-4 w-4" /> Matriz Visual
@@ -447,7 +351,7 @@ const AiEisenhower = () => {
         <Button
           variant={currentView === "dashboard" ? "default" : "outline"}
           onClick={() => setCurrentView("dashboard")}
-          disabled={isLoading || isLoadingTodoist || isAiProcessing || tasksToProcess.length === 0}
+          disabled={isLoading || isLoadingTodoist || tasksToProcess.length === 0}
           className="flex items-center gap-2"
         >
           <LayoutDashboard className="h-4 w-4" /> Dashboard
