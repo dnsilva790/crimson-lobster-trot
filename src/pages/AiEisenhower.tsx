@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Scale, Check, Lightbulb, LayoutDashboard, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Scale, Check, Lightbulb, LayoutDashboard, RefreshCw, XCircle } from "lucide-react";
 import { EisenhowerTask, DisplayFilter } from "@/lib/types";
 import TaskCard from "@/components/eisenhower/TaskCard"; // Reutilizando o TaskCard
 import { toast } from "sonner";
@@ -18,8 +18,8 @@ import ResultsScreen from "@/components/eisenhower/ResultsScreen"; // Reutilizan
 import EisenhowerMatrixView from "@/components/eisenhower/EisenhowerMatrixView"; // Reutilizando EisenhowerMatrixView
 import { Progress } from "@/components/ui/progress"; // Importar o componente Progress
 
-// Importar o Web Worker
-import AiEisenhowerWorker from "@/workers/aiEisenhowerWorker?worker";
+// O Web Worker agora será importado dinamicamente, então removemos a importação estática aqui.
+// import AiEisenhowerWorker from "@/workers/aiEisenhowerWorker?worker";
 
 type AiEisenhowerView = "setup" | "processing" | "results" | "matrix" | "dashboard"; // Adicionado 'processing'
 
@@ -109,7 +109,8 @@ const AiEisenhower = () => {
   // Efeito para gerenciar o Web Worker
   useEffect(() => {
     if (isAiProcessing && !workerRef.current) {
-      workerRef.current = new AiEisenhowerWorker();
+      // Importação dinâmica do Web Worker
+      workerRef.current = new Worker(new URL('@/workers/aiEisenhowerWorker', import.meta.url), { type: 'module' });
       workerRef.current.onmessage = (event: MessageEvent) => {
         const { type, processedCount, totalCount, updatedTasks, error } = event.data;
         if (type === 'progress') {
