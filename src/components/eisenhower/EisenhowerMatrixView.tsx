@@ -11,9 +11,11 @@ interface EisenhowerMatrixViewProps {
   tasks: EisenhowerTask[];
   onBack: () => void;
   onViewResults: () => void;
+  displayFilter: "all" | "overdue" | "today" | "tomorrow"; // Adicionado
+  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow") => void; // Adicionado
 }
 
-const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults }) => {
+const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, displayFilter, onDisplayFilterChange }) => {
   const dataForScatterPlot = tasks
     .filter(task => task.urgency !== null && task.importance !== null)
     .map(task => ({

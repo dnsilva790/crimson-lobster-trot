@@ -8,7 +8,8 @@ import { EisenhowerTask, TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb } from "lucide-react"; // Alterado de Matrix para LayoutDashboard
-import { format, parseISO, isValid } from 'date-fns'; // Importar format, parseISO, isValid
+import { format, parseISO, isValid, isPast, isToday, isTomorrow } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isToday, isTomorrow
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
 
 // Importar os componentes do Eisenhower
 import SetupScreen from "@/components/eisenhower/SetupScreen";
@@ -31,11 +32,13 @@ const calculateMedian = (values: number[]): number => {
 };
 
 type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
+type DisplayFilter = "all" | "overdue" | "today" | "tomorrow"; // Novo tipo para o filtro de exibição
 
 const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState";
 const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input";
 const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
 const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
+const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter"; // Nova chave para o localStorage
 
 const Eisenhower = () => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
@@ -44,7 +47,7 @@ const Eisenhower = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
-  // Novos estados para os filtros
+  // Novos estados para os filtros de carregamento
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY) || "";
@@ -60,6 +63,14 @@ const Eisenhower = () => {
   const [categoryFilter, setCategoryFilter] = useState<"all" | "pessoal" | "profissional">(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all";
+    }
+    return "all";
+  });
+
+  // Novo estado para o filtro de exibição
+  const [displayFilter, setDisplayFilter] = useState<DisplayFilter>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY) as DisplayFilter) || "all";
     }
     return "all";
   });
@@ -85,6 +96,12 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY, categoryFilter);
     }
   }, [categoryFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY, displayFilter);
+    }
+  }, [displayFilter]);
 
   // Efeito para atualizar a lista de tarefas não avaliadas sempre que tasksToProcess mudar
   useEffect(() => {
@@ -256,6 +273,53 @@ const Eisenhower = () => {
   const ratedTasksCount = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null).length;
   const canViewMatrixOrResults = ratedTasksCount >= 2; // Habilitar se pelo menos 2 tarefas foram avaliadas
 
+  // Função para filtrar as tarefas com base no displayFilter
+  const getFilteredTasksForDisplay = useCallback((tasks: EisenhowerTask[], filter: DisplayFilter): EisenhowerTask[] => {
+    if (filter === "all") {
+      return tasks;
+    }
+
+    const now = new Date();
+    return tasks.filter(task => {
+      // Apenas tarefas com urgência e importância avaliadas podem ser filtradas por status
+      if (task.urgency === null || task.importance === null) {
+        return false;
+      }
+
+      let dueDate: Date | null = null;
+      if (typeof task.due?.datetime === 'string' && task.due.datetime) {
+        dueDate = parseISO(task.due.datetime);
+      } else if (typeof task.due?.date === 'string' && task.due.date) {
+        dueDate = parseISO(task.due.date);
+      }
+
+      let deadlineDate: Date | null = null;
+      if (typeof task.deadline === 'string' && task.deadline) {
+        deadlineDate = parseISO(task.deadline);
+      }
+
+      // Se não houver data de vencimento nem deadline, não se encaixa nos filtros de status
+      if (!dueDate && !deadlineDate) return false;
+
+      // Priorizar deadline para verificações de status se ambos existirem
+      const effectiveDate = deadlineDate || dueDate;
+      if (!effectiveDate || !isValid(effectiveDate)) return false;
+
+      if (filter === "overdue") {
+        return isPast(effectiveDate) && !isToday(effectiveDate);
+      }
+      if (filter === "today") {
+        return isToday(effectiveDate);
+      }
+      if (filter === "tomorrow") {
+        return isTomorrow(effectiveDate);
+      }
+      return true;
+    });
+  }, []);
+
+  const filteredTasksForDisplay = getFilteredTasksForDisplay(tasksToProcess, displayFilter);
+
   const renderContent = () => {
     if (isLoading || isLoadingTodoist) {
       return (
@@ -293,25 +357,31 @@ const Eisenhower = () => {
       case "matrix":
         return (
           <EisenhowerMatrixView
-            tasks={tasksToProcess}
+            tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
             onBack={() => setCurrentView("rating")}
             onViewResults={() => setCurrentView("results")}
+            displayFilter={displayFilter} // Passa o filtro de exibição
+            onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
           />
         );
       case "results":
         return (
           <ResultsScreen
-            tasks={tasksToProcess}
+            tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
             onBack={() => setCurrentView("matrix")}
             onViewDashboard={() => setCurrentView("dashboard")}
+            displayFilter={displayFilter} // Passa o filtro de exibição
+            onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
           />
         );
       case "dashboard":
         return (
           <DashboardScreen
-            tasks={tasksToProcess}
+            tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
             onBack={() => setCurrentView("results")}
             onReset={handleReset}
+            displayFilter={displayFilter} // Passa o filtro de exibição
+            onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
           />
         );
       default:
@@ -386,6 +456,23 @@ const Eisenhower = () => {
           <Lightbulb className="h-4 w-4" /> Assistente IA
         </Button>
       </div>
+
+      {/* Novo seletor de filtro de exibição, visível em todas as telas de visualização */}
+      {(currentView === "matrix" || currentView === "results" || currentView === "dashboard") && (
+        <div className="mb-6 max-w-md mx-auto">
+          <Select value={displayFilter} onValueChange={(value: DisplayFilter) => setDisplayFilter(value)}>
+            <SelectTrigger className="w-full mt-1">
+              <SelectValue placeholder="Filtrar por Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as Tarefas</SelectItem>
+              <SelectItem value="overdue">Apenas Atrasadas</SelectItem>
+              <SelectItem value="today">Apenas Vencem Hoje</SelectItem>
+              <SelectItem value="tomorrow">Apenas Vencem Amanhã</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <Card className="p-6">
         <CardContent className="p-0">

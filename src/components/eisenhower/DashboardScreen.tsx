@@ -11,9 +11,11 @@ interface DashboardScreenProps {
   tasks: EisenhowerTask[];
   onBack: () => void;
   onReset: () => void;
+  displayFilter: "all" | "overdue" | "today" | "tomorrow"; // Adicionado
+  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow") => void; // Adicionado
 }
 
-const DashboardScreen: React.FC<DashboardScreenProps> = ({ tasks, onBack, onReset }) => {
+const DashboardScreen: React.FC<DashboardScreenProps> = ({ tasks, onBack, onReset, displayFilter, onDisplayFilterChange }) => {
   const quadrantCounts = tasks.reduce((acc, task) => {
     if (task.quadrant) {
       acc[task.quadrant] = (acc[task.quadrant] || 0) + 1;

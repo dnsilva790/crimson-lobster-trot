@@ -12,6 +12,8 @@ interface ResultsScreenProps {
   tasks: EisenhowerTask[];
   onBack: () => void;
   onViewDashboard: () => void;
+  displayFilter: "all" | "overdue" | "today" | "tomorrow"; // Adicionado
+  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow") => void; // Adicionado
 }
 
 const quadrantDefinitions: Record<Quadrant, { title: string; description: string; color: string }> = {
@@ -37,7 +39,7 @@ const quadrantDefinitions: Record<Quadrant, { title: string; description: string
   },
 };
 
-const ResultsScreen: React.FC<ResultsScreenProps> = ({ tasks, onBack, onViewDashboard }) => {
+const ResultsScreen: React.FC<ResultsScreenProps> = ({ tasks, onBack, onViewDashboard, displayFilter, onDisplayFilterChange }) => {
   const getTasksInQuadrant = (quadrant: Quadrant) => {
     return tasks.filter(task => task.quadrant === quadrant);
   };
