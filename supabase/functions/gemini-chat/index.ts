@@ -80,7 +80,11 @@ serve(async (req) => {
 
       const result = await model.generateContent({ contents: [{ role: "user", parts: [{ text: eisenhowerPrompt }] }] });
       const response = await result.response;
-      const text = response.text();
+      let text = response.text();
+
+      // --- CORREÇÃO: Remover marcadores de bloco de código Markdown ---
+      text = text.replace(/```json\s*/g, '').replace(/\s*```/g, '');
+      // -----------------------------------------------------------------
 
       // Attempt to parse JSON, handle cases where AI might not return perfect JSON
       try {
