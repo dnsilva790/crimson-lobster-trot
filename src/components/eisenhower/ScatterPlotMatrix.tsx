@@ -59,28 +59,46 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-// A função calculateMedian agora retorna um valor fixo de 50.
-const calculateMedian = (values: number[]): number => {
-  return 50;
-};
-
-// A função getDomain agora sempre retorna [0, 100] para manter os eixos fixos.
-const getDomain = (min: number, max: number, threshold: number): [number, number] => {
-  return [0, 100];
-};
-
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   const navigate = useNavigate();
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { urgencyDomain, importanceDomain, urgencyThreshold, importanceThreshold } = useMemo(() => {
-    // Os thresholds agora são fixos em 50
-    const uThreshold = 50;
-    const iThreshold = 50;
+    const urgencyValues = data.map(d => d.urgency).filter(v => v !== null) as number[];
+    const importanceValues = data.map(d => d.importance).filter(v => v !== null) as number[];
 
-    // Os domínios agora são fixos em [0, 100]
-    const uDomain: [number, number] = [0, 100];
-    const iDomain: [number, number] = [0, 100];
+    // Helper para calcular o domínio dinâmico e o threshold (ponto médio)
+    const getDynamicDomainAndThreshold = (values: number[]): { domain: [number, number], threshold: number } => {
+      if (values.length === 0) {
+        return { domain: [0, 100], threshold: 50 }; // Default se não houver dados
+      }
+
+      const minVal = Math.min(...values);
+      const maxVal = Math.max(...values);
+
+      // Se todos os valores forem iguais, cria uma pequena faixa ao redor
+      if (minVal === maxVal) {
+        const paddedMin = Math.max(0, minVal - 10);
+        const paddedMax = Math.min(100, maxVal + 10);
+        const domain: [number, number] = [paddedMin, paddedMax];
+        const threshold = (domain[0] + domain[1]) / 2;
+        return { domain, threshold };
+      }
+
+      // Adiciona 10% de padding à faixa, mas limita a 0-100
+      const range = maxVal - minVal;
+      const padding = range * 0.1; // 10% de padding
+
+      const domainMin = Math.max(0, minVal - padding);
+      const domainMax = Math.min(100, maxVal + padding);
+
+      const domain: [number, number] = [domainMin, domainMax];
+      const threshold = (domainMin + domainMax) / 2; // Ponto médio do eixo exibido
+      return { domain, threshold };
+    };
+
+    const { domain: uDomain, threshold: uThreshold } = getDynamicDomainAndThreshold(urgencyValues);
+    const { domain: iDomain, threshold: iThreshold } = getDynamicDomainAndThreshold(importanceValues);
 
     return { 
       urgencyDomain: uDomain, 
@@ -88,13 +106,12 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
       urgencyThreshold: uThreshold,
       importanceThreshold: iThreshold,
     };
-
   }, [data]);
 
-  const safeUrgencyThreshold = isNaN(urgencyThreshold) ? 50 : urgencyThreshold;
-  const safeImportanceThreshold = isNaN(importanceThreshold) ? 50 : importanceThreshold;
-  const safeUrgencyDomain: [number, number] = (urgencyDomain && !isNaN(urgencyDomain[0]) && !isNaN(urgencyDomain[1])) ? urgencyDomain : [0, 100];
-  const safeImportanceDomain: [number, number] = (importanceDomain && !isNaN(importanceDomain[0]) && !isNaN(importanceDomain[1])) ? importanceDomain : [0, 100];
+  const safeUrgencyThreshold = urgencyThreshold;
+  const safeImportanceThreshold = importanceThreshold;
+  const safeUrgencyDomain: [number, number] = urgencyDomain;
+  const safeImportanceDomain: [number, number] = importanceDomain;
 
   const handleSingleClick = (payload: any) => {
     if (clickTimer.current) {

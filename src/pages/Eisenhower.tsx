@@ -19,18 +19,6 @@ import ResultsScreen from "@/components/eisenhower/ResultsScreen";
 import DashboardScreen from "@/components/eisenhower/DashboardScreen";
 import AiAssistantModal from "@/components/eisenhower/AiAssistantModal";
 
-// A função calculateMedian duplicada foi removida daqui.
-// const calculateMedian = (values: number[]): number => {
-//   if (values.length === 0) return 50;
-//   const sorted = [...values].sort((a, b) => a - b);
-//   const mid = Math.floor(sorted.length / 2);
-  
-//   if (sorted.length % 2 === 0) {
-//     return (sorted[mid - 1] + sorted[mid]) / 2;
-//   }
-//   return sorted[mid];
-// };
-
 type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
 type DisplayFilter = "all" | "overdue" | "today" | "tomorrow"; // Novo tipo para o filtro de exibição
 
@@ -218,6 +206,34 @@ const Eisenhower = () => {
     });
   }, []);
 
+  // Helper function to calculate dynamic domain and threshold, similar to ScatterPlotMatrix
+  const getDynamicDomainAndThreshold = useCallback((values: number[]): { domain: [number, number], threshold: number } => {
+    if (values.length === 0) {
+      return { domain: [0, 100], threshold: 50 };
+    }
+
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+
+    if (minVal === maxVal) {
+      const paddedMin = Math.max(0, minVal - 10);
+      const paddedMax = Math.min(100, maxVal + 10);
+      const domain: [number, number] = [paddedMin, paddedMax];
+      const threshold = (domain[0] + domain[1]) / 2;
+      return { domain, threshold };
+    }
+
+    const range = maxVal - minVal;
+    const padding = range * 0.1;
+
+    const domainMin = Math.max(0, minVal - padding);
+    const domainMax = Math.min(100, maxVal + padding);
+
+    const domain: [number, number] = [domainMin, domainMax];
+    const threshold = (domainMin + domainMax) / 2;
+    return { domain, threshold };
+  }, []);
+
   const handleCategorizeTasks = useCallback(() => {
     const ratedTasks = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null);
     
@@ -226,14 +242,17 @@ const Eisenhower = () => {
       return;
     }
 
-    // Thresholds fixos em 50 para Urgência e Importância
-    const urgencyThreshold = 50;
-    const importanceThreshold = 50;
+    // Calculate dynamic thresholds based on the *rated tasks* data
+    const urgencyValues = ratedTasks.map(t => t.urgency!).filter(v => v !== null) as number[];
+    const importanceValues = ratedTasks.map(t => t.importance!).filter(v => v !== null) as number[];
+
+    const { threshold: urgencyThreshold } = getDynamicDomainAndThreshold(urgencyValues);
+    const { threshold: importanceThreshold } = getDynamicDomainAndThreshold(importanceValues);
 
     setTasksToProcess(prevTasks => {
       return prevTasks.map(task => {
         if (task.urgency !== null && task.importance !== null) {
-          // Categorização baseada nos thresholds fixos
+          // Categorização baseada nos thresholds dinâmicos
           const isUrgent = task.urgency >= urgencyThreshold;
           const isImportant = task.importance >= importanceThreshold;
 
@@ -254,7 +273,7 @@ const Eisenhower = () => {
       });
     });
     toast.success("Tarefas categorizadas na Matriz de Eisenhower!");
-  }, [tasksToProcess]);
+  }, [tasksToProcess, getDynamicDomainAndThreshold]);
 
   const handleReset = useCallback(() => {
     setTasksToProcess([]);
