@@ -3,7 +3,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ListTodo, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, ListTodo, LayoutDashboard, RefreshCw } from "lucide-react"; // Importar RefreshCw
 import { EisenhowerTask } from "@/lib/types";
 import ScatterPlotMatrix from "./ScatterPlotMatrix"; // Importar o ScatterPlotMatrix
 
@@ -13,9 +13,10 @@ interface EisenhowerMatrixViewProps {
   onViewResults: () => void;
   displayFilter: "all" | "overdue" | "today" | "tomorrow"; // Adicionado
   onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow") => void; // Adicionado
+  onRefreshMatrix: () => Promise<void>; // Nova prop para a função de atualização
 }
 
-const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, displayFilter, onDisplayFilterChange }) => {
+const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, displayFilter, onDisplayFilterChange, onRefreshMatrix }) => {
   const dataForScatterPlot = tasks
     .filter(task => task.urgency !== null && task.importance !== null)
     .map(task => ({
@@ -39,6 +40,9 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
           </Button>
           <Button onClick={onViewResults} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
             <ListTodo className="h-4 w-4" /> Ver Resultados
+          </Button>
+          <Button onClick={onRefreshMatrix} variant="outline" className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" /> Atualizar Matriz
           </Button>
         </div>
       </div>

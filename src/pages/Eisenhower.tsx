@@ -7,7 +7,7 @@ import { useTodoist } from "@/context/TodoistContext";
 import { EisenhowerTask, TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb } from "lucide-react"; // Alterado de Matrix para LayoutDashboard
+import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw } from "lucide-react"; // Importar RefreshCw
 import { format, parseISO, isValid, isPast, isToday, isTomorrow } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isToday, isTomorrow
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
 
@@ -23,7 +23,7 @@ type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
 type DisplayFilter = "all" | "overdue" | "today" | "tomorrow"; // Novo tipo para o filtro de exibição
 
 const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState";
-const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input";
+const EISENHOW_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input";
 const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
 const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
 const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter"; // Nova chave para o localStorage
@@ -38,7 +38,7 @@ const Eisenhower = () => {
   // Novos estados para os filtros de carregamento
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY) || "";
+      return localStorage.getItem(EISENHOW_FILTER_INPUT_STORAGE_KEY) || "";
     }
     return "";
   });
@@ -69,7 +69,7 @@ const Eisenhower = () => {
   // Efeitos para salvar os filtros no localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY, filterInput);
+      localStorage.setItem(EISENHOW_FILTER_INPUT_STORAGE_KEY, filterInput);
     }
   }, [filterInput]);
 
@@ -278,7 +278,7 @@ const Eisenhower = () => {
   const handleReset = useCallback(() => {
     setTasksToProcess([]);
     setCurrentView("setup");
-    localStorage.removeItem(EISENHOWER_STORAGE_KEY);
+    localStorage.removeItem(EISENHOW_STORAGE_KEY);
     toast.info("Matriz de Eisenhower resetada.");
   }, []);
 
@@ -337,6 +337,54 @@ const Eisenhower = () => {
 
   const filteredTasksForDisplay = getFilteredTasksForDisplay(tasksToProcess, displayFilter);
 
+  // Nova função para atualizar a matriz
+  const handleRefreshMatrix = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const filterParts: string[] = [];
+
+      if (filterInput.trim()) {
+        filterParts.push(`(${filterInput.trim()})`);
+      }
+      
+      if (statusFilter === "overdue") {
+        filterParts.push("due before: in 0 min");
+      }
+
+      if (categoryFilter === "pessoal") {
+        filterParts.push("@pessoal");
+      } else if (categoryFilter === "profissional") {
+        filterParts.push("@profissional");
+      }
+
+      const finalFilter = filterParts.join(" & ");
+      
+      const fetchedTodoistTasks = await fetchTasks(finalFilter || undefined, { includeSubtasks: false, includeRecurring: false });
+      const updatedEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => {
+        // Tenta encontrar a tarefa existente para manter as avaliações
+        const existingTask = tasksToProcess.find(t => t.id === task.id);
+        return {
+          ...task,
+          urgency: existingTask?.urgency ?? null,
+          importance: existingTask?.importance ?? null,
+          quadrant: existingTask?.quadrant ?? null,
+          url: task.url,
+        };
+      });
+      
+      const sortedTasks = sortEisenhowerTasks(updatedEisenhowerTasks);
+      setTasksToProcess(sortedTasks);
+      handleCategorizeTasks(); // Recategoriza as tarefas após a atualização
+      toast.success("Matriz atualizada com as últimas tarefas do Todoist!");
+    } catch (error) {
+      console.error("Failed to refresh Eisenhower Matrix:", error);
+      toast.error("Falha ao atualizar a matriz.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filterInput, statusFilter, categoryFilter, fetchTasks, tasksToProcess, sortEisenhowerTasks, handleCategorizeTasks]);
+
+
   const renderContent = () => {
     if (isLoading || isLoadingTodoist) {
       return (
@@ -379,6 +427,7 @@ const Eisenhower = () => {
             onViewResults={() => setCurrentView("results")}
             displayFilter={displayFilter} // Passa o filtro de exibição
             onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
+            onRefreshMatrix={handleRefreshMatrix} // Passa a nova função de atualização
           />
         );
       case "results":
