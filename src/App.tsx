@@ -23,9 +23,10 @@ import EditProjectManagement from "./pages/EditProjectManagement";
 import FollowUp from "./pages/FollowUp";
 import Shitsuke from "./pages/Shitsuke";
 import Eisenhower from "./pages/Eisenhower";
+import AiEisenhower from "./pages/AiEisenhower"; // Importar o novo módulo
 import Seiso from "./pages/Seiso";
 import Agenda from "./pages/Agenda";
-import MassivePlanner from "./pages/MassivePlanner"; // Importar o novo módulo
+import MassivePlanner from "./pages/MassivePlanner";
 
 const queryClient = new QueryClient();
 
@@ -53,8 +54,9 @@ const App = () => (
               <Route path="/follow-up" element={<FollowUp />} />
               <Route path="/shitsuke" element={<Shitsuke />} />
               <Route path="/eisenhower" element={<Eisenhower />} />
+              <Route path="/ai-eisenhower" element={<AiEisenhower />} /> {/* Nova rota */}
               <Route path="/agenda" element={<Agenda />} />
-              <Route path="/massive-planner" element={<MassivePlanner />} /> {/* Nova rota */}
+              <Route path="/massive-planner" element={<MassivePlanner />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>

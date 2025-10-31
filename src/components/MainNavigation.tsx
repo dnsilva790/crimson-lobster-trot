@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   Settings,
   Mail,
+  Lightbulb, // Importar Lightbulb para o novo módulo
 } from "lucide-react";
 import {
   Dialog,
@@ -45,6 +46,14 @@ const modules = [
     description: "Matriz de Priorização",
     colorClass: "bg-orange-50 hover:bg-orange-100",
     activeColor: "border-orange-500",
+  },
+  {
+    path: "/ai-eisenhower", // Novo módulo
+    icon: Lightbulb, // Ícone para o novo módulo
+    title: "EISENHOWER - IA",
+    description: "Priorização Automática",
+    colorClass: "bg-purple-50 hover:bg-purple-100",
+    activeColor: "border-purple-500",
   },
   {
     path: "/seiso",
@@ -95,8 +104,8 @@ const modules = [
     activeColor: "border-indigo-600",
   },
   {
-    path: "/massive-planner", // Novo módulo
-    icon: CalendarClock, // Ícone para planejamento massivo
+    path: "/massive-planner",
+    icon: CalendarClock,
     title: "SEISO - MASSIVO",
     description: "Planejamento Automático",
     colorClass: "bg-pink-50 hover:bg-pink-100",
