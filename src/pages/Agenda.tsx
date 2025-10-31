@@ -60,37 +60,53 @@ const Agenda = () => {
     setIsLoadingAgenda(true);
     try {
       const filterToUse = agendaFilterInput.trim() || undefined; // Usar o filtro customizado
+      const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
+      
+      console.log("Agenda: Loading tasks with filter:", filterToUse, "for date:", selectedDateKey);
       const fetchedTodoistTasks = await fetchTasks(filterToUse, { includeSubtasks: false, includeRecurring: false });
+      console.log(`Agenda: Fetched ${fetchedTodoistTasks.length} tasks from Todoist.`);
       
       const tasksForSelectedDay: ScheduledTask[] = [];
-      const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
 
       fetchedTodoistTasks.forEach(task => {
-        if (task.due?.datetime && isValid(parseISO(task.due.datetime))) {
-          const taskDueDateTime = parseISO(task.due.datetime);
-          const taskDueDate = startOfDay(taskDueDateTime);
+        const taskDueDateTime = task.due?.datetime ? parseISO(task.due.datetime) : null;
+        const taskDueDate = task.due?.date ? parseISO(task.due.date) : null;
 
-          if (format(taskDueDate, "yyyy-MM-dd") === selectedDateKey) {
-            const startTime = format(taskDueDateTime, "HH:mm");
-            const durationMinutes = task.duration?.amount && task.duration.unit === "minute"
-              ? task.duration.amount
-              : DEFAULT_TASK_DURATION_MINUTES;
-            const endTime = format(addMinutes(taskDueDateTime, durationMinutes), "HH:mm");
+        let effectiveDueDate: Date | null = null;
+        if (taskDueDateTime && isValid(taskDueDateTime)) {
+          effectiveDueDate = startOfDay(taskDueDateTime);
+        } else if (taskDueDate && isValid(taskDueDate)) {
+          effectiveDueDate = startOfDay(taskDueDate);
+        }
 
-            tasksForSelectedDay.push({
-              id: task.id,
-              taskId: task.id,
-              content: task.content,
-              description: task.description,
-              start: startTime,
-              end: endTime,
-              priority: task.priority,
-              category: getTaskCategory(task) || "profissional", // Default to professional if no category label
-              estimatedDurationMinutes: durationMinutes,
-              originalTask: task,
-              isMeeting: task.content.startsWith('📅') || task.labels.includes('reunião'), // Simple meeting detection
-            });
-          }
+        if (effectiveDueDate && format(effectiveDueDate, "yyyy-MM-dd") === selectedDateKey) {
+          // Task matches the selected date, now add it
+          const startTime = taskDueDateTime && isValid(taskDueDateTime) ? format(taskDueDateTime, "HH:mm") : "00:00"; // Default to start of day if only date
+          const durationMinutes = task.duration?.amount && task.duration.unit === "minute"
+            ? task.duration.amount
+            : DEFAULT_TASK_DURATION_MINUTES;
+          const endTime = format(addMinutes(parse(startTime, "HH:mm", selectedDate), durationMinutes), "HH:mm");
+
+          tasksForSelectedDay.push({
+            id: task.id,
+            taskId: task.id,
+            content: task.content,
+            description: task.description,
+            start: startTime,
+            end: endTime,
+            priority: task.priority,
+            category: getTaskCategory(task) || "profissional", // Default to professional if no category label
+            estimatedDurationMinutes: durationMinutes,
+            originalTask: task,
+            isMeeting: task.content.startsWith('📅') || task.labels.includes('reunião'), // Simple meeting detection
+          });
+        } else {
+          // Log why a task was NOT added to tasksForSelectedDay
+          console.log(`Agenda: Task "${task.content}" (ID: ${task.id}) NOT added to selected day's schedule.`);
+          console.log(`  - Task Due: ${task.due?.datetime || task.due?.date || 'N/A'}`);
+          console.log(`  - Effective Due Date (startOfDay): ${effectiveDueDate ? format(effectiveDueDate, "yyyy-MM-dd") : 'N/A'}`);
+          console.log(`  - Selected Date Key: ${selectedDateKey}`);
+          console.log(`  - Labels: ${task.labels.join(', ')}`);
         }
       });
 
