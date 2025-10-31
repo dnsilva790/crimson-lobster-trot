@@ -174,13 +174,16 @@ const Seiso = () => {
       return;
     }
 
-    await handleSaveObjectiveAndNextStep(); // Save objective/next step before delegating
+    // Save objective/next step before delegating
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[OBJETIVO]:', objectiveInput);
+    newDescription = updateDescriptionWithSection(newDescription, '[PRÓXIMO PASSO SEISO]:', nextStepSeisoInput);
+    newDescription = currentTask.description ? `${newDescription}\n\n[DELEGADO PARA]: ${delegateName.trim()}` : `[DELEGADO PARA]: ${delegateName.trim()}`;
 
-    const updatedDescription = currentTask.description ? `${currentTask.description}\n\n[DELEGADO PARA]: ${delegateName.trim()}` : `[DELEGADO PARA]: ${delegateName.trim()}`;
     const updatedLabels = [...currentTask.labels.filter(l => !l.startsWith("espera_de_")), `espera_de_${delegateName.trim().toLowerCase().replace(/\s/g, '_')}`, SEISO_PROCESSED_LABEL];
 
     const updated = await updateTask(currentTask.id, {
-      description: updatedDescription,
+      description: newDescription,
       labels: updatedLabels,
     });
     if (updated) {
@@ -191,7 +194,7 @@ const Seiso = () => {
     } else {
       toast.error("Falha ao delegar a tarefa.");
     }
-  }, [currentTask, delegateName, updateTask, handleSaveObjectiveAndNextStep]);
+  }, [currentTask, delegateName, objectiveInput, nextStepSeisoInput, updateTask]);
 
   const handleScheduleTask = useCallback(async () => {
     if (!currentTask) {
@@ -199,7 +202,10 @@ const Seiso = () => {
       return;
     }
 
-    await handleSaveObjectiveAndNextStep(); // Save objective/next step before scheduling
+    // Save objective/next step before scheduling
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[OBJETIVO]:', objectiveInput);
+    newDescription = updateDescriptionWithSection(newDescription, '[PRÓXIMO PASSO SEISO]:', nextStepSeisoInput);
 
     let finalDueDate: string | null = null;
     let finalDueDateTime: string | null = null;
@@ -223,6 +229,7 @@ const Seiso = () => {
     const updatedLabels = [...new Set([...currentTask.labels, SEISO_PROCESSED_LABEL])];
 
     const updated = await updateTask(currentTask.id, {
+      description: newDescription, // Update description here
       due_date: finalDueDate,
       due_datetime: finalDueDateTime,
       deadline: finalDeadline,
@@ -238,7 +245,7 @@ const Seiso = () => {
     } else {
       toast.error("Falha ao agendar a tarefa.");
     }
-  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, selectedPriority, selectedDuration, updateTask, handleSaveObjectiveAndNextStep]);
+  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, selectedPriority, selectedDuration, objectiveInput, nextStepSeisoInput, updateTask]);
 
   const handleCreateSubtasks = useCallback(async () => {
     if (!currentTask || !subtaskContent.trim()) {
@@ -246,7 +253,13 @@ const Seiso = () => {
       return;
     }
 
-    await handleSaveObjectiveAndNextStep(); // Save objective/next step before creating subtasks
+    // Save objective/next step before creating subtasks
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[OBJETIVO]:', objectiveInput);
+    newDescription = updateDescriptionWithSection(newDescription, '[PRÓXIMO PASSO SEISO]:', nextStepSeisoInput);
+    const updatedParentDescription = await updateTask(currentTask.id, { description: newDescription });
+    if (updatedParentDescription) setCurrentTask(updatedParentDescription);
+
 
     const subtasks = subtaskContent.split('\n').map(s => s.trim()).filter(s => s.length > 0);
     if (subtasks.length === 0) {
@@ -281,12 +294,17 @@ const Seiso = () => {
     } else {
       toast.info("Nenhuma subtarefa foi criada.");
     }
-  }, [currentTask, subtaskContent, createTodoistTask, updateTask, handleSaveObjectiveAndNextStep]);
+  }, [currentTask, subtaskContent, createTodoistTask, objectiveInput, nextStepSeisoInput, updateTask]);
 
   const handleMarkAsProcessed = useCallback(async () => {
     if (!currentTask) return;
 
-    await handleSaveObjectiveAndNextStep(); // Save objective/next step before marking as processed
+    // Save objective/next step before marking as processed
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[OBJETIVO]:', objectiveInput);
+    newDescription = updateDescriptionWithSection(newDescription, '[PRÓXIMO PASSO SEISO]:', nextStepSeisoInput);
+    const updatedParentDescription = await updateTask(currentTask.id, { description: newDescription });
+    if (updatedParentDescription) setCurrentTask(updatedParentDescription);
 
     const updatedLabels = [...new Set([...currentTask.labels, SEISO_PROCESSED_LABEL])];
     const updated = await updateTask(currentTask.id, { labels: updatedLabels });
@@ -296,7 +314,7 @@ const Seiso = () => {
     } else {
       toast.error("Falha ao marcar tarefa como processada.");
     }
-  }, [currentTask, updateTask, handleSaveObjectiveAndNextStep]);
+  }, [currentTask, objectiveInput, nextStepSeisoInput, updateTask]);
 
   // Funções para toggle de etiquetas
   const handleToggleLabel = useCallback(async (taskId: string, currentLabels: string[], labelToToggle: string) => {
@@ -447,7 +465,7 @@ const Seiso = () => {
                   placeholder="Qual é o resultado desejado para esta tarefa?"
                   rows={3}
                   className="mt-1"
-                  disabled={isLoadingTodoist || isProcessed}
+                  disabled={isLoadingTodoist}
                 />
               </div>
               <div>
@@ -459,10 +477,10 @@ const Seiso = () => {
                   placeholder="Qual é a próxima micro-ação concreta e sob seu controle?"
                   rows={3}
                   className="mt-1"
-                  disabled={isLoadingTodoist || isProcessed}
+                  disabled={isLoadingTodoist}
                 />
               </div>
-              <Button onClick={handleSaveObjectiveAndNextStep} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || isProcessed}>
+              <Button onClick={handleSaveObjectiveAndNextStep} className="w-full flex items-center gap-2" disabled={isLoadingTodoist}>
                 <Save className="h-4 w-4" /> Salvar Objetivo e Próximo Passo
               </Button>
             </CardContent>
@@ -482,10 +500,10 @@ const Seiso = () => {
                   placeholder="Adicione uma nota rápida à descrição da tarefa..."
                   rows={3}
                   className="mt-1"
-                  disabled={isLoadingTodoist || isProcessed}
+                  disabled={isLoadingTodoist}
                 />
               </div>
-              <Button onClick={handleSaveObservation} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || isProcessed || !observationInput.trim()}>
+              <Button onClick={handleSaveObservation} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || !observationInput.trim()}>
                 <Save className="h-4 w-4" /> Adicionar Observação
               </Button>
             </CardContent>
@@ -499,7 +517,7 @@ const Seiso = () => {
             <CardContent className="grid grid-cols-3 gap-2">
               <Button
                 onClick={() => handleToggleLabel(currentTask.id, currentTask.labels || [], CRONOGRAMA_HOJE_LABEL)}
-                disabled={isLoadingTodoist || isProcessed}
+                disabled={isLoadingTodoist}
                 variant={currentTask.labels?.includes(CRONOGRAMA_HOJE_LABEL) ? "default" : "outline"}
                 className={cn(
                   "py-3 text-sm flex items-center justify-center",
@@ -510,7 +528,7 @@ const Seiso = () => {
               </Button>
               <Button
                 onClick={() => handleToggleLabel(currentTask.id, currentTask.labels || [], RAPIDA_LABEL_ID)}
-                disabled={isLoadingTodoist || isProcessed}
+                disabled={isLoadingTodoist}
                 variant={currentTask.labels?.includes(RAPIDA_LABEL_ID) ? "default" : "outline"}
                 className={cn(
                   "py-3 text-sm flex items-center justify-center",
@@ -521,7 +539,7 @@ const Seiso = () => {
               </Button>
               <Button
                 onClick={() => handleToggleLabel(currentTask.id, currentTask.labels || [], FOCO_LABEL_ID)}
-                disabled={isLoadingTodoist || isProcessed}
+                disabled={isLoadingTodoist}
                 variant={currentTask.labels?.includes(FOCO_LABEL_ID) ? "default" : "outline"}
                 className={cn(
                   "py-3 text-sm flex items-center justify-center",
