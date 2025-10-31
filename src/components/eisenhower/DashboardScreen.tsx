@@ -11,8 +11,8 @@ interface DashboardScreenProps {
   tasks: EisenhowerTask[];
   onBack: () => void;
   onReset: () => void;
-  displayFilter: "all" | "overdue" | "today" | "tomorrow"; // Adicionado
-  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow") => void; // Adicionado
+  displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // Adicionado
+  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void; // Adicionado
 }
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ tasks, onBack, onReset, displayFilter, onDisplayFilterChange }) => {

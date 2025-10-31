@@ -11,9 +11,9 @@ interface EisenhowerMatrixViewProps {
   tasks: EisenhowerTask[];
   onBack: () => void;
   onViewResults: () => void;
-  displayFilter: "all" | "overdue" | "today" | "tomorrow"; // Adicionado
-  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow") => void; // Adicionado
-  onRefreshMatrix: () => Promise<void>; // Nova prop para a função de atualização
+  displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // Adicionado
+  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void; // Adicionado
+  onRefreshMatrix: (filter: string) => Promise<void>; // Nova prop para a função de atualização
 }
 
 const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, displayFilter, onDisplayFilterChange, onRefreshMatrix }) => {
@@ -36,12 +36,12 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
         </h3>
         <div className="flex gap-2">
           <Button onClick={onBack} variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar para Avaliação
+            <ArrowLeft className="h-4 w-4" /> Voltar para Resultados
           </Button>
           <Button onClick={onViewResults} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-            <ListTodo className="h-4 w-4" /> Ver Resultados
+            <ListTodo className="h-4 w-4" /> Ver Lista
           </Button>
-          <Button onClick={onRefreshMatrix} variant="outline" className="flex items-center gap-2">
+          <Button onClick={() => onRefreshMatrix("")} variant="outline" className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4" /> Atualizar Matriz
           </Button>
         </div>

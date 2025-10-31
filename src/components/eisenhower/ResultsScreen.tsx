@@ -12,8 +12,8 @@ interface ResultsScreenProps {
   tasks: EisenhowerTask[];
   onBack: () => void;
   onViewDashboard: () => void;
-  displayFilter: "all" | "overdue" | "today" | "tomorrow"; // Adicionado
-  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow") => void; // Adicionado
+  displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // Adicionado
+  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void; // Adicionado
 }
 
 const quadrantDefinitions: Record<Quadrant, { title: string; description: string; color: string }> = {
@@ -52,7 +52,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ tasks, onBack, onViewDash
         </h3>
         <div className="flex gap-2">
           <Button onClick={onBack} variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar para Matriz
+            <ArrowLeft className="h-4 w-4" /> Voltar para Configuração
           </Button>
           <Button onClick={onViewDashboard} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
             <LayoutDashboard className="h-4 w-4" /> Ver Dashboard
