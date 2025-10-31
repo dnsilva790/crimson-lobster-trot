@@ -27,6 +27,38 @@ const modules = [
     activeColor: "border-green-600",
   },
   {
+    path: "/eisenhower", // Nova rota para Matriz de Eisenhower
+    icon: LayoutDashboard, // Alterado de Matrix para LayoutDashboard
+    title: "EISENHOWER",
+    description: "Matriz de Priorização",
+    colorClass: "bg-orange-50 hover:bg-orange-100",
+    activeColor: "border-orange-500",
+  },
+  {
+    path: "/seiso", // NOVA ROTA para SEISO - Planejamento de Ação
+    icon: ClipboardCheck, // Ícone para Planejamento de Ação
+    title: "SEISO",
+    description: "Planejamento de Ação",
+    colorClass: "bg-cyan-100 hover:bg-cyan-200", // Nova cor
+    activeColor: "border-cyan-600",
+  },
+  {
+    path: "/agenda", // Novo módulo Agenda
+    icon: CalendarDays, // Reutilizando CalendarDays, ou podemos escolher outro
+    title: "AGENDA",
+    description: "Visão Diária",
+    colorClass: "bg-teal-50 hover:bg-teal-100",
+    activeColor: "border-teal-500",
+  },
+  {
+    path: "/novoseiso", // Rota atualizada para Novo Seiso
+    icon: Sparkles, // Ícone para Novo Seiso
+    title: "NOVO SEISO", // Título atualizado
+    description: "Modo Foco Total", // Descrição mantida
+    colorClass: "bg-blue-100 hover:bg-blue-200", // Cor atualizada
+    activeColor: "border-blue-600",
+  },
+  {
     path: "/seiketsu",
     icon: BarChart,
     title: "SEIKETSU",
@@ -43,36 +75,12 @@ const modules = [
     activeColor: "border-orange-600",
   },
   {
-    path: "/novoseiso", // Rota atualizada para Novo Seiso
-    icon: Sparkles, // Ícone para Novo Seiso
-    title: "NOVO SEISO", // Título atualizado
-    description: "Modo Foco Total", // Descrição mantida
-    colorClass: "bg-blue-100 hover:bg-blue-200", // Cor atualizada
-    activeColor: "border-blue-600",
-  },
-  {
-    path: "/seiso", // NOVA ROTA para SEISO - Planejamento de Ação
-    icon: ClipboardCheck, // Ícone para Planejamento de Ação
-    title: "SEISO",
-    description: "Planejamento de Ação",
-    colorClass: "bg-cyan-100 hover:bg-cyan-200", // Nova cor
-    activeColor: "border-cyan-600",
-  },
-  {
     path: "/planejador",
     icon: CalendarDays,
     title: "PLANEJADOR",
     description: "Sequenciar Backlog",
     colorClass: "bg-indigo-100 hover:bg-indigo-200",
     activeColor: "border-indigo-600",
-  },
-  {
-    path: "/agenda", // Novo módulo Agenda
-    icon: CalendarDays, // Reutilizando CalendarDays, ou podemos escolher outro
-    title: "AGENDA",
-    description: "Visão Diária",
-    colorClass: "bg-teal-50 hover:bg-teal-100",
-    activeColor: "border-teal-500",
   },
   {
     path: "/shitsuke", // Nova rota para SHITSUKE (Revisão Diária)
@@ -105,14 +113,6 @@ const modules = [
     description: "Tarefas Pessoais/Profissionais",
     colorClass: "bg-gray-100 hover:bg-gray-200",
     activeColor: "border-gray-600",
-  },
-  {
-    path: "/eisenhower", // Nova rota para Matriz de Eisenhower
-    icon: LayoutDashboard, // Alterado de Matrix para LayoutDashboard
-    title: "EISENHOWER",
-    description: "Matriz de Priorização",
-    colorClass: "bg-orange-50 hover:bg-orange-100",
-    activeColor: "border-orange-500",
   },
 ];
 
