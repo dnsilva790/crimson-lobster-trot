@@ -78,11 +78,54 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
 
   const renderTimeSlots = () => {
     const slots: JSX.Element[] = [];
+    const scheduledTaskElements: JSX.Element[] = [];
     const today = (typeof daySchedule.date === 'string' && daySchedule.date) ? parseISO(daySchedule.date) : new Date(); // Fallback to current date if invalid
 
     const parsedSuggestedStart = (typeof suggestedSlotStart === 'string' && suggestedSlotStart) ? parse(suggestedSlotStart, "HH:mm", today) : null;
     const parsedSuggestedEnd = (typeof suggestedSlotEnd === 'string' && suggestedSlotEnd) ? parse(suggestedSlotEnd, "HH:mm", today) : null;
 
+    const pixelsPerMinute = 40 / 15; // Each 15-min slot is h-10 (40px)
+
+    // Render all scheduled tasks as merged blocks first
+    daySchedule.scheduledTasks.forEach(task => {
+        const taskStart = parse(task.start, "HH:mm", today);
+        const taskEnd = parse(task.end, "HH:mm", today);
+
+        if (!isValid(taskStart) || !isValid(taskEnd)) {
+            console.warn(`TimeSlotPlanner: Scheduled task ${task.content} has invalid start/end times.`);
+            return;
+        }
+
+        const startMinutes = taskStart.getHours() * 60 + taskStart.getMinutes();
+        const durationMinutes = task.estimatedDurationMinutes || 15; // Fallback to 15 min if not defined
+
+        const topPosition = startMinutes * pixelsPerMinute;
+        const height = durationMinutes * pixelsPerMinute;
+
+        scheduledTaskElements.push(
+            <div
+                key={`scheduled-task-${task.id}`}
+                className="absolute left-0 right-0 flex flex-col justify-center items-center bg-opacity-80 bg-indigo-200 text-indigo-800 text-center text-[10px] font-semibold overflow-hidden cursor-pointer z-30 rounded-md"
+                style={{ top: `${topPosition}px`, height: `${height}px` }}
+                onClick={(e) => { e.stopPropagation(); onSelectTask?.(task); }}
+            >
+                <span className="truncate w-full px-1" title={task.content}>
+                    {task.content}
+                </span>
+                <span className={cn(
+                    "px-1 py-0.5 rounded-full text-white text-[8px] font-bold mt-0.5",
+                    task.priority === 4 && "bg-red-500",
+                    task.priority === 3 && "bg-orange-500",
+                    task.priority === 2 && "bg-yellow-500",
+                    task.priority === 1 && "bg-gray-400",
+                )}>
+                    P{task.priority}
+                </span>
+            </div>
+        );
+    });
+
+    // Then, render the 15-minute time slots (backgrounds)
     for (let hour = 0; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 15) {
         const slotTime = setMinutes(setHours(today, hour), minute);
@@ -118,11 +161,12 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
           }
         }
 
-        const taskInSlot = daySchedule.scheduledTasks.find(task => {
-          const taskStart = (typeof task.start === 'string' && task.start) ? parse(task.start, "HH:mm", today) : null;
-          const taskEnd = (typeof task.end === 'string' && task.end) ? parse(task.end, "HH:mm", today) : null;
-          if (!taskStart || !taskEnd || !isValid(taskStart) || !isValid(taskEnd)) return false;
-          return (isBefore(taskStart, nextSlotTime) || isEqual(taskStart, slotTime)) && isAfter(taskEnd, slotTime);
+        // Check if this slot is covered by an already rendered merged task block
+        const isSlotCoveredByTask = daySchedule.scheduledTasks.some(task => {
+            const taskStart = parse(task.start, "HH:mm", today);
+            const taskEnd = parse(task.end, "HH:mm", today);
+            if (!isValid(taskStart) || !isValid(taskEnd)) return false;
+            return (slotTime < taskEnd && nextSlotTime > taskStart);
         });
 
         const isSuggestedSlot = parsedSuggestedStart && parsedSuggestedEnd && isValid(parsedSuggestedStart) && isValid(parsedSuggestedEnd) &&
@@ -135,37 +179,18 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
             className={cn(
               "relative p-1 border-b border-gray-200 text-xs h-10 flex items-center justify-between",
               blockColorClass,
-              onSelectSlot && "cursor-pointer",
+              onSelectSlot && !isSlotCoveredByTask && "cursor-pointer", // Only clickable if not covered by a task
               isSuggestedSlot && "bg-yellow-200 border-yellow-500 ring-2 ring-yellow-500 z-10"
             )}
             onClick={() => onSelectSlot?.(formattedTime, blockType)}
           >
             <span className="font-medium text-gray-600">{formattedTime}</span>
             {blockLabel && <span className="text-gray-500 italic">{blockLabel}</span>}
-            
-            {taskInSlot && (
-              <div className="absolute inset-0 flex flex-col justify-center items-center bg-opacity-80 bg-indigo-200 text-indigo-800 text-center text-[10px] font-semibold overflow-hidden cursor-pointer"
-                   onClick={(e) => { e.stopPropagation(); onSelectTask?.(taskInSlot); }}>
-                <span className="truncate w-full px-1" title={taskInSlot.content}>
-                  {taskInSlot.content}
-                </span>
-                {/* NEW: Display Priority */}
-                <span className={cn(
-                  "px-1 py-0.5 rounded-full text-white text-[8px] font-bold mt-0.5",
-                  taskInSlot.priority === 4 && "bg-red-500",
-                  taskInSlot.priority === 3 && "bg-orange-500",
-                  taskInSlot.priority === 2 && "bg-yellow-500",
-                  taskInSlot.priority === 1 && "bg-gray-400",
-                )}>
-                  P{taskInSlot.priority}
-                </span>
-              </div>
-            )}
           </div>
         );
       }
     }
-    return slots;
+    return [...slots, ...scheduledTaskElements]; // Render tasks on top of slots
   };
 
   const parsedDayScheduleDate = (typeof daySchedule.date === 'string' && daySchedule.date) ? parseISO(daySchedule.date) : new Date();
