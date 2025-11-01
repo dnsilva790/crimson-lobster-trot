@@ -267,7 +267,7 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                 key={`scheduled-task-${task.id}`}
                 ref={drag} // Atribuir ref do drag
                 className={cn(
-                  "absolute flex flex-col justify-center items-center bg-indigo-100 bg-opacity-70 text-indigo-800 text-center text-sm font-semibold overflow-hidden cursor-pointer z-30 rounded-md border border-indigo-300 p-1 group",
+                  "absolute flex items-center bg-indigo-100 bg-opacity-70 text-indigo-800 text-sm font-semibold overflow-hidden cursor-pointer z-30 rounded-md border border-indigo-300 p-1 group",
                   isDragging ? "opacity-50 border-dashed" : "opacity-100" // Estilo quando arrastando
                 )}
                 style={{
@@ -275,23 +275,13 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                   height: `${task.height}px`,
                   left: `${task.left}%`,
                   width: `${task.width}%`,
-                  // Adicionado minHeight para garantir que o conteúdo caiba
                   minHeight: '20px', 
                 }}
                 onClick={(e) => { e.stopPropagation(); onSelectTask?.(task); }}
               >
-                  {/* Ajustado para garantir que o texto não seja cortado verticalmente e use um tamanho de fonte menor se a altura for muito pequena */}
-                  <span 
-                    className={cn(
-                      "truncate w-full px-1 leading-tight",
-                      task.height < 25 ? "text-xs" : "text-sm" // Reduz o tamanho da fonte para tarefas muito curtas
-                    )} 
-                    title={task.content}
-                  >
-                      {task.content}
-                  </span>
+                  {/* Prioridade à esquerda */}
                   <span className={cn(
-                      "px-1 py-0.5 rounded-full text-white text-xs font-bold mt-0.5",
+                      "flex-shrink-0 px-1 py-0.5 rounded-full text-white text-xs font-bold mr-1",
                       task.priority === 4 && "bg-red-500",
                       task.priority === 3 && "bg-orange-500",
                       task.priority === 2 && "bg-yellow-500",
@@ -299,6 +289,16 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                       task.height < 25 && "hidden" // Esconde a prioridade se a barra for muito pequena
                   )}>
                       P{task.priority}
+                  </span>
+                  {/* Conteúdo da tarefa */}
+                  <span 
+                    className={cn(
+                      "truncate flex-grow px-1 leading-tight",
+                      task.height < 25 ? "text-xs" : "text-sm" // Reduz o tamanho da fonte para tarefas muito curtas
+                    )} 
+                    title={task.content}
+                  >
+                      {task.content}
                   </span>
                   {task.originalTask && 'url' in task.originalTask && task.originalTask.url && (
                     <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
