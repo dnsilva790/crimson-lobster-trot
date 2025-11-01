@@ -8,7 +8,7 @@ import { EisenhowerTask, TodoistTask, DisplayFilter } from "@/lib/types"; // Imp
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw } from "lucide-react"; // Importar RefreshCw
-import { format, parseISO, isValid, isPast, isToday, isTomorrow } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isToday, isTomorrow
+import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isToday, isTomorrow
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
 
 // Importar os componentes do Eisenhower
@@ -98,7 +98,7 @@ const Eisenhower = () => {
 
 
   useEffect(() => {
-    const savedState = localStorage.getItem(EISENHOWER_STORAGE_KEY);
+    const savedState = localStorage.getItem(EISENHOW_STORAGE_KEY);
     if (savedState) {
       try {
         const parsedState = JSON.parse(savedState);
@@ -115,7 +115,7 @@ const Eisenhower = () => {
 
   useEffect(() => {
     if (currentView !== "setup" || tasksToProcess.length > 0) {
-      localStorage.setItem(EISENHOWER_STORAGE_KEY, JSON.stringify({ tasksToProcess, currentView }));
+      localStorage.setItem(EISENHOW_STORAGE_KEY, JSON.stringify({ tasksToProcess, currentView }));
     }
   }, [tasksToProcess, currentView]);
 
@@ -321,17 +321,26 @@ const Eisenhower = () => {
       const effectiveDate = deadlineDate || dueDate;
       if (!effectiveDate || !isValid(effectiveDate)) return false;
 
+      // --- Lógica de filtro de exibição corrigida ---
       if (filter === "overdue") {
-        return isPast(effectiveDate) && !isToday(effectiveDate);
+        // Uma tarefa é atrasada se a data/hora efetiva for no passado (isPast)
+        // e não for uma data futura (para evitar problemas com datas sem hora)
+        return isPast(effectiveDate);
       }
       if (filter === "today") {
+        // Uma tarefa é para hoje se a data efetiva for hoje, mas ainda não tiver passado
+        // Se tiver hora, verifica se a hora ainda não passou. Se não tiver hora, verifica se é hoje.
+        if (task.due?.datetime) {
+            return isToday(effectiveDate) && isBefore(now, effectiveDate);
+        }
         return isToday(effectiveDate);
       }
       if (filter === "tomorrow") {
         return isTomorrow(effectiveDate);
       }
       if (filter === "overdue_and_today") { // Nova lógica para "Atrasadas e Hoje"
-        return (isPast(effectiveDate) && !isToday(effectiveDate)) || isToday(effectiveDate);
+        // Inclui todas as tarefas que já passaram (overdue) OU que vencem hoje (isToday)
+        return isPast(effectiveDate) || isToday(effectiveDate);
       }
       return true;
     });
