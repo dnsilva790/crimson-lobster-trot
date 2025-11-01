@@ -24,6 +24,7 @@ import {
   RAPIDA_LABEL_ID,
   CRONOGRAMA_HOJE_LABEL,
 } from "@/lib/constants"; // Importar as constantes das etiquetas
+import SubtaskList from "@/components/SubtaskList"; // Importar o componente SubtaskList
 
 const AI_AGENT_PROMPT_STORAGE_KEY = "ai_agent_tutor_seiso_prompt";
 const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input";
@@ -155,10 +156,16 @@ const NovoSeiso = () => {
     if (typeof window !== 'undefined') {
       localStorage.setItem(NOVO_SEISO_TASK_SOURCE_STORAGE_KEY, selectedTaskSource);
     }
+    // When task source changes, we should reload tasks for focus
+    if (selectedTaskSource !== "all") { // Only reload if not 'all' to avoid double fetching on initial load
+      loadTasksForFocus(selectedTaskSource);
+    }
   }, [selectedTaskSource]);
 
   const [aiAgentPrompt, setAiAgentPrompt] = useState<string>(defaultAiPrompt);
   const [allTasksForAI, setAllTasksForAI] = useState<TodoistTask[]>([]); // Todas as tarefas para o Radar de Produtividade
+  const [subtasks, setSubtasks] = useState<TodoistTask[]>([]); // Novo estado para subtarefas
+  const [isLoadingSubtasks, setIsLoadingSubtasks] = useState(false); // Novo estado de loading para subtarefas
 
   const {
     focusTasks,
@@ -196,6 +203,27 @@ const NovoSeiso = () => {
       fetchAllTasks();
     }
   }, [execucaoState, fetchTasks]);
+
+  // Fetch subtasks for the current task
+  useEffect(() => {
+    const fetchSubtasksForCurrentTask = async () => {
+      if (currentTask && currentTask.id) {
+        setIsLoadingSubtasks(true);
+        try {
+          const fetchedSubtasks = await fetchTasks(`parent_id: ${currentTask.id}`, { includeSubtasks: false, includeRecurring: false });
+          setSubtasks(fetchedSubtasks || []);
+        } catch (error) {
+          console.error("NovoSeiso: Failed to fetch subtasks:", error);
+          setSubtasks([]);
+        } finally {
+          setIsLoadingSubtasks(false);
+        }
+      } else {
+        setSubtasks([]);
+      }
+    };
+    fetchSubtasksForCurrentTask();
+  }, [currentTask, fetchTasks]);
 
 
   const handleComplete = useCallback(async (taskId: string) => {
@@ -329,7 +357,7 @@ const NovoSeiso = () => {
 
   const progressValue = initialTotalTasks > 0 ? ((initialTotalTasks - focusTasks.length) / initialTotalTasks) * 100 : 0;
 
-  const isLoadingCombined = isLoadingTodoist || isLoadingTasks;
+  const isLoadingCombined = isLoadingTodoist || isLoadingTasks || isLoadingSubtasks;
 
   return (
     <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -367,6 +395,19 @@ const NovoSeiso = () => {
               <Progress value={progressValue} className="w-1/2 h-3" />
             </div>
             <FocusTaskCard task={currentTask} />
+            
+            {/* Render SubtaskList here */}
+            {isLoadingSubtasks ? (
+              <div className="flex justify-center items-center h-24 mt-4">
+                <LoadingSpinner size={20} />
+              </div>
+            ) : subtasks.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-xl font-bold mb-3 text-gray-800">Subtarefas:</h3>
+                <SubtaskList subtasks={subtasks} level={0} />
+              </div>
+            )}
+
             <TaskActionButtons
               currentTask={currentTask}
               isLoading={isLoadingCombined}
