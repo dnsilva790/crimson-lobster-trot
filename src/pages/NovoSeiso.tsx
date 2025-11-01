@@ -196,8 +196,10 @@ const NovoSeiso = () => {
   // Fetch all tasks for the AI Assistant's "Radar de Produtividade"
   useEffect(() => {
     const fetchAllTasks = async () => {
+      console.log("NovoSeiso: Fetching all tasks for AI Assistant Radar.");
       const tasks = await fetchTasks(undefined, { includeSubtasks: false, includeRecurring: false });
       setAllTasksForAI(tasks);
+      console.log(`NovoSeiso: Fetched ${tasks.length} tasks for AI Assistant Radar.`);
     };
     if (execucaoState === "focusing" || execucaoState === "initial") {
       fetchAllTasks();
@@ -208,9 +210,11 @@ const NovoSeiso = () => {
   useEffect(() => {
     const fetchSubtasksForCurrentTask = async () => {
       if (currentTask && currentTask.id) {
+        console.log(`NovoSeiso: Attempting to fetch subtasks for parent ID: ${currentTask.id}`);
         setIsLoadingSubtasks(true);
         try {
           const fetchedSubtasks = await fetchTasks(`parent_id: ${currentTask.id}`, { includeSubtasks: false, includeRecurring: false });
+          console.log(`NovoSeiso: Fetched ${fetchedSubtasks.length} subtasks for task ${currentTask.id}:`, fetchedSubtasks);
           setSubtasks(fetchedSubtasks || []);
         } catch (error) {
           console.error("NovoSeiso: Failed to fetch subtasks:", error);
@@ -219,6 +223,7 @@ const NovoSeiso = () => {
           setIsLoadingSubtasks(false);
         }
       } else {
+        console.log("NovoSeiso: No currentTask or currentTask.id, clearing subtasks.");
         setSubtasks([]);
       }
     };
