@@ -4,10 +4,9 @@ import React, { useMemo, useState, useCallback } from "react";
 import { TodoistTask } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { format, parseISO, isValid, setHours, setMinutes, addMinutes, isToday, isPast, startOfDay, addDays, isSameDay, subDays } from "date-fns";
+import { format, parseISO, isValid, startOfDay, addDays, isSameDay, subDays, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Clock, ExternalLink, ListTodo, ChevronLeft, ChevronRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ExternalLink, ListTodo, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SubtaskTimelineViewProps {
@@ -22,25 +21,18 @@ const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
   1: "bg-gray-400", // P4 - Baixo
 };
 
-const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
-  4: "P1",
-  3: "P2",
-  2: "P3",
-  1: "P4",
-};
-
-const MINUTES_IN_DAY = 24 * 60;
-const PIXELS_PER_MINUTE = 1.5; // 1.5px per minute = 90px per hour
-const NUM_DAYS_TO_DISPLAY = 7; // Display 7 days at a time
+const NUM_DAYS_TO_DISPLAY = 14; // Display 14 days (2 weeks)
+const PIXELS_PER_DAY = 100; // Width of each day column in pixels
+const ROW_HEIGHT = 40; // Height of each task row
 
 const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks, mainTaskDueDate }) => {
   const [viewStartDate, setViewStartDate] = useState<Date>(() => {
     const today = startOfDay(new Date());
     if (mainTaskDueDate && isValid(mainTaskDueDate)) {
-      // Start the view 3 days before the main task due date
-      return subDays(startOfDay(mainTaskDueDate), 3);
+      // Start the view 7 days before the main task due date
+      return subDays(startOfDay(mainTaskDueDate), 7);
     }
-    return today;
+    return subDays(today, 7); // Default to starting 7 days ago
   });
 
   const displayedDates = useMemo(() => {
@@ -51,52 +43,70 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks, mai
     return dates;
   }, [viewStartDate]);
 
-  const tasksByDay = useMemo(() => {
-    const map = new Map<string, (TodoistTask & { startMinutes: number; top: number; height: number; endMinutes: number; })[]>();
-    
-    displayedDates.forEach(day => {
-      const dayKey = format(day, 'yyyy-MM-dd');
-      map.set(dayKey, []);
+  const tasksWithLayout = useMemo(() => {
+    const tasks = subtasks
+      .filter(task => task.due?.date || task.due?.datetime)
+      .map(task => {
+        const dueDateString = task.due?.datetime || task.due?.date;
+        if (!dueDateString) return null;
+
+        const dueDate = startOfDay(parseISO(dueDateString));
+        if (!isValid(dueDate)) return null;
+
+        // Determine start date: use created_at or today, whichever is later, but ensure it's before or equal to dueDate
+        let startDate = startOfDay(parseISO(task.created_at));
+        if (differenceInDays(startDate, dueDate) > 0) {
+            // If created_at is after due date (unlikely but possible with manual edits), use due date minus 1 day
+            startDate = subDays(dueDate, 1);
+        }
+        
+        // Calculate duration in days (minimum 1 day)
+        const durationDays = Math.max(1, differenceInDays(dueDate, startDate) + 1);
+        
+        // Calculate offset from the viewStartDate
+        const offsetDays = differenceInDays(startDate, viewStartDate);
+        
+        // Calculate horizontal position and width
+        const left = offsetDays * PIXELS_PER_DAY;
+        const width = durationDays * PIXELS_PER_DAY;
+
+        return {
+          ...task,
+          startDate,
+          dueDate,
+          durationDays,
+          left,
+          width,
+        };
+      })
+      .filter(Boolean) as (TodoistTask & { startDate: Date; dueDate: Date; durationDays: number; left: number; width: number; })[];
+
+    // Simple vertical stacking logic (Gantt rows)
+    const rows: { end: number; tasks: typeof tasks }[] = [];
+    tasks.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+
+    tasks.forEach(task => {
+      let placed = false;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        // Check if this task can fit in this row without overlapping horizontally
+        const rowEndDay = row.end;
+        if (task.left >= rowEndDay) {
+          task.top = i * ROW_HEIGHT; // ROW_HEIGHT px per row
+          row.end = task.left + task.width;
+          row.tasks.push(task);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        task.top = rows.length * ROW_HEIGHT;
+        rows.push({ end: task.left + task.width, tasks: [task] });
+      }
     });
 
-    subtasks
-      .filter(task => task.due?.datetime || task.due?.date) // Only tasks with a due date/time
-      .forEach(task => {
-        let startDateTime: Date | null = null;
-        let durationMinutes = task.estimatedDurationMinutes || 30; // Default to 30 min if not specified
-
-        if (task.due?.datetime && isValid(parseISO(task.due.datetime))) {
-          startDateTime = parseISO(task.due.datetime);
-        } else if (task.due?.date && isValid(parseISO(task.due.date))) {
-          // If only date is available, set a default time (e.g., 9 AM)
-          startDateTime = setHours(setMinutes(parseISO(task.due.date), 0), 9);
-        }
-
-        if (!startDateTime || !isValid(startDateTime)) {
-          return; // Skip invalid dates
-        }
-
-        const taskDayKey = format(startOfDay(startDateTime), 'yyyy-MM-dd');
-        if (map.has(taskDayKey)) {
-          const startMinutes = startDateTime.getHours() * 60 + startDateTime.getMinutes();
-          const top = startMinutes * PIXELS_PER_MINUTE;
-          const height = durationMinutes * PIXELS_PER_MINUTE;
-
-          map.get(taskDayKey)?.push({
-            ...task,
-            startMinutes,
-            top,
-            height,
-            endMinutes: startMinutes + durationMinutes,
-          });
-        }
-      });
-    
-    // Sort tasks within each day by start time
-    map.forEach(tasks => tasks.sort((a, b) => a.startMinutes - b.startMinutes));
-
-    return map;
-  }, [subtasks, displayedDates]);
+    return { tasks, totalHeight: rows.length * ROW_HEIGHT + 20 };
+  }, [subtasks, viewStartDate]);
 
   const tasksWithoutDueDate = useMemo(() => {
     return subtasks.filter(task => !task.due?.datetime && !task.due?.date);
@@ -110,25 +120,7 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks, mai
     setViewStartDate(prev => addDays(prev, NUM_DAYS_TO_DISPLAY));
   }, []);
 
-  const renderCurrentTimeLine = (day: Date) => {
-    if (!isToday(day)) return null;
-
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const topPosition = currentMinutes * PIXELS_PER_MINUTE;
-
-    return (
-      <div
-        className="absolute left-0 right-0 h-0.5 bg-red-500 z-10"
-        style={{ top: `${topPosition}px` }}
-      >
-        <div className="absolute -left-1 -top-2 w-3 h-3 rounded-full bg-red-500"></div>
-        <span className="absolute -right-10 -top-2 text-xs text-red-600 font-semibold">
-          {format(now, "HH:mm")}
-        </span>
-      </div>
-    );
-  };
+  const todayOffset = differenceInDays(startOfDay(new Date()), viewStartDate) * PIXELS_PER_DAY;
 
   if (subtasks.length === 0) {
     return (
@@ -140,95 +132,115 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks, mai
     <Card className="p-4">
       <CardHeader>
         <CardTitle className="text-xl font-bold mb-2 flex items-center gap-2">
-          <ListTodo className="h-5 w-5 text-indigo-600" /> Cronograma Detalhado (Horas)
+          <ListTodo className="h-5 w-5 text-indigo-600" /> Cronograma do Projeto (Gantt)
         </CardTitle>
         <div className="flex items-center justify-between mt-2">
           <Button variant="outline" size="sm" onClick={handlePreviousPeriod}>
-            <ChevronLeft className="h-4 w-4" /> Anterior
+            <ChevronLeft className="h-4 w-4" /> Período Anterior
           </Button>
           <p className="text-sm text-gray-600 font-semibold">
-            {format(displayedDates[0], "dd/MM", { locale: ptBR })} - {format(displayedDates[NUM_DAYS_TO_DISPLAY - 1], "dd/MM", { locale: ptBR })}
+            {format(displayedDates[0], "dd/MM/yyyy", { locale: ptBR })} - {format(displayedDates[NUM_DAYS_TO_DISPLAY - 1], "dd/MM/yyyy", { locale: ptBR })}
           </p>
           <Button variant="outline" size="sm" onClick={handleNextPeriod}>
-            Próximo <ChevronRight className="h-4 w-4" />
+            Próximo Período <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </CardHeader>
       <CardContent className="p-0">
         <div className="flex overflow-x-auto border border-gray-200 rounded-md">
-          {/* Time markers column */}
-          <div className="relative w-12 flex-shrink-0 border-r border-gray-200">
-            <div className="h-10 border-b border-gray-200 bg-white sticky top-0 z-20"></div>
-            <div style={{ height: `${MINUTES_IN_DAY * PIXELS_PER_MINUTE}px` }}>
-              {Array.from({ length: 24 }).map((_, hour) => (
-                <div key={`marker-${hour}`} className="absolute right-1 text-xs text-gray-500" style={{ top: `${hour * 60 * PIXELS_PER_MINUTE}px` }}>
-                  {format(setHours(new Date(), hour), "HH:mm")}
+          {/* Task List Column (Fixed Left) */}
+          <div className="sticky left-0 z-10 w-48 flex-shrink-0 bg-white border-r border-gray-200 divide-y divide-gray-100">
+            <div className="h-10 flex items-center p-2 text-sm font-semibold border-b border-gray-200">Subtarefas</div>
+            <div className="relative" style={{ height: `${tasksWithLayout.totalHeight}px` }}>
+                {tasksWithLayout.tasks.map((task) => (
+                    <div 
+                        key={task.id} 
+                        className="absolute w-full h-10 flex items-center p-2 text-sm truncate"
+                        style={{ top: `${task.top}px` }}
+                        title={task.content}
+                    >
+                        {task.content}
+                    </div>
+                ))}
+            </div>
+          </div>
+
+          {/* Gantt Chart Area (Scrollable) */}
+          <div className="flex flex-col flex-grow">
+            {/* Timeline Header (Dates) */}
+            <div className="flex flex-shrink-0 border-b border-gray-200">
+              {displayedDates.map(day => {
+                const isCurrentDay = isSameDay(day, new Date());
+                return (
+                  <div 
+                    key={format(day, 'yyyy-MM-dd')} 
+                    className={cn(
+                      "w-[100px] flex-shrink-0 p-1 text-center text-xs font-semibold",
+                      isCurrentDay ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-700"
+                    )}
+                  >
+                    {format(day, "EEE")}
+                    <div className="text-lg font-bold">{format(day, "dd")}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Task Bars Container */}
+            <div className="relative flex-grow overflow-hidden" style={{ height: `${tasksWithLayout.totalHeight}px`, minWidth: `${NUM_DAYS_TO_DISPLAY * PIXELS_PER_DAY}px` }}>
+              {/* Vertical Day Separators */}
+              {displayedDates.map((day, index) => {
+                const isCurrentDay = isSameDay(day, new Date());
+                return (
+                  <div 
+                    key={`sep-${format(day, 'yyyy-MM-dd')}`} 
+                    className={cn(
+                      "absolute top-0 bottom-0 border-r border-gray-200",
+                      isCurrentDay && "bg-blue-50 opacity-50"
+                    )}
+                    style={{ left: `${index * PIXELS_PER_DAY}px`, width: `${PIXELS_PER_DAY}px` }}
+                  ></div>
+                );
+              })}
+
+              {/* Today Line */}
+              {todayOffset >= 0 && todayOffset <= NUM_DAYS_TO_DISPLAY * PIXELS_PER_DAY && (
+                <div 
+                  className="absolute top-0 bottom-0 w-0.5 bg-red-600 z-20"
+                  style={{ left: `${todayOffset}px` }}
+                ></div>
+              )}
+
+              {/* Task Bars */}
+              {tasksWithLayout.tasks.map((task) => (
+                <div
+                  key={`bar-${task.id}`}
+                  className={cn(
+                    "absolute h-8 rounded-md p-1 text-xs font-semibold flex items-center justify-start overflow-hidden shadow-md transition-all duration-300 z-10",
+                    PRIORITY_COLORS[task.priority],
+                    "text-white"
+                  )}
+                  style={{
+                    left: `${task.left}px`,
+                    width: `${task.width}px`,
+                    top: `${task.top + 2}px`, // Add a small offset for padding
+                  }}
+                  title={`${task.content} (${task.durationDays} dias)`}
+                >
+                  <span className="truncate px-1">{task.content}</span>
+                  <a 
+                    href={task.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="absolute top-0 right-0 text-white hover:text-gray-200 p-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Daily timeline columns */}
-          {displayedDates.map(day => {
-            const dayKey = format(day, 'yyyy-MM-dd');
-            const tasksOnThisDay = tasksByDay.get(dayKey) || [];
-            const isCurrentDay = isSameDay(day, new Date());
-
-            return (
-              <div key={dayKey} className={cn("relative flex-1 border-r border-gray-200", isCurrentDay && "bg-blue-50")} style={{ minWidth: '150px' }}>
-                <div className={cn("sticky top-0 z-20 p-1 text-center text-sm font-semibold border-b", isCurrentDay ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-700")}>
-                  {format(day, "EEE, dd/MM", { locale: ptBR })}
-                </div>
-                <div className="relative" style={{ height: `${MINUTES_IN_DAY * PIXELS_PER_MINUTE}px` }}>
-                  {/* Background grid lines for hours */}
-                  {Array.from({ length: 24 }).map((_, hour) => (
-                    <div key={`grid-${dayKey}-${hour}`} className="absolute left-0 right-0 border-t border-gray-100" style={{ top: `${hour * 60 * PIXELS_PER_MINUTE}px` }}></div>
-                  ))}
-                  {tasksOnThisDay.map((task, index) => (
-                    <div
-                      key={task.id}
-                      className={cn(
-                        "absolute left-1 right-1 bg-blue-100 border border-blue-300 rounded-sm p-1 text-xs overflow-hidden",
-                        "hover:bg-blue-200 transition-colors duration-100",
-                        isPast(addMinutes(parseISO(task.due?.datetime || task.due?.date!), task.estimatedDurationMinutes || 0)) && "opacity-60 bg-gray-100 border-gray-300"
-                      )}
-                      style={{
-                        top: `${task.top}px`,
-                        height: `${task.height}px`,
-                        zIndex: 5 + index, // Simple stacking
-                      }}
-                      title={`${task.content} (${task.estimatedDurationMinutes} min)`}
-                    >
-                      <div className="font-semibold text-gray-800 truncate">{task.content}</div>
-                      <div className="flex items-center justify-between text-gray-600 mt-0.5">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {task.estimatedDurationMinutes} min
-                        </span>
-                        <span
-                          className={cn(
-                            "px-1 py-0.5 rounded-full text-white text-xs font-medium",
-                            PRIORITY_COLORS[task.priority],
-                          )}
-                        >
-                          {PRIORITY_LABELS[task.priority]}
-                        </span>
-                      </div>
-                      <a 
-                        href={task.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="absolute top-1 right-1 text-blue-500 hover:text-blue-700 opacity-0 hover:opacity-100 transition-opacity"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                  ))}
-                  {renderCurrentTimeLine(day)}
-                </div>
-              </div>
-            );
-          })}
         </div>
 
         {tasksWithoutDueDate.length > 0 && (
