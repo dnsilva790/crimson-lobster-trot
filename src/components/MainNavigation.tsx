@@ -111,14 +111,14 @@ const modules = [
     colorClass: "bg-pink-50 hover:bg-pink-100",
     activeColor: "border-pink-500",
   },
-  {
-    path: "/shitsuke",
-    icon: CheckSquare,
-    title: "SHITSUKE",
-    description: "Revisão Diária",
-    colorClass: "bg-green-50 hover:bg-green-100",
-    activeColor: "border-green-500",
-  },
+  // {
+  //   path: "/shitsuke",
+  //   icon: CheckSquare,
+  //   title: "SHITSUKE",
+  //   description: "Revisão Diária",
+  //   colorClass: "bg-green-50 hover:bg-green-100",
+  //   activeColor: "border-green-500",
+  // },
   {
     path: "/project-management",
     icon: FolderOpen,
@@ -152,7 +152,7 @@ const DEFAULT_HIDDEN_MODULES = [
   "/planejador",
   "/project-management",
   "/follow-up",
-  "/shitsuke", // Adicionado para arquivar o módulo Shitsuke
+  "/shitsuke", // Mantido aqui para garantir que o estado salvo do usuário o mantenha oculto
 ];
 
 const MainNavigation = () => {

@@ -52,7 +52,7 @@ const App = () => (
               <Route path="/project-management/:projectId" element={<ProjectManagementDetail />} />
               <Route path="/project-management/edit/:projectId" element={<EditProjectManagement />} />
               <Route path="/follow-up" element={<FollowUp />} />
-              <Route path="/shitsuke" element={<Shitsuke />} />
+              {/* <Route path="/shitsuke" element={<Shitsuke />} /> */}
               <Route path="/eisenhower" element={<Eisenhower />} />
               {/* <Route path="/ai-eisenhower" element={<AiEisenhower />} /> REMOVIDO */}
               <Route path="/agenda" element={<Agenda />} />
