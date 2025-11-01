@@ -106,11 +106,15 @@ const Seiso = () => {
       setIsLoadingTask(true);
       const idToFetch = paramTaskId || (location.state as { taskId?: string })?.taskId;
       if (idToFetch) {
+        console.log("Seiso: Attempting to fetch main task with ID:", idToFetch);
         const task = await fetchTaskById(idToFetch);
         if (task) {
+          console.log("Seiso: Main task fetched:", task);
           setCurrentTask(task);
           // Fetch subtasks for the current task
+          console.log("Seiso: Attempting to fetch subtasks for parent ID:", task.id);
           const fetchedSubtasks = await fetchTasks(`parent_id: ${task.id}`, { includeSubtasks: false, includeRecurring: false });
+          console.log("Seiso: Subtasks fetched:", fetchedSubtasks);
           setSubtasks(fetchedSubtasks || []);
 
           // Initialize scheduling states with task's current values
