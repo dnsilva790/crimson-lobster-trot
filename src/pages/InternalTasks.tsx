@@ -19,6 +19,20 @@ import { useTodoist } from "@/context/TodoistContext";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
+  4: "bg-red-500", // P1 - Urgente
+  3: "bg-orange-500", // P2 - Alto
+  2: "bg-yellow-500", // P3 - Médio
+  1: "bg-gray-400", // P4 - Baixo
+};
+
+const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
+  4: "P1",
+  3: "P2",
+  2: "P3",
+  1: "P4",
+};
+
 const InternalTasks = () => {
   const { createTodoistTask, fetchProjects, isLoading: isLoadingTodoist } = useTodoist();
   const [tasks, setTasks] = useState<InternalTask[]>([]);
@@ -28,7 +42,8 @@ const InternalTasks = () => {
   const [newTaskEstimatedDuration, setNewTaskEstimatedDuration] = useState<string>("15");
   const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined);
   const [newDueTime, setNewDueTime] = useState<string>("");
-  const [newDeadline, setNewDeadline] = useState<Date | undefined>(undefined); // Adicionado
+  const [newDeadline, setNewDeadline] = useState<Date | undefined>(undefined);
+  const [newTaskPriority, setNewTaskPriority] = useState<1 | 2 | 3 | 4>(1); // Novo estado para prioridade
 
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState("");
@@ -37,7 +52,8 @@ const InternalTasks = () => {
   const [editedEstimatedDuration, setEditedEstimatedDuration] = useState<string>("15");
   const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(undefined);
   const [editedDueTime, setEditedDueTime] = useState<string>("");
-  const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined); // Adicionado
+  const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined);
+  const [editedPriority, setEditedPriority] = useState<1 | 2 | 3 | 4>(1); // Novo estado para prioridade
 
   // New states for Todoist task creation
   const [taskCreationType, setTaskCreationType] = useState<"internal" | "todoist">("internal");
@@ -83,13 +99,13 @@ const InternalTasks = () => {
         content: newTaskContent.trim(),
         description: newTaskDescription.trim(),
         project_id: selectedTodoistProjectId,
-        priority: 1 as 1 | 2 | 3 | 4, // Default to P4 (lowest) for new tasks
+        priority: newTaskPriority, // Usar a prioridade selecionada
         labels: labels,
         duration: duration,
         duration_unit: "minute" as "minute",
         due_date: newDueDate ? format(newDueDate, "yyyy-MM-dd") : undefined,
         due_datetime: newDueDate && newDueTime ? format(newDueDate, "yyyy-MM-dd") + "T" + newDueTime + ":00" : undefined,
-        deadline: newDeadline ? format(newDeadline, "yyyy-MM-dd") : undefined, // Adicionado
+        deadline: newDeadline ? format(newDeadline, "yyyy-MM-dd") : undefined,
       };
 
       const createdTask = await createTodoistTask(todoistTaskData);
@@ -101,7 +117,8 @@ const InternalTasks = () => {
         setNewTaskEstimatedDuration("15");
         setNewDueDate(undefined);
         setNewDueTime("");
-        setNewDeadline(undefined); // Adicionado
+        setNewDeadline(undefined);
+        setNewTaskPriority(1); // Resetar prioridade
       } else {
         toast.error("Falha ao criar tarefa no Todoist.");
       }
@@ -116,6 +133,7 @@ const InternalTasks = () => {
         estimatedDurationMinutes: duration,
         dueDate: newDueDate ? format(newDueDate, "yyyy-MM-dd") : null,
         dueTime: newDueTime || null,
+        priority: newTaskPriority, // Incluir prioridade
       };
 
       const updatedTasks = addInternalTask(newTask);
@@ -126,9 +144,10 @@ const InternalTasks = () => {
       setNewTaskEstimatedDuration("15");
       setNewDueDate(undefined);
       setNewDueTime("");
+      setNewTaskPriority(1); // Resetar prioridade
       toast.success("Tarefa interna adicionada!");
     }
-  }, [newTaskContent, newTaskDescription, newTaskCategory, newTaskEstimatedDuration, newDueDate, newDueTime, newDeadline, taskCreationType, selectedTodoistProjectId, createTodoistTask]); // Adicionado newDeadline
+  }, [newTaskContent, newTaskDescription, newTaskCategory, newTaskEstimatedDuration, newDueDate, newDueTime, newDeadline, newTaskPriority, taskCreationType, selectedTodoistProjectId, createTodoistTask]);
 
   const handleToggleComplete = useCallback((taskId: string) => {
     setTasks((prevTasks) => {
@@ -155,7 +174,8 @@ const InternalTasks = () => {
     setEditedEstimatedDuration(String(task.estimatedDurationMinutes || 15));
     setEditedDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
     setEditedDueTime(task.dueTime || "");
-    setEditedDeadline(task.dueDate ? parseISO(task.dueDate) : undefined); // Placeholder for internal tasks, as they don't have a separate deadline field // Adicionado
+    setEditedDeadline(task.dueDate ? parseISO(task.dueDate) : undefined); // Placeholder for internal tasks, as they don't have a separate deadline field
+    setEditedPriority(task.priority); // Carregar prioridade
   }, []);
 
   const handleCancelEditing = useCallback(() => {
@@ -166,7 +186,8 @@ const InternalTasks = () => {
     setEditedEstimatedDuration("15");
     setEditedDueDate(undefined);
     setEditedDueTime("");
-    setEditedDeadline(undefined); // Adicionado
+    setEditedDeadline(undefined);
+    setEditedPriority(1); // Resetar prioridade
   }, []);
 
   const handleSaveEdit = useCallback(() => {
@@ -190,6 +211,7 @@ const InternalTasks = () => {
       estimatedDurationMinutes: duration,
       dueDate: editedDueDate ? format(editedDueDate, "yyyy-MM-dd") : null,
       dueTime: editedDueTime || null,
+      priority: editedPriority, // Incluir prioridade
     };
 
     const updatedTasks = updateInternalTask(updatedTask);
@@ -201,9 +223,10 @@ const InternalTasks = () => {
     setEditedEstimatedDuration("15");
     setEditedDueDate(undefined);
     setEditedDueTime("");
-    setEditedDeadline(undefined); // Adicionado
+    setEditedDeadline(undefined);
+    setEditedPriority(1); // Resetar prioridade
     toast.success("Tarefa interna atualizada!");
-  }, [editingTaskId, editedContent, editedDescription, editedCategory, editedEstimatedDuration, editedDueDate, editedDueTime, tasks]); // Adicionado editedDeadline
+  }, [editingTaskId, editedContent, editedDescription, editedCategory, editedEstimatedDuration, editedDueDate, editedDueTime, editedPriority, tasks]);
 
   const personalTasks = tasks.filter(task => task.category === "pessoal");
   const professionalTasks = tasks.filter(task => task.category === "profissional");
@@ -237,6 +260,20 @@ const InternalTasks = () => {
               <SelectItem value="profissional">Profissional</SelectItem>
             </SelectContent>
           </Select>
+          <div>
+            <Label htmlFor="edited-priority">Prioridade</Label>
+            <Select value={String(editedPriority)} onValueChange={(value) => setEditedPriority(Number(value) as 1 | 2 | 3 | 4)}>
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Selecione a prioridade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="4">P1 - Urgente</SelectItem>
+                <SelectItem value="3">P2 - Alto</SelectItem>
+                <SelectItem value="2">P3 - Médio</SelectItem>
+                <SelectItem value="1">P4 - Baixo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div>
             <Label htmlFor="edited-duration">Duração Estimada (minutos)</Label>
             <Input
@@ -320,6 +357,15 @@ const InternalTasks = () => {
             <span>Criado em: {new Date(task.createdAt).toLocaleDateString()}</span>
             <span className="mx-2">|</span>
             <span>Categoria: {task.category === "pessoal" ? "Pessoal" : "Profissional"}</span>
+            <span className="mx-2">|</span>
+            <span
+              className={cn(
+                "px-2 py-1 rounded-full text-white text-xs font-medium",
+                PRIORITY_COLORS[task.priority],
+              )}
+            >
+              {PRIORITY_LABELS[task.priority]}
+            </span>
             {task.estimatedDurationMinutes && (
               <>
                 <span className="mx-2">|</span>
@@ -428,6 +474,20 @@ const InternalTasks = () => {
             </Select>
           </div>
           <div>
+            <Label htmlFor="new-task-priority">Prioridade</Label>
+            <Select value={String(newTaskPriority)} onValueChange={(value) => setNewTaskPriority(Number(value) as 1 | 2 | 3 | 4)}>
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Selecione a prioridade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="4">P1 - Urgente</SelectItem>
+                <SelectItem value="3">P2 - Alto</SelectItem>
+                <SelectItem value="2">P3 - Médio</SelectItem>
+                <SelectItem value="1">P4 - Baixo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label htmlFor="new-task-duration">Duração Estimada (minutos)</Label>
             <Input
               id="new-task-duration"
@@ -475,7 +535,7 @@ const InternalTasks = () => {
               className="mt-1"
             />
           </div>
-          <div> {/* Adicionado */}
+          <div>
             <Label htmlFor="new-deadline">Deadline (Opcional)</Label>
             <Popover>
               <PopoverTrigger asChild>

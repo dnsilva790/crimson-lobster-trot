@@ -35,6 +35,7 @@ import {
   RAPIDA_LABEL_ID,
   CRONOGRAMA_HOJE_LABEL,
 } from "@/lib/constants";
+import SubtaskList from "@/components/SubtaskList"; // Import the new SubtaskList component
 
 const SEISO_PROCESSED_LABEL = "seiso_processada";
 
@@ -73,9 +74,10 @@ const Seiso = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { taskId: paramTaskId } = useParams<{ taskId: string }>();
-  const { fetchTaskById, updateTask, createTodoistTask, isLoading: isLoadingTodoist } = useTodoist();
+  const { fetchTaskById, fetchTasks, updateTask, createTodoistTask, isLoading: isLoadingTodoist } = useTodoist();
 
   const [currentTask, setCurrentTask] = useState<TodoistTask | null>(null);
+  const [subtasks, setSubtasks] = useState<TodoistTask[]>([]); // New state for subtasks
   const [isLoadingTask, setIsLoadingTask] = useState(true);
 
   // New states for Objective and Next Step
@@ -107,6 +109,10 @@ const Seiso = () => {
         const task = await fetchTaskById(idToFetch);
         if (task) {
           setCurrentTask(task);
+          // Fetch subtasks for the current task
+          const fetchedSubtasks = await fetchTasks(`parent_id: ${task.id}`, { includeSubtasks: false, includeRecurring: false });
+          setSubtasks(fetchedSubtasks || []);
+
           // Initialize scheduling states with task's current values
           setSelectedDueDate(task.due?.date ? parseISO(task.due.date) : undefined);
           setSelectedDueTime(task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "");
@@ -130,7 +136,7 @@ const Seiso = () => {
       setIsLoadingTask(false);
     };
     loadTask();
-  }, [paramTaskId, location.state, fetchTaskById, navigate]);
+  }, [paramTaskId, location.state, fetchTaskById, fetchTasks, navigate]);
 
   const handleSaveObjectiveAndNextStep = useCallback(async () => {
     if (!currentTask) return;
@@ -261,14 +267,14 @@ const Seiso = () => {
     if (updatedParentDescription) setCurrentTask(updatedParentDescription);
 
 
-    const subtasks = subtaskContent.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-    if (subtasks.length === 0) {
+    const subtasksToCreate = subtaskContent.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    if (subtasksToCreate.length === 0) {
       toast.error("Nenhuma subtarefa válida para criar.");
       return;
     }
 
     let createdCount = 0;
-    for (const sub of subtasks) {
+    for (const sub of subtasksToCreate) {
       const created = await createTodoistTask({
         content: sub,
         project_id: currentTask.project_id, // Usa o project_id da tarefa pai
@@ -291,10 +297,13 @@ const Seiso = () => {
 
       toast.success(`${createdCount} subtarefas criadas para "${currentTask.content}"!`);
       setSubtaskContent("");
+      // Refresh subtasks list after creation
+      const fetchedSubtasks = await fetchTasks(`parent_id: ${currentTask.id}`, { includeSubtasks: false, includeRecurring: false });
+      setSubtasks(fetchedSubtasks || []);
     } else {
       toast.info("Nenhuma subtarefa foi criada.");
     }
-  }, [currentTask, subtaskContent, createTodoistTask, objectiveInput, nextStepSeisoInput, updateTask]);
+  }, [currentTask, subtaskContent, createTodoistTask, objectiveInput, nextStepSeisoInput, updateTask, fetchTasks]);
 
   const handleMarkAsProcessed = useCallback(async () => {
     if (!currentTask) return;
@@ -447,9 +456,20 @@ const Seiso = () => {
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="flex flex-col gap-6"> {/* Adicionado flex-col e gap-6 aqui */}
+        <div className="flex flex-col gap-6">
           <h3 className="text-2xl font-bold text-gray-800">Tarefa em Foco</h3>
           {renderTaskDetails(currentTask)}
+
+          {subtasks.length > 0 && (
+            <Card className="p-6">
+              <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
+                <ListTodo className="h-5 w-5 text-indigo-600" /> Subtarefas
+              </CardTitle>
+              <CardContent className="p-0">
+                <SubtaskList subtasks={subtasks} />
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="p-6">
             <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
@@ -562,7 +582,7 @@ const Seiso = () => {
           </Button>
         </div>
 
-        <div className="flex flex-col gap-6"> {/* Adicionado flex-col e gap-6 aqui */}
+        <div className="flex flex-col gap-6">
           <Card className="p-6">
             <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
               <Users className="h-5 w-5 text-blue-600" /> Delegar Tarefa
