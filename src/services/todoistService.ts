@@ -135,10 +135,22 @@ export const todoistService = {
     return syncItemsMap;
   },
 
-  fetchTasks: async (apiKey: string, filter?: string, syncItemsCache?: Map<string, any>): Promise<TodoistTask[]> => {
-    // If filter is an empty string, treat it as undefined to fetch all tasks
-    const effectiveFilter = (filter === "" || filter === undefined) ? undefined : filter;
-    const endpoint = effectiveFilter ? `/tasks?filter=${encodeURIComponent(effectiveFilter)}` : "/tasks";
+  fetchTasks: async (apiKey: string, filter?: string, syncItemsCache?: Map<string, any>, parentId?: string): Promise<TodoistTask[]> => {
+    let effectiveFilter = (filter === "" || filter === undefined) ? undefined : filter;
+    
+    // If parentId is provided, we cannot use 'parent_id:' in the API filter directly.
+    // We'll fetch a broader set and filter client-side.
+    // For now, if parentId is present, we'll remove any 'parent_id:' from the filter string
+    // and handle it client-side.
+    let apiFilter = effectiveFilter;
+    if (parentId) {
+      // Remove any explicit parent_id filter from the string if it exists,
+      // as we'll handle it after fetching.
+      apiFilter = apiFilter?.replace(/parent_id:\s*\S+/g, '').trim();
+      if (apiFilter === "") apiFilter = undefined; // If only parent_id filter was there, clear it.
+    }
+
+    const endpoint = apiFilter ? `/tasks?filter=${encodeURIComponent(apiFilter)}` : "/tasks";
     const restTasks = await todoistApiCall<TodoistTask[]>(endpoint, apiKey);
 
     if (!restTasks || restTasks.length === 0) {
@@ -162,6 +174,12 @@ export const todoistService = {
       }
       return task;
     });
+
+    // Apply client-side filtering for parentId if specified
+    if (parentId) {
+      return mergedTasks.filter(task => task.parent_id === parentId);
+    }
+
     return mergedTasks || [];
   },
 

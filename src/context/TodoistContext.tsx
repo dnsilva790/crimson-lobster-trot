@@ -1,4 +1,4 @@
-import React, {
+import React,
   createContext,
   useContext,
   useState,
@@ -15,7 +15,7 @@ interface TodoistContextType {
   apiKey: string | null;
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
-  fetchTasks: (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean; includeCompleted?: boolean }) => Promise<TodoistTask[]>;
+  fetchTasks: (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean; includeCompleted?: boolean; parentId?: string }) => Promise<TodoistTask[]>;
   fetchTaskById: (taskId: string) => Promise<TodoistTask | undefined>;
   fetchProjects: () => Promise<TodoistProject[]>;
   closeTask: (taskId: string) => Promise<void>;
@@ -189,14 +189,16 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
   );
 
   const fetchTasks = useCallback(
-    async (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean; includeCompleted?: boolean }) => {
+    async (filter?: string, options?: { includeSubtasks?: boolean; includeRecurring?: boolean; includeCompleted?: boolean; parentId?: string }) => {
       const finalOptions = {
         includeSubtasks: options?.includeSubtasks ?? false,
         includeRecurring: options?.includeRecurring ?? false,
         includeCompleted: options?.includeCompleted ?? false,
+        parentId: options?.parentId ?? undefined, // Extract parentId
       };
 
-      const rawTasks = await makeApiCall(todoistService.fetchTasks, filter, syncItemsCacheRef.current);
+      // Pass parentId to todoistService.fetchTasks
+      const rawTasks = await makeApiCall(todoistService.fetchTasks, filter, syncItemsCacheRef.current, finalOptions.parentId);
       
       const sanitizedTasks = rawTasks.map(sanitizeTodoistTask);
 
@@ -216,7 +218,8 @@ export const TodoistProvider = ({ children }: { ReactNode }) => {
         return { ...task, estimatedDurationMinutes };
       });
 
-      if (!finalOptions.includeSubtasks) {
+      // Only filter out subtasks if includeSubtasks is explicitly false AND we are NOT specifically fetching for a parentId
+      if (!finalOptions.includeSubtasks && !finalOptions.parentId) {
         processedTasks = processedTasks.filter(task => task.parent_id === null);
       }
       
