@@ -64,6 +64,7 @@ const Agenda = () => {
       const filterToUse = agendaFilterInput.trim() || undefined;
       const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
       const startOfSelectedDay = startOfDay(selectedDate);
+      const startOfToday = startOfDay(new Date());
       
       console.log("Agenda: Filter sent to Todoist API:", filterToUse, "for date:", selectedDateKey);
       const fetchedTodoistTasks = await fetchTasks(filterToUse, { includeSubtasks: false, includeRecurring: true });
@@ -79,6 +80,7 @@ const Agenda = () => {
         if (taskDueDateTime && isValid(taskDueDateTime)) {
           effectiveDueDateTime = taskDueDateTime;
         } else if (taskDueDate && isValid(taskDueDate)) {
+          // Se for apenas data, consideramos o início do dia para comparação
           effectiveDueDateTime = startOfDay(taskDueDate);
         }
 
@@ -90,14 +92,22 @@ const Agenda = () => {
 
         if (effectiveDueDateTime && isValid(effectiveDueDateTime)) {
           const isDueOnSelectedDay = isSameDay(effectiveDueDateTime, startOfSelectedDay);
-          const isOverdueBeforeSelectedDay = isPast(effectiveDueDateTime) && !isSameDay(effectiveDueDateTime, startOfSelectedDay);
+          
+          // Uma tarefa é considerada "atrasada" se o prazo final for anterior ao início do dia selecionado.
+          // Se a data selecionada for hoje, tarefas atrasadas (isPast) são incluídas.
+          const isOverdue = isPast(effectiveDueDateTime) && isSameDay(startOfSelectedDay, startOfToday);
+          
+          // Se a data selecionada for no futuro, não incluímos tarefas atrasadas de dias anteriores.
+          const isOverdueBeforeSelectedDay = isPast(effectiveDueDateTime) && isBefore(effectiveDueDateTime, startOfSelectedDay);
 
           if (isDueOnSelectedDay || isOverdueBeforeSelectedDay) {
             shouldInclude = true;
           }
-        } else if (hasCronogramaLabel && isSameDay(selectedDate, startOfDay(new Date()))) {
-          // Se não tem data de vencimento, mas tem a etiqueta de cronograma, incluir APENAS se a data selecionada for HOJE
-          shouldInclude = true;
+        } 
+        
+        // Se a tarefa tem a etiqueta de cronograma, ela deve ser incluída APENAS se a data selecionada for HOJE.
+        if (hasCronogramaLabel && isSameDay(selectedDate, startOfToday)) {
+            shouldInclude = true;
         }
 
         if (shouldInclude) {
@@ -109,9 +119,12 @@ const Agenda = () => {
           
           if (taskDueDateTime && isValid(taskDueDateTime)) {
             startTime = format(taskDueDateTime, "HH:mm");
-          } else if (hasCronogramaLabel) {
+          } else if (hasCronogramaLabel && isSameDay(selectedDate, startOfToday)) {
             // Se tem a etiqueta de cronograma mas não tem hora, use 9 AM como padrão
             startTime = "09:00"; 
+          } else if (taskDueDate && isValid(taskDueDate) && !taskDueDateTime) {
+            // Se tem apenas data de vencimento, use 9 AM como padrão
+            startTime = "09:00";
           }
 
           const endTime = format(addMinutes(parse(startTime, "HH:mm", selectedDate), durationMinutes), "HH:mm");
