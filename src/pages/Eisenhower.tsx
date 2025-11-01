@@ -22,7 +22,7 @@ import AiAssistantModal from "@/components/eisenhower/AiAssistantModal";
 type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
 
 const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState";
-const EISENHOW_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input";
+const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input"; // Corrected typo here
 const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
 const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
 const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter"; // Nova chave para o localStorage
@@ -37,7 +37,7 @@ const Eisenhower = () => {
   // Novos estados para os filtros de carregamento
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(EISENHOW_FILTER_INPUT_STORAGE_KEY) || "";
+      return localStorage.getItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY) || "";
     }
     return "";
   });
@@ -68,7 +68,7 @@ const Eisenhower = () => {
   // Efeitos para salvar os filtros no localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(EISENHOW_FILTER_INPUT_STORAGE_KEY, filterInput);
+      localStorage.setItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY, filterInput);
     }
   }, [filterInput]);
 
@@ -98,7 +98,7 @@ const Eisenhower = () => {
 
 
   useEffect(() => {
-    const savedState = localStorage.getItem(EISENHOW_STORAGE_KEY);
+    const savedState = localStorage.getItem(EISENHOWER_STORAGE_KEY);
     if (savedState) {
       try {
         const parsedState = JSON.parse(savedState);
@@ -107,7 +107,7 @@ const Eisenhower = () => {
         toast.info("Estado da Matriz de Eisenhower carregado.");
       } catch (e) {
         console.error("Failed to load Eisenhower state from localStorage", e);
-        localStorage.removeItem(EISENHOW_STORAGE_KEY);
+        localStorage.removeItem(EISENHOWER_STORAGE_KEY);
         toast.error("Erro ao carregar estado da Matriz de Eisenhower. Reiniciando.");
       }
     }
@@ -115,7 +115,7 @@ const Eisenhower = () => {
 
   useEffect(() => {
     if (currentView !== "setup" || tasksToProcess.length > 0) {
-      localStorage.setItem(EISENHOW_STORAGE_KEY, JSON.stringify({ tasksToProcess, currentView }));
+      localStorage.setItem(EISENHOWER_STORAGE_KEY, JSON.stringify({ tasksToProcess, currentView }));
     }
   }, [tasksToProcess, currentView]);
 
@@ -277,7 +277,7 @@ const Eisenhower = () => {
   const handleReset = useCallback(() => {
     setTasksToProcess([]);
     setCurrentView("setup");
-    localStorage.removeItem(EISENHOW_STORAGE_KEY);
+    localStorage.removeItem(EISENHOWER_STORAGE_KEY);
     toast.info("Matriz de Eisenhower resetada.");
   }, []);
 
