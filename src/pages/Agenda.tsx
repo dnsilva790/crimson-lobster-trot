@@ -63,7 +63,6 @@ const Agenda = () => {
     try {
       const filterToUse = agendaFilterInput.trim() || undefined;
       const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
-      const now = new Date();
       const startOfSelectedDay = startOfDay(selectedDate);
       
       console.log("Agenda: Filter sent to Todoist API:", filterToUse, "for date:", selectedDateKey);
@@ -80,7 +79,6 @@ const Agenda = () => {
         if (taskDueDateTime && isValid(taskDueDateTime)) {
           effectiveDueDateTime = taskDueDateTime;
         } else if (taskDueDate && isValid(taskDueDate)) {
-          // Se for apenas data, usamos o início do dia para comparação
           effectiveDueDateTime = startOfDay(taskDueDate);
         }
 
@@ -91,19 +89,14 @@ const Agenda = () => {
         let shouldInclude = false;
 
         if (effectiveDueDateTime && isValid(effectiveDueDateTime)) {
-          // Check if due date is on the selected day (ignoring time for date-only tasks)
           const isDueOnSelectedDay = isSameDay(effectiveDueDateTime, startOfSelectedDay);
-          
-          // Check if the task is overdue relative to the selected day (i.e., due date is before the start of the selected day)
-          const isOverdueBeforeSelectedDay = isBefore(effectiveDueDateTime, startOfSelectedDay);
+          const isOverdueBeforeSelectedDay = isPast(effectiveDueDateTime) && !isSameDay(effectiveDueDateTime, startOfSelectedDay);
 
-          // Include if due on selected day OR if it's overdue and we are viewing today/past day
           if (isDueOnSelectedDay || isOverdueBeforeSelectedDay) {
             shouldInclude = true;
           }
-        } else if (hasCronogramaLabel) {
-          // If no due date/datetime, but has the cronograma label, include it for the selected day.
-          // This handles tasks that are meant to be scheduled today via the planner but haven't been given a time slot yet.
+        } else if (hasCronogramaLabel && isSameDay(selectedDate, startOfDay(new Date()))) {
+          // Se não tem data de vencimento, mas tem a etiqueta de cronograma, incluir APENAS se a data selecionada for HOJE
           shouldInclude = true;
         }
 
@@ -117,7 +110,7 @@ const Agenda = () => {
           if (taskDueDateTime && isValid(taskDueDateTime)) {
             startTime = format(taskDueDateTime, "HH:mm");
           } else if (hasCronogramaLabel) {
-            // If it has the cronograma label but no time, default to 9 AM or a sensible default
+            // Se tem a etiqueta de cronograma mas não tem hora, use 9 AM como padrão
             startTime = "09:00"; 
           }
 
