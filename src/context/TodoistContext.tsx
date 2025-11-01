@@ -1,4 +1,4 @@
-import React,
+import React, {
   createContext,
   useContext,
   useState,
@@ -95,7 +95,7 @@ const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
   return task;
 };
 
-export const TodoistProvider = ({ children }: { ReactNode }) => {
+export const TodoistProvider = ({ children }: { children: ReactNode }) => { // Corrigido o tipo de 'children'
   const [apiKey, setApiKeyInternal] = useState<string | null>(() => {
     // Carregar a chave da API do localStorage na inicialização
     if (typeof window !== 'undefined') {
