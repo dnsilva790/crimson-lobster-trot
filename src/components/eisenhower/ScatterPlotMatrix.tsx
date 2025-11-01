@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
   ZAxis,
   ReferenceArea,
+  ReferenceLine, // Importar ReferenceLine
 } from "recharts";
 import { Quadrant } from "@/lib/types";
 import { useNavigate } from "react-router-dom";
@@ -158,8 +159,18 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
       >
         <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
         
+        {/* Linhas de Threshold Dinâmicas */}
         <ReferenceArea x1={safeUrgencyThreshold} x2={safeUrgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
         <ReferenceArea y1={safeImportanceThreshold} y2={safeImportanceThreshold} stroke="#4b5563" strokeDasharray="5 5" />
+
+        {/* Linha Transversal (Urgência = Importância) */}
+        <ReferenceLine 
+          segment={[{ x: 0, y: 0 }, { x: 100, y: 100 }]} 
+          stroke="#10b981" // Cor verde/teal para destaque
+          strokeWidth={1}
+          strokeDasharray="3 3"
+          label={{ value: "Linha de Eficiência (U=I)", position: 'insideTopRight', fill: "#10b981", fontSize: 12 }}
+        />
 
         <XAxis
           type="number"
@@ -182,6 +193,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
         <ZAxis dataKey="content" name="Tarefa" />
         <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
+        {/* Áreas de Quadrante */}
         <ReferenceArea 
           x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
           fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
@@ -208,8 +220,8 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           data={data}
           shape="circle"
           isAnimationActive={false}
-          onClick={handleSingleClick} // Usar o novo handler de clique único
-          onDoubleClick={handleDoubleClick} // Usar o novo handler de duplo clique
+          onClick={handleSingleClick}
+          onDoubleClick={handleDoubleClick}
         >
           {data.map((entry, index) => (
             <Scatter
