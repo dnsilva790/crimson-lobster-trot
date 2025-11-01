@@ -24,7 +24,7 @@ import {
   RAPIDA_LABEL_ID,
   CRONOGRAMA_HOJE_LABEL,
 } from "@/lib/constants"; // Importar as constantes das etiquetas
-import SubtaskList from "@/components/SubtaskList"; // Importar o componente SubtaskList
+import SubtaskTimelineView from "@/components/SubtaskTimelineView"; // Importar o novo componente SubtaskTimelineView
 
 const AI_AGENT_PROMPT_STORAGE_KEY = "ai_agent_tutor_seiso_prompt";
 const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input";
@@ -402,15 +402,14 @@ const NovoSeiso = () => {
             </div>
             <FocusTaskCard task={currentTask} />
             
-            {/* Render SubtaskList here */}
+            {/* Render SubtaskTimelineView here */}
             {isLoadingSubtasks ? (
               <div className="flex justify-center items-center h-24 mt-4">
                 <LoadingSpinner size={20} />
               </div>
             ) : subtasks.length > 0 && (
               <div className="mt-6">
-                <h3 className="text-xl font-bold mb-3 text-gray-800">Subtarefas:</h3>
-                <SubtaskList subtasks={subtasks} level={0} />
+                <SubtaskTimelineView subtasks={subtasks} mainTaskDueDate={currentTask.due?.datetime ? parseISO(currentTask.due.datetime) : (currentTask.due?.date ? parseISO(currentTask.due.date) : null)} />
               </div>
             )}
 
