@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, ListTodo, Edit, Save, XCircle, Clock, MessageSquare, ExternalLink, Filter } from "lucide-react";
-import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes, isPast, isToday } from "date-fns";
+import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes, isPast, isToday, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { useTodoist } from "@/context/TodoistContext";
@@ -21,8 +21,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { CRONOGRAMA_HOJE_LABEL } from "@/lib/constants";
 
-const DEFAULT_AGENDA_FILTER = `(#📅 Reuniões | @📆 Cronograma de hoje) & (p1|p2|p3|p4) & due before: in 168 hour & !@⚡ Rápida`;
+const DEFAULT_AGENDA_FILTER = `(#📅 Reuniões | @${CRONOGRAMA_HOJE_LABEL}) & (p1|p2|p3|p4) & due before: in 168 hour & !@⚡ Rápida`;
 const AGENDA_FILTER_INPUT_STORAGE_KEY = "agenda_filter_input";
 const DEFAULT_TASK_DURATION_MINUTES = 30;
 
@@ -62,12 +63,12 @@ const Agenda = () => {
     try {
       const filterToUse = agendaFilterInput.trim() || undefined;
       const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
-      const now = new Date(); // Data atual para verificar atrasos
+      const now = new Date();
+      const startOfSelectedDay = startOfDay(selectedDate);
       
       console.log("Agenda: Filter sent to Todoist API:", filterToUse, "for date:", selectedDateKey);
-      // Alterado para incluir tarefas recorrentes
       const fetchedTodoistTasks = await fetchTasks(filterToUse, { includeSubtasks: false, includeRecurring: true });
-      console.log(`Agenda: Fetched ${fetchedTodoistTasks.length} tasks from Todoist API. Details:`, fetchedTodoistTasks);
+      console.log(`Agenda: Fetched ${fetchedTodoistTasks.length} tasks from Todoist API.`);
       
       const tasksForSelectedDay: ScheduledTask[] = [];
 
@@ -75,23 +76,51 @@ const Agenda = () => {
         const taskDueDateTime = task.due?.datetime ? parseISO(task.due.datetime) : null;
         const taskDueDate = task.due?.date ? parseISO(task.due.date) : null;
 
-        let effectiveDueDate: Date | null = null;
+        let effectiveDueDateTime: Date | null = null;
         if (taskDueDateTime && isValid(taskDueDateTime)) {
-          effectiveDueDate = startOfDay(taskDueDateTime);
+          effectiveDueDateTime = taskDueDateTime;
         } else if (taskDueDate && isValid(taskDueDate)) {
-          effectiveDueDate = startOfDay(taskDueDate);
+          // Se for apenas data, usamos o início do dia para comparação
+          effectiveDueDateTime = startOfDay(taskDueDate);
         }
 
-        // Lógica de filtro atualizada:
-        // Incluir se a tarefa vence no dia selecionado OU se a tarefa está atrasada (em relação à data atual)
-        const isDueOnSelectedDay = effectiveDueDate && format(effectiveDueDate, "yyyy-MM-dd") === selectedDateKey;
-        const isOverdue = effectiveDueDate && isPast(effectiveDueDate) && !isToday(effectiveDueDate);
+        // 1. Check if the task has the CRONOGRAMA_HOJE_LABEL
+        const hasCronogramaLabel = task.labels.includes(CRONOGRAMA_HOJE_LABEL);
 
-        if (isDueOnSelectedDay || isOverdue) {
-          const startTime = taskDueDateTime && isValid(taskDueDateTime) ? format(taskDueDateTime, "HH:mm") : "00:00";
-          const durationMinutes = task.duration?.amount && task.duration.unit === "minute"
+        // 2. Determine if the task should be included for the selected day
+        let shouldInclude = false;
+
+        if (effectiveDueDateTime && isValid(effectiveDueDateTime)) {
+          // Check if due date is on the selected day (ignoring time for date-only tasks)
+          const isDueOnSelectedDay = isSameDay(effectiveDueDateTime, startOfSelectedDay);
+          
+          // Check if the task is overdue relative to the selected day (i.e., due date is before the start of the selected day)
+          const isOverdueBeforeSelectedDay = isBefore(effectiveDueDateTime, startOfSelectedDay);
+
+          // Include if due on selected day OR if it's overdue and we are viewing today/past day
+          if (isDueOnSelectedDay || isOverdueBeforeSelectedDay) {
+            shouldInclude = true;
+          }
+        } else if (hasCronogramaLabel) {
+          // If no due date/datetime, but has the cronograma label, include it for the selected day.
+          // This handles tasks that are meant to be scheduled today via the planner but haven't been given a time slot yet.
+          shouldInclude = true;
+        }
+
+        if (shouldInclude) {
+          // Determine start/end times based on due_datetime or default duration
+          let startTime = "00:00";
+          let durationMinutes = task.duration?.amount && task.duration.unit === "minute"
             ? task.duration.amount
             : DEFAULT_TASK_DURATION_MINUTES;
+          
+          if (taskDueDateTime && isValid(taskDueDateTime)) {
+            startTime = format(taskDueDateTime, "HH:mm");
+          } else if (hasCronogramaLabel) {
+            // If it has the cronograma label but no time, default to 9 AM or a sensible default
+            startTime = "09:00"; 
+          }
+
           const endTime = format(addMinutes(parse(startTime, "HH:mm", selectedDate), durationMinutes), "HH:mm");
 
           tasksForSelectedDay.push({
@@ -109,12 +138,6 @@ const Agenda = () => {
           });
         } else {
           console.log(`Agenda: Task "${task.content}" (ID: ${task.id}) NOT added to selected day's schedule.`);
-          console.log(`  - Task Due: ${task.due?.datetime || task.due?.date || 'N/A'}`);
-          console.log(`  - Effective Due Date (startOfDay): ${effectiveDueDate ? format(effectiveDueDate, "yyyy-MM-dd") : 'N/A'}`);
-          console.log(`  - Selected Date Key: ${selectedDateKey}`);
-          console.log(`  - Labels: ${task.labels.join(', ')}`);
-          console.log(`  - Is Due On Selected Day: ${isDueOnSelectedDay}`);
-          console.log(`  - Is Overdue (relative to ${format(now, "yyyy-MM-dd")}): ${isOverdue}`);
         }
       });
 
@@ -307,7 +330,7 @@ const Agenda = () => {
     });
 
     if (hasConflict) {
-      toast.error("Não foi possível mover: o slot de tempo já está ocupado por outra tarefa.");
+      toast.error("Não foi possível mover: o slot de tempo já está ocupado por outra tarefa agendada.");
       return;
     }
 
