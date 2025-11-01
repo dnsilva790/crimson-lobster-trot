@@ -275,10 +275,19 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                   height: `${task.height}px`,
                   left: `${task.left}%`,
                   width: `${task.width}%`,
+                  // Adicionado minHeight para garantir que o conteúdo caiba
+                  minHeight: '20px', 
                 }}
                 onClick={(e) => { e.stopPropagation(); onSelectTask?.(task); }}
               >
-                  <span className="truncate w-full px-1" title={task.content}>
+                  {/* Ajustado para garantir que o texto não seja cortado verticalmente e use um tamanho de fonte menor se a altura for muito pequena */}
+                  <span 
+                    className={cn(
+                      "truncate w-full px-1 leading-tight",
+                      task.height < 25 ? "text-xs" : "text-sm" // Reduz o tamanho da fonte para tarefas muito curtas
+                    )} 
+                    title={task.content}
+                  >
                       {task.content}
                   </span>
                   <span className={cn(
@@ -287,6 +296,7 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                       task.priority === 3 && "bg-orange-500",
                       task.priority === 2 && "bg-yellow-500",
                       task.priority === 1 && "bg-gray-400",
+                      task.height < 25 && "hidden" // Esconde a prioridade se a barra for muito pequena
                   )}>
                       P{task.priority}
                   </span>
