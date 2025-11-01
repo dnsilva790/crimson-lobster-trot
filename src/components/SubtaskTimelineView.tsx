@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { TodoistTask } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { format, parseISO, isValid, setHours, setMinutes, addMinutes, isToday, isPast, startOfDay } from "date-fns";
+import { format, parseISO, isValid, setHours, setMinutes, addMinutes, isToday, isPast, startOfDay, addDays, isSameDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Clock, ExternalLink, ListTodo } from "lucide-react";
+import { CalendarIcon, Clock, ExternalLink, ListTodo, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface SubtaskTimelineViewProps {
   subtasks: TodoistTask[];
@@ -30,19 +31,38 @@ const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
 
 const MINUTES_IN_DAY = 24 * 60;
 const PIXELS_PER_MINUTE = 1.5; // Adjust this value to control the height of the timeline
+const NUM_DAYS_TO_DISPLAY = 7; // Display 7 days at a time
 
 const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks, mainTaskDueDate }) => {
-  const timelineDate = useMemo(() => {
+  const [viewStartDate, setViewStartDate] = useState<Date>(() => {
+    const today = startOfDay(new Date());
     if (mainTaskDueDate && isValid(mainTaskDueDate)) {
-      return startOfDay(mainTaskDueDate);
+      // Try to center the main task due date in the view
+      const diffDays = Math.floor(NUM_DAYS_TO_DISPLAY / 2);
+      return subDays(startOfDay(mainTaskDueDate), diffDays);
     }
-    return startOfDay(new Date());
-  }, [mainTaskDueDate]);
+    return today;
+  });
 
-  const tasksForTimeline = useMemo(() => {
-    return subtasks
+  const displayedDates = useMemo(() => {
+    const dates: Date[] = [];
+    for (let i = 0; i < NUM_DAYS_TO_DISPLAY; i++) {
+      dates.push(addDays(viewStartDate, i));
+    }
+    return dates;
+  }, [viewStartDate]);
+
+  const tasksByDay = useMemo(() => {
+    const map = new Map<string, (TodoistTask & { startMinutes: number; top: number; height: number; endMinutes: number; })[]>();
+    
+    displayedDates.forEach(day => {
+      const dayKey = format(day, 'yyyy-MM-dd');
+      map.set(dayKey, []);
+    });
+
+    subtasks
       .filter(task => task.due?.datetime || task.due?.date) // Only tasks with a due date/time
-      .map(task => {
+      .forEach(task => {
         let startDateTime: Date | null = null;
         let durationMinutes = task.estimatedDurationMinutes || 30; // Default to 30 min if not specified
 
@@ -54,36 +74,47 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks, mai
         }
 
         if (!startDateTime || !isValid(startDateTime)) {
-          return null; // Skip invalid dates
+          return; // Skip invalid dates
         }
 
-        // Ensure the task is placed on the correct timelineDate
-        startDateTime = setHours(setMinutes(timelineDate, startDateTime.getMinutes()), startDateTime.getHours());
+        const taskDayKey = format(startOfDay(startDateTime), 'yyyy-MM-dd');
+        if (map.has(taskDayKey)) {
+          const startMinutes = startDateTime.getHours() * 60 + startDateTime.getMinutes();
+          const top = startMinutes * PIXELS_PER_MINUTE;
+          const height = durationMinutes * PIXELS_PER_MINUTE;
 
-        const startMinutes = startDateTime.getHours() * 60 + startDateTime.getMinutes();
-        const top = startMinutes * PIXELS_PER_MINUTE;
-        const height = durationMinutes * PIXELS_PER_MINUTE;
+          map.get(taskDayKey)?.push({
+            ...task,
+            startMinutes,
+            top,
+            height,
+            endMinutes: startMinutes + durationMinutes,
+          });
+        }
+      });
+    
+    // Sort tasks within each day by start time
+    map.forEach(tasks => tasks.sort((a, b) => a.startMinutes - b.startMinutes));
 
-        return {
-          ...task,
-          startMinutes,
-          top,
-          height,
-          endMinutes: startMinutes + durationMinutes,
-        };
-      })
-      .filter(Boolean) // Remove nulls
-      .sort((a, b) => (a?.startMinutes || 0) - (b?.startMinutes || 0)); // Sort by start time
-  }, [subtasks, timelineDate]);
+    return map;
+  }, [subtasks, displayedDates]);
 
   const tasksWithoutDueDate = useMemo(() => {
     return subtasks.filter(task => !task.due?.datetime && !task.due?.date);
   }, [subtasks]);
 
+  const handlePreviousWeek = useCallback(() => {
+    setViewStartDate(prev => subDays(prev, NUM_DAYS_TO_DISPLAY));
+  }, []);
+
+  const handleNextWeek = useCallback(() => {
+    setViewStartDate(prev => addDays(prev, NUM_DAYS_TO_DISPLAY));
+  }, []);
+
   const renderTimeMarkers = () => {
     const markers: JSX.Element[] = [];
     for (let hour = 0; hour < 24; hour++) {
-      const time = setHours(timelineDate, hour);
+      const time = setHours(new Date(), hour); // Use a generic date for formatting time
       markers.push(
         <div
           key={hour}
@@ -97,8 +128,8 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks, mai
     return markers;
   };
 
-  const renderCurrentTimeLine = () => {
-    if (!isToday(timelineDate)) return null; // Only show current time line for today
+  const renderCurrentTimeLine = (day: Date) => {
+    if (!isToday(day)) return null;
 
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -129,54 +160,90 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks, mai
         <CardTitle className="text-xl font-bold mb-2 flex items-center gap-2">
           <ListTodo className="h-5 w-5 text-indigo-600" /> Linha do Tempo de Subtarefas
         </CardTitle>
-        <p className="text-sm text-gray-600">
-          Visualização para {format(timelineDate, "dd/MM/yyyy", { locale: ptBR })}
-        </p>
+        <div className="flex items-center justify-between mt-2">
+          <Button variant="outline" size="sm" onClick={handlePreviousWeek}>
+            <ChevronLeft className="h-4 w-4" /> Anterior
+          </Button>
+          <p className="text-sm text-gray-600 font-semibold">
+            {format(displayedDates[0], "dd/MM", { locale: ptBR })} - {format(displayedDates[NUM_DAYS_TO_DISPLAY - 1], "dd/MM", { locale: ptBR })}
+          </p>
+          <Button variant="outline" size="sm" onClick={handleNextWeek}>
+            Próximo <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="relative border border-gray-200 rounded-md overflow-hidden" style={{ height: `${MINUTES_IN_DAY * PIXELS_PER_MINUTE}px` }}>
-          {renderTimeMarkers()}
-          {tasksForTimeline.map((task, index) => (
-            <div
-              key={task.id}
-              className={cn(
-                "absolute left-12 right-1 bg-blue-100 border border-blue-300 rounded-sm p-1 text-xs overflow-hidden",
-                "hover:bg-blue-200 transition-colors duration-100",
-                isPast(addMinutes(task.startDateTime!, task.estimatedDurationMinutes || 0)) && "opacity-60 bg-gray-100 border-gray-300"
-              )}
-              style={{
-                top: `${task.top}px`,
-                height: `${task.height}px`,
-                zIndex: 5 + index, // Simple stacking
-              }}
-              title={`${task.content} (${task.estimatedDurationMinutes} min)`}
-            >
-              <div className="font-semibold text-gray-800 truncate">{task.content}</div>
-              <div className="flex items-center justify-between text-gray-600 mt-0.5">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" /> {task.estimatedDurationMinutes} min
-                </span>
-                <span
-                  className={cn(
-                    "px-1 py-0.5 rounded-full text-white text-xs font-medium",
-                    PRIORITY_COLORS[task.priority],
-                  )}
-                >
-                  {PRIORITY_LABELS[task.priority]}
-                </span>
+        <div className="flex overflow-x-auto">
+          {/* Time markers column */}
+          <div className="relative w-12 flex-shrink-0 border-r border-gray-200" style={{ height: `${MINUTES_IN_DAY * PIXELS_PER_MINUTE}px` }}>
+            {Array.from({ length: 24 }).map((_, hour) => (
+              <div key={`marker-${hour}`} className="absolute right-1 text-xs text-gray-500" style={{ top: `${hour * 60 * PIXELS_PER_MINUTE}px` }}>
+                {format(setHours(new Date(), hour), "HH:mm")}
               </div>
-              <a 
-                href={task.url} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="absolute top-1 right-1 text-blue-500 hover:text-blue-700 opacity-0 hover:opacity-100 transition-opacity"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-          ))}
-          {renderCurrentTimeLine()}
+            ))}
+          </div>
+
+          {/* Daily timeline columns */}
+          {displayedDates.map(day => {
+            const dayKey = format(day, 'yyyy-MM-dd');
+            const tasksOnThisDay = tasksByDay.get(dayKey) || [];
+            const isCurrentDay = isSameDay(day, new Date());
+
+            return (
+              <div key={dayKey} className={cn("relative flex-1 border-r border-gray-200", isCurrentDay && "bg-blue-50")} style={{ minWidth: '150px', height: `${MINUTES_IN_DAY * PIXELS_PER_MINUTE}px` }}>
+                <div className={cn("sticky top-0 z-20 p-1 text-center text-sm font-semibold border-b", isCurrentDay ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-700")}>
+                  {format(day, "EEE, dd/MM", { locale: ptBR })}
+                </div>
+                <div className="relative h-full">
+                  {/* Background grid lines for hours */}
+                  {Array.from({ length: 24 }).map((_, hour) => (
+                    <div key={`grid-${dayKey}-${hour}`} className="absolute left-0 right-0 border-t border-gray-100" style={{ top: `${hour * 60 * PIXELS_PER_MINUTE}px` }}></div>
+                  ))}
+                  {tasksOnThisDay.map((task, index) => (
+                    <div
+                      key={task.id}
+                      className={cn(
+                        "absolute left-1 right-1 bg-blue-100 border border-blue-300 rounded-sm p-1 text-xs overflow-hidden",
+                        "hover:bg-blue-200 transition-colors duration-100",
+                        isPast(addMinutes(task.startDateTime!, task.estimatedDurationMinutes || 0)) && "opacity-60 bg-gray-100 border-gray-300"
+                      )}
+                      style={{
+                        top: `${task.top}px`,
+                        height: `${task.height}px`,
+                        zIndex: 5 + index, // Simple stacking
+                      }}
+                      title={`${task.content} (${task.estimatedDurationMinutes} min)`}
+                    >
+                      <div className="font-semibold text-gray-800 truncate">{task.content}</div>
+                      <div className="flex items-center justify-between text-gray-600 mt-0.5">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> {task.estimatedDurationMinutes} min
+                        </span>
+                        <span
+                          className={cn(
+                            "px-1 py-0.5 rounded-full text-white text-xs font-medium",
+                            PRIORITY_COLORS[task.priority],
+                          )}
+                        >
+                          {PRIORITY_LABELS[task.priority]}
+                        </span>
+                      </div>
+                      <a 
+                        href={task.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="absolute top-1 right-1 text-blue-500 hover:text-blue-700 opacity-0 hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  ))}
+                  {renderCurrentTimeLine(day)}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {tasksWithoutDueDate.length > 0 && (
