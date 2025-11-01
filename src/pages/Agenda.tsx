@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, ListTodo, Edit, Save, XCircle, Clock, MessageSquare, ExternalLink, Filter } from "lucide-react";
-import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes, isPast, isToday, isSameDay } from "date-fns";
+import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes, isPast, isToday, isSameDay, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { useTodoist } from "@/context/TodoistContext";
