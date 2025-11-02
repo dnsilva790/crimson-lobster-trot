@@ -13,7 +13,7 @@ import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo, Save } from "lucide-react";
-import { cn, getDelegateNameFromLabels } from "@/lib/utils";
+import { cn, getDelegateNameFromLabels, isURL } from "@/lib/utils"; // Importar isURL
 import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import FollowUpAIAssistant from "@/components/FollowUpAIAssistant";
@@ -49,6 +49,7 @@ const FollowUp = () => {
   const [editedDueTime, setEditedDueTime] = useState<string>("");
   const [editedPriority, setEditedPriority] = useState<1 | 2 | 3 | 4>(1);
   const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined);
+  const [editedRecurrenceString, setEditedRecurrenceString] = useState<string>(""); // Novo estado para recorrência
   const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
   const [isEditPopoverOpen, setIsEditPopoverOpen] = useState(false); // Estado para controlar o popover de edição
 
@@ -308,6 +309,7 @@ const FollowUp = () => {
     setEditedDueTime((typeof task.due?.datetime === 'string' && task.due.datetime) ? format(parseISO(task.due.datetime), "HH:mm") : "");
     setEditedPriority(task.priority);
     setEditedDeadline((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
+    setEditedRecurrenceString(task.recurrence_string || ""); // Carregar recorrência
     setObservationInput(""); // Limpar o campo de observação ao abrir o popover
     setIsEditPopoverOpen(true); // Abrir o popover
   }, []);
@@ -318,6 +320,7 @@ const FollowUp = () => {
     setEditedDueTime("");
     setEditedPriority(1);
     setEditedDeadline(undefined);
+    setEditedRecurrenceString(""); // Limpar recorrência
     setObservationInput(""); // Limpar o campo de observação
     setIsEditPopoverOpen(false); // Fechar o popover
   }, []);
@@ -335,37 +338,53 @@ const FollowUp = () => {
       duration?: number | null;
       duration_unit?: "minute" | "day" | undefined;
       deadline?: string | null;
-      description?: string; // Adicionado para a descrição
+      description?: string;
+      recurrence_string?: string | null; // Adicionado
     } = {};
     let changed = false;
 
-    // Handle Due Date and Time
-    if (editedDueDate && isValid(editedDueDate)) {
-      let finalDate = editedDueDate;
-      if (editedDueTime) {
-        const [hours, minutes] = (editedDueTime || '').split(":").map(Number);
-        finalDate = setMinutes(setHours(editedDueDate, hours), minutes);
-        updateData.due_datetime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
-        updateData.due_date = null;
-      } else {
-        updateData.due_date = format(finalDate, "yyyy-MM-dd");
-        updateData.due_datetime = null;
-      }
-
-      const currentTaskDueDateTime = (typeof taskToEdit.due?.datetime === 'string' && taskToEdit.due.datetime) ? format(parseISO(taskToEdit.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
-      const currentTaskDueDate = (typeof taskToEdit.due?.date === 'string' && taskToEdit.due.date) ? format(parseISO(taskToEdit.due.date), "yyyy-MM-dd") : null;
-
-      if (updateData.due_datetime && updateData.due_datetime !== currentTaskDueDateTime) {
-        changed = true;
-      } else if (updateData.due_date && updateData.due_date !== currentTaskDueDate && !currentTaskDueDateTime) {
-        changed = true;
-      } else if (!updateData.due_date && !updateData.due_datetime && (currentTaskDueDate || currentTaskDueDateTime)) {
-        changed = true;
-      }
-    } else if (!editedDueDate && (taskToEdit.due?.date || taskToEdit.due?.datetime)) {
+    // --- Handle Recurrence String ---
+    if (editedRecurrenceString !== (taskToEdit.recurrence_string || "")) {
+      updateData.recurrence_string = editedRecurrenceString.trim() === "" ? null : editedRecurrenceString.trim();
+      changed = true;
+      // If recurrence_string is set, clear due_date and due_datetime
       updateData.due_date = null;
       updateData.due_datetime = null;
+    } else if (editedRecurrenceString.trim() === "" && taskToEdit.recurrence_string) {
+      // If recurrence_string was present but now cleared
+      updateData.recurrence_string = null;
       changed = true;
+    }
+
+    // --- Handle Due Date and Time (only if recurrence_string is NOT being set/updated) ---
+    if (updateData.recurrence_string === undefined) { // Only process if recurrence_string wasn't explicitly handled
+      if (editedDueDate && isValid(editedDueDate)) {
+        let finalDate = editedDueDate;
+        if (editedDueTime) {
+          const [hours, minutes] = (editedDueTime || '').split(":").map(Number);
+          finalDate = setMinutes(setHours(editedDueDate, hours), minutes);
+          updateData.due_datetime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
+          updateData.due_date = null;
+        } else {
+          updateData.due_date = format(finalDate, "yyyy-MM-dd");
+          updateData.due_datetime = null;
+        }
+
+        const currentTaskDueDateTime = (typeof taskToEdit.due?.datetime === 'string' && taskToEdit.due.datetime) ? format(parseISO(taskToEdit.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
+        const currentTaskDueDate = (typeof taskToEdit.due?.date === 'string' && taskToEdit.due.date) ? format(parseISO(taskToEdit.due.date), "yyyy-MM-dd") : null;
+
+        if (updateData.due_datetime && updateData.due_datetime !== currentTaskDueDateTime) {
+          changed = true;
+        } else if (updateData.due_date && updateData.due_date !== currentTaskDueDate && !currentTaskDueDateTime) {
+          changed = true;
+        } else if (!updateData.due_date && !updateData.due_datetime && (currentTaskDueDate || currentTaskDueDateTime)) {
+          changed = true;
+        }
+      } else if (!editedDueDate && (taskToEdit.due?.date || taskToEdit.due?.datetime)) {
+        updateData.due_date = null;
+        updateData.due_datetime = null;
+        changed = true;
+      }
     }
 
     // Handle Priority
@@ -402,181 +421,275 @@ const FollowUp = () => {
       toast.info("Nenhuma alteração detectada.");
     }
     handleCancelEditing();
-  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadline, observationInput, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
+  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadline, editedRecurrenceString, observationInput, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
 
 
-  const renderTaskItem = (task: TodoistTask) => (
-    <div 
-      key={task.id} 
-      className={cn(
-        "p-4 border-b border-gray-200 last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors",
-        selectedTaskForAI?.id === task.id && "bg-indigo-50 border-indigo-400 ring-1 ring-blue-400"
-      )}
-      onClick={() => handleSelectTaskForAI(task)}
-    >
-      {editingTaskId === task.id ? (
-        <div className="grid gap-2 p-2 bg-white rounded-md shadow-inner">
-          <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
-          <div>
-            <Label htmlFor={`edit-due-date-${task.id}`} className="text-sm">Data de Vencimento</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal mt-1",
-                    !editedDueDate && "text-muted-foreground"
-                  )}
-                  disabled={isLoadingTodoist}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {editedDueDate && isValid(editedDueDate) ? format(editedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={editedDueDate}
-                  onSelect={setEditedDueDate}
-                  initialFocus
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div>
-            <Label htmlFor={`edit-due-time-${task.id}`} className="text-sm">Hora de Vencimento (Opcional)</Label>
-            <Input
-              id={`edit-due-time-${task.id}`}
-              type="time"
-              value={editedDueTime}
-              onChange={(e) => setEditedDueTime(e.target.value)}
-              className="mt-1"
-              disabled={isLoadingTodoist}
-            />
-          </div>
-          <div>
-            <Label htmlFor={`edit-deadline-${task.id}`} className="text-sm">Deadline (Opcional)</Label> {/* Adicionado */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal mt-1",
-                    !editedDeadline && "text-muted-foreground"
-                  )}
-                  disabled={isLoadingTodoist}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {editedDeadline && isValid(editedDeadline) ? format(editedDeadline, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={editedDeadline}
-                  onSelect={setEditedDeadline}
-                  initialFocus
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div>
-            <Label htmlFor={`edit-priority-${task.id}`} className="text-sm">Prioridade</Label>
-            <Select
-              value={String(editedPriority)}
-              onValueChange={(value) => setEditedPriority(Number(value) as 1 | 2 | 3 | 4)}
-              disabled={isLoadingTodoist}
-            >
-              <SelectTrigger className="w-full mt-1">
-                <SelectValue placeholder="Selecione a prioridade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="4">P1 - Urgente</SelectItem>
-                <SelectItem value="3">P2 - Alto</SelectItem>
-                <SelectItem value="2">P3 - Médio</SelectItem>
-                <SelectItem value="1">P4 - Baixo</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="mt-2">
-            <Label htmlFor={`followup-observation-input-${task.id}`}>Adicionar Observação</Label>
-            <Textarea
-              id={`followup-observation-input-${task.id}`}
-              value={observationInput}
-              onChange={(e) => setObservationInput(e.target.value)}
-              placeholder="Adicione uma nota rápida à descrição da tarefa..."
-              rows={3}
-              className="mt-1"
-            />
-          </div>
-          <div className="flex gap-2 mt-2">
-            <Button onClick={handleSaveEdit} size="sm" className="flex-1" disabled={isLoadingTodoist}>
-              <Save className="h-4 w-4 mr-2" /> Salvar
-            </Button>
-            <Button onClick={handleCancelEditing} variant="outline" size="sm" className="flex-1" disabled={isLoadingTodoist}>
-              <XCircle className="h-4 w-4 mr-2" /> Cancelar
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-start justify-between">
-          <div className="flex-grow pr-4">
-            <h4 className="text-lg font-semibold text-gray-800">{task.content}</h4>
-            {task.description && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{task.description}</p>}
-            <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
-              {(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.datetime)) && (
-                <span className="flex items-center gap-1">
-                  <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                </span>
+  const renderTaskItem = (task: TodoistTask) => {
+    const isContentURL = isURL(task.content);
+    return (
+      <div 
+        key={task.id} 
+        className={cn(
+          "p-4 border-b border-gray-200 last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors",
+          selectedTaskForAI?.id === task.id && "bg-indigo-50 border-indigo-400 ring-1 ring-blue-400"
+        )}
+        onClick={() => handleSelectTaskForAI(task)}
+      >
+        {editingTaskId === task.id ? (
+          <div className="grid gap-2 p-2 bg-white rounded-md shadow-inner">
+            <h4 className="text-lg font-semibold text-gray-800">
+              {isContentURL ? (
+                <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                  {task.content}
+                </a>
+              ) : (
+                task.content
               )}
-              {(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.date)) && (
-                <span className="flex items-center gap-1">
-                  <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
-                </span>
-              )}
-              {(typeof task.deadline === 'string' && task.deadline) && isValid(parseISO(task.deadline)) && ( // Adicionado
-                <span className="flex items-center gap-1 text-red-600 font-semibold">
-                  <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
-                </span>
-              )}
-              {!(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && !(typeof task.deadline === 'string' && task.deadline) && <span>Sem prazo</span>} {/* Adicionado */}
-              {task.duration?.amount && task.duration.unit === "minute" && (
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" /> {task.duration.amount} min
-                </span>
-              )}
-              <span
-                className={cn(
-                  "px-2 py-0.5 rounded-full text-white text-xs font-medium",
-                  PRIORITY_COLORS[task.priority],
-                )}
+            </h4>
+            <div>
+              <Label htmlFor={`edit-due-date-${task.id}`} className="text-sm">Data de Vencimento</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal mt-1",
+                      !editedDueDate && "text-muted-foreground"
+                    )}
+                    disabled={isLoadingTodoist}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editedDueDate && isValid(editedDueDate) ? format(editedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={editedDueDate}
+                    onSelect={setEditedDueDate}
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label htmlFor={`edit-due-time-${task.id}`} className="text-sm">Hora de Vencimento (Opcional)</Label>
+              <Input
+                id={`edit-due-time-${task.id}`}
+                type="time"
+                value={editedDueTime}
+                onChange={(e) => setEditedDueTime(e.target.value)}
+                className="mt-1"
+                disabled={isLoadingTodoist}
+              />
+            </div>
+            <div>
+              <Label htmlFor={`edit-deadline-${task.id}`} className="text-sm">Deadline (Opcional)</Label> {/* Adicionado */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal mt-1",
+                      !editedDeadline && "text-muted-foreground"
+                    )}
+                    disabled={isLoadingTodoist}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editedDeadline && isValid(editedDeadline) ? format(editedDeadline, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={editedDeadline}
+                    onSelect={setEditedDeadline}
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label htmlFor={`edit-recurrence-string-${task.id}`} className="text-sm">Recorrência (Todoist string)</Label>
+              <Input
+                id={`edit-recurrence-string-${task.id}`}
+                type="text"
+                value={editedRecurrenceString}
+                onChange={(e) => setEditedRecurrenceString(e.target.value)}
+                placeholder="Ex: 'every day', 'every mon'"
+                className="mt-1"
+                disabled={isLoadingTodoist}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Use a sintaxe de recorrência do Todoist. Ex: "every day", "every mon", "every 2 weeks".
+              </p>
+            </div>
+            <div>
+              <Label htmlFor={`edit-priority-${task.id}`} className="text-sm">Prioridade</Label>
+              <Select
+                value={String(editedPriority)}
+                onValueChange={(value) => setEditedPriority(Number(value) as 1 | 2 | 3 | 4)}
+                disabled={isLoadingTodoist}
               >
-                {PRIORITY_LABELS[task.priority]}
-              </span>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Selecione a prioridade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="4">P1 - Urgente</SelectItem>
+                  <SelectItem value="3">P2 - Alto</SelectItem>
+                  <SelectItem value="2">P3 - Médio</SelectItem>
+                  <SelectItem value="1">P4 - Baixo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="mt-2">
+              <Label htmlFor={`followup-observation-input-${task.id}`}>Adicionar Observação</Label>
+              <Textarea
+                id={`followup-observation-input-${task.id}`}
+                value={observationInput}
+                onChange={(e) => setObservationInput(e.target.value)}
+                placeholder="Adicione uma nota rápida à descrição da tarefa..."
+                rows={3}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-2 mt-2">
+              <Button onClick={handleSaveEdit} size="sm" className="flex-1" disabled={isLoadingTodoist}>
+                <Save className="h-4 w-4 mr-2" /> Salvar
+              </Button>
+              <Button onClick={handleCancelEditing} variant="outline" size="sm" className="flex-1" disabled={isLoadingTodoist}>
+                <XCircle className="h-4 w-4 mr-2" /> Cancelar
+              </Button>
             </div>
           </div>
-          <div className="flex flex-col gap-2 ml-4">
-            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleStartEditing(task); }} disabled={isLoadingTodoist}>
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} disabled={isLoadingTodoist}>
-              <Check className="h-4 w-4 text-green-500" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleRemoveDelegation(task); }} disabled={isLoadingTodoist}>
-              <Trash2 className="h-4 w-4 text-red-500" />
-            </Button>
-            <a href={task.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon">
-                <ExternalLink className="h-4 w-4 text-blue-500" />
+        ) : (
+          <div className="flex items-start justify-between">
+            <div className="flex-grow pr-4">
+              <h4 className="text-lg font-semibold text-gray-800">
+                {isContentURL ? (
+                  <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                    {task.content}
+                  </a>
+                ) : (
+                  task.content
+                )}
+              </h4>
+              {task.description && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{task.description}</p>}
+              <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
+                {(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.datetime)) && (
+                  <span className="flex items-center gap-1">
+                    <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                  </span>
+                )}
+                {(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.date)) && (
+                  <span className="flex items-center gap-1">
+                    <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
+                  </span>
+                )}
+                {(typeof task.deadline === 'string' && task.deadline) && isValid(parseISO(task.deadline)) && ( // Adicionado
+                  <span className="flex items-center gap-1 text-red-600 font-semibold">
+                    <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
+                  </span>
+                )}
+                {task.recurrence_string && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Recorrência: {task.recurrence_string}
+                  </span>
+                )}
+                {!(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && !(typeof task.deadline === 'string' && task.deadline) && !task.recurrence_string && <span>Sem prazo</span>} {/* Adicionado */}
+                {task.duration?.amount && task.duration.unit === "minute" && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> {task.duration.amount} min
+                  </span>
+                )}
+                <span
+                  className={cn(
+                    "px-2 py-0.5 rounded-full text-white text-xs font-medium",
+                    PRIORITY_COLORS[task.priority],
+                  )}
+                >
+                  {PRIORITY_LABELS[task.priority]}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 ml-4">
+              <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleStartEditing(task); }} disabled={isLoadingTodoist}>
+                <Edit className="h-4 w-4" />
               </Button>
-            </a>
+              <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }} disabled={isLoadingTodoist}>
+                <Check className="h-4 w-4 text-green-500" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleRemoveDelegation(task); }} disabled={isLoadingTodoist}>
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
+              <a href={task.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon">
+                  <ExternalLink className="h-4 w-4 text-blue-500" />
+                </Button>
+              </a>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
+
+  const renderAgenda = () => {
+    const agendaTasks = filteredTasksToDisplay.filter(task => {
+      const taskDueDateTime = task.due?.datetime ? parseISO(task.due.datetime) : null;
+      const taskDueDate = task.due?.date ? parseISO(task.due.date) : null;
+      const taskDeadline = task.deadline ? parseISO(task.deadline) : null;
+
+      const effectiveDate = taskDeadline || taskDueDateTime || taskDueDate;
+
+      return effectiveDate && isValid(effectiveDate) && isToday(effectiveDate);
+    }).sort((a, b) => {
+      const dateA = a.due?.datetime ? parseISO(a.due.datetime) : (a.due?.date ? parseISO(a.due.date) : null);
+      const dateB = b.due?.datetime ? parseISO(b.due.datetime) : (b.due?.date ? parseISO(b.due.date) : null);
+      if (dateA && dateB) return dateA.getTime() - dateB.getTime();
+      return 0;
+    });
+
+    if (agendaTasks.length === 0) {
+      return <p className="text-gray-500 italic">Nenhuma tarefa delegada com vencimento hoje.</p>;
+    }
+
+    return (
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">Pauta para Hoje ({format(new Date(), "dd/MM/yyyy", { locale: ptBR })})</h3>
+        {agendaTasks.map(task => {
+          const delegateName = getDelegateNameFromLabels(task.labels) || "Responsável Desconhecido";
+          const dueTime = task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "Sem Hora";
+          const isContentURL = isURL(task.content);
+          return (
+            <div key={task.id} className="flex items-center justify-between p-2 bg-white rounded-md shadow-sm border border-gray-200">
+              <div className="flex-grow">
+                <p className="text-sm font-medium text-gray-800">
+                  {isContentURL ? (
+                    <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                      {task.content}
+                    </a>
+                  ) : (
+                    task.content
+                  )}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {delegateName} - {dueTime}
+                </p>
+              </div>
+              <a href={task.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <ExternalLink className="h-4 w-4 text-blue-500" />
+                </Button>
+              </a>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const isLoading = isLoadingTodoist || isFetchingDelegatedTasks;
 

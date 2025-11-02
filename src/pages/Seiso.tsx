@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { format, parseISO, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn, getTaskCategory } from "@/lib/utils";
+import { cn, getTaskCategory, isURL } from "@/lib/utils"; // Importar isURL
 import { TodoistTask } from "@/lib/types";
 import { useTodoist } from "@/context/TodoistContext";
 import LoadingSpinner from "@/components/ui/loading-spinner";
@@ -363,12 +363,20 @@ const Seiso = () => {
     const isRapidaActive = task.labels?.includes(RAPIDA_LABEL_ID);
     const isCronogramaActive = task.labels?.includes(CRONOGRAMA_HOJE_LABEL);
 
+    const isContentURL = isURL(task.content); // Check if content is a URL
+
     return (
       <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full">
         <div className="flex-grow">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+              {isContentURL ? (
+                <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-2xl font-bold text-indigo-600 hover:underline">
+                  {task.content}
+                </a>
+              ) : (
+                <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+              )}
               {category && (
                 <span
                   className={cn(
@@ -414,7 +422,12 @@ const Seiso = () => {
                 <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
               </span>
             )}
-            {!task.due?.date && !task.due?.datetime && !task.deadline && <span>Sem prazo</span>}
+            {task.recurrence_string && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Recorrência: {task.recurrence_string}
+              </span>
+            )}
+            {!task.due?.date && !task.due?.datetime && !task.deadline && !task.recurrence_string && <span>Sem prazo</span>}
           </div>
           <span
             className={cn(
@@ -635,7 +648,16 @@ const Seiso = () => {
                       disabled={isLoadingTodoist}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDueDate && isValid(selectedDueDate) ? format(selectedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                      {selectedRecurrenceString ? (
+                        <span>Recorrência: {selectedRecurrenceString}</span>
+                      ) : selectedDueDate && isValid(selectedDueDate) ? (
+                        <span>
+                          {format(selectedDueDate, "PPP", { locale: ptBR })}
+                          {selectedDueTime && ` às ${selectedDueTime}`}
+                        </span>
+                      ) : (
+                        <span>Escolha uma data</span>
+                      )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-4">
