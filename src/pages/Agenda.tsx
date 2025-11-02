@@ -360,17 +360,25 @@ const Agenda = () => {
       return;
     }
 
-    // AQUI ESTÁ A CORREÇÃO: Não passamos a recurrence_string para updateTask
-    // quando estamos apenas movendo uma instância de tarefa.
-    // A API do Todoist entende que, se não houver recurrence_string,
-    // mas houver due_datetime, é para atualizar a instância.
-    const updated = await updateTask(originalTodoistTask.id, {
+    const updatePayload: {
+      due_date: string | null;
+      due_datetime: string | null;
+      duration: number;
+      duration_unit: "minute" | "day";
+      recurrence_string?: string | null;
+    } = {
       due_date: null, // Clear due_date if due_datetime is set
       due_datetime: format(targetStartDateTime, "yyyy-MM-dd'T'HH:mm:ss"),
       duration: durationMinutes,
       duration_unit: "minute",
-      // recurrence_string: originalTodoistTask.recurrence_string, // REMOVIDO: Não passar recurrence_string aqui
-    });
+    };
+
+    // Se a tarefa original for recorrente, inclua a string de recorrência no payload
+    if (originalTodoistTask.recurrence_string) {
+      updatePayload.recurrence_string = originalTodoistTask.recurrence_string;
+    }
+
+    const updated = await updateTask(originalTodoistTask.id, updatePayload);
 
     if (updated) {
       toast.success(`Tarefa "${draggedTask.content}" movida para ${newStartTime} - ${newEndTime}!`);
