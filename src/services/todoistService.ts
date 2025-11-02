@@ -245,24 +245,35 @@ export const todoistService = {
       Object.assign(restApiPayload, data);
     }
 
-    // Handle recurrence_string
+    // Handle recurrence_string, due_date, and due_datetime together
     if (data.recurrence_string !== undefined) {
       if (data.recurrence_string === null || data.recurrence_string.trim() === '') {
-        restApiPayload.due = null; // Clear due date and recurrence
+        // User explicitly wants to clear recurrence. Also clear due date/time.
+        restApiPayload.due = null;
       } else {
-        restApiPayload.due = { string: data.recurrence_string };
+        // User wants to set/keep recurrence.
+        // If due_date/datetime are also provided, send both to update instance and keep recurrence.
+        // Otherwise, just send recurrence string.
+        if (data.due_date !== undefined || data.due_datetime !== undefined) {
+          restApiPayload.due = {
+            string: data.recurrence_string,
+            date: data.due_date,
+            datetime: data.due_datetime,
+          };
+        } else {
+          restApiPayload.due = { string: data.recurrence_string };
+        }
       }
-      // If recurrence_string is provided, due_date and due_datetime should not be sent
-      delete restApiPayload.due_date;
-      delete restApiPayload.due_datetime;
     } else if (data.due_date !== undefined || data.due_datetime !== undefined) {
-      // If recurrence_string is NOT provided, but due_date/datetime ARE, then set them
-      // This will update the instance or set a non-recurring date
+      // If recurrence_string is NOT provided (undefined), but due_date/datetime ARE,
+      // then set them. This will update the instance and remove recurrence if it was present.
       restApiPayload.due = {
         date: data.due_date,
         datetime: data.due_datetime,
       };
     }
+    // Note: If none of the above conditions are met, 'due' is not added to restApiPayload,
+    // meaning no change to due date/recurrence.
 
 
     if (Object.keys(restApiPayload).length > 0) {

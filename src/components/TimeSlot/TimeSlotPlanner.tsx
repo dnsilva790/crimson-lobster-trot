@@ -212,7 +212,10 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
         // Make time slots droppable
         const [{ isOver }, drop] = useDrop(() => ({
           accept: DRAG_ITEM_TYPE,
-          drop: (item: ScheduledTask) => onDropTask(item, formattedTime),
+          drop: (item: ScheduledTask) => {
+            console.log("DROP DETECTED on slot:", formattedTime, "item:", item);
+            onDropTask(item, formattedTime);
+          },
           collect: (monitor) => ({
             isOver: monitor.isOver(),
           }),
@@ -231,6 +234,7 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
             )}
             onClick={() => onSelectSlot?.(formattedTime, blockType)}
           >
+            {isOver && <span className="absolute inset-0 bg-indigo-300 opacity-50 z-50"></span>} {/* Visual feedback */}
             <span className="font-medium text-gray-600 bg-white z-40 relative pr-2">
               {formattedTime}
             </span>
@@ -257,9 +261,13 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
             const [{ isDragging }, drag] = useDrag(() => ({
               type: DRAG_ITEM_TYPE,
               item: task, // Pass the entire task object
-              collect: (monitor) => ({
-                isDragging: monitor.isDragging(),
-              }),
+              collect: (monitor) => {
+                const dragging = monitor.isDragging();
+                if (dragging) {
+                  console.log("DRAGGING task:", task.content);
+                }
+                return { isDragging: dragging };
+              },
             }), [task]);
 
             return (
