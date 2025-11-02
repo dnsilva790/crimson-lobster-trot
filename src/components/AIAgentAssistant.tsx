@@ -70,7 +70,6 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isThinking, setIsThinking] = useState(false);
-  const [lastGeneratedReport, setLastGeneratedReport] = useState<string | null>(null);
   const [suggestedTaskForGuidance, setSuggestedTaskForGuidance] = useState<TodoistTask | null>(null);
   const [dialogueState, setDialogueState] = useState<DialogueState>('initial');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -105,7 +104,6 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     }
 
     setDialogueState(taskContext ? 'awaiting_task_action' : 'initial');
-    setLastGeneratedReport(null);
   }, [taskContext, getTaskHistoryKey]);
 
   // Save messages whenever they change
@@ -121,13 +119,6 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [messages]);
-
-  const generateTodoistUpdateSuggestion = useCallback((progress: string, nextStep: string) => {
-    return `\`\`\`
-[PROGRESSO]: ${progress}
-[PRÓXIMO PASSO]: _${nextStep}_
-\`\`\``;
-  }, []);
 
   const callGeminiChatFunction = useCallback(async (userMessage: string) => {
     setIsThinking(true);
@@ -254,45 +245,11 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     await callGeminiChatFunction(userMsg);
   };
 
-  const handleGenerateStatusReport = useCallback(() => {
-    const taskToReport = taskContext;
-    if (!taskToReport) {
-      toast.error("Selecione uma tarefa ou peça uma sugestão para gerar o relatório de status.");
-      return;
-    }
-    const statusText = `Nesta sessão de foco, você trabalhou na tarefa: ${taskToReport.content}.`;
-    const nextStepText = `Definir a próxima micro-ação para avançar com a tarefa.`;
-    const report = generateTodoistUpdateSuggestion(statusText, nextStepText);
-    setLastGeneratedReport(report);
-    toast.success("Relatório de status gerado!");
-  }, [taskContext, generateTodoistUpdateSuggestion]);
-
-  const handleGenerateNextStepReport = useCallback(() => {
-    const taskToReport = taskContext;
-    if (!taskToReport) {
-      toast.error("Selecione uma tarefa ou peça uma sugestão para gerar o relatório de próximo passo.");
-      return;
-    }
-    const nextStepText = `${taskToReport.content} (Definir a próxima micro-ação).`;
-    const report = generateTodoistUpdateSuggestion("(Preencha aqui o que foi feito na última sessão)", nextStepText);
-    setLastGeneratedReport(report);
-    toast.success("Relatório de próximo passo gerado!");
-  }, [taskContext, generateTodoistUpdateSuggestion]);
-
-  const handleCopyReport = useCallback(() => {
-    if (lastGeneratedReport) {
-      const textToCopy = lastGeneratedReport.replace(/```\n/g, '').replace(/\n```/g, '');
-      navigator.clipboard.writeText(textToCopy);
-      toast.success("Relatório copiado para a área de transferência!");
-    }
-  }, [lastGeneratedReport]);
-
   const handleResetChat = useCallback(() => {
     if (confirm("Tem certeza que deseja reiniciar o chat? Isso apagará todo o histórico de conversa.")) {
       setMessages([]);
       setSuggestedTaskForGuidance(null);
       setDialogueState('initial');
-      setLastGeneratedReport(null);
       // Limpa o histórico geral e o histórico da tarefa atual (se houver)
       localStorage.removeItem(AI_GENERAL_CHAT_HISTORY_KEY);
       if (taskContext) {
@@ -309,7 +266,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
         <CardTitle className="flex items-center gap-2 text-lg">
           <Bot className="h-5 w-5 text-indigo-600" /> Tutor IA SEISO
           <Button variant="ghost" size="icon" onClick={handleResetChat} className="ml-auto">
-            <RotateCcw className="h-4 w-4 text-gray-500" />
+            <RotateCcw className="h-4 w-4" />
           </Button>
         </CardTitle>
       </CardHeader>
@@ -347,31 +304,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
           </div>
         </ScrollArea>
         <div className="p-4 border-t flex flex-col gap-2">
-          {lastGeneratedReport && (
-            <div className="bg-gray-100 p-3 rounded-md border border-gray-200">
-              <Label htmlFor="generated-report" className="text-sm font-semibold text-gray-700 mb-1 block">
-                Relatório para Todoist:
-              </Label>
-              <Textarea
-                id="generated-report"
-                value={lastGeneratedReport}
-                readOnly
-                rows={4}
-                className="font-mono text-xs resize-none"
-              />
-              <Button onClick={handleCopyReport} size="sm" className="w-full mt-2 flex items-center gap-1">
-                <ClipboardCopy className="h-4 w-4" /> Copiar Relatório
-              </Button>
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-2">
-            <Button onClick={handleGenerateStatusReport} disabled={!taskContext || isLoadingTodoist} className="flex items-center gap-1">
-              <ClipboardCopy className="h-4 w-4" /> Gerar Status
-            </Button>
-            <Button onClick={handleGenerateNextStepReport} disabled={!taskContext || isLoadingTodoist} className="flex items-center gap-1">
-              <ClipboardCopy className="h-4 w-4" /> Gerar Próximo Passo
-            </Button>
-          </div>
+          {/* Removido: lastGeneratedReport e botões de relatório */}
           <div className="flex items-center gap-2">
             <Input
               placeholder="Converse com o Tutor IA..."
