@@ -30,6 +30,7 @@ export interface TodoistTask {
   deadline?: string | null; // Adicionado o campo deadline
   isMeeting?: boolean; // Adicionado para identificar reuniões
   custom_fields?: TodoistCustomField[]; // Adicionado para capturar campos personalizados brutos
+  recurrence_string?: string | null; // Adicionado para gerenciar a string de recorrência
 }
 
 export interface TodoistProject {
@@ -67,6 +68,7 @@ export interface InternalTask {
   dueDate?: string | null; // Novo campo para data de vencimento (YYYY-MM-DD)
   dueTime?: string | null; // Novo campo para hora de vencimento (HH:mm)
   priority: 1 | 2 | 3 | 4; // Adicionado para tarefas internas
+  recurrence_string?: string | null; // Adicionado para tarefas internas
 }
 
 // Novas interfaces para o Planejador

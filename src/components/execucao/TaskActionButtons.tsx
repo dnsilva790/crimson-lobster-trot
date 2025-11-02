@@ -34,6 +34,7 @@ interface TaskActionButtonsProps {
     duration?: number;
     duration_unit?: "minute" | "day";
     deadline?: string | null;
+    recurrence_string?: string | null; // Adicionado
   }) => Promise<TodoistTask | undefined>;
   onPostpone: (taskId: string) => Promise<void>;
   onEmergencyFocus: (taskId: string) => Promise<void>;
@@ -64,15 +65,20 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
     ? String(currentTask.duration.amount)
     : "15"; // Default to 15 minutes
   const initialDeadline = currentTask.deadline ? parseISO(currentTask.deadline) : undefined;
+  const initialRecurrenceString = currentTask.recurrence_string || ""; // Novo estado para recorrência
 
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(initialDueDate);
   const [selectedDueTime, setSelectedDueTime] = useState<string>(initialDueTime);
   const [selectedPriority, setSelectedPriority] = useState<1 | 2 | 3 | 4>(currentTask.priority);
   const [selectedDuration, setSelectedDuration] = useState<string>(initialDuration);
   const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(initialDeadline);
+  const [selectedRecurrenceString, setSelectedRecurrenceString] = useState<string>(initialRecurrenceString); // Novo estado para recorrência
 
   // Helper to get the canonical due string for comparison
-  const getCanonicalDueString = useCallback((date: Date | undefined, time: string | undefined, taskDue: TodoistTask['due']) => {
+  const getCanonicalDueString = useCallback((date: Date | undefined, time: string | undefined, recurrenceString: string | undefined, taskDue: TodoistTask['due']) => {
+    if (recurrenceString && recurrenceString.trim() !== "") {
+      return recurrenceString.trim();
+    }
     if (date && isValid(date)) {
       if (time) {
         const [hours, minutes] = time.split(":").map(Number);
@@ -98,26 +104,42 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
       duration?: number | null; // Changed to allow null
       duration_unit?: "minute" | "day";
       deadline?: string | null;
+      recurrence_string?: string | null; // Adicionado
     } = {};
     let changed = false;
 
-    // --- Handle Due Date and Time ---
-    const oldDueString = getCanonicalDueString(undefined, undefined, currentTask.due);
-    const newDueString = getCanonicalDueString(selectedDueDate, selectedDueTime, null);
-
-    if (oldDueString !== newDueString) {
+    // --- Handle Recurrence String ---
+    if (selectedRecurrenceString !== (currentTask.recurrence_string || "")) {
+      updateData.recurrence_string = selectedRecurrenceString.trim() === "" ? null : selectedRecurrenceString.trim();
       changed = true;
-      if (newDueString) {
-        if (newDueString.includes('T')) { // It's a datetime
-          updateData.due_datetime = newDueString;
+      // If recurrence_string is set, clear due_date and due_datetime
+      updateData.due_date = null;
+      updateData.due_datetime = null;
+    } else if (selectedRecurrenceString.trim() === "" && currentTask.recurrence_string) {
+      // If recurrence_string was present but now cleared
+      updateData.recurrence_string = null;
+      changed = true;
+    }
+
+    // --- Handle Due Date and Time (only if recurrence_string is NOT being set/updated) ---
+    if (updateData.recurrence_string === undefined) { // Only process if recurrence_string wasn't explicitly handled
+      const oldDueString = getCanonicalDueString(undefined, undefined, currentTask.recurrence_string, currentTask.due);
+      const newDueString = getCanonicalDueString(selectedDueDate, selectedDueTime, undefined, null); // Pass undefined for recurrenceString here
+
+      if (oldDueString !== newDueString) {
+        changed = true;
+        if (newDueString) {
+          if (newDueString.includes('T')) { // It's a datetime
+            updateData.due_datetime = newDueString;
+            updateData.due_date = null;
+          } else { // It's a date
+            updateData.due_date = newDueString;
+            updateData.due_datetime = null;
+          }
+        } else { // newDueString is null, meaning cleared
           updateData.due_date = null;
-        } else { // It's a date
-          updateData.due_date = newDueString;
           updateData.due_datetime = null;
         }
-      } else { // newDueString is null, meaning cleared
-        updateData.due_date = null;
-        updateData.due_datetime = null;
       }
     }
 
@@ -167,9 +189,10 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   };
 
   const handleClearDueDate = async () => {
-    await onUpdateTask(currentTask.id, { due_date: null, due_datetime: null });
+    await onUpdateTask(currentTask.id, { due_date: null, due_datetime: null, recurrence_string: null });
     setSelectedDueDate(undefined);
     setSelectedDueTime("");
+    setSelectedRecurrenceString(""); // Limpar recorrência
     toast.success("Data de vencimento removida!");
     setIsReschedulePopoverOpen(false);
   };
@@ -243,6 +266,20 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
                 onChange={(e) => setSelectedDueTime(e.target.value)}
                 className="mt-1"
               />
+            </div>
+            <div>
+              <Label htmlFor="reschedule-recurrence-string">Recorrência (Todoist string)</Label>
+              <Input
+                id="reschedule-recurrence-string"
+                type="text"
+                value={selectedRecurrenceString}
+                onChange={(e) => setSelectedRecurrenceString(e.target.value)}
+                placeholder="Ex: 'every day', 'every mon'"
+                className="mt-1"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Use a sintaxe de recorrência do Todoist. Ex: "every day", "every mon", "every 2 weeks".
+              </p>
             </div>
             <div>
               <Label htmlFor="reschedule-priority">Prioridade</Label>

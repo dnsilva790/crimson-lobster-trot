@@ -1,12 +1,13 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import React,
+  {
+    createContext,
+    useContext,
+    useState,
+    ReactNode,
+    useCallback,
+    useEffect,
+    useRef,
+  } from "react";
 import { todoistService } from "@/services/todoistService";
 import { TodoistTask, TodoistProject } from "@/lib/types";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ interface TodoistContextType {
     duration?: number;
     duration_unit?: "minute" | "day";
     deadline?: string | null;
+    recurrence_string?: string | null; // Adicionado
   }) => Promise<TodoistTask | undefined>;
   createTodoistTask: (data: {
     content: string;
@@ -43,6 +45,7 @@ interface TodoistContextType {
     duration?: number;
     duration_unit?: "minute" | "day";
     deadline?: string;
+    recurrence_string?: string; // Adicionado
   }) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
@@ -85,6 +88,9 @@ const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
       task.deadline = null;
     }
   }
+
+  // Ensure recurrence_string is set from due.string
+  task.recurrence_string = task.due?.string || null;
 
   // Ensure URL is always a string
   if (task.url === undefined || task.url === null || typeof task.url !== 'string') {
@@ -288,6 +294,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => { // C
       duration?: number;
       duration_unit?: "minute" | "day";
       deadline?: string | null;
+      recurrence_string?: string | null; // Adicionado
     }) => {
       const updatedTask = await makeApiCall(todoistService.updateTask, taskId, data);
       if (updatedTask) {
@@ -323,6 +330,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => { // C
       duration?: number;
       duration_unit?: "minute" | "day";
       deadline?: string;
+      recurrence_string?: string; // Adicionado
     }) => {
       const newTask = await makeApiCall(todoistService.createTask, data);
       if (newTask) {

@@ -169,10 +169,10 @@ export const todoistService = {
           } else if (syncItem.deadline !== null && syncItem.deadline !== undefined) {
             console.warn(`TodoistService: Task ${task.id} (${task.content}) has unexpected deadline object format:`, syncItem.deadline);
           }
-          return { ...task, deadline: deadlineValue, custom_fields: syncItem.custom_fields };
+          return { ...task, deadline: deadlineValue, custom_fields: syncItem.custom_fields, recurrence_string: task.due?.string || null };
         }
       }
-      return task;
+      return { ...task, recurrence_string: task.due?.string || null };
     });
 
     // Apply client-side filtering for parentId if specified
@@ -200,10 +200,10 @@ export const todoistService = {
         } else if (syncItem.deadline !== null && syncItem.deadline !== undefined) {
           console.warn(`TodoistService: Task ${taskId} (${restTask.content}) has unexpected deadline format:`, syncItem.deadline);
         }
-        return { ...restTask, deadline: deadlineValue, custom_fields: syncItem.custom_fields };
+        return { ...restTask, deadline: deadlineValue, custom_fields: syncItem.custom_fields, recurrence_string: restTask.due?.string || null };
       }
     }
-    return restTask;
+    return { ...restTask, recurrence_string: restTask.due?.string || null };
   },
 
   fetchProjects: async (apiKey: string): Promise<TodoistProject[]> => {
@@ -229,6 +229,7 @@ export const todoistService = {
     duration?: number;
     duration_unit?: "minute" | "day";
     deadline?: string | null;
+    recurrence_string?: string | null; // Adicionado
   }): Promise<TodoistTask | undefined> => {
     const restApiPayload: any = {};
     let syncApiCommands: any[] = [];
@@ -243,6 +244,26 @@ export const todoistService = {
     } else {
       Object.assign(restApiPayload, data);
     }
+
+    // Handle recurrence_string
+    if (data.recurrence_string !== undefined) {
+      if (data.recurrence_string === null || data.recurrence_string.trim() === '') {
+        restApiPayload.due = null; // Clear due date and recurrence
+      } else {
+        restApiPayload.due = { string: data.recurrence_string };
+      }
+      // If recurrence_string is provided, due_date and due_datetime should not be sent
+      delete restApiPayload.due_date;
+      delete restApiPayload.due_datetime;
+    } else if (data.due_date !== undefined || data.due_datetime !== undefined) {
+      // If recurrence_string is NOT provided, but due_date/datetime ARE, then set them
+      // This will update the instance or set a non-recurring date
+      restApiPayload.due = {
+        date: data.due_date,
+        datetime: data.due_datetime,
+      };
+    }
+
 
     if (Object.keys(restApiPayload).length > 0) {
       await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", restApiPayload);
@@ -285,6 +306,7 @@ export const todoistService = {
     duration?: number;
     duration_unit?: "minute" | "day";
     deadline?: string;
+    recurrence_string?: string; // Adicionado
   }): Promise<TodoistTask | undefined> => {
     const restApiPayload: any = { ...data };
     let deadlineValue: string | undefined = undefined;
@@ -292,6 +314,14 @@ export const todoistService = {
     if (restApiPayload.deadline !== undefined) {
       deadlineValue = restApiPayload.deadline;
       delete restApiPayload.deadline;
+    }
+
+    // Handle recurrence_string for creation
+    if (restApiPayload.recurrence_string !== undefined) {
+      restApiPayload.due = { string: restApiPayload.recurrence_string };
+      delete restApiPayload.due_date;
+      delete restApiPayload.due_datetime;
+      delete restApiPayload.recurrence_string; // Remove from payload after processing
     }
 
     const newTask = await todoistApiCall<TodoistTask>("/tasks", apiKey, "POST", restApiPayload);
