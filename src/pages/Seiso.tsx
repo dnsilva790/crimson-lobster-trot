@@ -95,6 +95,7 @@ const Seiso = () => {
   const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(undefined);
   const [selectedPriority, setSelectedPriority] = useState<1 | 2 | 3 | 4>(1);
   const [selectedDuration, setSelectedDuration] = useState<string>("15");
+  const [selectedRecurrenceString, setSelectedRecurrenceString] = useState<string>(""); // Novo estado para recorrência
   const [isSchedulingPopoverOpen, setIsSchedulingPopoverOpen] = useState(false);
 
   // Subtask creation states
@@ -123,6 +124,7 @@ const Seiso = () => {
           setSelectedDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined);
           setSelectedPriority(task.priority);
           setSelectedDuration(task.duration?.amount ? String(task.duration.amount) : "15");
+          setSelectedRecurrenceString(task.recurrence_string || ""); // Inicializar recorrência
 
           // Initialize new fields from description
           const description = task.description || "";
@@ -220,8 +222,13 @@ const Seiso = () => {
     let finalDueDate: string | null = null;
     let finalDueDateTime: string | null = null;
     let finalDeadline: string | null = null;
+    let finalRecurrenceString: string | null = null;
 
-    if (selectedDueDate && isValid(selectedDueDate)) {
+    if (selectedRecurrenceString.trim() !== "") {
+      finalRecurrenceString = selectedRecurrenceString.trim();
+      finalDueDate = null;
+      finalDueDateTime = null;
+    } else if (selectedDueDate && isValid(selectedDueDate)) {
       if (selectedDueTime) {
         const [hours, minutes] = (selectedDueTime || '').split(":").map(Number);
         const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
@@ -247,6 +254,7 @@ const Seiso = () => {
       duration: isNaN(durationAmount) || durationAmount <= 0 ? undefined : durationAmount,
       duration_unit: isNaN(durationAmount) || durationAmount <= 0 ? undefined : "minute",
       labels: updatedLabels,
+      recurrence_string: finalRecurrenceString, // Adicionado
     });
     if (updated) {
       toast.success(`Tarefa "${currentTask.content}" agendada e atualizada.`);
@@ -255,7 +263,7 @@ const Seiso = () => {
     } else {
       toast.error("Falha ao agendar a tarefa.");
     }
-  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, selectedPriority, selectedDuration, objectiveInput, nextStepSeisoInput, updateTask]);
+  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, selectedPriority, selectedDuration, selectedRecurrenceString, objectiveInput, nextStepSeisoInput, updateTask]);
 
   const handleCreateSubtasks = useCallback(async () => {
     if (!currentTask || !subtaskContent.trim()) {
@@ -666,6 +674,20 @@ const Seiso = () => {
                         />
                       </div>
                       <div>
+                        <Label htmlFor="schedule-recurrence-string">Recorrência (Todoist string)</Label>
+                        <Input
+                          id="schedule-recurrence-string"
+                          type="text"
+                          value={selectedRecurrenceString}
+                          onChange={(e) => setSelectedRecurrenceString(e.target.value)}
+                          placeholder="Ex: 'every day', 'every mon'"
+                          className="mt-1"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Use a sintaxe de recorrência do Todoist. Ex: "every day", "every mon", "every 2 weeks".
+                        </p>
+                      </div>
+                      <div>
                         <Label htmlFor="schedule-priority">Prioridade</Label>
                         <Select
                           value={String(selectedPriority)}
@@ -697,8 +719,8 @@ const Seiso = () => {
                       <Button onClick={handleScheduleTask} className="w-full" disabled={isLoadingTodoist}>
                         Salvar Agendamento
                       </Button>
-                      {(selectedDueDate || selectedDueTime || selectedDeadlineDate) && (
-                        <Button onClick={() => { setSelectedDueDate(undefined); setSelectedDueTime(""); setSelectedDeadlineDate(undefined); }} variant="outline" className="w-full" disabled={isLoadingTodoist}>
+                      {(selectedDueDate || selectedDueTime || selectedDeadlineDate || selectedRecurrenceString) && (
+                        <Button onClick={() => { setSelectedDueDate(undefined); setSelectedDueTime(""); setSelectedDeadlineDate(undefined); setSelectedRecurrenceString(""); }} variant="outline" className="w-full" disabled={isLoadingTodoist}>
                           <XCircle className="mr-2 h-4 w-4" /> Limpar Datas
                         </Button>
                       )}

@@ -44,6 +44,7 @@ const InternalTasks = () => {
   const [newDueTime, setNewDueTime] = useState<string>("");
   const [newDeadline, setNewDeadline] = useState<Date | undefined>(undefined);
   const [newTaskPriority, setNewTaskPriority] = useState<1 | 2 | 3 | 4>(1); // Novo estado para prioridade
+  const [newRecurrenceString, setNewRecurrenceString] = useState<string>(""); // Novo estado para recorrência
 
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState("");
@@ -54,6 +55,7 @@ const InternalTasks = () => {
   const [editedDueTime, setEditedDueTime] = useState<string>("");
   const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined);
   const [editedPriority, setEditedPriority] = useState<1 | 2 | 3 | 4>(1); // Novo estado para prioridade
+  const [editedRecurrenceString, setEditedRecurrenceString] = useState<string>(""); // Novo estado para recorrência
 
   // New states for Todoist task creation
   const [taskCreationType, setTaskCreationType] = useState<"internal" | "todoist">("internal");
@@ -106,6 +108,7 @@ const InternalTasks = () => {
         due_date: newDueDate ? format(newDueDate, "yyyy-MM-dd") : undefined,
         due_datetime: newDueDate && newDueTime ? format(newDueDate, "yyyy-MM-dd") + "T" + newDueTime + ":00" : undefined,
         deadline: newDeadline ? format(newDeadline, "yyyy-MM-dd") : undefined,
+        recurrence_string: newRecurrenceString.trim() === "" ? undefined : newRecurrenceString.trim(), // Adicionado
       };
 
       const createdTask = await createTodoistTask(todoistTaskData);
@@ -119,6 +122,7 @@ const InternalTasks = () => {
         setNewDueTime("");
         setNewDeadline(undefined);
         setNewTaskPriority(1); // Resetar prioridade
+        setNewRecurrenceString(""); // Resetar recorrência
       } else {
         toast.error("Falha ao criar tarefa no Todoist.");
       }
@@ -134,6 +138,7 @@ const InternalTasks = () => {
         dueDate: newDueDate ? format(newDueDate, "yyyy-MM-dd") : null,
         dueTime: newDueTime || null,
         priority: newTaskPriority, // Incluir prioridade
+        recurrence_string: newRecurrenceString.trim() === "" ? null : newRecurrenceString.trim(), // Adicionado
       };
 
       const updatedTasks = addInternalTask(newTask);
@@ -145,9 +150,10 @@ const InternalTasks = () => {
       setNewDueDate(undefined);
       setNewDueTime("");
       setNewTaskPriority(1); // Resetar prioridade
+      setNewRecurrenceString(""); // Resetar recorrência
       toast.success("Tarefa interna adicionada!");
     }
-  }, [newTaskContent, newTaskDescription, newTaskCategory, newTaskEstimatedDuration, newDueDate, newDueTime, newDeadline, newTaskPriority, taskCreationType, selectedTodoistProjectId, createTodoistTask]);
+  }, [newTaskContent, newTaskDescription, newTaskCategory, newTaskEstimatedDuration, newDueDate, newDueTime, newDeadline, newTaskPriority, newRecurrenceString, taskCreationType, selectedTodoistProjectId, createTodoistTask]);
 
   const handleToggleComplete = useCallback((taskId: string) => {
     setTasks((prevTasks) => {
@@ -176,6 +182,7 @@ const InternalTasks = () => {
     setEditedDueTime(task.dueTime || "");
     setEditedDeadline(task.dueDate ? parseISO(task.dueDate) : undefined); // Placeholder for internal tasks, as they don't have a separate deadline field
     setEditedPriority(task.priority); // Carregar prioridade
+    setEditedRecurrenceString(task.recurrence_string || ""); // Carregar recorrência
   }, []);
 
   const handleCancelEditing = useCallback(() => {
@@ -188,6 +195,7 @@ const InternalTasks = () => {
     setEditedDueTime("");
     setEditedDeadline(undefined);
     setEditedPriority(1); // Resetar prioridade
+    setEditedRecurrenceString(""); // Resetar recorrência
   }, []);
 
   const handleSaveEdit = useCallback(() => {
@@ -212,6 +220,7 @@ const InternalTasks = () => {
       dueDate: editedDueDate ? format(editedDueDate, "yyyy-MM-dd") : null,
       dueTime: editedDueTime || null,
       priority: editedPriority, // Incluir prioridade
+      recurrence_string: editedRecurrenceString.trim() === "" ? null : editedRecurrenceString.trim(), // Incluir recorrência
     };
 
     const updatedTasks = updateInternalTask(updatedTask);
@@ -225,8 +234,9 @@ const InternalTasks = () => {
     setEditedDueTime("");
     setEditedDeadline(undefined);
     setEditedPriority(1); // Resetar prioridade
+    setEditedRecurrenceString(""); // Resetar recorrência
     toast.success("Tarefa interna atualizada!");
-  }, [editingTaskId, editedContent, editedDescription, editedCategory, editedEstimatedDuration, editedDueDate, editedDueTime, editedPriority, tasks]);
+  }, [editingTaskId, editedContent, editedDescription, editedCategory, editedEstimatedDuration, editedDueDate, editedDueTime, editedPriority, editedRecurrenceString, tasks]);
 
   const personalTasks = tasks.filter(task => task.category === "pessoal");
   const professionalTasks = tasks.filter(task => task.category === "profissional");
@@ -321,6 +331,20 @@ const InternalTasks = () => {
               className="mt-1"
             />
           </div>
+          <div>
+            <Label htmlFor="edited-recurrence-string">Recorrência (Todoist string)</Label>
+            <Input
+              id="edited-recurrence-string"
+              type="text"
+              value={editedRecurrenceString}
+              onChange={(e) => setEditedRecurrenceString(e.target.value)}
+              placeholder="Ex: 'every day', 'every mon'"
+              className="mt-1"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Use a sintaxe de recorrência do Todoist. Ex: "every day", "every mon", "every 2 weeks".
+            </p>
+          </div>
           <div className="flex gap-2 mt-2">
             <Button onClick={handleSaveEdit} size="sm" className="flex-1">
               <Save className="h-4 w-4 mr-2" /> Salvar
@@ -380,6 +404,14 @@ const InternalTasks = () => {
                 <span className="flex items-center">
                   <CalendarIcon className="h-3 w-3 mr-1" /> Vencimento: {format(parseISO(task.dueDate), "dd/MM/yyyy", { locale: ptBR })}
                   {task.dueTime && ` às ${task.dueTime}`}
+                </span>
+              </>
+            )}
+            {task.recurrence_string && (
+              <>
+                <span className="mx-2">|</span>
+                <span className="flex items-center">
+                  <RotateCcw className="h-3 w-3 mr-1" /> Recorrência: {task.recurrence_string}
                 </span>
               </>
             )}
@@ -560,6 +592,20 @@ const InternalTasks = () => {
                 />
               </PopoverContent>
             </Popover>
+          </div>
+          <div>
+            <Label htmlFor="new-recurrence-string">Recorrência (Todoist string)</Label>
+            <Input
+              id="new-recurrence-string"
+              type="text"
+              value={newRecurrenceString}
+              onChange={(e) => setNewRecurrenceString(e.target.value)}
+              placeholder="Ex: 'every day', 'every mon'"
+              className="mt-1"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Use a sintaxe de recorrência do Todoist. Ex: "every day", "every mon", "every 2 weeks".
+            </p>
           </div>
           <Button onClick={handleAddTask} className="w-full mt-2" disabled={isLoadingTodoist}>
             Adicionar Tarefa
