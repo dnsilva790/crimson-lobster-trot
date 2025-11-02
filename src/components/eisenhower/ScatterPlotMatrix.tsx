@@ -78,13 +78,9 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
       const minVal = Math.min(...values);
       const maxVal = Math.max(...values);
 
-      // Se todos os valores forem iguais, cria uma pequena faixa ao redor
+      // Se todos os valores forem iguais, define um domínio fixo de 0 a 100
       if (minVal === maxVal) {
-        const paddedMin = Math.max(0, minVal - 10);
-        const paddedMax = Math.min(100, maxVal + 10);
-        const domain: [number, number] = [paddedMin, paddedMax];
-        const threshold = (domain[0] + domain[1]) / 2;
-        return { domain, threshold };
+        return { domain: [0, 100], threshold: 50 };
       }
 
       // Adiciona 10% de padding à faixa, mas limita a 0-100
@@ -96,6 +92,12 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
 
       const domain: [number, number] = [domainMin, domainMax];
       const threshold = (domainMin + domainMax) / 2; // Ponto médio do eixo exibido
+      
+      // Fallback para garantir que o domínio seja sempre válido (e não NaN)
+      if (isNaN(domainMin) || isNaN(domainMax) || domainMin >= domainMax) {
+        return { domain: [0, 100], threshold: 50 };
+      }
+
       return { domain, threshold };
     };
 
