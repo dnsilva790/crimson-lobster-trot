@@ -88,7 +88,7 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
   const calculateTaskLayout = (tasks: ScheduledTask[], date: Date): ScheduledTask[] => {
     const augmentedTasks: ScheduledTask[] = tasks.map(task => {
       const startDateTime = parse(task.start, "HH:mm", date);
-      const endDateTime = parse(task.end, "HH:mm", date);
+      const endDateTime = addMinutes(startDateTime, task.estimatedDurationMinutes || 15); // Use estimatedDurationMinutes for end time calculation
 
       if (!isValid(startDateTime) || !isValid(endDateTime)) {
         console.warn(`Invalid date/time for task: ${task.content}`);

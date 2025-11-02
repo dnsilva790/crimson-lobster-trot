@@ -136,21 +136,20 @@ export const todoistService = {
   },
 
   fetchTasks: async (apiKey: string, filter?: string, syncItemsCache?: Map<string, any>, parentId?: string): Promise<TodoistTask[]> => {
-    let effectiveFilter = (filter === "" || filter === undefined) ? undefined : filter;
-    
-    // If parentId is provided, we cannot use 'parent_id:' in the API filter directly.
-    // We'll fetch a broader set and filter client-side.
-    // For now, if parentId is present, we'll remove any 'parent_id:' from the filter string
-    // and handle it client-side.
-    let apiFilter = effectiveFilter;
+    let endpoint = "/tasks";
+    const queryParams = new URLSearchParams();
+
+    if (filter && filter.trim() !== "") {
+      queryParams.append("filter", filter.trim());
+    }
     if (parentId) {
-      // Remove any explicit parent_id filter from the string if it exists,
-      // as we'll handle it after fetching.
-      apiFilter = apiFilter?.replace(/parent_id:\s*\S+/g, '').trim();
-      if (apiFilter === "") apiFilter = undefined; // If only parent_id filter was there, clear it.
+      queryParams.append("parent_id", parentId); // Use parent_id as a query parameter
     }
 
-    const endpoint = apiFilter ? `/tasks?filter=${encodeURIComponent(apiFilter)}` : "/tasks";
+    if (queryParams.toString()) {
+      endpoint += `?${queryParams.toString()}`;
+    }
+    
     const restTasks = await todoistApiCall<TodoistTask[]>(endpoint, apiKey);
 
     if (!restTasks || restTasks.length === 0) {
@@ -174,11 +173,6 @@ export const todoistService = {
       }
       return { ...task, recurrence_string: task.due?.string || null };
     });
-
-    // Apply client-side filtering for parentId if specified
-    if (parentId) {
-      return mergedTasks.filter(task => task.parent_id === parentId);
-    }
 
     return mergedTasks || [];
   },
@@ -236,6 +230,9 @@ export const todoistService = {
     let deadlineUpdateNeeded = false;
     let deadlineValue: string | null | undefined;
 
+    // Fetch the original task to get its current recurrence_string
+    const originalTask = await todoistService.fetchTaskById(apiKey, taskId);
+
     if (data.deadline !== undefined) {
       deadlineValue = data.deadline;
       deadlineUpdateNeeded = true;
@@ -245,36 +242,41 @@ export const todoistService = {
       Object.assign(restApiPayload, data);
     }
 
-    // Handle recurrence_string, due_date, and due_datetime together
+    // --- REVISED DUE DATE/DATETIME/RECURRENCE LOGIC ---
+    let finalRecurrenceString: string | null | undefined;
+
     if (data.recurrence_string !== undefined) {
-      if (data.recurrence_string === null || data.recurrence_string.trim() === '') {
-        // User explicitly wants to clear recurrence. Also clear due date/time.
-        restApiPayload.due = null;
-      } else {
-        // User wants to set/keep recurrence.
-        // If due_date/datetime are also provided, send both to update instance and keep recurrence.
-        // Otherwise, just send recurrence string.
-        if (data.due_date !== undefined || data.due_datetime !== undefined) {
-          restApiPayload.due = {
-            string: data.recurrence_string,
-            date: data.due_date,
-            datetime: data.due_datetime,
-          };
-        } else {
-          restApiPayload.due = { string: data.recurrence_string };
-        }
-      }
-    } else if (data.due_date !== undefined || data.due_datetime !== undefined) {
-      // If recurrence_string is NOT provided (undefined), but due_date/datetime ARE,
-      // then set them. This will update the instance and remove recurrence if it was present.
+      // User explicitly provided a recurrence_string (could be null to clear)
+      finalRecurrenceString = data.recurrence_string;
+    } else if (originalTask?.recurrence_string) {
+      // User did NOT provide recurrence_string, but original task HAS one. Preserve it.
+      finalRecurrenceString = originalTask.recurrence_string;
+    } else {
+      // No recurrence_string from data or original task.
+      finalRecurrenceString = undefined; // Don't send 'string' field if no recurrence
+    }
+
+    // Construct the 'due' object for the REST API
+    if (finalRecurrenceString === null || (finalRecurrenceString !== undefined && finalRecurrenceString.trim() === '')) {
+      // Explicitly clearing recurrence or setting to empty string
+      restApiPayload.due = null;
+    } else if (data.due_date !== undefined || data.due_datetime !== undefined || finalRecurrenceString) {
+      // If any due date/datetime is provided OR a recurrence string is present
       restApiPayload.due = {
+        string: finalRecurrenceString, // Use the determined recurrence string
         date: data.due_date,
         datetime: data.due_datetime,
       };
+      // If recurrence_string is undefined, the 'string' field will be omitted from 'due' object.
+      // If date/datetime are undefined, they will be omitted.
+      // This allows flexible updates.
     }
-    // Note: If none of the above conditions are met, 'due' is not added to restApiPayload,
-    // meaning no change to due date/recurrence.
+    // If none of the above, 'due' is not added to payload, meaning no change to due date/recurrence.
+    // --- END REVISED DUE DATE/DATETIME/RECURRENCE LOGIC ---
 
+    // Remove recurrence_string from restApiPayload if it was added directly from data,
+    // as it's now handled within the 'due' object.
+    delete restApiPayload.recurrence_string;
 
     if (Object.keys(restApiPayload).length > 0) {
       await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", restApiPayload);
