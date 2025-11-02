@@ -1,4 +1,3 @@
-safeUrgencyDomain) in ReferenceArea definitions to resolve ReferenceError.">
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
@@ -208,7 +207,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           <ReferenceArea 
             x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceDomain[0]} y2={safeImportanceThreshold} 
             fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
-            label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
+            label={{ value: "Q3: Delegar", position: 'bottom', fill={quadrantColors.delegate}, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
           />
 
           {/* Linha Diagonal Principal (y = x) - Permanente */}
