@@ -1,3 +1,4 @@
+safeUrgencyDomain) in ReferenceArea definitions to resolve ReferenceError.">
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
@@ -63,7 +64,6 @@ const CustomTooltip = ({ active, payload }: any) => {
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   const navigate = useNavigate();
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Removendo o estado isHovering
 
   const { urgencyDomain, importanceDomain, urgencyThreshold, importanceThreshold } = useMemo(() => {
     const urgencyValues = data.map(d => d.urgency).filter(v => v !== null) as number[];
@@ -191,7 +191,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
 
           {/* Áreas de Quadrante */}
           <ReferenceArea 
-            x1={safeUrgencyThreshold} x2={safeUrencyDomain[1]} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
+            x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
             fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
             label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
           />
@@ -220,8 +220,6 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
             stroke="#4b5563" 
             strokeDasharray="5 5" // Dashed-dotted
           />
-
-          {/* Linha Diagonal Inversa (y = -x + C) - REMOVIDA */}
 
           <Scatter
             name="Tarefas"
