@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, isURL } from "@/lib/utils"; // Importar isURL
 import { format, setHours, setMinutes, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, ExternalLink } from "lucide-react";
@@ -137,11 +137,19 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
     return <div className="space-y-1">{dateElements}</div>;
   };
 
+  const isContentURL = isURL(task.content);
+
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
       <div className="flex-grow">
         <div className="flex items-center gap-2 mb-3">
-          <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+          {isContentURL ? (
+            <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-2xl font-bold text-indigo-600 hover:underline">
+              {task.content}
+            </a>
+          ) : (
+            <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+          )}
         </div>
         {task.description && (
           <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>

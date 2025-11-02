@@ -13,8 +13,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { getInternalTasks, addInternalTask, updateInternalTask, deleteInternalTask, saveInternalTasks } from "@/utils/internalTaskStorage";
 import { InternalTask, TodoistProject } from "@/lib/types";
 import { toast } from "sonner";
-import { PlusCircle, Trash2, Edit, Save, XCircle, Clock, CalendarIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { PlusCircle, Trash2, Edit, Save, XCircle, Clock, CalendarIcon, RotateCcw } from "lucide-react"; // Importar RotateCcw
+import { cn, isURL } from "@/lib/utils"; // Importar isURL
 import { useTodoist } from "@/context/TodoistContext";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -241,185 +241,194 @@ const InternalTasks = () => {
   const personalTasks = tasks.filter(task => task.category === "pessoal");
   const professionalTasks = tasks.filter(task => task.category === "profissional");
 
-  const renderTaskCard = (task: InternalTask) => (
-    <Card key={task.id} className={cn(
-      "p-4 flex flex-col gap-2",
-      task.isCompleted ? "bg-gray-50 border-gray-200 line-through text-gray-500" : "bg-white border-gray-300",
-      task.category === "pessoal" ? "border-l-4 border-blue-500" : "border-l-4 border-green-500"
-    )}>
-      {editingTaskId === task.id ? (
-        <div className="grid gap-2">
-          <Input
-            value={editedContent}
-            onChange={(e) => setEditedContent(e.target.value)}
-            className="font-semibold text-lg"
-          />
-          <Textarea
-            value={editedDescription}
-            onChange={(e) => setEditedDescription(e.target.value)}
-            placeholder="Descrição (opcional)"
-            rows={2}
-            className="text-sm"
-          />
-          <Select value={editedCategory} onValueChange={(value: "pessoal" | "profissional") => setEditedCategory(value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pessoal">Pessoal</SelectItem>
-              <SelectItem value="profissional">Profissional</SelectItem>
-            </SelectContent>
-          </Select>
-          <div>
-            <Label htmlFor="edited-priority">Prioridade</Label>
-            <Select value={String(editedPriority)} onValueChange={(value) => setEditedPriority(Number(value) as 1 | 2 | 3 | 4)}>
-              <SelectTrigger className="w-full mt-1">
-                <SelectValue placeholder="Selecione a prioridade" />
+  const renderTaskCard = (task: InternalTask) => {
+    const isContentURL = isURL(task.content);
+    return (
+      <Card key={task.id} className={cn(
+        "p-4 flex flex-col gap-2",
+        task.isCompleted ? "bg-gray-50 border-gray-200 line-through text-gray-500" : "bg-white border-gray-300",
+        task.category === "pessoal" ? "border-l-4 border-blue-500" : "border-l-4 border-green-500"
+      )}>
+        {editingTaskId === task.id ? (
+          <div className="grid gap-2">
+            <Input
+              value={editedContent}
+              onChange={(e) => setEditedContent(e.target.value)}
+              className="font-semibold text-lg"
+            />
+            <Textarea
+              value={editedDescription}
+              onChange={(e) => setEditedDescription(e.target.value)}
+              placeholder="Descrição (opcional)"
+              rows={2}
+              className="text-sm"
+            />
+            <Select value={editedCategory} onValueChange={(value: "pessoal" | "profissional") => setEditedCategory(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Categoria" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="4">P1 - Urgente</SelectItem>
-                <SelectItem value="3">P2 - Alto</SelectItem>
-                <SelectItem value="2">P3 - Médio</SelectItem>
-                <SelectItem value="1">P4 - Baixo</SelectItem>
+                <SelectItem value="pessoal">Pessoal</SelectItem>
+                <SelectItem value="profissional">Profissional</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label htmlFor="edited-duration">Duração Estimada (minutos)</Label>
-            <Input
-              id="edited-duration"
-              type="number"
-              value={editedEstimatedDuration}
-              onChange={(e) => setEditedEstimatedDuration(e.target.value)}
-              min="1"
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label htmlFor="edited-due-date">Data de Vencimento</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal mt-1",
-                    !editedDueDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {editedDueDate && isValid(editedDueDate) ? format(editedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={editedDueDate}
-                  onSelect={setEditedDueDate}
-                  initialFocus
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div>
-            <Label htmlFor="edited-due-time">Hora de Vencimento (Opcional)</Label>
-            <Input
-              id="edited-due-time"
-              type="time"
-              value={editedDueTime}
-              onChange={(e) => setEditedDueTime(e.target.value)}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label htmlFor="edited-recurrence-string">Recorrência (Todoist string)</Label>
-            <Input
-              id="edited-recurrence-string"
-              type="text"
-              value={editedRecurrenceString}
-              onChange={(e) => setEditedRecurrenceString(e.target.value)}
-              placeholder="Ex: 'every day', 'every mon'"
-              className="mt-1"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Use a sintaxe de recorrência do Todoist. Ex: "every day", "every mon", "every 2 weeks".
-            </p>
-          </div>
-          <div className="flex gap-2 mt-2">
-            <Button onClick={handleSaveEdit} size="sm" className="flex-1">
-              <Save className="h-4 w-4 mr-2" /> Salvar
-            </Button>
-            <Button onClick={handleCancelEditing} variant="outline" size="sm" className="flex-1">
-              <XCircle className="h-4 w-4 mr-2" /> Cancelar
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={task.isCompleted}
-                onCheckedChange={() => handleToggleComplete(task.id)}
-                id={`task-${task.id}`}
+            <div>
+              <Label htmlFor="edited-priority">Prioridade</Label>
+              <Select value={String(editedPriority)} onValueChange={(value) => setEditedPriority(Number(value) as 1 | 2 | 3 | 4)}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Selecione a prioridade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="4">P1 - Urgente</SelectItem>
+                  <SelectItem value="3">P2 - Alto</SelectItem>
+                  <SelectItem value="2">P3 - Médio</SelectItem>
+                  <SelectItem value="1">P4 - Baixo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edited-duration">Duração Estimada (minutos)</Label>
+              <Input
+                id="edited-duration"
+                type="number"
+                value={editedEstimatedDuration}
+                onChange={(e) => setEditedEstimatedDuration(e.target.value)}
+                min="1"
+                className="mt-1"
               />
-              <Label htmlFor={`task-${task.id}`} className="text-lg font-semibold cursor-pointer">
-                {task.content}
-              </Label>
             </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon" onClick={() => handleStartEditing(task)}>
-                <Edit className="h-4 w-4" />
+            <div>
+              <Label htmlFor="edited-due-date">Data de Vencimento</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal mt-1",
+                      !editedDueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editedDueDate && isValid(editedDueDate) ? format(editedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={editedDueDate}
+                    onSelect={setEditedDueDate}
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label htmlFor="edited-due-time">Hora de Vencimento (Opcional)</Label>
+              <Input
+                id="edited-due-time"
+                type="time"
+                value={editedDueTime}
+                onChange={(e) => setEditedDueTime(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edited-recurrence-string">Recorrência (Todoist string)</Label>
+              <Input
+                id="edited-recurrence-string"
+                type="text"
+                value={editedRecurrenceString}
+                onChange={(e) => setEditedRecurrenceString(e.target.value)}
+                placeholder="Ex: 'every day', 'every mon'"
+                className="mt-1"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Use a sintaxe de recorrência do Todoist. Ex: "every day", "every mon", "every 2 weeks".
+              </p>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <Button onClick={handleSaveEdit} size="sm" className="flex-1">
+                <Save className="h-4 w-4 mr-2" /> Salvar
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => handleDeleteTask(task.id)}>
-                <Trash2 className="h-4 w-4 text-red-500" />
+              <Button onClick={handleCancelEditing} variant="outline" size="sm" className="flex-1">
+                <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
             </div>
           </div>
-          {task.description && <p className="text-sm text-gray-600 ml-6">{task.description}</p>}
-          <div className="flex items-center text-xs text-gray-400 ml-6 flex-wrap gap-x-4 gap-y-1">
-            <span>Criado em: {new Date(task.createdAt).toLocaleDateString()}</span>
-            <span className="mx-2">|</span>
-            <span>Categoria: {task.category === "pessoal" ? "Pessoal" : "Profissional"}</span>
-            <span className="mx-2">|</span>
-            <span
-              className={cn(
-                "px-2 py-1 rounded-full text-white text-xs font-medium",
-                PRIORITY_COLORS[task.priority],
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={task.isCompleted}
+                  onCheckedChange={() => handleToggleComplete(task.id)}
+                  id={`task-${task.id}`}
+                />
+                <Label htmlFor={`task-${task.id}`} className="text-lg font-semibold cursor-pointer">
+                  {isContentURL ? (
+                    <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                      {task.content}
+                    </a>
+                  ) : (
+                    task.content
+                  )}
+                </Label>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="icon" onClick={() => handleStartEditing(task)}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => handleDeleteTask(task.id)}>
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </Button>
+              </div>
+            </div>
+            {task.description && <p className="text-sm text-gray-600 ml-6">{task.description}</p>}
+            <div className="flex items-center text-xs text-gray-400 ml-6 flex-wrap gap-x-4 gap-y-1">
+              <span>Criado em: {new Date(task.createdAt).toLocaleDateString()}</span>
+              <span className="mx-2">|</span>
+              <span>Categoria: {task.category === "pessoal" ? "Pessoal" : "Profissional"}</span>
+              <span className="mx-2">|</span>
+              <span
+                className={cn(
+                  "px-2 py-1 rounded-full text-white text-xs font-medium",
+                  PRIORITY_COLORS[task.priority],
+                )}
+              >
+                {PRIORITY_LABELS[task.priority]}
+              </span>
+              {task.estimatedDurationMinutes && (
+                <>
+                  <span className="mx-2">|</span>
+                  <span className="flex items-center">
+                    <Clock className="h-3 w-3 mr-1" /> {task.estimatedDurationMinutes} min
+                  </span>
+                </>
               )}
-            >
-              {PRIORITY_LABELS[task.priority]}
-            </span>
-            {task.estimatedDurationMinutes && (
-              <>
-                <span className="mx-2">|</span>
-                <span className="flex items-center">
-                  <Clock className="h-3 w-3 mr-1" /> {task.estimatedDurationMinutes} min
-                </span>
-              </>
-            )}
-            {task.dueDate && isValid(parseISO(task.dueDate)) && (
-              <>
-                <span className="mx-2">|</span>
-                <span className="flex items-center">
-                  <CalendarIcon className="h-3 w-3 mr-1" /> Vencimento: {format(parseISO(task.dueDate), "dd/MM/yyyy", { locale: ptBR })}
-                  {task.dueTime && ` às ${task.dueTime}`}
-                </span>
-              </>
-            )}
-            {task.recurrence_string && (
-              <>
-                <span className="mx-2">|</span>
-                <span className="flex items-center">
-                  <RotateCcw className="h-3 w-3 mr-1" /> Recorrência: {task.recurrence_string}
-                </span>
-              </>
-            )}
-          </div>
-        </>
-      )}
-    </Card>
-  );
+              {task.dueDate && isValid(parseISO(task.dueDate)) && (
+                <>
+                  <span className="mx-2">|</span>
+                  <span className="flex items-center">
+                    <CalendarIcon className="h-3 w-3 mr-1" /> Vencimento: {format(parseISO(task.dueDate), "dd/MM/yyyy", { locale: ptBR })}
+                    {task.dueTime && ` às ${task.dueTime}`}
+                  </span>
+                </>
+              )}
+              {task.recurrence_string && (
+                <>
+                  <span className="mx-2">|</span>
+                  <span className="flex items-center">
+                    <RotateCcw className="h-3 w-3 mr-1" /> Recorrência: {task.recurrence_string}
+                  </span>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </Card>
+    );
+  };
 
   return (
     <div className="p-4">

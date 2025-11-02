@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { TodoistTask } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, isURL } from "@/lib/utils"; // Importar isURL
 import { format, parseISO, isValid, setHours, setMinutes, addMinutes, isToday, isPast, startOfDay, isSameDay, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ExternalLink, ListTodo, Clock, CalendarIcon } from "lucide-react";
@@ -141,18 +141,27 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
           <div className="sticky left-0 z-10 w-48 flex-shrink-0 bg-white border-r border-gray-200 divide-y divide-gray-100">
             <div className="h-10 flex items-center p-2 text-sm font-semibold border-b border-gray-200">Subtarefas (Hoje)</div>
             <div style={{ height: `${totalHeight}px` }}>
-                {tasksWithLayout.map((task, index) => (
-                    <div 
-                        key={task.id} 
-                        className={cn(
-                            "w-full h-10 flex items-center p-2 text-sm truncate",
-                            index % 2 === 1 ? "bg-gray-50" : "bg-white"
-                        )}
-                        title={task.content}
-                    >
-                        {task.content}
-                    </div>
-                ))}
+                {tasksWithLayout.map((task, index) => {
+                    const isContentURL = isURL(task.content);
+                    return (
+                        <div 
+                            key={task.id} 
+                            className={cn(
+                                "w-full h-10 flex items-center p-2 text-sm truncate",
+                                index % 2 === 1 ? "bg-gray-50" : "bg-white"
+                            )}
+                            title={task.content}
+                        >
+                            {isContentURL ? (
+                                <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                                    {task.content}
+                                </a>
+                            ) : (
+                                task.content
+                            )}
+                        </div>
+                    );
+                })}
             </div>
           </div>
 
@@ -175,33 +184,42 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
               ))}
 
               {/* Task Bars */}
-              {tasksWithLayout.map((task, index) => (
-                <div
-                  key={`bar-${task.id}`}
-                  className={cn(
-                    "absolute h-8 rounded-md p-1 text-xs font-semibold flex items-center justify-start overflow-hidden shadow-md transition-all duration-300 z-10",
-                    PRIORITY_COLORS[task.priority],
-                    "text-white"
-                  )}
-                  style={{
-                    left: `${task.left}px`,
-                    width: `${task.width}px`,
-                    top: `${index * TASK_ROW_HEIGHT + 2}px`, // Position vertically based on index
-                  }}
-                  title={`${task.content} (${task.durationMinutes} min)`}
-                >
-                  <span className="truncate px-1">{task.content}</span>
-                  <a 
-                    href={task.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="absolute top-0 right-0 text-white hover:text-gray-200 p-1"
-                    onClick={(e) => e.stopPropagation()}
+              {tasksWithLayout.map((task, index) => {
+                const isContentURL = isURL(task.content);
+                return (
+                  <div
+                    key={`bar-${task.id}`}
+                    className={cn(
+                      "absolute h-8 rounded-md p-1 text-xs font-semibold flex items-center justify-start overflow-hidden shadow-md transition-all duration-300 z-10",
+                      PRIORITY_COLORS[task.priority],
+                      "text-white"
+                    )}
+                    style={{
+                      left: `${task.left}px`,
+                      width: `${task.width}px`,
+                      top: `${index * TASK_ROW_HEIGHT + 2}px`, // Position vertically based on index
+                    }}
+                    title={`${task.content} (${task.durationMinutes} min)`}
                   >
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              ))}
+                    {isContentURL ? (
+                        <a href={task.content} target="_blank" rel="noopener noreferrer" className="truncate px-1 text-white hover:underline">
+                            {task.content}
+                        </a>
+                    ) : (
+                        <span className="truncate px-1">{task.content}</span>
+                    )}
+                    <a 
+                      href={task.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="absolute top-0 right-0 text-white hover:text-gray-200 p-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                );
+              })}
               {renderTodayLine()}
             </div>
           </div>
@@ -211,19 +229,28 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
           <div className="mt-4 p-3 border border-gray-200 rounded-md bg-gray-50">
             <h4 className="font-semibold text-gray-700 mb-2">Subtarefas sem Prazo Definido:</h4>
             <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-              {tasksWithoutDueDate.map(task => (
-                <li key={task.id} className="flex items-center justify-between">
-                  <span>{task.content}</span>
-                  <a 
-                    href={task.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="ml-2 text-blue-500 hover:text-blue-700"
-                  >
-                    <ExternalLink className="h-3 w-3 inline-block" />
-                  </a>
-                </li>
-              ))}
+              {tasksWithoutDueDate.map(task => {
+                const isContentURL = isURL(task.content);
+                return (
+                  <li key={task.id} className="flex items-center justify-between">
+                    {isContentURL ? (
+                        <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                            {task.content}
+                        </a>
+                    ) : (
+                        <span>{task.content}</span>
+                    )}
+                    <a 
+                      href={task.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="ml-2 text-blue-500 hover:text-blue-700"
+                    >
+                      <ExternalLink className="h-3 w-3 inline-block" />
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

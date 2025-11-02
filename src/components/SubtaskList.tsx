@@ -3,7 +3,7 @@
 import React from "react";
 import { TodoistTask } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, isURL } from "@/lib/utils"; // Importar isURL
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Clock, ExternalLink } from "lucide-react";
@@ -84,38 +84,47 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks, level = 0 }) => {
 
   return (
     <div className="space-y-2">
-      {subtasks.map((subtask) => (
-        <Card
-          key={subtask.id}
-          className={cn(
-            "p-4 rounded-lg shadow-sm bg-gray-50 border border-gray-200",
-            `ml-${level * 4}` // Indent based on level
-          )}
-        >
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="font-semibold text-gray-800">{subtask.content}</h4>
-              <a href={subtask.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 hover:text-indigo-800">
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            </div>
-            {subtask.description && (
-              <p className="text-xs text-gray-700 mb-2 whitespace-pre-wrap">{subtask.description}</p>
+      {subtasks.map((subtask) => {
+        const isContentURL = isURL(subtask.content);
+        return (
+          <Card
+            key={subtask.id}
+            className={cn(
+              "p-4 rounded-lg shadow-sm bg-gray-50 border border-gray-200",
+              `ml-${level * 4}` // Indent based on level
             )}
-            <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2 border-t border-gray-100">
-              {renderDueDateAndDuration(subtask)}
-              <span
-                className={cn(
-                  "px-2 py-1 rounded-full text-white text-xs font-medium",
-                  PRIORITY_COLORS[subtask.priority],
+          >
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between mb-2">
+                {isContentURL ? (
+                  <a href={subtask.content} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-600 hover:underline">
+                    {subtask.content}
+                  </a>
+                ) : (
+                  <h4 className="font-semibold text-gray-800">{subtask.content}</h4>
                 )}
-              >
-                {PRIORITY_LABELS[subtask.priority]}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+                <a href={subtask.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 hover:text-indigo-800">
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
+              {subtask.description && (
+                <p className="text-xs text-gray-700 mb-2 whitespace-pre-wrap">{subtask.description}</p>
+              )}
+              <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2 border-t border-gray-100">
+                {renderDueDateAndDuration(subtask)}
+                <span
+                  className={cn(
+                    "px-2 py-1 rounded-full text-white text-xs font-medium",
+                    PRIORITY_COLORS[subtask.priority],
+                  )}
+                >
+                  {PRIORITY_LABELS[subtask.priority]}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 };

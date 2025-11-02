@@ -3,7 +3,7 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { TodoistTask } from "@/lib/types";
-import { cn, getTaskCategory } from "@/lib/utils";
+import { cn, getTaskCategory, isURL } from "@/lib/utils"; // Importar isURL
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ExternalLink, CalendarIcon, Clock } from "lucide-react";
@@ -80,13 +80,20 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
   };
 
   const category = getTaskCategory(task);
+  const isContentURL = isURL(task.content);
 
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
       <div className="flex-grow">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+            {isContentURL ? (
+              <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-2xl font-bold text-indigo-600 hover:underline">
+                {task.content}
+              </a>
+            ) : (
+              <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+            )}
             {category && (
               <Badge
                 className={cn(
