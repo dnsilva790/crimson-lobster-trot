@@ -119,8 +119,24 @@ const Seiso = () => {
           setSubtasks(fetchedSubtasks || []);
 
           // Initialize scheduling states with task's current values
-          setSelectedDueDate(task.due?.date ? parseISO(task.due.date) : undefined);
-          setSelectedDueTime(task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "");
+          let initialDueDate: Date | undefined = undefined;
+          let initialDueTime: string = "";
+
+          if (typeof task.due?.datetime === 'string' && task.due.datetime) {
+            const parsed = parseISO(task.due.datetime);
+            if (isValid(parsed)) {
+              initialDueDate = parsed;
+              initialDueTime = format(parsed, "HH:mm");
+            }
+          } else if (initialDueDate === undefined && typeof task.due?.date === 'string' && task.due.date) {
+            const parsed = parseISO(task.due.date);
+            if (isValid(parsed)) {
+              initialDueDate = parsed;
+            }
+          }
+
+          setSelectedDueDate(initialDueDate);
+          setSelectedDueTime(initialDueTime);
           setSelectedDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined);
           setSelectedPriority(task.priority);
           setSelectedDuration(task.duration?.amount ? String(task.duration.amount) : "15");
@@ -233,8 +249,10 @@ const Seiso = () => {
         const [hours, minutes] = (selectedDueTime || '').split(":").map(Number);
         const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
         finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
+        finalDueDate = null; // Clear due_date if due_datetime is set
       } else {
         finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
+        finalDueDateTime = null; // Clear due_datetime if only due_date is set
       }
     }
 
