@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   ZAxis,
   ReferenceArea,
-  ReferenceLine, // Importado ReferenceLine
+  ReferenceLine,
 } from "recharts";
 import { Quadrant } from "@/lib/types";
 import { useNavigate } from "react-router-dom";
@@ -63,7 +63,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   const navigate = useNavigate();
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isHovering, setIsHovering] = useState(false); // Estado para o efeito hover
+  // Removendo o estado isHovering
 
   const { urgencyDomain, importanceDomain, urgencyThreshold, importanceThreshold } = useMemo(() => {
     const urgencyValues = data.map(d => d.urgency).filter(v => v !== null) as number[];
@@ -149,14 +149,9 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
     return entry.quadrant ? quadrantColors[entry.quadrant] : "#9ca3af";
   };
 
-  // Calcula a constante C para a linha inversa que passa pelo ponto de intersecção dos thresholds
-  const inverseLineConstant = safeUrgencyThreshold + safeImportanceThreshold;
-
   return (
     <div 
       className="w-full h-full" 
-      onMouseEnter={() => setIsHovering(true)} 
-      onMouseLeave={() => setIsHovering(false)}
     >
       <ResponsiveContainer width="100%" height="100%">
         <ScatterChart
@@ -196,7 +191,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
 
           {/* Áreas de Quadrante */}
           <ReferenceArea 
-            x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
+            x1={safeUrgencyThreshold} x2={safeUrencyDomain[1]} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
             fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
             label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
           />
@@ -226,19 +221,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
             strokeDasharray="5 5" // Dashed-dotted
           />
 
-          {/* Linha Diagonal Inversa (y = -x + C) - Apenas no Hover */}
-          {isHovering && (
-            <ReferenceLine 
-              segment={[
-                // Ponto de início (x mínimo): y = C - x_min
-                { x: safeUrgencyDomain[0], y: inverseLineConstant - safeUrgencyDomain[0] }, 
-                // Ponto final (x máximo): y = C - x_max
-                { x: safeUrgencyDomain[1], y: inverseLineConstant - safeUrgencyDomain[1] }
-              ]} 
-              stroke="#4b5563" 
-              strokeDasharray="3 3" // Dotted
-            />
-          )}
+          {/* Linha Diagonal Inversa (y = -x + C) - REMOVIDA */}
 
           <Scatter
             name="Tarefas"
