@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   ScatterChart,
   Scatter,
@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
   ZAxis,
   ReferenceArea,
+  ReferenceLine, // Importado ReferenceLine
 } from "recharts";
 import { Quadrant } from "@/lib/types";
 import { useNavigate } from "react-router-dom";
@@ -62,6 +63,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   const navigate = useNavigate();
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isHovering, setIsHovering] = useState(false); // Estado para o efeito hover
 
   const { urgencyDomain, importanceDomain, urgencyThreshold, importanceThreshold } = useMemo(() => {
     const urgencyValues = data.map(d => d.urgency).filter(v => v !== null) as number[];
@@ -145,83 +147,116 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
     return entry.quadrant ? quadrantColors[entry.quadrant] : "#9ca3af";
   };
 
+  // Calcula a constante C para a linha inversa que passa pelo ponto de intersecção dos thresholds
+  const inverseLineConstant = safeUrgencyThreshold + safeImportanceThreshold;
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <ScatterChart
-        margin={{
-          top: 20,
-          right: 20,
-          bottom: 20,
-          left: 20,
-        }}
-      >
-        <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-        
-        {/* Linhas de Threshold Dinâmicas */}
-        <ReferenceArea x1={safeUrgencyThreshold} x2={safeUrgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
-        <ReferenceArea y1={safeImportanceThreshold} y2={safeImportanceThreshold} stroke="#4b5563" strokeDasharray="5 5" />
-
-        <XAxis
-          type="number"
-          dataKey="urgency"
-          name="Urgência"
-          unit=""
-          domain={safeUrgencyDomain}
-          label={{ value: `Urgência (Threshold: ${safeUrgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
-          className="text-sm text-gray-600"
-        />
-        <YAxis
-          type="number"
-          dataKey="importance"
-          name="Importância"
-          unit=""
-          domain={safeImportanceDomain}
-          label={{ value: `Importância (Threshold: ${safeImportanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
-          className="text-sm text-gray-600"
-        />
-        <ZAxis dataKey="content" name="Tarefa" />
-        <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
-
-        {/* Áreas de Quadrante */}
-        <ReferenceArea 
-          x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
-          fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
-          label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
-        />
-        <ReferenceArea 
-          x1={safeUrgencyDomain[0]} x2={safeUrgencyThreshold} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
-          fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} 
-          label={{ value: "Q2: Decidir", position: 'top', fill: quadrantColors.decide, fontSize: 14, fontWeight: 'bold', dx: -40, dy: 10 }}
-        />
-        <ReferenceArea 
-          x1={safeUrgencyDomain[0]} x2={safeUrgencyThreshold} y1={safeImportanceDomain[0]} y2={safeImportanceThreshold} 
-          fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} 
-          label={{ value: "Q4: Eliminar", position: 'bottom', fill: quadrantColors.delete, fontSize: 14, fontWeight: 'bold', dx: -40, dy: -10 }}
-        />
-        <ReferenceArea 
-          x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceDomain[0]} y2={safeImportanceThreshold} 
-          fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
-          label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
-        />
-
-        <Scatter
-          name="Tarefas"
-          data={data}
-          shape="circle"
-          isAnimationActive={false}
-          onClick={handleSingleClick}
-          onDoubleClick={handleDoubleClick}
+    <div 
+      className="w-full h-full" 
+      onMouseEnter={() => setIsHovering(true)} 
+      onMouseLeave={() => setIsHovering(false)}
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <ScatterChart
+          margin={{
+            top: 20,
+            right: 20,
+            bottom: 20,
+            left: 20,
+          }}
         >
-          {data.map((entry, index) => (
-            <Scatter
-              key={`scatter-point-${index}`}
-              data={[entry]}
-              fill={getFillColor(entry)}
+          <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
+          
+          {/* Linhas de Threshold Dinâmicas */}
+          <ReferenceArea x1={safeUrgencyThreshold} x2={safeUrgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
+          <ReferenceArea y1={safeImportanceThreshold} y2={safeImportanceThreshold} stroke="#4b5563" strokeDasharray="5 5" />
+
+          <XAxis
+            type="number"
+            dataKey="urgency"
+            name="Urgência"
+            unit=""
+            domain={safeUrgencyDomain}
+            label={{ value: `Urgência (Threshold: ${safeUrgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
+            className="text-sm text-gray-600"
+          />
+          <YAxis
+            type="number"
+            dataKey="importance"
+            name="Importância"
+            unit=""
+            domain={safeImportanceDomain}
+            label={{ value: `Importância (Threshold: ${safeImportanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
+            className="text-sm text-gray-600"
+          />
+          <ZAxis dataKey="content" name="Tarefa" />
+          <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
+
+          {/* Áreas de Quadrante */}
+          <ReferenceArea 
+            x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
+            fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
+            label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
+          />
+          <ReferenceArea 
+            x1={safeUrgencyDomain[0]} x2={safeUrgencyThreshold} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
+            fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} 
+            label={{ value: "Q2: Decidir", position: 'top', fill: quadrantColors.decide, fontSize: 14, fontWeight: 'bold', dx: -40, dy: 10 }}
+          />
+          <ReferenceArea 
+            x1={safeUrgencyDomain[0]} x2={safeUrgencyThreshold} y1={safeImportanceDomain[0]} y2={safeImportanceThreshold} 
+            fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} 
+            label={{ value: "Q4: Eliminar", position: 'bottom', fill: quadrantColors.delete, fontSize: 14, fontWeight: 'bold', dx: -40, dy: -10 }}
+          />
+          <ReferenceArea 
+            x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceDomain[0]} y2={safeImportanceThreshold} 
+            fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
+            label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
+          />
+
+          {/* Linha Diagonal Principal (y = x) - Permanente */}
+          <ReferenceLine 
+            segment={[
+              { x: safeUrgencyDomain[0], y: safeImportanceDomain[0] }, 
+              { x: safeUrgencyDomain[1], y: safeImportanceDomain[1] }
+            ]} 
+            stroke="#4b5563" 
+            strokeDasharray="5 5" // Dashed-dotted
+          />
+
+          {/* Linha Diagonal Inversa (y = -x + C) - Apenas no Hover */}
+          {isHovering && (
+            <ReferenceLine 
+              segment={[
+                // Ponto de início (x mínimo): y = C - x_min
+                { x: safeUrgencyDomain[0], y: inverseLineConstant - safeUrgencyDomain[0] }, 
+                // Ponto final (x máximo): y = C - x_max
+                { x: safeUrgencyDomain[1], y: inverseLineConstant - safeUrgencyDomain[1] }
+              ]} 
+              stroke="#4b5563" 
+              strokeDasharray="3 3" // Dotted
             />
-          ))}
-        </Scatter>
-      </ScatterChart>
-    </ResponsiveContainer>
+          )}
+
+          <Scatter
+            name="Tarefas"
+            data={data}
+            shape="circle"
+            isAnimationActive={false}
+            onClick={handleSingleClick}
+            onDoubleClick={handleDoubleClick}
+          >
+            {data.map((entry, index) => (
+              <Scatter
+                key={`scatter-point-${index}`}
+                data={[entry]}
+                fill={getFillColor(entry)}
+              />
+            ))}
+          </Scatter>
+        </ScatterChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 
