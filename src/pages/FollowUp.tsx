@@ -49,7 +49,6 @@ const FollowUp = () => {
   const [editedDueTime, setEditedDueTime] = useState<string>("");
   const [editedPriority, setEditedPriority] = useState<1 | 2 | 3 | 4>(1);
   const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined);
-  const [editedRecurrenceString, setEditedRecurrenceString] = useState<string>(""); // Novo estado para recorrência
   const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
   const [isEditPopoverOpen, setIsEditPopoverOpen] = useState(false); // Estado para controlar o popover de edição
 
@@ -309,7 +308,6 @@ const FollowUp = () => {
     setEditedDueTime((typeof task.due?.datetime === 'string' && task.due.datetime) ? format(parseISO(task.due.datetime), "HH:mm") : "");
     setEditedPriority(task.priority);
     setEditedDeadline((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
-    setEditedRecurrenceString(task.recurrence_string || ""); // Carregar recorrência
     setObservationInput(""); // Limpar o campo de observação ao abrir o popover
     setIsEditPopoverOpen(true); // Abrir o popover
   }, []);
@@ -320,7 +318,6 @@ const FollowUp = () => {
     setEditedDueTime("");
     setEditedPriority(1);
     setEditedDeadline(undefined);
-    setEditedRecurrenceString(""); // Limpar recorrência
     setObservationInput(""); // Limpar o campo de observação
     setIsEditPopoverOpen(false); // Fechar o popover
   }, []);
@@ -339,52 +336,39 @@ const FollowUp = () => {
       duration_unit?: "minute" | "day" | undefined;
       deadline?: string | null;
       description?: string;
-      recurrence_string?: string | null; // Adicionado
     } = {};
     let changed = false;
 
-    // --- Handle Recurrence String ---
-    if (editedRecurrenceString !== (taskToEdit.recurrence_string || "")) {
-      updateData.recurrence_string = editedRecurrenceString.trim() === "" ? null : editedRecurrenceString.trim();
-      changed = true;
-      // If recurrence_string is set, clear due_date and due_datetime
-      updateData.due_date = null;
-      updateData.due_datetime = null;
-    } else if (editedRecurrenceString.trim() === "" && taskToEdit.recurrence_string) {
-      // If recurrence_string was present but now cleared
-      updateData.recurrence_string = null;
-      changed = true;
+    // --- Handle Due Date and Time ---
+    let finalDueDate: string | null = null;
+    let finalDueDateTime: string | null = null;
+
+    if (editedDueDate && isValid(editedDueDate)) {
+      let finalDate = editedDueDate;
+      if (editedDueTime) {
+        const [hours, minutes] = (editedDueTime || '').split(":").map(Number);
+        finalDate = setMinutes(setHours(editedDueDate, hours), minutes);
+        finalDueDateTime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
+      } else {
+        finalDueDate = format(finalDate, "yyyy-MM-dd");
+      }
     }
 
-    // --- Handle Due Date and Time (only if recurrence_string is NOT being set/updated) ---
-    if (updateData.recurrence_string === undefined) { // Only process if recurrence_string wasn't explicitly handled
-      if (editedDueDate && isValid(editedDueDate)) {
-        let finalDate = editedDueDate;
-        if (editedDueTime) {
-          const [hours, minutes] = (editedDueTime || '').split(":").map(Number);
-          finalDate = setMinutes(setHours(editedDueDate, hours), minutes);
-          updateData.due_datetime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
-          updateData.due_date = null;
-        } else {
-          updateData.due_date = format(finalDate, "yyyy-MM-dd");
-          updateData.due_datetime = null;
-        }
+    const currentTaskDueDateTime = (typeof taskToEdit.due?.datetime === 'string' && taskToEdit.due.datetime) ? format(parseISO(taskToEdit.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
+    const currentTaskDueDate = (typeof taskToEdit.due?.date === 'string' && taskToEdit.due.date) ? format(parseISO(taskToEdit.due.date), "yyyy-MM-dd") : null;
 
-        const currentTaskDueDateTime = (typeof taskToEdit.due?.datetime === 'string' && taskToEdit.due.datetime) ? format(parseISO(taskToEdit.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
-        const currentTaskDueDate = (typeof taskToEdit.due?.date === 'string' && taskToEdit.due.date) ? format(parseISO(taskToEdit.due.date), "yyyy-MM-dd") : null;
-
-        if (updateData.due_datetime && updateData.due_datetime !== currentTaskDueDateTime) {
-          changed = true;
-        } else if (updateData.due_date && updateData.due_date !== currentTaskDueDate && !currentTaskDueDateTime) {
-          changed = true;
-        } else if (!updateData.due_date && !updateData.due_datetime && (currentTaskDueDate || currentTaskDueDateTime)) {
-          changed = true;
-        }
-      } else if (!editedDueDate && (taskToEdit.due?.date || taskToEdit.due?.datetime)) {
-        updateData.due_date = null;
-        updateData.due_datetime = null;
-        changed = true;
-      }
+    if (finalDueDateTime && finalDueDateTime !== currentTaskDueDateTime) {
+      updateData.due_datetime = finalDueDateTime;
+      updateData.due_date = null;
+      changed = true;
+    } else if (finalDueDate && finalDueDate !== currentTaskDueDate && !currentTaskDueDateTime) {
+      updateData.due_date = finalDueDate;
+      updateData.due_datetime = null;
+      changed = true;
+    } else if (!finalDueDate && !finalDueDateTime && (currentTaskDueDate || currentTaskDueDateTime)) {
+      updateData.due_date = null;
+      updateData.due_datetime = null;
+      changed = true;
     }
 
     // Handle Priority
@@ -421,7 +405,7 @@ const FollowUp = () => {
       toast.info("Nenhuma alteração detectada.");
     }
     handleCancelEditing();
-  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadline, editedRecurrenceString, observationInput, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
+  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadline, observationInput, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
 
 
   const renderTaskItem = (task: TodoistTask) => {
@@ -512,21 +496,6 @@ const FollowUp = () => {
               </Popover>
             </div>
             <div>
-              <Label htmlFor={`edit-recurrence-string-${task.id}`} className="text-sm">Recorrência (Todoist string)</Label>
-              <Input
-                id={`edit-recurrence-string-${task.id}`}
-                type="text"
-                value={editedRecurrenceString}
-                onChange={(e) => setEditedRecurrenceString(e.target.value)}
-                placeholder="Ex: 'every day', 'every mon'"
-                className="mt-1"
-                disabled={isLoadingTodoist}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Use a sintaxe de recorrência do Todoist. Ex: "every day", "every mon", "every 2 weeks".
-              </p>
-            </div>
-            <div>
               <Label htmlFor={`edit-priority-${task.id}`} className="text-sm">Prioridade</Label>
               <Select
                 value={String(editedPriority)}
@@ -593,12 +562,12 @@ const FollowUp = () => {
                     <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
                   </span>
                 )}
-                {task.recurrence_string && (
+                {task.due?.string && (
                   <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> Recorrência: {task.recurrence_string}
+                    <Clock className="h-3 w-3" /> Recorrência: {task.due.string}
                   </span>
                 )}
-                {!(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && !(typeof task.deadline === 'string' && task.deadline) && !task.recurrence_string && <span>Sem prazo</span>} {/* Adicionado */}
+                {!(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && !(typeof task.deadline === 'string' && task.deadline) && !task.due?.string && <span>Sem prazo</span>} {/* Adicionado */}
                 {task.duration?.amount && task.duration.unit === "minute" && (
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" /> {task.duration.amount} min
@@ -681,7 +650,7 @@ const FollowUp = () => {
               </div>
               <a href={task.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                 <Button variant="ghost" size="icon" className="h-6 w-6">
-                  <ExternalLink className="h-4 w-4 text-blue-500" />
+                  <ExternalLink className="h-4 w-4" />
                 </Button>
               </a>
             </div>
@@ -691,7 +660,7 @@ const FollowUp = () => {
     );
   };
 
-  const isLoading = isLoadingTodoist || isFetchingDelegatedTasks;
+  const isLoadingCombined = isLoadingTodoist || isFetchingDelegatedTasks;
 
   return (
     <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -749,7 +718,7 @@ const FollowUp = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {isLoading ? (
+            {isLoadingCombined ? (
               <div className="flex justify-center items-center h-48">
                 <LoadingSpinner size={40} />
               </div>

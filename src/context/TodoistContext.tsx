@@ -31,7 +31,6 @@ interface TodoistContextType {
     duration?: number;
     duration_unit?: "minute" | "day";
     deadline?: string | null;
-    recurrence_string?: string | null; // Adicionado
   }) => Promise<TodoistTask | undefined>;
   createTodoistTask: (data: {
     content: string;
@@ -45,7 +44,6 @@ interface TodoistContextType {
     duration?: number;
     duration_unit?: "minute" | "day";
     deadline?: string;
-    recurrence_string?: string; // Adicionado
   }) => Promise<TodoistTask | undefined>;
   isLoading: boolean;
 }
@@ -88,9 +86,6 @@ const sanitizeTodoistTask = (task: TodoistTask): TodoistTask => {
       task.deadline = null;
     }
   }
-
-  // Ensure recurrence_string is set from due.string
-  task.recurrence_string = task.due?.string || null;
 
   // Ensure URL is always a string
   if (task.url === undefined || task.url === null || typeof task.url !== 'string') {
@@ -294,7 +289,6 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => { // C
       duration?: number;
       duration_unit?: "minute" | "day";
       deadline?: string | null;
-      recurrence_string?: string | null; // Adicionado
     }) => {
       // The service layer now handles fetching the original task and preserving recurrence_string
       const updatedTask = await makeApiCall(todoistService.updateTask, taskId, data);
@@ -331,7 +325,6 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => { // C
       duration?: number;
       duration_unit?: "minute" | "day";
       deadline?: string;
-      recurrence_string?: string; // Adicionado
     }) => {
       const newTask = await makeApiCall(todoistService.createTask, data);
       if (newTask) {

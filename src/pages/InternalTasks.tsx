@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { PlusCircle, Trash2, Edit, Save, XCircle, Clock, CalendarIcon, RotateCcw } from "lucide-react"; // Importar RotateCcw
 import { cn, isURL } from "@/lib/utils"; // Importar isURL
 import { useTodoist } from "@/context/TodoistContext";
-import { format, parseISO, isValid } from "date-fns";
+import { format, parseISO, isValid, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
@@ -40,7 +40,8 @@ const InternalTasks = () => {
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [newTaskCategory, setNewTaskCategory] = useState<"pessoal" | "profissional">("pessoal");
   const [newTaskEstimatedDuration, setNewTaskEstimatedDuration] = useState<string>("15");
-  const [newDueString, setNewDueString] = useState<string>(""); // Novo estado para string de prazo
+  const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined);
+  const [newDueTime, setNewDueTime] = useState<string>("");
   const [newDeadline, setNewDeadline] = useState<Date | undefined>(undefined);
   const [newTaskPriority, setNewTaskPriority] = useState<1 | 2 | 3 | 4>(1); // Novo estado para prioridade
 
@@ -49,7 +50,8 @@ const InternalTasks = () => {
   const [editedDescription, setEditedDescription] = useState("");
   const [editedCategory, setEditedCategory] = useState<"pessoal" | "profissional">("pessoal");
   const [editedEstimatedDuration, setEditedEstimatedDuration] = useState<string>("15");
-  const [editedDueString, setEditedDueString] = useState<string>(""); // Novo estado para string de prazo
+  const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(undefined);
+  const [editedDueTime, setEditedDueTime] = useState<string>("");
   const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined);
   const [editedPriority, setEditedPriority] = useState<1 | 2 | 3 | 4>(1); // Novo estado para prioridade
 
@@ -85,6 +87,19 @@ const InternalTasks = () => {
       return;
     }
 
+    let finalDueDate: string | undefined = undefined;
+    let finalDueDateTime: string | undefined = undefined;
+
+    if (newDueDate && isValid(newDueDate)) {
+      if (newDueTime) {
+        const [hours, minutes] = newDueTime.split(":").map(Number);
+        const finalDateTime = setMinutes(setHours(newDueDate, hours), minutes);
+        finalDueDateTime = format(finalDateTime, "yyyy-MM-dd'T'HH:mm:ss");
+      } else {
+        finalDueDate = format(newDueDate, "yyyy-MM-dd");
+      }
+    }
+
     if (taskCreationType === "todoist") {
       if (!selectedTodoistProjectId) {
         toast.error("Por favor, selecione um projeto do Todoist.");
@@ -101,8 +116,9 @@ const InternalTasks = () => {
         labels: labels,
         duration: duration,
         duration_unit: "minute" as "minute",
+        due_date: finalDueDate,
+        due_datetime: finalDueDateTime,
         deadline: newDeadline ? format(newDeadline, "yyyy-MM-dd") : undefined,
-        recurrence_string: newDueString.trim() === "" ? undefined : newDueString.trim(), // Usar string de prazo
       };
 
       const createdTask = await createTodoistTask(todoistTaskData);
@@ -112,7 +128,8 @@ const InternalTasks = () => {
         setNewTaskDescription("");
         setNewTaskCategory("pessoal");
         setNewTaskEstimatedDuration("15");
-        setNewDueString("");
+        setNewDueDate(undefined);
+        setNewDueTime("");
         setNewDeadline(undefined);
         setNewTaskPriority(1); // Resetar prioridade
       } else {
@@ -127,10 +144,9 @@ const InternalTasks = () => {
         isCompleted: false,
         createdAt: new Date().toISOString(),
         estimatedDurationMinutes: duration,
-        dueDate: null, // Limpar data/hora explícita
-        dueTime: null, // Limpar data/hora explícita
+        dueDate: finalDueDate,
+        dueTime: newDueTime,
         priority: newTaskPriority, // Incluir prioridade
-        recurrence_string: newDueString.trim() === "" ? null : newDueString.trim(), // Usar string de prazo
       };
 
       const updatedTasks = addInternalTask(newTask);
@@ -139,12 +155,13 @@ const InternalTasks = () => {
       setNewTaskDescription("");
       setNewTaskCategory("pessoal");
       setNewTaskEstimatedDuration("15");
-      setNewDueString("");
+      setNewDueDate(undefined);
+      setNewDueTime("");
       setNewDeadline(undefined);
       setNewTaskPriority(1); // Resetar prioridade
       toast.success("Tarefa interna adicionada!");
     }
-  }, [newTaskContent, newTaskDescription, newTaskCategory, newTaskEstimatedDuration, newDueString, newDeadline, newTaskPriority, taskCreationType, selectedTodoistProjectId, createTodoistTask]);
+  }, [newTaskContent, newTaskDescription, newTaskCategory, newTaskEstimatedDuration, newDueDate, newDueTime, newDeadline, newTaskPriority, taskCreationType, selectedTodoistProjectId, createTodoistTask]);
 
   const handleToggleComplete = useCallback((taskId: string) => {
     setTasks((prevTasks) => {
@@ -169,7 +186,8 @@ const InternalTasks = () => {
     setEditedDescription(task.description || "");
     setEditedCategory(task.category);
     setEditedEstimatedDuration(String(task.estimatedDurationMinutes || 15));
-    setEditedDueString(task.recurrence_string || ""); // Carregar string de prazo
+    setEditedDueDate((typeof task.dueDate === 'string' && task.dueDate) ? parseISO(task.dueDate) : undefined);
+    setEditedDueTime(task.dueTime || "");
     setEditedDeadline(task.dueDate ? parseISO(task.dueDate) : undefined); // Usar dueDate como placeholder para deadline
     setEditedPriority(task.priority); // Carregar prioridade
   }, []);
@@ -180,7 +198,8 @@ const InternalTasks = () => {
     setEditedDescription("");
     setEditedCategory("pessoal");
     setEditedEstimatedDuration("15");
-    setEditedDueString("");
+    setEditedDueDate(undefined);
+    setEditedDueTime("");
     setEditedDeadline(undefined);
     setEditedPriority(1); // Resetar prioridade
   }, []);
@@ -196,6 +215,21 @@ const InternalTasks = () => {
       return;
     }
 
+    let finalDueDate: string | null = null;
+    let finalDueTime: string | null = null;
+
+    if (editedDueDate && isValid(editedDueDate)) {
+      if (editedDueTime) {
+        const [hours, minutes] = editedDueTime.split(":").map(Number);
+        const finalDateTime = setMinutes(setHours(editedDueDate, hours), minutes);
+        finalDueTime = format(finalDateTime, "HH:mm");
+        finalDueDate = format(finalDateTime, "yyyy-MM-dd");
+      } else {
+        finalDueDate = format(editedDueDate, "yyyy-MM-dd");
+        finalDueTime = null;
+      }
+    }
+
     const updatedTask: InternalTask = {
       id: editingTaskId,
       content: editedContent.trim(),
@@ -204,10 +238,9 @@ const InternalTasks = () => {
       isCompleted: tasks.find(t => t.id === editingTaskId)?.isCompleted || false,
       createdAt: tasks.find(t => t.id === editingTaskId)?.createdAt || new Date().toISOString(),
       estimatedDurationMinutes: duration,
-      dueDate: null, // Limpar data/hora explícita
-      dueTime: null, // Limpar data/hora explícita
+      dueDate: finalDueDate,
+      dueTime: finalDueTime,
       priority: editedPriority, // Incluir prioridade
-      recurrence_string: editedDueString.trim() === "" ? null : editedDueString.trim(), // Usar string de prazo
     };
 
     const updatedTasks = updateInternalTask(updatedTask);
@@ -217,11 +250,12 @@ const InternalTasks = () => {
     setEditedDescription("");
     setEditedCategory("pessoal");
     setEditedEstimatedDuration("15");
-    setEditedDueString("");
+    setEditedDueDate(undefined);
+    setEditedDueTime("");
     setEditedDeadline(undefined);
     setEditedPriority(1); // Resetar prioridade
     toast.success("Tarefa interna atualizada!");
-  }, [editingTaskId, editedContent, editedDescription, editedCategory, editedEstimatedDuration, editedDueString, editedPriority, tasks]);
+  }, [editingTaskId, editedContent, editedDescription, editedCategory, editedEstimatedDuration, editedDueDate, editedDueTime, editedPriority, tasks]);
 
   const personalTasks = tasks.filter(task => task.category === "pessoal");
   const professionalTasks = tasks.filter(task => task.category === "profissional");
@@ -283,18 +317,40 @@ const InternalTasks = () => {
               />
             </div>
             <div>
-              <Label htmlFor="edited-due-string">Prazo (Linguagem Natural Todoist)</Label>
+              <Label htmlFor="edited-due-date">Data de Vencimento</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal mt-1",
+                      !editedDueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editedDueDate && isValid(editedDueDate) ? format(editedDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={editedDueDate}
+                    onSelect={setEditedDueDate}
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label htmlFor="edited-due-time">Hora de Vencimento (Opcional)</Label>
               <Input
-                id="edited-due-string"
-                type="text"
-                value={editedDueString}
-                onChange={(e) => setEditedDueString(e.target.value)}
-                placeholder="Ex: 'today 9am', 'every day', 'next monday'"
+                id="edited-due-time"
+                type="time"
+                value={editedDueTime}
+                onChange={(e) => setEditedDueTime(e.target.value)}
                 className="mt-1"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Use a sintaxe de prazo do Todoist.
-              </p>
             </div>
             <div className="flex gap-2 mt-2">
               <Button onClick={handleSaveEdit} size="sm" className="flex-1">
@@ -355,11 +411,11 @@ const InternalTasks = () => {
                   </span>
                 </>
               )}
-              {task.recurrence_string && (
+              {(task.dueDate || task.dueTime) && (
                 <>
                   <span className="mx-2">|</span>
                   <span className="flex items-center">
-                    <RotateCcw className="h-3 w-3 mr-1" /> Prazo: {task.recurrence_string}
+                    <CalendarIcon className="h-3 w-3 mr-1" /> Prazo: {task.dueDate ? format(parseISO(task.dueDate), "dd/MM/yyyy", { locale: ptBR }) : 'N/A'} {task.dueTime}
                   </span>
                 </>
               )}
@@ -481,18 +537,40 @@ const InternalTasks = () => {
             />
           </div>
           <div>
-            <Label htmlFor="new-due-string">Prazo (Linguagem Natural Todoist)</Label>
+            <Label htmlFor="new-due-date">Data de Vencimento</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal mt-1",
+                    !newDueDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {newDueDate && isValid(newDueDate) ? format(newDueDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={newDueDate}
+                  onSelect={setNewDueDate}
+                  initialFocus
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div>
+            <Label htmlFor="new-due-time">Hora de Vencimento (Opcional)</Label>
             <Input
-              id="new-due-string"
-              type="text"
-              value={newDueString}
-              onChange={(e) => setNewDueString(e.target.value)}
-              placeholder="Ex: 'today 9am', 'every day', 'next monday'"
+              id="new-due-time"
+              type="time"
+              value={newDueTime}
+              onChange={(e) => setNewDueTime(e.target.value)}
               className="mt-1"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Use a sintaxe de prazo do Todoist.
-            </p>
           </div>
           <div>
             <Label htmlFor="new-deadline">Deadline (Opcional)</Label>

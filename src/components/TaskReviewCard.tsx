@@ -27,7 +27,7 @@ interface TaskReviewCardProps {
   onDelete: (taskId: string) => void;
   onUpdateCategory: (taskId: string, newCategory: "pessoal" | "profissional" | "none") => void;
   onUpdatePriority: (taskId: string, newPriority: 1 | 2 | 3 | 4) => void;
-  onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null, recurrenceString: string | null) => Promise<void>;
+  onUpdateDeadline: (taskId: string, dueDate: string | null, dueDateTime: string | null) => Promise<void>;
   onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
   onReschedule: (taskId: string) => Promise<void>;
   onUpdateDuration: (taskId: string, duration: number | null) => Promise<void>;
@@ -72,7 +72,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   console.log(`TaskReviewCard: Rendering task ${task.id} (${task.content})`, task);
 
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
-  const [selectedDueString, setSelectedDueString] = useState<string>(""); // Alterado para string de prazo
+  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(undefined);
+  const [selectedDueTime, setSelectedDueTime] = useState<string>("");
   const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
 
   const [selectedFieldDeadlineDate, setSelectedFieldDeadlineDate] = useState<Date | undefined>(undefined);
@@ -98,7 +99,9 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       setSelectedCategory("none");
     }
     
-    setSelectedDueString(task.recurrence_string || task.due?.string || ""); // Carregar string de prazo
+    // Revertendo para usar due_date/datetime
+    setSelectedDueDate((typeof task.due?.date === 'string' && task.due.date) ? parseISO(task.due.date) : undefined);
+    setSelectedDueTime((typeof task.due?.datetime === 'string' && task.due.datetime) ? format(parseISO(task.due.datetime), "HH:mm") : "");
 
     setSelectedFieldDeadlineDate((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
     setSelectedDuration(
@@ -118,24 +121,25 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   const handleSetDeadline = async () => {
     let finalDueDate: string | null = null;
     let finalDueDateTime: string | null = null;
-    let finalRecurrenceString: string | null = null;
 
-    if (selectedDueString.trim() !== "") {
-      finalRecurrenceString = selectedDueString.trim();
-      // Clear explicit date/datetime fields if recurrence string is used
-      finalDueDate = null;
-      finalDueDateTime = null;
-    } else {
-      finalRecurrenceString = null;
+    if (selectedDueDate && isValid(selectedDueDate)) {
+      if (selectedDueTime) {
+        const [hours, minutes] = selectedDueTime.split(":").map(Number);
+        const finalDateTime = setMinutes(setHours(selectedDueDate, hours), minutes);
+        finalDueDateTime = format(finalDateTime, "yyyy-MM-dd'T'HH:mm:ss");
+      } else {
+        finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
+      }
     }
 
-    await onUpdateDeadline(task.id, finalDueDate, finalDueDateTime, finalRecurrenceString);
+    await onUpdateDeadline(task.id, finalDueDate, finalDueDateTime);
     setIsDeadlinePopoverOpen(false);
   };
 
   const handleClearDeadline = async () => {
-    await onUpdateDeadline(task.id, null, null, null);
-    setSelectedDueString("");
+    await onUpdateDeadline(task.id, null, null);
+    setSelectedDueDate(undefined);
+    setSelectedDueTime("");
     setIsDeadlinePopoverOpen(false);
   };
 
@@ -441,8 +445,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
               className="w-full py-3 text-md flex items-center justify-center"
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDueString ? (
-                <span>Prazo: {selectedDueString}</span>
+              {task.due?.string ? (
+                <span>Prazo: {task.due.string}</span>
               ) : (
                 <span>Definir Prazo</span>
               )}
@@ -452,18 +456,25 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
             <h4 className="font-semibold text-lg mb-3">Definir Prazo da Tarefa</h4>
             <div className="grid gap-4">
               <div>
-                <Label htmlFor="recurrence-string">Prazo (Linguagem Natural Todoist)</Label>
+                <Label htmlFor="due-date">Data de Vencimento</Label>
+                <Calendar
+                  mode="single"
+                  selected={selectedDueDate}
+                  onSelect={setSelectedDueDate}
+                  initialFocus
+                  locale={ptBR}
+                  className="rounded-md border shadow"
+                />
+              </div>
+              <div>
+                <Label htmlFor="due-time">Hora de Vencimento (Opcional)</Label>
                 <Input
-                  id="recurrence-string"
-                  type="text"
-                  value={selectedDueString}
-                  onChange={(e) => setSelectedDueString(e.target.value)}
-                  placeholder="Ex: 'today 9am', 'every day', 'next monday'"
+                  id="due-time"
+                  type="time"
+                  value={selectedDueTime}
+                  onChange={(e) => setSelectedDueTime(e.target.value)}
                   className="mt-1"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Use a sintaxe de prazo do Todoist.
-                </p>
               </div>
               <Button onClick={handleSetDeadline} className="w-full" disabled={isLoading}>
                 Salvar Prazo
