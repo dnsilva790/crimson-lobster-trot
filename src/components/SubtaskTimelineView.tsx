@@ -4,7 +4,7 @@ import React, { useMemo, useState, useCallback, useRef, useEffect } from "react"
 import { TodoistTask } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, isURL } from "@/lib/utils";
-import { format, parseISO, isValid, isSameDay, differenceInDays, startOfDay, addDays, isBefore, isPast } from "date-fns";
+import { format, parseISO, isValid, isSameDay, differenceInDays, startOfDay, addDays, isBefore, isPast, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ExternalLink, ListTodo, CalendarIcon, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
