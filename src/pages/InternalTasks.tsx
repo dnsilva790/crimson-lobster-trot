@@ -14,7 +14,7 @@ import { getInternalTasks, addInternalTask, updateInternalTask, deleteInternalTa
 import { InternalTask, TodoistProject } from "@/lib/types";
 import { toast } from "sonner";
 import { PlusCircle, Trash2, Edit, Save, XCircle, Clock, CalendarIcon, RotateCcw } from "lucide-react"; // Importar RotateCcw
-import { cn, isURL } from "@/lib/utils"; // Importar isURL
+import { cn } from "@/lib/utils";
 import { useTodoist } from "@/context/TodoistContext";
 import { format, parseISO, isValid, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -261,7 +261,6 @@ const InternalTasks = () => {
   const professionalTasks = tasks.filter(task => task.category === "profissional");
 
   const renderTaskCard = (task: InternalTask) => {
-    const isContentURL = isURL(task.content);
     return (
       <Card key={task.id} className={cn(
         "p-4 flex flex-col gap-2",
@@ -371,13 +370,7 @@ const InternalTasks = () => {
                   id={`task-${task.id}`}
                 />
                 <Label htmlFor={`task-${task.id}`} className="text-lg font-semibold cursor-pointer">
-                  {isContentURL ? (
-                    <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
-                      {task.content}
-                    </a>
-                  ) : (
-                    task.content
-                  )}
+                  {task.content}
                 </Label>
               </div>
               <div className="flex gap-2">

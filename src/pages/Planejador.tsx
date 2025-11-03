@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, PlusCircle, Trash2, Clock, Briefcase, Home, ListTodo, XCircle, Lightbulb, Filter, CalendarCheck, Ban, RotateCcw, Eraser, SortAsc, ExternalLink } from "lucide-react";
-import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute, isValid } from "date-fns";
+import { format, parseISO, startOfDay, addMinutes, isWithinInterval, parse, setHours, setMinutes, addHours, addDays, getDay, isBefore, isEqual, startOfMinute, isValid, isToday } from "date-fns"; // Adicionado isToday e isBefore
 import { ptBR } from "date-fns/locale";
 import { DaySchedule, TimeBlock, TimeBlockType, ScheduledTask, TodoistTask, InternalTask, RecurringTimeBlock, DayOfWeek, TodoistProject, Project, SeitonStateSnapshot } from "@/lib/types";
 import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner"; // Caminho corrigido
@@ -1204,7 +1204,7 @@ const Planejador = () => {
                 <SelectContent>
                   <SelectItem value="work">Trabalho</SelectItem>
                   <SelectItem value="personal">Pessoal</SelectItem>
-                  <SelectItem value="break">Pausa</SelectItem>
+                  <SelectItem value="break">Descanso (Sono Noturno)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1278,8 +1278,10 @@ const Planejador = () => {
 
         <TimeSlotPlanner
           daySchedule={currentDaySchedule}
-          onSelectSlot={handleSelectSlot}
           onSelectTask={handleDeleteScheduledTask}
+          onSelectSlot={handleSelectSlot}
+          onDropTask={handleDropTask}
+          currentDate={selectedDate}
           suggestedSlotStart={suggestedSlot && suggestedSlot.date === format(selectedDate, "yyyy-MM-dd") ? suggestedSlot.start : null}
           suggestedSlotEnd={suggestedSlot && suggestedSlot.date === format(selectedDate, "yyyy-MM-dd") ? suggestedSlot.end : null}
         />
@@ -1462,7 +1464,7 @@ const Planejador = () => {
                       {'url' in task && task.url && (
                         <a href={task.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="h-6 w-6">
-                            <ExternalLink className="h-4 w-4 text-blue-500" />
+                            <ExternalLink className="h-4 w-4" />
                           </Button>
                         </a>
                       )}

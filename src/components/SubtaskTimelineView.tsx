@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { TodoistTask } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, isURL } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { format, parseISO, isValid, isSameDay, differenceInDays, startOfDay, addDays, isBefore, isPast, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ExternalLink, ListTodo, CalendarIcon, Clock } from "lucide-react";
@@ -171,7 +171,6 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
             <div className="h-10 flex items-center p-2 text-sm font-semibold border-b border-gray-200">Subtarefas</div>
             <div style={{ height: `${totalHeight}px` }}>
                 {tasksWithTimelineData.map((task, index) => {
-                    const isContentURL = isURL(task.content);
                     return (
                         <div 
                             key={task.id} 
@@ -181,13 +180,7 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
                             )}
                             title={task.content}
                         >
-                            {isContentURL ? (
-                                <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
-                                    {task.content}
-                                </a>
-                            ) : (
-                                task.content
-                            )}
+                            {task.content}
                         </div>
                     );
                 })}
@@ -217,7 +210,6 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
 
               {/* Task Bars */}
               {tasksWithTimelineData.map((task, index) => {
-                const isContentURL = isURL(task.content);
                 const isCompleted = task.is_completed;
                 const isPastDue = isPast(task.endDate);
 
@@ -238,13 +230,7 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
                     }}
                     title={`${task.content} (${format(task.startDate, "dd/MM")} - ${format(task.endDate, "dd/MM")})`}
                   >
-                    {isContentURL ? (
-                        <a href={task.content} target="_blank" rel="noopener noreferrer" className="truncate px-1 text-white hover:underline">
-                            {task.content}
-                        </a>
-                    ) : (
-                        <span className="truncate px-1">{task.content}</span>
-                    )}
+                    <span className="truncate px-1">{task.content}</span>
                     <a 
                       href={task.url} 
                       target="_blank" 
@@ -266,16 +252,9 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
             <h4 className="font-semibold text-gray-700 mb-2">Subtarefas sem Prazo/Deadline Definido (Não exibidas no Gantt):</h4>
             <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
               {tasksWithoutTimeline.map(task => {
-                const isContentURL = isURL(task.content);
                 return (
                   <li key={task.id} className="flex items-center justify-between">
-                    {isContentURL ? (
-                        <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
-                            {task.content}
-                        </a>
-                    ) : (
-                        <span>{task.content}</span>
-                    )}
+                    <span>{task.content}</span>
                     <a 
                       href={task.url} 
                       target="_blank" 

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { format, parseISO, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn, getTaskCategory, isURL } from "@/lib/utils"; // Importar isURL
+import { cn, getTaskCategory } from "@/lib/utils";
 import { TodoistTask } from "@/lib/types";
 import { useTodoist } from "@/context/TodoistContext";
 import LoadingSpinner from "@/components/ui/loading-spinner";
@@ -379,24 +379,13 @@ const Seiso = () => {
 
   const renderTaskDetails = (task: TodoistTask) => {
     const category = getTaskCategory(task);
-    const isFocoActive = task.labels?.includes(FOCO_LABEL_ID);
-    const isRapidaActive = task.labels?.includes(RAPIDA_LABEL_ID);
-    const isCronogramaActive = task.labels?.includes(CRONOGRAMA_HOJE_LABEL);
-
-    const isContentURL = isURL(task.content); // Check if content is a URL
 
     return (
       <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full">
         <div className="flex-grow">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              {isContentURL ? (
-                <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-2xl font-bold text-indigo-600 hover:underline">
-                  {task.content}
-                </a>
-              ) : (
-                <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
-              )}
+              <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
               {category && (
                 <span
                   className={cn(

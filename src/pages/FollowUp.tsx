@@ -13,7 +13,7 @@ import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo, Save } from "lucide-react";
-import { cn, getDelegateNameFromLabels, isURL } from "@/lib/utils"; // Importar isURL
+import { cn, getDelegateNameFromLabels } from "@/lib/utils";
 import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import FollowUpAIAssistant from "@/components/FollowUpAIAssistant";
@@ -409,7 +409,6 @@ const FollowUp = () => {
 
 
   const renderTaskItem = (task: TodoistTask) => {
-    const isContentURL = isURL(task.content);
     return (
       <div 
         key={task.id} 
@@ -422,13 +421,7 @@ const FollowUp = () => {
         {editingTaskId === task.id ? (
           <div className="grid gap-2 p-2 bg-white rounded-md shadow-inner">
             <h4 className="text-lg font-semibold text-gray-800">
-              {isContentURL ? (
-                <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
-                  {task.content}
-                </a>
-              ) : (
-                task.content
-              )}
+              {task.content}
             </h4>
             <div>
               <Label htmlFor={`edit-due-date-${task.id}`} className="text-sm">Data de Vencimento</Label>
@@ -537,13 +530,7 @@ const FollowUp = () => {
           <div className="flex items-start justify-between">
             <div className="flex-grow pr-4">
               <h4 className="text-lg font-semibold text-gray-800">
-                {isContentURL ? (
-                  <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
-                    {task.content}
-                  </a>
-                ) : (
-                  task.content
-                )}
+                {task.content}
               </h4>
               {task.description && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{task.description}</p>}
               <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
@@ -631,18 +618,11 @@ const FollowUp = () => {
         {agendaTasks.map(task => {
           const delegateName = getDelegateNameFromLabels(task.labels) || "Responsável Desconhecido";
           const dueTime = task.due?.datetime ? format(parseISO(task.due.datetime), "HH:mm") : "Sem Hora";
-          const isContentURL = isURL(task.content);
           return (
             <div key={task.id} className="flex items-center justify-between p-2 bg-white rounded-md shadow-sm border border-gray-200">
               <div className="flex-grow">
                 <p className="text-sm font-medium text-gray-800">
-                  {isContentURL ? (
-                    <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
-                      {task.content}
-                    </a>
-                  ) : (
-                    task.content
-                  )}
+                  {task.content}
                 </p>
                 <p className="text-xs text-gray-500">
                   {delegateName} - {dueTime}
