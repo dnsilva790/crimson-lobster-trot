@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { format, parseISO, setHours, setMinutes, addMinutes, isWithinInterval, parse, isBefore, isAfter, isEqual, addDays, isToday, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink, CheckCircle } from "lucide-react";
+import { ExternalLink, CheckCircle, Repeat2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDrag, useDrop } from 'react-dnd';
 
@@ -270,6 +270,8 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
               },
             }), [task]);
 
+            const isRecurring = task.originalTask && 'due' in task.originalTask && task.originalTask.due?.is_recurring === true;
+
             return (
               <div
                 key={`scheduled-task-${task.id}`}
@@ -308,6 +310,16 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                   >
                       {task.content}
                   </span>
+                  {/* Ícone de Recorrência */}
+                  {isRecurring && (
+                    <Repeat2 
+                      className={cn(
+                        "h-3 w-3 text-purple-600 flex-shrink-0 mr-1",
+                        task.height < 25 && "hidden"
+                      )} 
+                      title="Tarefa Recorrente"
+                    />
+                  )}
                   {task.originalTask && 'url' in task.originalTask && task.originalTask.url && (
                     <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {onCompleteTask && (

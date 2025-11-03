@@ -3,10 +3,10 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { TodoistTask } from "@/lib/types";
-import { cn, getTaskCategory } from "@/lib/utils"; // Remover isURL
+import { cn, getTaskCategory } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink, CalendarIcon, Clock } from "lucide-react";
+import { ExternalLink, CalendarIcon, Clock, Repeat2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface FocusTaskCardProps {
@@ -80,6 +80,7 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
   };
 
   const category = getTaskCategory(task);
+  const isRecurring = task.due?.is_recurring === true;
 
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
@@ -95,6 +96,13 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
                 )}
               >
                 {category === "pessoal" ? "Pessoal" : "Profissional"}
+              </Badge>
+            )}
+            {isRecurring && (
+              <Badge
+                className="text-xs font-medium bg-purple-100 text-purple-800 flex items-center gap-1"
+              >
+                <Repeat2 className="h-3 w-3" /> Recorrente
               </Badge>
             )}
           </div>
