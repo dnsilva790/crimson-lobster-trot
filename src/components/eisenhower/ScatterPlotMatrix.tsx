@@ -210,7 +210,19 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
             label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
           />
 
-          {/* Linha Diagonal Principal (y = x) - REMOVIDA */}
+          {/* Linhas Diagonais para comparação de pontos */}
+          <ReferenceLine 
+            segment={[ { x: 0, y: 0 }, { x: 100, y: 100 } ]} 
+            stroke="#4b5563" 
+            strokeDasharray="5 5" 
+            strokeWidth={1} 
+          />
+          <ReferenceLine 
+            segment={[ { x: 0, y: 100 }, { x: 100, y: 0 } ]} 
+            stroke="#4b5563" 
+            strokeDasharray="5 5" 
+            strokeWidth={1} 
+          />
 
           <Scatter
             name="Tarefas"
