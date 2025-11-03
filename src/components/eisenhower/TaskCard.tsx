@@ -3,7 +3,7 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EisenhowerTask } from "@/lib/types";
-import { cn, isURL } from "@/lib/utils"; // Importar isURL
+import { cn } from "@/lib/utils"; // Remover isURL
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Clock, ExternalLink } from "lucide-react";
@@ -78,19 +78,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, className }) => {
     return <div className="flex flex-wrap gap-x-4 gap-y-1">{dateElements}</div>;
   };
 
-  const isContentURL = isURL(task.content);
-
   return (
     <Card className={cn("p-6 rounded-xl shadow-lg bg-white flex flex-col h-full", className)}>
       <div className="flex-grow">
         <div className="flex items-center justify-between mb-3">
-          {isContentURL ? (
-            <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-2xl font-bold text-indigo-600 hover:underline">
-              {task.content}
-            </a>
-          ) : (
-            <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
-          )}
+          <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
           <a href={task.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 hover:text-indigo-800">
             <ExternalLink className="h-5 w-5" />
           </a>

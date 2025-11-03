@@ -3,7 +3,7 @@
 import React from "react";
 import { TodoistTask } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn, isURL } from "@/lib/utils"; // Importar isURL
+import { cn } from "@/lib/utils"; // Remover isURL
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Clock, ExternalLink } from "lucide-react";
@@ -85,7 +85,6 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks, level = 0 }) => {
   return (
     <div className="space-y-2">
       {subtasks.map((subtask) => {
-        const isContentURL = isURL(subtask.content);
         return (
           <Card
             key={subtask.id}
@@ -96,13 +95,7 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks, level = 0 }) => {
           >
             <CardContent className="p-0">
               <div className="flex items-center justify-between mb-2">
-                {isContentURL ? (
-                  <a href={subtask.content} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-600 hover:underline">
-                    {subtask.content}
-                  </a>
-                ) : (
-                  <h4 className="font-semibold text-gray-800">{subtask.content}</h4>
-                )}
+                <h4 className="font-semibold text-gray-800">{subtask.content}</h4>
                 <a href={subtask.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 hover:text-indigo-800">
                   <ExternalLink className="h-4 w-4" />
                 </a>
