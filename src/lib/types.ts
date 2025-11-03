@@ -183,3 +183,4 @@ export interface EisenhowerTask extends TodoistTask {
 
 export type Quadrant = 'do' | 'decide' | 'delegate' | 'delete';
 export type DisplayFilter = "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // Novo tipo para o filtro de exibição
+export type CategoryDisplayFilter = "all" | "pessoal" | "profissional"; // Novo tipo para o filtro de categoria

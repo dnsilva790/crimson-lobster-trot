@@ -4,13 +4,14 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTodoist } from "@/context/TodoistContext";
-import { EisenhowerTask, TodoistTask, DisplayFilter } from "@/lib/types"; // Importar DisplayFilter
+import { EisenhowerTask, TodoistTask, DisplayFilter, CategoryDisplayFilter } from "@/lib/types"; // Importar CategoryDisplayFilter
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw, Search, RotateCcw } from "lucide-react"; // Importar Search e RotateCcw
 import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
 import { Input } from "@/components/ui/input"; // Importar Input
+import { getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
 
 // Importar os componentes do Eisenhower
 import SetupScreen from "@/components/eisenhower/SetupScreen";
@@ -29,6 +30,7 @@ const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
 const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
 const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter"; // Nova chave para o filtro de exibição
 const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter"; // Nova chave para o filtro de avaliação
+const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_display_filter"; // Nova chave para o filtro de categoria de exibição
 
 const Eisenhower = () => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
@@ -62,6 +64,14 @@ const Eisenhower = () => {
   const [displayFilter, setDisplayFilter] = useState<DisplayFilter>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY) as DisplayFilter) || "all";
+    }
+    return "all";
+  });
+
+  // Novo estado para o filtro de categoria de exibição
+  const [categoryDisplayFilter, setCategoryDisplayFilter] = useState<CategoryDisplayFilter>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY) as CategoryDisplayFilter) || "all";
     }
     return "all";
   });
@@ -107,6 +117,12 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_RATING_FILTER_STORAGE_KEY, ratingFilter);
     }
   }, [ratingFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY, categoryDisplayFilter);
+    }
+  }, [categoryDisplayFilter]);
 
   // Efeito para atualizar a lista de tarefas não avaliadas sempre que tasksToProcess mudar
   useEffect(() => {
@@ -314,16 +330,24 @@ const Eisenhower = () => {
   const ratedTasksCount = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null).length;
   const canViewMatrixOrResults = tasksToProcess.length > 0; // Habilitar se houver tarefas carregadas
 
-  // Função para filtrar as tarefas com base no displayFilter
-  const getFilteredTasksForDisplay = useCallback((tasks: EisenhowerTask[], filter: DisplayFilter): EisenhowerTask[] => {
-    let filteredByDate = tasks;
+  // Função para filtrar as tarefas com base no displayFilter e categoryDisplayFilter
+  const getFilteredTasksForDisplay = useCallback((tasks: EisenhowerTask[], dateFilter: DisplayFilter, categoryFilter: CategoryDisplayFilter): EisenhowerTask[] => {
+    let filteredTasks = tasks;
 
-    const now = new Date();
-    const startOfToday = startOfDay(now);
-    
-    // 1. Filtragem por Data/Status (displayFilter)
-    if (filter !== "all") {
-      filteredByDate = tasks.filter(task => {
+    // 1. Filtragem por Categoria (categoryDisplayFilter)
+    if (categoryFilter !== "all") {
+      filteredTasks = filteredTasks.filter(task => {
+        const category = getTaskCategory(task);
+        return category === categoryFilter;
+      });
+    }
+
+    // 2. Filtragem por Data/Status (dateFilter)
+    if (dateFilter !== "all") {
+      const now = new Date();
+      const startOfToday = startOfDay(now);
+      
+      filteredTasks = filteredTasks.filter(task => {
         // Apenas tarefas com urgência e importância avaliadas podem ser filtradas por status
         if (task.urgency === null || task.importance === null) {
           return false;
@@ -349,18 +373,18 @@ const Eisenhower = () => {
         if (!effectiveDate || !isValid(effectiveDate)) return false;
 
         // --- Lógica de filtro de exibição corrigida ---
-        if (filter === "overdue") {
+        if (dateFilter === "overdue") {
           // Atrasadas: Data efetiva é anterior ao início do dia de hoje.
           return isBefore(effectiveDate, startOfToday);
         }
-        if (filter === "today") {
+        if (dateFilter === "today") {
           // Hoje: Data efetiva é hoje.
           return isToday(effectiveDate);
         }
-        if (filter === "tomorrow") {
+        if (dateFilter === "tomorrow") {
           return isTomorrow(effectiveDate);
         }
-        if (filter === "overdue_and_today") { // Nova lógica para "Atrasadas e Hoje"
+        if (dateFilter === "overdue_and_today") { // Nova lógica para "Atrasadas e Hoje"
           // Inclui todas as tarefas que já passaram (overdue) OU que vencem hoje (isToday)
           return isBefore(effectiveDate, startOfToday) || isToday(effectiveDate);
         }
@@ -368,21 +392,21 @@ const Eisenhower = () => {
       });
     }
 
-    // 2. Filtragem por Termo de Busca (searchTerm)
+    // 3. Filtragem por Termo de Busca (searchTerm)
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     if (lowerCaseSearchTerm.trim() === "") {
-      return filteredByDate;
+      return filteredTasks;
     }
 
-    return filteredByDate.filter(task => 
+    return filteredTasks.filter(task => 
       task.content.toLowerCase().includes(lowerCaseSearchTerm) ||
       task.description.toLowerCase().includes(lowerCaseSearchTerm) ||
       task.labels.some(label => label.toLowerCase().includes(lowerCaseSearchTerm))
     );
 
-  }, [tasksToProcess, displayFilter, searchTerm]);
+  }, [tasksToProcess, displayFilter, categoryDisplayFilter, searchTerm]);
 
-  const filteredTasksForDisplay = getFilteredTasksForDisplay(tasksToProcess, displayFilter);
+  const filteredTasksForDisplay = getFilteredTasksForDisplay(tasksToProcess, displayFilter, categoryDisplayFilter);
 
   // Nova função para atualizar a matriz
   const handleRefreshMatrix = useCallback(async () => {
@@ -592,7 +616,7 @@ const Eisenhower = () => {
 
       {/* Seletor de filtro de exibição e busca */}
       {(currentView === "matrix" || currentView === "results" || currentView === "dashboard") && (
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative md:col-span-2">
             <Input
               type="text"
@@ -613,6 +637,16 @@ const Eisenhower = () => {
               <SelectItem value="today">Apenas Vencem Hoje</SelectItem>
               <SelectItem value="tomorrow">Apenas Vencem Amanhã</SelectItem>
               <SelectItem value="overdue_and_today">Atrasadas e Hoje</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={categoryDisplayFilter} onValueChange={(value: CategoryDisplayFilter) => setCategoryDisplayFilter(value)}>
+            <SelectTrigger className="w-full mt-1">
+              <SelectValue placeholder="Filtrar por Categoria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as Categorias</SelectItem>
+              <SelectItem value="pessoal">Pessoal</SelectItem>
+              <SelectItem value="profissional">Profissional</SelectItem>
             </SelectContent>
           </Select>
         </div>
