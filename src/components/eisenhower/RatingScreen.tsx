@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import LoadingSpinner from "@/components/ui/loading-spinner"; // Importar LoadingSpinner
 
 interface RatingScreenProps {
-  tasks: EisenhowerTask[];
+  tasks: EisenhowerTask[]; // Agora recebe a lista COMPLETA de tarefas
   onUpdateTaskRating: (taskId: string, urgency: number | null, importance: number | null) => void;
   onFinishRating: () => void;
   onBack: () => void;
@@ -38,7 +38,9 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
 
   // Resetar o índice da tarefa atual sempre que a lista de tarefas mudar
   useEffect(() => {
-    setCurrentTaskIndex(0);
+    // Se a lista de tarefas for carregada, tente encontrar a primeira tarefa não avaliada
+    const firstUnratedIndex = tasks.findIndex(t => t.urgency === null || t.importance === null);
+    setCurrentTaskIndex(firstUnratedIndex !== -1 ? firstUnratedIndex : 0);
   }, [tasks]);
 
   const currentTask = tasks[currentTaskIndex];
@@ -145,6 +147,21 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
             <LayoutDashboard className="h-4 w-4" /> Ver Matriz
           </Button>
         )}
+      </div>
+    );
+  }
+  
+  if (!currentTask) {
+    // Caso todas as tarefas tenham sido avaliadas e o usuário esteja na última tela
+    return (
+      <div className="text-center p-8">
+        <p className="text-lg text-gray-600 mb-4">Todas as {tasks.length} tarefas foram avaliadas.</p>
+        <Button onClick={onFinishRating} className="flex items-center gap-2 mx-auto bg-indigo-600 hover:bg-indigo-700 text-white">
+          <Check className="h-4 w-4" /> Finalizar Avaliação
+        </Button>
+        <Button onClick={onBack} variant="outline" className="mt-4 flex items-center gap-2 mx-auto">
+          <ArrowLeft className="h-4 w-4" /> Voltar para Configuração
+        </Button>
       </div>
     );
   }

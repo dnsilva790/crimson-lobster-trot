@@ -419,13 +419,9 @@ const Eisenhower = () => {
   }, [filterInput, statusFilter, categoryFilter, fetchTasks, tasksToProcess, sortEisenhowerTasks, handleCategorizeTasks]);
 
   const handleStartReview = useCallback(() => {
-    if (tasksToProcess.length === 0) {
-      toast.error("Nenhuma tarefa carregada para revisar.");
-      return;
-    }
     setCurrentView("rating");
     toast.info("Iniciando revisão de avaliação.");
-  }, [tasksToProcess.length]);
+  }, []);
 
 
   const renderContent = () => {
@@ -451,7 +447,7 @@ const Eisenhower = () => {
       case "rating":
         return (
           <RatingScreen
-            tasks={unratedTasks} // Passa apenas as tarefas não avaliadas
+            tasks={tasksToProcess} // Passa TODAS as tarefas para revisão
             onUpdateTaskRating={handleUpdateTaskRating}
             onFinishRating={handleFinishRating} // Usa a nova função handleFinishRating
             onBack={() => setCurrentView("setup")}
