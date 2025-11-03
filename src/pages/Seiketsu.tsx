@@ -40,14 +40,15 @@ type GtdState =
   | "reviewing"
   | "finished";
 
+type ActionableStep = "isActionable" | "nextAction";
+
 interface GtdProcessorState {
   gtdState: GtdState;
   actionableStep: ActionableStep;
   tasksToProcess: TodoistTask[];
   currentTaskIndex: number;
   inboxFilter: string;
-  selectedDueDate?: Date;
-  selectedDueTime: string;
+  selectedDueString: string; // Alterado para string
   selectedDeadlineDate?: Date;
   delegateName: string;
 }
@@ -76,8 +77,7 @@ const Seiketsu = () => {
   const [isSchedulingPopoverOpen, setIsSchedulingPopoverOpen] = useState(false);
   const [isDelegatingPopoverOpen, setIsDelegatingPopoverOpen] = useState(false);
 
-  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(undefined);
-  const [selectedDueTime, setSelectedDueTime] = useState<string>("");
+  const [selectedDueString, setSelectedDueString] = useState<string>(""); // Novo estado para string de prazo
   const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(undefined);
   const [delegateName, setDelegateName] = useState<string>("");
 
@@ -111,8 +111,7 @@ const Seiketsu = () => {
           setTasksToProcess(parsedState.tasksToProcess || []);
           setCurrentTaskIndex(parsedState.currentTaskIndex);
           setInboxFilter(parsedState.inboxFilter);
-          setSelectedDueDate(parsedState.selectedDueDate && isValid(parsedState.selectedDueDate) ? parseISO(parsedState.selectedDueDate.toISOString()) : undefined);
-          setSelectedDueTime(parsedState.selectedDueTime);
+          setSelectedDueString(parsedState.selectedDueString || ""); // Carregar string de prazo
           setSelectedDeadlineDate(parsedState.selectedDeadlineDate && isValid(parsedState.selectedDeadlineDate) ? parseISO(parsedState.selectedDeadlineDate.toISOString()) : undefined);
           setDelegateName(parsedState.delegateName);
           
@@ -136,24 +135,21 @@ const Seiketsu = () => {
         tasksToProcess,
         currentTaskIndex,
         inboxFilter,
-        selectedDueDate,
-        selectedDueTime,
+        selectedDueString, // Salvar string de prazo
         selectedDeadlineDate,
         delegateName,
       };
       localStorage.setItem(GTD_STORAGE_KEY, JSON.stringify(stateToSave));
       localStorage.setItem(INBOX_FILTER_STORAGE_KEY, inboxFilter);
     }
-  }, [gtdState, actionableStep, tasksToProcess, currentTaskIndex, inboxFilter, selectedDueDate, selectedDueTime, selectedDeadlineDate, delegateName]);
+  }, [gtdState, actionableStep, tasksToProcess, currentTaskIndex, inboxFilter, selectedDueString, selectedDeadlineDate, delegateName]);
 
   useEffect(() => {
     if (isSchedulingPopoverOpen && currentTask) {
-      setSelectedDueDate((typeof currentTask.due?.date === 'string' && currentTask.due.date) ? parseISO(currentTask.due.date) : undefined);
-      setSelectedDueTime((typeof currentTask.due?.datetime === 'string' && currentTask.due.datetime) ? format(parseISO(currentTask.due.datetime), "HH:mm") : "");
+      setSelectedDueString(currentTask.recurrence_string || currentTask.due?.string || "");
       setSelectedDeadlineDate((typeof currentTask.deadline === 'string' && currentTask.deadline) ? parseISO(currentTask.deadline) : undefined);
     } else if (!isSchedulingPopoverOpen) {
-      setSelectedDueDate(undefined);
-      setSelectedDueTime("");
+      setSelectedDueString("");
       setSelectedDeadlineDate(undefined);
     }
   }, [isSchedulingPopoverOpen, currentTask]);
@@ -192,8 +188,7 @@ const Seiketsu = () => {
       }
     });
     setActionableStep("isActionable");
-    setSelectedDueDate(undefined);
-    setSelectedDueTime("");
+    setSelectedDueString("");
     setSelectedDeadlineDate(undefined);
     setDelegateName("");
   }, [currentTaskIndex, currentTask]);
@@ -216,6 +211,7 @@ const Seiketsu = () => {
       due_datetime: null,
       deadline: null,
       priority: 1,
+      recurrence_string: null,
     });
     if (updated) {
       toast.info(`Tarefa "${currentTask.content}" incubada (Um Dia/Talvez).`);
@@ -247,24 +243,12 @@ const Seiketsu = () => {
   }, [currentTask, updateTask, advanceToNextTask]);
 
   const handleSetSchedule = useCallback(async () => {
-    if (!currentTask || (!selectedDueDate && !selectedDeadlineDate)) {
-      toast.error("Por favor, selecione uma data de vencimento válida ou um deadline.");
+    if (!currentTask && !selectedDueString.trim() && !selectedDeadlineDate) {
+      toast.error("Por favor, insira um prazo ou um deadline.");
       return;
     }
 
-    let finalDueDate: string | null = null;
-    let finalDueDateTime: string | null = null;
     let finalDeadline: string | null = null;
-
-    if (selectedDueDate && isValid(selectedDueDate)) {
-      if (selectedDueTime) {
-        const [hours, minutes] = (selectedDueTime || '').split(":").map(Number);
-        const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
-        finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
-      } else {
-        finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
-      }
-    }
 
     if (selectedDeadlineDate && isValid(selectedDeadlineDate)) {
       finalDeadline = format(selectedDeadlineDate, "yyyy-MM-dd");
@@ -272,18 +256,49 @@ const Seiketsu = () => {
 
     const updatedLabels = [...new Set([...currentTask.labels, GTD_PROCESSED_LABEL, AGENDA_LABEL])];
 
-    const updated = await updateTask(currentTask.id, {
-      due_date: finalDueDate,
-      due_datetime: finalDueDateTime,
+    const updatePayload: {
+      due_date?: string | null;
+      due_datetime?: string | null;
+      deadline?: string | null;
+      labels?: string[];
+      recurrence_string?: string | null;
+    } = {
       deadline: finalDeadline,
       labels: updatedLabels,
-    });
+    };
+
+    if (selectedDueString.trim()) {
+      updatePayload.recurrence_string = selectedDueString.trim();
+      updatePayload.due_date = null;
+      updatePayload.due_datetime = null;
+    } else {
+      updatePayload.recurrence_string = null;
+      // Se não houver string de prazo, mas a tarefa já tiver um prazo, ele será mantido
+      // Se quisermos limpar o prazo, o usuário deve usar o botão de limpar.
+    }
+
+    const updated = await updateTask(currentTask.id, updatePayload);
     if (updated) {
       toast.success(`Tarefa "${currentTask.content}" agendada.`);
       setIsSchedulingPopoverOpen(false);
       advanceToNextTask();
     }
-  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, updateTask, advanceToNextTask]);
+  }, [currentTask, selectedDueString, selectedDeadlineDate, updateTask, advanceToNextTask]);
+
+  const handleClearSchedule = useCallback(async () => {
+    if (!currentTask) return;
+    const updated = await updateTask(currentTask.id, {
+      due_date: null,
+      due_datetime: null,
+      deadline: null,
+      recurrence_string: null,
+    });
+    if (updated) {
+      toast.info(`Prazo e deadline de "${currentTask.content}" limpos.`);
+      setSelectedDueString("");
+      setSelectedDeadlineDate(undefined);
+    }
+  }, [currentTask, updateTask]);
 
   const handleSetDelegate = useCallback(async () => {
     if (!currentTask || !delegateName.trim()) {
@@ -346,8 +361,7 @@ const Seiketsu = () => {
     setTasksToProcess([]);
     setCurrentTaskIndex(0);
     setActionableStep("isActionable");
-    setSelectedDueDate(undefined);
-    setSelectedDueTime("");
+    setSelectedDueString("");
     setSelectedDeadlineDate(undefined);
     setDelegateName("");
     localStorage.removeItem(GTD_STORAGE_KEY);
@@ -387,21 +401,20 @@ const Seiketsu = () => {
         </div>
         <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
           <div className="flex flex-col gap-1">
-            {hasDueDate ? (
-              <>
-                {(typeof task.due?.datetime === 'string' && task.due.datetime) && (
-                  <span className="flex items-center gap-1">
-                    <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                  </span>
-                )}
-                {(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && (
-                  <span className="flex items-center gap-1">
-                    <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
-                  </span>
-                )}
-              </>
-            ) : (
-              <span>Sem prazo</span>
+            {task.recurrence_string && (
+              <span className="flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" /> Recorrência: {task.recurrence_string}
+              </span>
+            )}
+            {(typeof task.due?.datetime === 'string' && task.due.datetime) && !task.recurrence_string && (
+              <span className="flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+              </span>
+            )}
+            {(typeof task.due?.date === 'string' && task.due.date) && !task.recurrence_string && !(typeof task.due?.datetime === 'string' && task.due.datetime) && (
+              <span className="flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
+              </span>
             )}
             {hasDeadline && (
               <span className="flex items-center gap-1 text-red-600 font-semibold">
@@ -413,6 +426,7 @@ const Seiketsu = () => {
                 <Clock className="h-3 w-3" /> Duração: {task.duration?.amount} min
               </span>
             )}
+            {!hasDueDate && !hasDeadline && !task.recurrence_string && <span>Sem prazo</span>}
           </div>
           <span
             className={cn(
@@ -575,25 +589,18 @@ const Seiketsu = () => {
                   <h4 className="font-semibold text-lg mb-3">Agendar Tarefa</h4>
                   <div className="grid gap-4">
                     <div>
-                      <Label htmlFor="schedule-date">Data de Vencimento</Label>
-                      <Calendar
-                        mode="single"
-                        selected={selectedDueDate}
-                        onSelect={setSelectedDueDate}
-                        initialFocus
-                        locale={ptBR}
-                        className="rounded-md border shadow"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="schedule-time">Hora de Vencimento (Opcional)</Label>
+                      <Label htmlFor="schedule-due-string">Prazo (Linguagem Natural Todoist)</Label>
                       <Input
-                        id="schedule-time"
-                        type="time"
-                        value={selectedDueTime}
-                        onChange={(e) => setSelectedDueTime(e.target.value)}
+                        id="schedule-due-string"
+                        type="text"
+                        value={selectedDueString}
+                        onChange={(e) => setSelectedDueString(e.target.value)}
+                        placeholder="Ex: 'today 9am', 'every day', 'next monday'"
                         className="mt-1"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Use a sintaxe de prazo do Todoist.
+                      </p>
                     </div>
                     <div className="mt-2">
                       <Label htmlFor="deadline-date">Deadline (Opcional)</Label>
@@ -609,8 +616,8 @@ const Seiketsu = () => {
                     <Button onClick={handleSetSchedule} className="w-full">
                       Salvar Agendamento
                     </Button>
-                    {(selectedDueDate || selectedDueTime || selectedDeadlineDate) && (
-                      <Button onClick={() => { setSelectedDueDate(undefined); setSelectedDueTime(""); setSelectedDeadlineDate(undefined); }} variant="outline" className="w-full">
+                    {(selectedDueString || selectedDeadlineDate) && (
+                      <Button onClick={handleClearSchedule} variant="outline" className="w-full">
                         <XCircle className="mr-2 h-4 w-4" /> Limpar Datas
                       </Button>
                     )}

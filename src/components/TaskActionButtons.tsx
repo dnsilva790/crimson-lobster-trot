@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, ArrowRight, CalendarIcon, Clock, XCircle } from "lucide-react";
 import { TodoistTask } from "@/lib/types";
-import { format, parseISO, setHours, setMinutes } from "date-fns";
+import { format, parseISO, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -25,6 +25,8 @@ interface TaskActionButtonsProps {
     due_datetime?: string | null;
     duration?: number; // Adicionado
     duration_unit?: "minute" | "day"; // Adicionado
+    deadline?: string | null;
+    recurrence_string?: string | null;
   }) => Promise<TodoistTask | undefined>;
   onPostpone: (taskId: string) => Promise<void>; // Nova prop para postergar
 }
@@ -38,53 +40,34 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   onPostpone, // Nova prop
 }) => {
   const [isReschedulePopoverOpen, setIsReschedulePopoverOpen] = useState(false);
-  // const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false); // Removido, pois não está sendo usado
 
-  const initialDueDate = currentTask.due?.date ? parseISO(currentTask.due.date) : undefined;
-  const initialDueTime = currentTask.due?.datetime ? format(parseISO(currentTask.due.datetime), "HH:mm") : "";
   const initialDuration = currentTask.duration?.amount && currentTask.duration.unit === "minute"
     ? String(currentTask.duration.amount)
     : "15"; // Default to 15 minutes
+  const initialDeadline = currentTask.deadline ? parseISO(currentTask.deadline) : undefined;
+  const initialDueString = currentTask.recurrence_string || currentTask.due?.string || "";
 
-  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(initialDueDate);
-  const [selectedDueTime, setSelectedDueTime] = useState<string>(initialDueTime);
+  const [selectedDueString, setSelectedDueString] = useState<string>(initialDueString);
   const [selectedPriority, setSelectedPriority] = useState<1 | 2 | 3 | 4>(currentTask.priority);
   const [selectedDuration, setSelectedDuration] = useState<string>(initialDuration); // Novo estado para duração
+  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(initialDeadline);
 
   const handleReschedule = async () => {
     const updateData: {
       priority?: 1 | 2 | 3 | 4;
       due_date?: string | null;
       due_datetime?: string | null;
-      duration?: number;
+      duration?: number | null;
       duration_unit?: "minute" | "day";
+      deadline?: string | null;
+      recurrence_string?: string | null;
     } = {};
     let changed = false;
 
-    // Handle Due Date and Time
-    if (selectedDueDate) {
-      let finalDate = selectedDueDate;
-      if (selectedDueTime) {
-        const [hours, minutes] = (selectedDueTime || '').split(":").map(Number); // Adicionado (selectedDueTime || '').
-        finalDate = setMinutes(setHours(selectedDueDate, hours), minutes);
-        updateData.due_datetime = format(finalDate, "yyyy-MM-dd'T'HH:mm:ss");
-        updateData.due_date = null;
-      } else {
-        updateData.due_date = format(finalDate, "yyyy-MM-dd");
-        updateData.due_datetime = null;
-      }
-
-      const currentTaskDueDateTime = currentTask.due?.datetime ? format(parseISO(currentTask.due.datetime), "yyyy-MM-dd'T'HH:mm:ss") : null;
-      const currentTaskDueDate = currentTask.due?.date ? format(parseISO(currentTask.due.date), "yyyy-MM-dd") : null;
-
-      if (updateData.due_datetime && updateData.due_datetime !== currentTaskDueDateTime) {
-        changed = true;
-      } else if (updateData.due_date && updateData.due_date !== currentTaskDueDate && !currentTaskDueDateTime) {
-        changed = true;
-      } else if (!updateData.due_date && !updateData.due_datetime && (currentTaskDueDate || currentTaskDueDateTime)) {
-        changed = true;
-      }
-    } else if (!selectedDueDate && (currentTask.due?.date || currentTask.due?.datetime)) {
+    // Handle Due Date/Time/Recurrence via string
+    if (selectedDueString !== (currentTask.recurrence_string || currentTask.due?.string || "")) {
+      updateData.recurrence_string = selectedDueString.trim() === "" ? null : selectedDueString.trim();
+      // Clear explicit date/datetime fields if recurrence string is used
       updateData.due_date = null;
       updateData.due_datetime = null;
       changed = true;
@@ -109,8 +92,19 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
       }
     } else if (currentDurationAmount !== undefined || currentDurationUnit !== undefined) {
       // If duration was present but now cleared or invalid
-      updateData.duration = null; // Explicitly set to null to clear
-      updateData.duration_unit = undefined; // Clear unit as well
+      updateData.duration = null;
+      changed = true;
+    }
+
+    // Handle Deadline
+    if (selectedDeadlineDate && isValid(selectedDeadlineDate)) {
+      const formattedDeadline = format(selectedDeadlineDate, "yyyy-MM-dd");
+      if (formattedDeadline !== currentTask.deadline) {
+        updateData.deadline = formattedDeadline;
+        changed = true;
+      }
+    } else if (!selectedDeadlineDate && currentTask.deadline) {
+      updateData.deadline = null;
       changed = true;
     }
 
@@ -124,15 +118,21 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
   };
 
   const handleClearDueDate = async () => {
-    await onUpdateTask(currentTask.id, { due_date: null, due_datetime: null });
-    setSelectedDueDate(undefined);
-    setSelectedDueTime("");
-    toast.success("Data de vencimento removida!");
+    await onUpdateTask(currentTask.id, { due_date: null, due_datetime: null, recurrence_string: null });
+    setSelectedDueString("");
+    toast.success("Prazo de vencimento removido!");
+    setIsReschedulePopoverOpen(false);
+  };
+
+  const handleClearDeadline = async () => {
+    await onUpdateTask(currentTask.id, { deadline: null });
+    setSelectedDeadlineDate(undefined);
+    toast.success("Deadline removido!");
     setIsReschedulePopoverOpen(false);
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6"> {/* Ajustado para 4 colunas */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
       <Button
         onClick={() => onComplete(currentTask.id)}
         disabled={isLoading}
@@ -154,25 +154,18 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
           <h4 className="font-semibold text-lg mb-3">Reagendar Tarefa</h4>
           <div className="grid gap-4">
             <div>
-              <Label htmlFor="reschedule-date">Data de Vencimento</Label>
-              <Calendar
-                mode="single"
-                selected={selectedDueDate}
-                onSelect={setSelectedDueDate}
-                initialFocus
-                locale={ptBR}
-                className="rounded-md border shadow"
-              />
-            </div>
-            <div>
-              <Label htmlFor="reschedule-time">Hora de Vencimento (Opcional)</Label>
+              <Label htmlFor="reschedule-due-string">Prazo (Linguagem Natural Todoist)</Label>
               <Input
-                id="reschedule-time"
-                type="time"
-                value={selectedDueTime}
-                onChange={(e) => setSelectedDueTime(e.target.value)}
+                id="reschedule-due-string"
+                type="text"
+                value={selectedDueString}
+                onChange={(e) => setSelectedDueString(e.target.value)}
+                placeholder="Ex: 'today 9am', 'every day', 'next monday'"
                 className="mt-1"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Use a sintaxe de prazo do Todoist.
+              </p>
             </div>
             <div>
               <Label htmlFor="reschedule-priority">Prioridade</Label>
@@ -203,11 +196,25 @@ const TaskActionButtons: React.FC<TaskActionButtonsProps> = ({
                 className="mt-1"
               />
             </div>
+            <div>
+              <Label htmlFor="reschedule-deadline">Deadline (Opcional)</Label>
+              <Calendar
+                mode="single"
+                selected={selectedDeadlineDate}
+                onSelect={setSelectedDeadlineDate}
+                initialFocus
+                locale={ptBR}
+                className="rounded-md border shadow"
+              />
+            </div>
             <Button onClick={handleReschedule} className="w-full">
               Salvar Reagendamento
             </Button>
             <Button onClick={handleClearDueDate} variant="outline" className="w-full">
-              <XCircle className="mr-2 h-4 w-4" /> Limpar Data de Vencimento
+              <XCircle className="mr-2 h-4 w-4" /> Limpar Prazo
+            </Button>
+            <Button onClick={handleClearDeadline} variant="outline" className="w-full text-red-600 border-red-600 hover:bg-red-50">
+              <XCircle className="mr-2 h-4 w-4" /> Limpar Deadline
             </Button>
           </div>
         </PopoverContent>

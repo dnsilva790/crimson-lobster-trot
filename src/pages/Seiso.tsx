@@ -90,12 +90,10 @@ const Seiso = () => {
   const [isDelegatingPopoverOpen, setIsDelegatingPopoverOpen] = useState(false);
 
   // Scheduling states
-  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(undefined);
-  const [selectedDueTime, setSelectedDueTime] = useState<string>("");
+  const [selectedDueString, setSelectedDueString] = useState<string>(""); // Alterado para string de prazo
   const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(undefined);
   const [selectedPriority, setSelectedPriority] = useState<1 | 2 | 3 | 4>(1);
   const [selectedDuration, setSelectedDuration] = useState<string>("15");
-  const [selectedRecurrenceString, setSelectedRecurrenceString] = useState<string>(""); // Novo estado para recorrência
   const [isSchedulingPopoverOpen, setIsSchedulingPopoverOpen] = useState(false);
 
   // Subtask creation states
@@ -119,28 +117,10 @@ const Seiso = () => {
           setSubtasks(fetchedSubtasks || []);
 
           // Initialize scheduling states with task's current values
-          let initialDueDate: Date | undefined = undefined;
-          let initialDueTime: string = "";
-
-          if (typeof task.due?.datetime === 'string' && task.due.datetime) {
-            const parsed = parseISO(task.due.datetime);
-            if (isValid(parsed)) {
-              initialDueDate = parsed;
-              initialDueTime = format(parsed, "HH:mm");
-            }
-          } else if (initialDueDate === undefined && typeof task.due?.date === 'string' && task.due.date) {
-            const parsed = parseISO(task.due.date);
-            if (isValid(parsed)) {
-              initialDueDate = parsed;
-            }
-          }
-
-          setSelectedDueDate(initialDueDate);
-          setSelectedDueTime(initialDueTime);
+          setSelectedDueString(task.recurrence_string || task.due?.string || "");
           setSelectedDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined);
           setSelectedPriority(task.priority);
           setSelectedDuration(task.duration?.amount ? String(task.duration.amount) : "15");
-          setSelectedRecurrenceString(task.recurrence_string || ""); // Inicializar recorrência
 
           // Initialize new fields from description
           const description = task.description || "";
@@ -235,26 +215,8 @@ const Seiso = () => {
     newDescription = updateDescriptionWithSection(newDescription, '[OBJETIVO]:', objectiveInput);
     newDescription = updateDescriptionWithSection(newDescription, '[PRÓXIMO PASSO SEISO]:', nextStepSeisoInput);
 
-    let finalDueDate: string | null = null;
-    let finalDueDateTime: string | null = null;
     let finalDeadline: string | null = null;
     let finalRecurrenceString: string | null = null;
-
-    if (selectedRecurrenceString.trim() !== "") {
-      finalRecurrenceString = selectedRecurrenceString.trim();
-      finalDueDate = null;
-      finalDueDateTime = null;
-    } else if (selectedDueDate && isValid(selectedDueDate)) {
-      if (selectedDueTime) {
-        const [hours, minutes] = (selectedDueTime || '').split(":").map(Number);
-        const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
-        finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
-        finalDueDate = null; // Clear due_date if due_datetime is set
-      } else {
-        finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
-        finalDueDateTime = null; // Clear due_datetime if only due_date is set
-      }
-    }
 
     if (selectedDeadlineDate && isValid(selectedDeadlineDate)) {
       finalDeadline = format(selectedDeadlineDate, "yyyy-MM-dd");
@@ -263,17 +225,36 @@ const Seiso = () => {
     const durationAmount = parseInt(selectedDuration, 10);
     const updatedLabels = [...new Set([...currentTask.labels, SEISO_PROCESSED_LABEL])];
 
-    const updated = await updateTask(currentTask.id, {
-      description: newDescription, // Update description here
-      due_date: finalDueDate,
-      due_datetime: finalDueDateTime,
+    const updatePayload: {
+      description: string;
+      due_date?: string | null;
+      due_datetime?: string | null;
+      deadline?: string | null;
+      priority?: 1 | 2 | 3 | 4;
+      duration?: number;
+      duration_unit?: "minute" | "day";
+      labels?: string[];
+      recurrence_string?: string | null;
+    } = {
+      description: newDescription,
       deadline: finalDeadline,
       priority: selectedPriority,
       duration: isNaN(durationAmount) || durationAmount <= 0 ? undefined : durationAmount,
       duration_unit: isNaN(durationAmount) || durationAmount <= 0 ? undefined : "minute",
       labels: updatedLabels,
-      recurrence_string: finalRecurrenceString, // Adicionado
-    });
+    };
+
+    if (selectedDueString.trim()) {
+      updatePayload.recurrence_string = selectedDueString.trim();
+      updatePayload.due_date = null;
+      updatePayload.due_datetime = null;
+    } else {
+      updatePayload.recurrence_string = null;
+      updatePayload.due_date = null;
+      updatePayload.due_datetime = null;
+    }
+
+    const updated = await updateTask(currentTask.id, updatePayload);
     if (updated) {
       toast.success(`Tarefa "${currentTask.content}" agendada e atualizada.`);
       setCurrentTask(updated);
@@ -281,7 +262,22 @@ const Seiso = () => {
     } else {
       toast.error("Falha ao agendar a tarefa.");
     }
-  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, selectedPriority, selectedDuration, selectedRecurrenceString, objectiveInput, nextStepSeisoInput, updateTask]);
+  }, [currentTask, selectedDueString, selectedDeadlineDate, selectedPriority, selectedDuration, objectiveInput, nextStepSeisoInput, updateTask]);
+
+  const handleClearSchedule = useCallback(async () => {
+    if (!currentTask) return;
+    const updated = await updateTask(currentTask.id, {
+      due_date: null,
+      due_datetime: null,
+      deadline: null,
+      recurrence_string: null,
+    });
+    if (updated) {
+      toast.info(`Prazo e deadline de "${currentTask.content}" limpos.`);
+      setSelectedDueString("");
+      setSelectedDeadlineDate(undefined);
+    }
+  }, [currentTask, updateTask]);
 
   const handleCreateSubtasks = useCallback(async () => {
     if (!currentTask || !subtaskContent.trim()) {
@@ -425,12 +421,17 @@ const Seiso = () => {
         </div>
         <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
           <div className="flex flex-col gap-1">
-            {task.due?.datetime && isValid(parseISO(task.due.datetime)) && (
+            {task.recurrence_string && (
+              <span className="flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" /> Recorrência: {task.recurrence_string}
+              </span>
+            )}
+            {(typeof task.due?.datetime === 'string' && task.due.datetime) && !task.recurrence_string && (
               <span className="flex items-center gap-1">
                 <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
               </span>
             )}
-            {task.due?.date && !task.due?.datetime && isValid(parseISO(task.due.date)) && (
+            {(typeof task.due?.date === 'string' && task.due.date) && !task.recurrence_string && !(typeof task.due?.datetime === 'string' && task.due.datetime) && (
               <span className="flex items-center gap-1">
                 <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
               </span>
@@ -438,11 +439,6 @@ const Seiso = () => {
             {task.deadline && isValid(parseISO(task.deadline)) && (
               <span className="flex items-center gap-1 text-red-600 font-semibold">
                 <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
-              </span>
-            )}
-            {task.recurrence_string && (
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" /> Recorrência: {task.recurrence_string}
               </span>
             )}
             {!task.due?.date && !task.due?.datetime && !task.deadline && !task.recurrence_string && <span>Sem prazo</span>}
@@ -654,53 +650,41 @@ const Seiso = () => {
             </CardTitle>
             <CardContent className="grid gap-4">
               <div>
-                <Label htmlFor="schedule-date">Data de Vencimento</Label>
+                <Label htmlFor="schedule-due-string">Prazo (Linguagem Natural Todoist)</Label>
                 <Popover open={isSchedulingPopoverOpen} onOpenChange={setIsSchedulingPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant={"outline"}
                       className={cn(
                         "w-full justify-start text-left font-normal mt-1",
-                        !selectedDueDate && "text-muted-foreground"
+                        !selectedDueString && "text-muted-foreground"
                       )}
                       disabled={isLoadingTodoist}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedRecurrenceString ? (
-                        <span>Recorrência: {selectedRecurrenceString}</span>
-                      ) : selectedDueDate && isValid(selectedDueDate) ? (
-                        <span>
-                          {format(selectedDueDate, "PPP", { locale: ptBR })}
-                          {selectedDueTime && ` às ${selectedDueTime}`}
-                        </span>
+                      {selectedDueString ? (
+                        <span>Prazo: {selectedDueString}</span>
                       ) : (
-                        <span>Escolha uma data</span>
+                        <span>Definir Prazo</span>
                       )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-4">
-                    <h4 className="font-semibold text-lg mb-3">Agendar Tarefa</h4>
+                    <h4 className="font-semibold text-lg mb-3">Definir Prazo da Tarefa</h4>
                     <div className="grid gap-4">
                       <div>
-                        <Label htmlFor="schedule-date-popover">Data de Vencimento</Label>
-                        <Calendar
-                          mode="single"
-                          selected={selectedDueDate}
-                          onSelect={setSelectedDueDate}
-                          initialFocus
-                          locale={ptBR}
-                          className="rounded-md border shadow"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="schedule-time-popover">Hora de Vencimento (Opcional)</Label>
+                        <Label htmlFor="schedule-due-string-popover">Prazo (Linguagem Natural Todoist)</Label>
                         <Input
-                          id="schedule-time-popover"
-                          type="time"
-                          value={selectedDueTime}
-                          onChange={(e) => setSelectedDueTime(e.target.value)}
+                          id="schedule-due-string-popover"
+                          type="text"
+                          value={selectedDueString}
+                          onChange={(e) => setSelectedDueString(e.target.value)}
+                          placeholder="Ex: 'today 9am', 'every day', 'next monday'"
                           className="mt-1"
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Use a sintaxe de prazo do Todoist.
+                        </p>
                       </div>
                       <div className="mt-2">
                         <Label htmlFor="deadline-date-popover">Deadline (Opcional)</Label>
@@ -712,20 +696,6 @@ const Seiso = () => {
                           locale={ptBR}
                           className="rounded-md border shadow"
                         />
-                      </div>
-                      <div>
-                        <Label htmlFor="schedule-recurrence-string">Recorrência (Todoist string)</Label>
-                        <Input
-                          id="schedule-recurrence-string"
-                          type="text"
-                          value={selectedRecurrenceString}
-                          onChange={(e) => setSelectedRecurrenceString(e.target.value)}
-                          placeholder="Ex: 'every day', 'every mon'"
-                          className="mt-1"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Use a sintaxe de recorrência do Todoist. Ex: "every day", "every mon", "every 2 weeks".
-                        </p>
                       </div>
                       <div>
                         <Label htmlFor="schedule-priority">Prioridade</Label>
@@ -759,8 +729,8 @@ const Seiso = () => {
                       <Button onClick={handleScheduleTask} className="w-full" disabled={isLoadingTodoist}>
                         Salvar Agendamento
                       </Button>
-                      {(selectedDueDate || selectedDueTime || selectedDeadlineDate || selectedRecurrenceString) && (
-                        <Button onClick={() => { setSelectedDueDate(undefined); setSelectedDueTime(""); setSelectedDeadlineDate(undefined); setSelectedRecurrenceString(""); }} variant="outline" className="w-full" disabled={isLoadingTodoist}>
+                      {(selectedDueString || selectedDeadlineDate) && (
+                        <Button onClick={handleClearSchedule} variant="outline" className="w-full" disabled={isLoadingTodoist}>
                           <XCircle className="mr-2 h-4 w-4" /> Limpar Datas
                         </Button>
                       )}

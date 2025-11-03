@@ -72,9 +72,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   console.log(`TaskReviewCard: Rendering task ${task.id} (${task.content})`, task);
 
   const [selectedCategory, setSelectedCategory] = useState<"pessoal" | "profissional" | "none">("none");
-  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(undefined);
-  const [selectedDueTime, setSelectedDueTime] = useState<string>("");
-  const [selectedRecurrenceString, setSelectedRecurrenceString] = useState<string>(""); // Novo estado para recorrência
+  const [selectedDueString, setSelectedDueString] = useState<string>(""); // Alterado para string de prazo
   const [isDeadlinePopoverOpen, setIsDeadlinePopoverOpen] = useState(false);
 
   const [selectedFieldDeadlineDate, setSelectedFieldDeadlineDate] = useState<Date | undefined>(undefined);
@@ -100,26 +98,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       setSelectedCategory("none");
     }
     
-    let initialDueDate: Date | undefined = undefined;
-    let initialDueTime: string = "";
-
-    if (typeof task.due?.datetime === 'string' && task.due.datetime) {
-      const parsed = parseISO(task.due.datetime);
-      if (isValid(parsed)) {
-        initialDueDate = parsed;
-        initialDueTime = format(parsed, "HH:mm");
-      }
-    } else if (initialDueDate === undefined && typeof task.due?.date === 'string' && task.due.date) {
-      const parsed = parseISO(task.due.date);
-      if (isValid(parsed)) {
-        initialDueDate = parsed;
-      }
-    }
-
-    setSelectedDueDate(initialDueDate);
-    setSelectedDueTime(initialDueTime);
-    setSelectedRecurrenceString(task.recurrence_string || ""); // Carregar recorrência
-    console.log(`DEBUG (useEffect init): Task ID: ${task.id}, initialDueTime = '${initialDueTime}', type = ${typeof initialDueTime}`);
+    setSelectedDueString(task.recurrence_string || task.due?.string || ""); // Carregar string de prazo
 
     setSelectedFieldDeadlineDate((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
     setSelectedDuration(
@@ -137,42 +116,17 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   };
 
   const handleSetDeadline = async () => {
-    console.log(`DEBUG (handleSetDeadline - start): selectedDueTime = '${selectedDueTime}', type = ${typeof selectedDueTime}`);
-
     let finalDueDate: string | null = null;
     let finalDueDateTime: string | null = null;
     let finalRecurrenceString: string | null = null;
 
-    if (selectedRecurrenceString.trim() !== "") {
-      finalRecurrenceString = selectedRecurrenceString.trim();
-      // If recurrence string is provided, clear date/time fields
+    if (selectedDueString.trim() !== "") {
+      finalRecurrenceString = selectedDueString.trim();
+      // Clear explicit date/datetime fields if recurrence string is used
       finalDueDate = null;
       finalDueDateTime = null;
-    } else if (!selectedDueDate || !isValid(selectedDueDate)) {
-      toast.error("Data de vencimento selecionada é inválida.");
-      return;
     } else {
-      const timeToSplit = selectedDueTime || ''; 
-
-      if (timeToSplit) {
-        console.log(`DEBUG (handleSetDeadline - inside time block): timeToSplit = '${timeToSplit}', type = ${typeof timeToSplit}`);
-        try {
-          console.trace("About to split timeToSplit:", timeToSplit, "Type:", typeof timeToSplit);
-          const [hours, minutes] = timeToSplit.split(":").map(Number);
-          if (isNaN(hours) || isNaN(minutes)) {
-            toast.error("Formato de hora inválido. Use HH:mm.");
-            return;
-          }
-          const dateWithTime = setMinutes(setHours(selectedDueDate, hours), minutes);
-          finalDueDateTime = format(dateWithTime, "yyyy-MM-dd'T'HH:mm:ss");
-        } catch (error) {
-          console.error(`Error processing selectedDueTime for task ${task.id} (${task.content}):`, selectedDueTime, error);
-          toast.error("Erro ao processar a hora de vencimento. Verifique o formato.");
-          return;
-        }
-      } else {
-        finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
-      }
+      finalRecurrenceString = null;
     }
 
     await onUpdateDeadline(task.id, finalDueDate, finalDueDateTime, finalRecurrenceString);
@@ -181,9 +135,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
 
   const handleClearDeadline = async () => {
     await onUpdateDeadline(task.id, null, null, null);
-    setSelectedDueDate(undefined);
-    setSelectedDueTime("");
-    setSelectedRecurrenceString(""); // Limpar recorrência
+    setSelectedDueString("");
     setIsDeadlinePopoverOpen(false);
   };
 
@@ -489,13 +441,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
               className="w-full py-3 text-md flex items-center justify-center"
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedRecurrenceString ? (
-                <span>Recorrência: {selectedRecurrenceString}</span>
-              ) : selectedDueDate ? (
-                <span>
-                  {format(selectedDueDate, "dd/MM/yyyy", { locale: ptBR })}
-                  {selectedDueTime && ` às ${selectedDueTime}`}
-                </span>
+              {selectedDueString ? (
+                <span>Prazo: {selectedDueString}</span>
               ) : (
                 <span>Definir Prazo</span>
               )}
@@ -505,41 +452,17 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
             <h4 className="font-semibold text-lg mb-3">Definir Prazo da Tarefa</h4>
             <div className="grid gap-4">
               <div>
-                <Label htmlFor="due-date">Data de Vencimento</Label>
-                <Calendar
-                  mode="single"
-                  selected={selectedDueDate}
-                  onSelect={setSelectedDueDate}
-                  initialFocus
-                  locale={ptBR}
-                  className="rounded-md border shadow"
-                />
-              </div>
-              <div>
-                <Label htmlFor="due-time">Hora de Vencimento (Opcional)</Label>
-                <Input
-                  id="due-time"
-                  type="time"
-                  value={selectedDueTime}
-                  onChange={(e) => {
-                    console.log(`DEBUG (Input onChange): e.target.value = ${e.target.value}, type = ${typeof e.target.value}`);
-                    setSelectedDueTime(e.target.value);
-                  }}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="recurrence-string">Recorrência (Todoist string)</Label>
+                <Label htmlFor="recurrence-string">Prazo (Linguagem Natural Todoist)</Label>
                 <Input
                   id="recurrence-string"
                   type="text"
-                  value={selectedRecurrenceString}
-                  onChange={(e) => setSelectedRecurrenceString(e.target.value)}
-                  placeholder="Ex: 'every day', 'every mon'"
+                  value={selectedDueString}
+                  onChange={(e) => setSelectedDueString(e.target.value)}
+                  placeholder="Ex: 'today 9am', 'every day', 'next monday'"
                   className="mt-1"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Use a sintaxe de recorrência do Todoist. Ex: "every day", "every mon", "every 2 weeks".
+                  Use a sintaxe de prazo do Todoist.
                 </p>
               </div>
               <Button onClick={handleSetDeadline} className="w-full" disabled={isLoading}>
