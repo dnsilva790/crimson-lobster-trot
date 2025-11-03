@@ -5,19 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Scale, Check, LayoutDashboard, Lightbulb } from "lucide-react"; // Importar LayoutDashboard e Lightbulb
+import { ArrowLeft, ArrowRight, Scale, Check, LayoutDashboard, Lightbulb, Filter } from "lucide-react"; // Importar Filter
 import { EisenhowerTask } from "@/lib/types";
 import TaskCard from "./TaskCard";
 import { toast } from "sonner";
 import LoadingSpinner from "@/components/ui/loading-spinner"; // Importar LoadingSpinner
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
 
 interface RatingScreenProps {
-  tasks: EisenhowerTask[]; // Agora recebe a lista COMPLETA de tarefas
+  tasks: EisenhowerTask[]; // Agora recebe a lista FILTRADA de tarefas
   onUpdateTaskRating: (taskId: string, urgency: number | null, importance: number | null) => void;
   onFinishRating: () => void;
   onBack: () => void;
-  onViewMatrix: () => void; // Nova prop para ver a matriz antes de finalizar
-  canViewMatrix: boolean; // Nova prop para controlar a visibilidade do botão "Ver Matriz"
+  onViewMatrix: () => void;
+  canViewMatrix: boolean;
+  ratingFilter: "all" | "unrated"; // Nova prop para o filtro
+  onRatingFilterChange: (filter: "all" | "unrated") => void; // Nova prop para mudar o filtro
 }
 
 // URL da função Edge do Supabase
@@ -29,12 +32,14 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
   onFinishRating,
   onBack,
   onViewMatrix,
-  canViewMatrix, // Usar a nova prop
+  canViewMatrix,
+  ratingFilter,
+  onRatingFilterChange,
 }) => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [urgencyInput, setUrgencyInput] = useState<string>("50");
   const [importanceInput, setImportanceInput] = useState<string>("50");
-  const [isAiThinking, setIsAiThinking] = useState(false); // Novo estado para o loading da IA
+  const [isAiThinking, setIsAiThinking] = useState(false);
 
   const currentTask = useMemo(() => {
     // Garante que o índice esteja dentro dos limites
@@ -49,6 +54,8 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
       if (currentTaskIndex >= tasks.length) {
         setCurrentTaskIndex(0);
       }
+    } else {
+      setCurrentTaskIndex(0); // Reset index if list is empty
     }
   }, [tasks]);
 
@@ -146,37 +153,29 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
     }
   }, [currentTask]);
 
-  if (!currentTask && tasks.length === 0) {
+  if (tasks.length === 0) {
     return (
       <div className="text-center p-8">
-        <p className="text-lg text-gray-600 mb-4">Nenhuma tarefa pendente de avaliação.</p>
-        <Button onClick={onBack} className="flex items-center gap-2 mx-auto">
-          <ArrowLeft className="h-4 w-4" /> Voltar
-        </Button>
-        {canViewMatrix && (
-          <Button onClick={onViewMatrix} className="mt-4 flex items-center gap-2 mx-auto bg-purple-600 hover:bg-purple-700 text-white">
-            <LayoutDashboard className="h-4 w-4" /> Ver Matriz
+        <p className="text-lg text-gray-600 mb-4">
+          {ratingFilter === "unrated" 
+            ? "Parabéns! Todas as tarefas foram avaliadas." 
+            : "Nenhuma tarefa pendente de avaliação."
+          }
+        </p>
+        <div className="flex flex-col gap-4 max-w-xs mx-auto">
+          <Button onClick={onBack} className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" /> Voltar para Configuração
           </Button>
-        )}
+          {canViewMatrix && (
+            <Button onClick={onViewMatrix} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white">
+              <LayoutDashboard className="h-4 w-4" /> Ver Matriz
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
   
-  if (!currentTask) {
-    // Caso todas as tarefas tenham sido avaliadas e o usuário esteja na última tela
-    return (
-      <div className="text-center p-8">
-        <p className="text-lg text-gray-600 mb-4">Todas as {tasks.length} tarefas foram avaliadas.</p>
-        <Button onClick={onFinishRating} className="flex items-center gap-2 mx-auto bg-indigo-600 hover:bg-indigo-700 text-white">
-          <Check className="h-4 w-4" /> Finalizar Avaliação
-        </Button>
-        <Button onClick={onBack} variant="outline" className="mt-4 flex items-center gap-2 mx-auto">
-          <ArrowLeft className="h-4 w-4" /> Voltar para Configuração
-        </Button>
-      </div>
-    );
-  }
-
   const progress = ((currentTaskIndex + 1) / tasks.length) * 100;
 
   return (
@@ -185,9 +184,21 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
         <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <Scale className="h-6 w-6 text-indigo-600" /> Avaliar Tarefas
         </h3>
-        <Button onClick={handlePreviousTask} variant="outline" className="flex items-center gap-2">
-          <ArrowLeft className="h-4 w-4" /> Anterior
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={ratingFilter} onValueChange={(value: "all" | "unrated") => onRatingFilterChange(value)}>
+            <SelectTrigger className="w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filtrar Avaliação" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unrated">Apenas Não Avaliadas</SelectItem>
+              <SelectItem value="all">Todas as Tarefas</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={handlePreviousTask} variant="outline" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" /> Anterior
+          </Button>
+        </div>
       </div>
 
       <p className="text-lg text-gray-700 mb-6 text-center">
@@ -198,7 +209,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
         <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
       </div>
 
-      <TaskCard task={currentTask} className="mb-8 max-w-2xl mx-auto" />
+      <TaskCard task={currentTask!} className="mb-8 max-w-2xl mx-auto" />
 
       <Card className="p-6 max-w-2xl mx-auto">
         <CardHeader>

@@ -21,12 +21,14 @@ import DashboardScreen from "@/components/eisenhower/DashboardScreen";
 import AiAssistantModal from "@/components/eisenhower/AiAssistantModal";
 
 type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
+type RatingFilter = "all" | "unrated"; // Novo tipo de filtro para avaliação
 
 const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState";
 const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input"; // Corrected typo here
 const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
 const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
-const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter"; // Nova chave para o localStorage
+const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter"; // Nova chave para o filtro de exibição
+const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter"; // Nova chave para o filtro de avaliação
 
 const Eisenhower = () => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
@@ -64,6 +66,14 @@ const Eisenhower = () => {
     return "all";
   });
 
+  // Novo estado para o filtro de avaliação
+  const [ratingFilter, setRatingFilter] = useState<RatingFilter>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(EISENHOWER_RATING_FILTER_STORAGE_KEY) as RatingFilter) || "unrated";
+    }
+    return "unrated";
+  });
+
   // Estado para tarefas que ainda precisam ser avaliadas
   const [unratedTasks, setUnratedTasks] = useState<EisenhowerTask[]>([]);
 
@@ -91,6 +101,12 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY, displayFilter);
     }
   }, [displayFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(EISENHOWER_RATING_FILTER_STORAGE_KEY, ratingFilter);
+    }
+  }, [ratingFilter]);
 
   // Efeito para atualizar a lista de tarefas não avaliadas sempre que tasksToProcess mudar
   useEffect(() => {
@@ -423,6 +439,16 @@ const Eisenhower = () => {
     toast.info("Iniciando revisão de avaliação.");
   }, []);
 
+  // Função para filtrar as tarefas na tela de avaliação
+  const getTasksForRatingScreen = useCallback((tasks: EisenhowerTask[], filter: RatingFilter): EisenhowerTask[] => {
+    if (filter === "unrated") {
+      return tasks.filter(task => task.urgency === null || task.importance === null);
+    }
+    return tasks; // "all"
+  }, []);
+
+  const tasksForRatingScreen = getTasksForRatingScreen(tasksToProcess, ratingFilter);
+
 
   const renderContent = () => {
     if (isLoading || isLoadingTodoist) {
@@ -447,7 +473,7 @@ const Eisenhower = () => {
       case "rating":
         return (
           <RatingScreen
-            tasks={tasksToProcess} // Passa TODAS as tarefas para revisão
+            tasks={tasksForRatingScreen} // Passa as tarefas filtradas para revisão
             onUpdateTaskRating={handleUpdateTaskRating}
             onFinishRating={handleFinishRating} // Usa a nova função handleFinishRating
             onBack={() => setCurrentView("setup")}
@@ -456,6 +482,8 @@ const Eisenhower = () => {
               setCurrentView("matrix");
             }}
             canViewMatrix={canViewMatrixOrResults} // Passa a prop canViewMatrixOrResults
+            ratingFilter={ratingFilter} // Passa o filtro de avaliação
+            onRatingFilterChange={setRatingFilter} // Passa a função para alterar o filtro
           />
         );
       case "matrix":
