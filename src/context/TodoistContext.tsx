@@ -296,20 +296,8 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => { // C
       deadline?: string | null;
       recurrence_string?: string | null; // Adicionado
     }) => {
-      // Fetch the task first to get its original recurrence_string
-      const originalTask = await todoistService.fetchTaskById(apiKey!, taskId, syncItemsCacheRef.current);
-      const originalRecurrenceString = originalTask?.recurrence_string;
-
-      const payloadData = { ...data };
-
-      // If recurrence_string is not explicitly provided in 'data', but the original task had one,
-      // then preserve it by adding it to the payload.
-      // If data.recurrence_string is explicitly null/empty, that means the user wants to clear it.
-      if (data.recurrence_string === undefined && originalRecurrenceString) {
-        payloadData.recurrence_string = originalRecurrenceString;
-      }
-
-      const updatedTask = await makeApiCall(todoistService.updateTask, taskId, payloadData);
+      // The service layer now handles fetching the original task and preserving recurrence_string
+      const updatedTask = await makeApiCall(todoistService.updateTask, taskId, data);
       if (updatedTask) {
         const sanitized = sanitizeTodoistTask(updatedTask);
         // Update cache with the latest data for this task
@@ -327,7 +315,7 @@ export const TodoistProvider = ({ children }: { children: ReactNode }) => { // C
       }
       return undefined;
     },
-    [makeApiCall, apiKey, syncItemsCacheRef],
+    [makeApiCall],
   );
 
   const createTodoistTask = useCallback(

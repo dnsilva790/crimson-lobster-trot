@@ -279,6 +279,7 @@ export const todoistService = {
     delete restApiPayload.recurrence_string;
 
     if (Object.keys(restApiPayload).length > 0) {
+      // Use the REST API to update the task
       await todoistApiCall<TodoistTask>(`/tasks/${taskId}`, apiKey, "POST", restApiPayload);
     }
 
