@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,15 +36,21 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
   const [importanceInput, setImportanceInput] = useState<string>("50");
   const [isAiThinking, setIsAiThinking] = useState(false); // Novo estado para o loading da IA
 
+  const currentTask = useMemo(() => {
+    // Garante que o índice esteja dentro dos limites
+    const safeIndex = Math.min(currentTaskIndex, tasks.length - 1);
+    return tasks[safeIndex] || null;
+  }, [tasks, currentTaskIndex]);
+
   // Inicializa o índice e os inputs quando a lista de tarefas muda
   useEffect(() => {
-    // Sempre comece no índice 0 para permitir a revisão sequencial.
     if (tasks.length > 0) {
-      setCurrentTaskIndex(0);
+      // Se o índice atual for inválido (ex: tasks diminuiu), resetamos para 0
+      if (currentTaskIndex >= tasks.length) {
+        setCurrentTaskIndex(0);
+      }
     }
   }, [tasks]);
-
-  const currentTask = tasks[currentTaskIndex];
 
   useEffect(() => {
     if (currentTask) {
@@ -52,7 +58,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
       setUrgencyInput(currentTask.urgency !== null ? String(currentTask.urgency) : "50");
       setImportanceInput(currentTask.importance !== null ? String(currentTask.importance) : "50");
     }
-  }, [currentTaskIndex, currentTask]); // Depender de currentTask para atualizar inputs
+  }, [currentTask]); // Depender de currentTask (useMemo) para atualizar inputs
 
   const validateAndGetNumber = (value: string): number | null => {
     const num = parseInt(value, 10);
@@ -179,8 +185,8 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
         <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <Scale className="h-6 w-6 text-indigo-600" /> Avaliar Tarefas
         </h3>
-        <Button onClick={onBack} variant="outline" className="flex items-center gap-2">
-          <ArrowLeft className="h-4 w-4" /> Voltar
+        <Button onClick={handlePreviousTask} variant="outline" className="flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" /> Anterior
         </Button>
       </div>
 
