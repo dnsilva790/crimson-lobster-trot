@@ -175,15 +175,22 @@ const Eisenhower = () => {
     setIsLoading(true);
     try {
       const fetchedTodoistTasks = await fetchTasks(filter, { includeSubtasks: false, includeRecurring: false });
-      const initialEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => ({
-        ...task,
-        urgency: null, // Garantir que novas tarefas comecem sem avaliação
-        importance: null, // Garantir que novas tarefas comecem sem avaliação
-        quadrant: null,
-        url: task.url, // Garantir que a URL seja passada
-      }));
       
-      const sortedTasks = sortEisenhowerTasks(initialEisenhowerTasks); // Aplicar a ordenação aqui
+      // Merge logic: preserve existing ratings for tasks that are re-fetched
+      const existingTasksMap = new Map(tasksToProcess.map(t => [t.id, t]));
+
+      const initialEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => {
+        const existing = existingTasksMap.get(task.id);
+        return {
+          ...task,
+          urgency: existing?.urgency ?? null,
+          importance: existing?.importance ?? null,
+          quadrant: existing?.quadrant ?? null,
+          url: task.url,
+        };
+      });
+      
+      const sortedTasks = sortEisenhowerTasks(initialEisenhowerTasks);
       
       setTasksToProcess(sortedTasks);
       setCurrentView("rating");
@@ -194,7 +201,7 @@ const Eisenhower = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchTasks, sortEisenhowerTasks]);
+  }, [fetchTasks, sortEisenhowerTasks, tasksToProcess]);
 
   const handleUpdateTaskRating = useCallback((taskId: string, urgency: number | null, importance: number | null) => {
     setTasksToProcess(prevTasks => {
@@ -371,14 +378,17 @@ const Eisenhower = () => {
       const finalFilter = filterParts.join(" & ");
       
       const fetchedTodoistTasks = await fetchTasks(finalFilter || undefined, { includeSubtasks: false, includeRecurring: false });
+      
+      // Preserve existing ratings
+      const existingTasksMap = new Map(tasksToProcess.map(t => [t.id, t]));
+
       const updatedEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => {
-        // Tenta encontrar a tarefa existente para manter as avaliações
-        const existingTask = tasksToProcess.find(t => t.id === task.id);
+        const existing = existingTasksMap.get(task.id);
         return {
           ...task,
-          urgency: existingTask?.urgency ?? null,
-          importance: existingTask?.importance ?? null,
-          quadrant: existingTask?.quadrant ?? null,
+          urgency: existing?.urgency ?? null,
+          importance: existing?.importance ?? null,
+          quadrant: existing?.quadrant ?? null,
           url: task.url,
         };
       });
