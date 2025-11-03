@@ -36,17 +36,17 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
   const [importanceInput, setImportanceInput] = useState<string>("50");
   const [isAiThinking, setIsAiThinking] = useState(false); // Novo estado para o loading da IA
 
-  // Resetar o índice da tarefa atual sempre que a lista de tarefas mudar
+  // Inicializa o índice e os inputs quando a lista de tarefas muda
   useEffect(() => {
-    // Se a lista de tarefas for carregada, tente encontrar a primeira tarefa não avaliada
-    const firstUnratedIndex = tasks.findIndex(t => t.urgency === null || t.importance === null);
-    setCurrentTaskIndex(firstUnratedIndex !== -1 ? firstUnratedIndex : 0);
+    // Se a lista de tarefas for carregada, comece no índice 0
+    setCurrentTaskIndex(0);
   }, [tasks]);
 
   const currentTask = tasks[currentTaskIndex];
 
   useEffect(() => {
     if (currentTask) {
+      // Carrega os valores existentes ou define 50 como padrão
       setUrgencyInput(currentTask.urgency !== null ? String(currentTask.urgency) : "50");
       setImportanceInput(currentTask.importance !== null ? String(currentTask.importance) : "50");
     }
@@ -76,8 +76,8 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
     if (currentTaskIndex < tasks.length - 1) {
       setCurrentTaskIndex(prev => prev + 1);
     } else {
-      toast.success("Todas as tarefas foram avaliadas!");
-      onFinishRating(); // Chamar onFinishRating apenas quando todas as tarefas forem avaliadas
+      toast.success("Revisão de tarefas concluída!");
+      onFinishRating(); // Chamar onFinishRating para categorizar e ir para a matriz
     }
   }, [currentTask, currentTaskIndex, tasks.length, urgencyInput, importanceInput, onUpdateTaskRating, onFinishRating]);
 
@@ -85,6 +85,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
     if (currentTaskIndex > 0) {
       setCurrentTaskIndex(prev => prev - 1);
     } else {
+      // Se estiver na primeira tarefa, volta para a tela de setup
       onBack();
     }
   }, [currentTaskIndex, onBack]);

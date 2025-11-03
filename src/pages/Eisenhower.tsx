@@ -8,7 +8,7 @@ import { EisenhowerTask, TodoistTask, DisplayFilter } from "@/lib/types"; // Imp
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw, Search, RotateCcw } from "lucide-react"; // Importar Search e RotateCcw
-import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isToday, isTomorrow
+import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
 import { Input } from "@/components/ui/input"; // Importar Input
 
@@ -296,13 +296,14 @@ const Eisenhower = () => {
   }, [handleCategorizeTasks]);
 
   const ratedTasksCount = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null).length;
-  const canViewMatrixOrResults = ratedTasksCount >= 2; // Habilitar se pelo menos 2 tarefas foram avaliadas
+  const canViewMatrixOrResults = tasksToProcess.length > 0; // Habilitar se houver tarefas carregadas
 
   // Função para filtrar as tarefas com base no displayFilter
   const getFilteredTasksForDisplay = useCallback((tasks: EisenhowerTask[], filter: DisplayFilter): EisenhowerTask[] => {
     let filteredByDate = tasks;
 
     const now = new Date();
+    const startOfToday = startOfDay(now);
     
     // 1. Filtragem por Data/Status (displayFilter)
     if (filter !== "all") {
@@ -333,12 +334,11 @@ const Eisenhower = () => {
 
         // --- Lógica de filtro de exibição corrigida ---
         if (filter === "overdue") {
-          // Uma tarefa é atrasada se a data/hora efetiva for no passado (isPast)
-          // e não for uma data futura (para evitar problemas com datas sem hora)
-          return isPast(effectiveDate) && !isToday(effectiveDate);
+          // Atrasadas: Data efetiva é anterior ao início do dia de hoje.
+          return isBefore(effectiveDate, startOfToday);
         }
         if (filter === "today") {
-          // Uma tarefa é para hoje se a data efetiva for hoje.
+          // Hoje: Data efetiva é hoje.
           return isToday(effectiveDate);
         }
         if (filter === "tomorrow") {
@@ -346,7 +346,7 @@ const Eisenhower = () => {
         }
         if (filter === "overdue_and_today") { // Nova lógica para "Atrasadas e Hoje"
           // Inclui todas as tarefas que já passaram (overdue) OU que vencem hoje (isToday)
-          return isPast(effectiveDate) || isToday(effectiveDate);
+          return isBefore(effectiveDate, startOfToday) || isToday(effectiveDate);
         }
         return true;
       });
