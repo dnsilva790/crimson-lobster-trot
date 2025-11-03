@@ -38,8 +38,11 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
 
   // Inicializa o índice e os inputs quando a lista de tarefas muda
   useEffect(() => {
-    // Se a lista de tarefas for carregada, comece no índice 0
-    setCurrentTaskIndex(0);
+    // Ao carregar a tela, sempre comece no índice 0 para permitir a revisão sequencial.
+    // A única exceção é se a lista estiver vazia.
+    if (tasks.length > 0) {
+      setCurrentTaskIndex(0);
+    }
   }, [tasks]);
 
   const currentTask = tasks[currentTaskIndex];
