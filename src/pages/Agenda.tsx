@@ -83,10 +83,7 @@ const Agenda = () => {
           effectiveDueDateTime = startOfDay(taskDueDate);
         }
 
-        // 1. Check if the task has the CRONOGRAMA_HOJE_LABEL
-        const hasCronogramaLabel = task.labels.includes(CRONOGRAMA_HOJE_LABEL);
-
-        // 2. Determine if the task should be included for the selected day
+        // 1. Determine if the task should be included for the selected day
         let shouldInclude = false;
 
         if (effectiveDueDateTime && isValid(effectiveDueDateTime)) {
@@ -99,15 +96,17 @@ const Agenda = () => {
           // Se a data selecionada for no futuro, não incluímos tarefas atrasadas de dias anteriores.
           const isOverdueBeforeSelectedDay = isPast(effectiveDueDateTime) && isBefore(effectiveDueDateTime, startOfSelectedDay);
 
-          if (isDueOnSelectedDay || isOverdueBeforeSelectedDay) {
+          // REVISÃO DA LÓGICA:
+          // Incluir se o prazo for no dia selecionado OU se for atrasada E o dia selecionado for hoje.
+          if (isDueOnSelectedDay) {
+            shouldInclude = true;
+          } else if (isOverdue && isSameDay(selectedDate, startOfToday)) {
             shouldInclude = true;
           }
+          // Se a tarefa tem prazo futuro (ex: 04/11/2025) e a data selecionada é hoje (03/11), shouldInclude = false.
         } 
         
-        // Se a tarefa tem a etiqueta de cronograma, ela deve ser incluída APENAS se a data selecionada for HOJE.
-        if (hasCronogramaLabel && isSameDay(selectedDate, startOfToday)) {
-            shouldInclude = true;
-        }
+        // Se a tarefa não tem prazo, ela não deve ser incluída na Agenda.
 
         if (shouldInclude) {
           // Determine start/end times based on due_datetime or default duration
@@ -118,10 +117,7 @@ const Agenda = () => {
           
           if (taskDueDateTime && isValid(taskDueDateTime)) {
             startTime = format(taskDueDateTime, "HH:mm");
-          } else if (hasCronogramaLabel && isSameDay(selectedDate, startOfToday)) {
-            // Se tem a etiqueta de cronograma mas não tem hora, use 9 AM como padrão
-            startTime = "09:00"; 
-          } else if (taskDueDate && isValid(taskDueDate) && !taskDueDateTime) {
+          } else if (taskDueDate && isValid(taskDueDate)) {
             // Se tem apenas data de vencimento, use 9 AM como padrão
             startTime = "09:00";
           }
@@ -142,7 +138,7 @@ const Agenda = () => {
             isMeeting: task.content.startsWith('📅') || task.labels.includes('reunião'),
           });
         } else {
-          console.log(`Agenda: Task "${task.content}" (ID: ${task.id}) NOT added to selected day's schedule.`);
+          console.log(`Agenda: Task "${task.content}" (ID: ${task.id}) NOT added to selected day's schedule because due date does not match selected day or is not overdue today.`);
         }
       });
 
