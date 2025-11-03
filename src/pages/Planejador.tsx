@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useImperativeHandle, ForwardedRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -192,6 +192,7 @@ const Planejador = () => {
         comparisonIndex: 0,
         tournamentState: "initial",
         selectedPrioritizationContext: "none",
+        customSortingPreferences: { primary: "deadline", secondary: "priority", tertiary: "due_date_time" },
       };
       try {
         const savedSeitonState = localStorage.getItem(SEITON_RANKING_STORAGE_KEY);
@@ -415,6 +416,8 @@ const Planejador = () => {
       if (selectedShitsukeProjectId !== 'all' && shitsukeProjectMainTaskId) {
         combinedBacklog = combinedBacklog.filter(task => {
           if ('project_id' in task) {
+            // CORREÇÃO: Usar parentId na opção de fetchTasks, mas manter a lógica de filtro aqui
+            // Se a tarefa principal do projeto 5W2H foi carregada, queremos apenas ela e suas subtarefas.
             return task.id === shitsukeProjectMainTaskId || task.parent_id === shitsukeProjectMainTaskId;
           }
           return false;

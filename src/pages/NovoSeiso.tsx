@@ -147,7 +147,7 @@ const NovoSeiso = () => {
         console.log(`NovoSeiso: Attempting to fetch subtasks for parent ID: ${currentTask.id}`);
         setIsLoadingSubtasks(true);
         try {
-          // Changed filter string and added parentId to options
+          // CORREÇÃO: Passar parentId como opção, não como filtro
           const fetchedSubtasks = await fetchTasks(undefined, { parentId: currentTask.id, includeSubtasks: true, includeRecurring: false });
           console.log(`NovoSeiso: Fetched ${fetchedSubtasks.length} subtasks for task ${currentTask.id}:`, fetchedSubtasks);
           setSubtasks(fetchedSubtasks || []);

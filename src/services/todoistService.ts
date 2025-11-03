@@ -139,9 +139,12 @@ export const todoistService = {
     let endpoint = "/tasks";
     const queryParams = new URLSearchParams();
 
+    // Adiciona o filtro APENAS se não for undefined ou vazio
     if (filter && filter.trim() !== "") {
       queryParams.append("filter", filter.trim());
     }
+    
+    // Adiciona parent_id APENAS se estiver presente
     if (parentId) {
       queryParams.append("parent_id", parentId); // Use parent_id as a query parameter
     }

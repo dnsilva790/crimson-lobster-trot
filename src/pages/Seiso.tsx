@@ -113,7 +113,8 @@ const Seiso = () => {
           setCurrentTask(task);
           // Fetch subtasks for the current task
           console.log("Seiso: Attempting to fetch subtasks for parent ID:", task.id);
-          const fetchedSubtasks = await fetchTasks(`parent_id: ${task.id}`, { includeSubtasks: false, includeRecurring: false });
+          // CORREÇÃO: Passar parentId como opção, não como filtro
+          const fetchedSubtasks = await fetchTasks(undefined, { parentId: task.id, includeSubtasks: false, includeRecurring: false });
           console.log("Seiso: Subtasks fetched:", fetchedSubtasks);
           setSubtasks(fetchedSubtasks || []);
 
@@ -328,7 +329,8 @@ const Seiso = () => {
       toast.success(`${createdCount} subtarefas criadas para "${currentTask.content}"!`);
       setSubtaskContent("");
       // Refresh subtasks list after creation
-      const fetchedSubtasks = await fetchTasks(`parent_id: ${currentTask.id}`, { includeSubtasks: false, includeRecurring: false });
+      // CORREÇÃO: Passar parentId como opção, não como filtro
+      const fetchedSubtasks = await fetchTasks(undefined, { parentId: currentTask.id, includeSubtasks: false, includeRecurring: false });
       setSubtasks(fetchedSubtasks || []);
     } else {
       toast.info("Nenhuma subtarefa foi criada.");
