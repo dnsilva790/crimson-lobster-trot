@@ -182,7 +182,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
 
   const handleSaveObservation = useCallback(async () => {
     if (!observationInput.trim()) {
-      toast.error("A observação não pode estar vazia.");
+      toast.error("A observação não pode ser vazia.");
       return;
     }
 
@@ -419,7 +419,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           disabled={isLoading}
           className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 text-md flex items-center justify-center"
         >
-          <ArrowRight className="mr-2 h-5 w-5" /> Manter Data Atual
+          <ArrowRight className="mr-2 h-5 w-5" /> Pular Revisão
         </Button>
         <Button
           onClick={() => onComplete(task.id)}
