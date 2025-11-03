@@ -3,20 +3,20 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ListTodo, LayoutDashboard, RefreshCw } from "lucide-react"; // Importar RefreshCw
+import { ArrowLeft, ListTodo, LayoutDashboard, RefreshCw, Scale } from "lucide-react"; // Importar Scale
 import { EisenhowerTask } from "@/lib/types";
-import ScatterPlotMatrix from "./ScatterPlotMatrix"; // Importar o ScatterPlotMatrix
+import ScatterPlotMatrix from "./ScatterPlotMatrix";
 
 interface EisenhowerMatrixViewProps {
   tasks: EisenhowerTask[];
-  onBack: () => void;
+  onBack: () => void; // Agora leva para a tela de avaliação
   onViewResults: () => void;
-  displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // Adicionado
-  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void; // Adicionado
-  onRefreshMatrix: (filter: string) => Promise<void>; // Nova prop para a função de atualização
+  displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today";
+  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void;
+  onRefreshMatrix: (filter: string) => Promise<void>;
 }
 
-const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, displayFilter, onDisplayFilterChange, onRefreshMatrix }) => {
+const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, onRefreshMatrix }) => {
   const dataForScatterPlot = tasks
     .filter(task => task.urgency !== null && task.importance !== null)
     .map(task => ({
@@ -25,7 +25,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
       urgency: task.urgency!,
       importance: task.importance!,
       quadrant: task.quadrant,
-      url: task.url, // ADICIONADO: Passa a URL para o ScatterPlotMatrix
+      url: task.url,
     }));
 
   return (
@@ -36,7 +36,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
         </h3>
         <div className="flex gap-2">
           <Button onClick={onBack} variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar para Resultados
+            <Scale className="h-4 w-4" /> Revisar Avaliação
           </Button>
           <Button onClick={onViewResults} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
             <ListTodo className="h-4 w-4" /> Ver Lista

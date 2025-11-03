@@ -7,9 +7,10 @@ import { useTodoist } from "@/context/TodoistContext";
 import { EisenhowerTask, TodoistTask, DisplayFilter } from "@/lib/types"; // Importar DisplayFilter
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw } from "lucide-react"; // Importar RefreshCw
+import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw, Search, RotateCcw } from "lucide-react"; // Importar Search e RotateCcw
 import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isToday, isTomorrow
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
+import { Input } from "@/components/ui/input"; // Importar Input
 
 // Importar os componentes do Eisenhower
 import SetupScreen from "@/components/eisenhower/SetupScreen";
@@ -33,6 +34,7 @@ const Eisenhower = () => {
   const [tasksToProcess, setTasksToProcess] = useState<EisenhowerTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(""); // Novo estado para busca
 
   // Novos estados para os filtros de carregamento
   const [filterInput, setFilterInput] = useState<string>(() => {
@@ -298,60 +300,71 @@ const Eisenhower = () => {
 
   // Função para filtrar as tarefas com base no displayFilter
   const getFilteredTasksForDisplay = useCallback((tasks: EisenhowerTask[], filter: DisplayFilter): EisenhowerTask[] => {
-    if (filter === "all") {
-      return tasks;
-    }
+    let filteredByDate = tasks;
 
     const now = new Date();
-    return tasks.filter(task => {
-      // Apenas tarefas com urgência e importância avaliadas podem ser filtradas por status
-      if (task.urgency === null || task.importance === null) {
-        return false;
-      }
-
-      let dueDate: Date | null = null;
-      if (typeof task.due?.datetime === 'string' && task.due.datetime) {
-        dueDate = parseISO(task.due.datetime);
-      } else if (typeof task.due?.date === 'string' && task.due.date) {
-        dueDate = parseISO(task.due.date);
-      }
-
-      let deadlineDate: Date | null = null;
-      if (typeof task.deadline === 'string' && task.deadline) {
-        deadlineDate = parseISO(task.deadline);
-      }
-
-      // Se não houver data de vencimento nem deadline, não se encaixa nos filtros de status
-      if (!dueDate && !deadlineDate) return false;
-
-      // Priorizar deadline para verificações de status se ambos existirem
-      const effectiveDate = deadlineDate || dueDate;
-      if (!effectiveDate || !isValid(effectiveDate)) return false;
-
-      // --- Lógica de filtro de exibição corrigida ---
-      if (filter === "overdue") {
-        // Uma tarefa é atrasada se a data/hora efetiva for no passado (isPast)
-        // e não for uma data futura (para evitar problemas com datas sem hora)
-        return isPast(effectiveDate);
-      }
-      if (filter === "today") {
-        // Uma tarefa é para hoje se a data efetiva for hoje, mas ainda não tiver passado
-        // Se tiver hora, verifica se a hora ainda não passou. Se não tiver hora, verifica se é hoje.
-        if (task.due?.datetime) {
-            return isToday(effectiveDate) && isBefore(now, effectiveDate);
+    
+    // 1. Filtragem por Data/Status (displayFilter)
+    if (filter !== "all") {
+      filteredByDate = tasks.filter(task => {
+        // Apenas tarefas com urgência e importância avaliadas podem ser filtradas por status
+        if (task.urgency === null || task.importance === null) {
+          return false;
         }
-        return isToday(effectiveDate);
-      }
-      if (filter === "tomorrow") {
-        return isTomorrow(effectiveDate);
-      }
-      if (filter === "overdue_and_today") { // Nova lógica para "Atrasadas e Hoje"
-        // Inclui todas as tarefas que já passaram (overdue) OU que vencem hoje (isToday)
-        return isPast(effectiveDate) || isToday(effectiveDate);
-      }
-      return true;
-    });
-  }, []);
+
+        let dueDate: Date | null = null;
+        if (typeof task.due?.datetime === 'string' && task.due.datetime) {
+          dueDate = parseISO(task.due.datetime);
+        } else if (typeof task.due?.date === 'string' && task.due.date) {
+          dueDate = parseISO(task.due.date);
+        }
+
+        let deadlineDate: Date | null = null;
+        if (typeof task.deadline === 'string' && task.deadline) {
+          deadlineDate = parseISO(task.deadline);
+        }
+
+        // Se não houver data de vencimento nem deadline, não se encaixa nos filtros de status
+        if (!dueDate && !deadlineDate) return false;
+
+        // Priorizar deadline para verificações de status se ambos existirem
+        const effectiveDate = deadlineDate || dueDate;
+        if (!effectiveDate || !isValid(effectiveDate)) return false;
+
+        // --- Lógica de filtro de exibição corrigida ---
+        if (filter === "overdue") {
+          // Uma tarefa é atrasada se a data/hora efetiva for no passado (isPast)
+          // e não for uma data futura (para evitar problemas com datas sem hora)
+          return isPast(effectiveDate) && !isToday(effectiveDate);
+        }
+        if (filter === "today") {
+          // Uma tarefa é para hoje se a data efetiva for hoje.
+          return isToday(effectiveDate);
+        }
+        if (filter === "tomorrow") {
+          return isTomorrow(effectiveDate);
+        }
+        if (filter === "overdue_and_today") { // Nova lógica para "Atrasadas e Hoje"
+          // Inclui todas as tarefas que já passaram (overdue) OU que vencem hoje (isToday)
+          return isPast(effectiveDate) || isToday(effectiveDate);
+        }
+        return true;
+      });
+    }
+
+    // 2. Filtragem por Termo de Busca (searchTerm)
+    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    if (lowerCaseSearchTerm.trim() === "") {
+      return filteredByDate;
+    }
+
+    return filteredByDate.filter(task => 
+      task.content.toLowerCase().includes(lowerCaseSearchTerm) ||
+      task.description.toLowerCase().includes(lowerCaseSearchTerm) ||
+      task.labels.some(label => label.toLowerCase().includes(lowerCaseSearchTerm))
+    );
+
+  }, [tasksToProcess, displayFilter, searchTerm]);
 
   const filteredTasksForDisplay = getFilteredTasksForDisplay(tasksToProcess, displayFilter);
 
@@ -405,6 +418,15 @@ const Eisenhower = () => {
     }
   }, [filterInput, statusFilter, categoryFilter, fetchTasks, tasksToProcess, sortEisenhowerTasks, handleCategorizeTasks]);
 
+  const handleStartReview = useCallback(() => {
+    if (tasksToProcess.length === 0) {
+      toast.error("Nenhuma tarefa carregada para revisar.");
+      return;
+    }
+    setCurrentView("rating");
+    toast.info("Iniciando revisão de avaliação.");
+  }, [tasksToProcess.length]);
+
 
   const renderContent = () => {
     if (isLoading || isLoadingTodoist) {
@@ -444,7 +466,7 @@ const Eisenhower = () => {
         return (
           <EisenhowerMatrixView
             tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
-            onBack={() => setCurrentView("rating")}
+            onBack={handleStartReview} // Volta para a tela de avaliação
             onViewResults={() => setCurrentView("results")}
             displayFilter={displayFilter} // Passa o filtro de exibição
             onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
@@ -455,7 +477,7 @@ const Eisenhower = () => {
         return (
           <ResultsScreen
             tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
-            onBack={() => setCurrentView("matrix")}
+            onBack={handleStartReview} // Volta para a tela de avaliação
             onViewDashboard={() => setCurrentView("dashboard")}
             displayFilter={displayFilter} // Passa o filtro de exibição
             onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
@@ -544,9 +566,19 @@ const Eisenhower = () => {
         </Button>
       </div>
 
-      {/* Novo seletor de filtro de exibição, visível em todas as telas de visualização */}
+      {/* Seletor de filtro de exibição e busca */}
       {(currentView === "matrix" || currentView === "results" || currentView === "dashboard") && (
-        <div className="mb-6 max-w-md mx-auto">
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative md:col-span-2">
+            <Input
+              type="text"
+              placeholder="Buscar tarefas por conteúdo, descrição ou etiqueta..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+          </div>
           <Select value={displayFilter} onValueChange={(value: DisplayFilter) => setDisplayFilter(value)}>
             <SelectTrigger className="w-full mt-1">
               <SelectValue placeholder="Filtrar por Status" />
@@ -556,7 +588,7 @@ const Eisenhower = () => {
               <SelectItem value="overdue">Apenas Atrasadas</SelectItem>
               <SelectItem value="today">Apenas Vencem Hoje</SelectItem>
               <SelectItem value="tomorrow">Apenas Vencem Amanhã</SelectItem>
-              <SelectItem value="overdue_and_today">Atrasadas e Hoje</SelectItem> {/* Nova opção */}
+              <SelectItem value="overdue_and_today">Atrasadas e Hoje</SelectItem>
             </SelectContent>
           </Select>
         </div>

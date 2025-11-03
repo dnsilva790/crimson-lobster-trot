@@ -3,17 +3,17 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, LayoutDashboard, ListTodo } from "lucide-react";
+import { ArrowLeft, LayoutDashboard, ListTodo, Scale } from "lucide-react"; // Importar Scale
 import { EisenhowerTask, Quadrant } from "@/lib/types";
 import TaskCard from "./TaskCard"; // Reutilizando o TaskCard
 import { cn } from "@/lib/utils";
 
 interface ResultsScreenProps {
   tasks: EisenhowerTask[];
-  onBack: () => void;
+  onBack: () => void; // Agora leva para a tela de avaliação
   onViewDashboard: () => void;
-  displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // Adicionado
-  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void; // Adicionado
+  displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today";
+  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void;
 }
 
 const quadrantDefinitions: Record<Quadrant, { title: string; description: string; color: string }> = {
@@ -39,7 +39,7 @@ const quadrantDefinitions: Record<Quadrant, { title: string; description: string
   },
 };
 
-const ResultsScreen: React.FC<ResultsScreenProps> = ({ tasks, onBack, onViewDashboard, displayFilter, onDisplayFilterChange }) => {
+const ResultsScreen: React.FC<ResultsScreenProps> = ({ tasks, onBack, onViewDashboard }) => {
   const getTasksInQuadrant = (quadrant: Quadrant) => {
     return tasks.filter(task => task.quadrant === quadrant);
   };
@@ -52,7 +52,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ tasks, onBack, onViewDash
         </h3>
         <div className="flex gap-2">
           <Button onClick={onBack} variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar para Configuração
+            <Scale className="h-4 w-4" /> Revisar Avaliação
           </Button>
           <Button onClick={onViewDashboard} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
             <LayoutDashboard className="h-4 w-4" /> Ver Dashboard
