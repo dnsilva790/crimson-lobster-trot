@@ -3,10 +3,10 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { TodoistTask } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, isURL } from "@/lib/utils"; // Importar isURL
-import { format, parseISO, isValid, setHours, setMinutes, addMinutes, isToday, isPast, startOfDay, isSameDay, differenceInDays } from "date-fns";
+import { cn, isURL } from "@/lib/utils";
+import { format, parseISO, isValid, isSameDay, differenceInDays, startOfDay, addDays, isBefore, isPast } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink, ListTodo, Clock, CalendarIcon } from "lucide-react";
+import { ExternalLink, ListTodo, CalendarIcon, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SubtaskTimelineViewProps {
@@ -21,82 +21,114 @@ const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
   1: "bg-gray-400",
 };
 
-const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
-  4: "P1",
-  3: "P2",
-  2: "P3",
-  1: "P4",
-};
-
-const MINUTES_IN_DAY = 24 * 60;
-const PIXELS_PER_MINUTE = 2; // 2px per minute = 120px per hour (Total width: 2880px)
-const TASK_ROW_HEIGHT = 40; // Height of each task row
+const TASK_ROW_HEIGHT = 40; // Altura de cada linha de tarefa
+const PIXELS_PER_DAY = 100; // 100px por dia
 
 const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) => {
   const today = startOfDay(new Date());
 
-  const tasksWithLayout = useMemo(() => {
-    // Filter tasks that are due today or have a specific time today
-    const tasksDueToday = subtasks
-      .filter(task => {
-        const dueDateString = task.due?.datetime || task.due?.date;
-        if (!dueDateString) return false;
-        const dueDate = startOfDay(parseISO(dueDateString));
-        return isValid(dueDate) && isSameDay(dueDate, today);
-      })
+  const tasksWithTimelineData = useMemo(() => {
+    const validTasks = subtasks
       .map(task => {
-        let startDateTime: Date | null = null;
-        let durationMinutes = task.estimatedDurationMinutes || 30;
+        // Usar due.date como data de início (start)
+        const startDateString = task.due?.date || task.due?.datetime;
+        // Usar deadline como data de fim (end)
+        const endDateString = task.deadline;
 
-        if (task.due?.datetime && isValid(parseISO(task.due.datetime))) {
-          startDateTime = parseISO(task.due.datetime);
-        } else if (task.due?.date && isValid(parseISO(task.due.date))) {
-          // If only date is available, use 9 AM as default start time
-          startDateTime = setHours(setMinutes(parseISO(task.due.date), 0), 9);
-        }
+        if (!startDateString || !endDateString) return null;
 
-        if (!startDateTime || !isValid(startDateTime)) return null;
+        const startDate = startOfDay(parseISO(startDateString));
+        const endDate = startOfDay(parseISO(endDateString));
 
-        const startMinutes = startDateTime.getHours() * 60 + startDateTime.getMinutes();
+        if (!isValid(startDate) || !isValid(endDate) || isBefore(endDate, startDate)) return null;
+
+        // Definir o ponto de referência como o dia de início mais antigo ou hoje
+        const referenceDate = startOfDay(today);
         
-        // Calculate horizontal position and width
-        const left = startMinutes * PIXELS_PER_MINUTE;
-        const width = durationMinutes * PIXELS_PER_MINUTE;
+        // Calcular a diferença em dias a partir da data de referência
+        const startOffsetDays = differenceInDays(startDate, referenceDate);
+        const durationDays = differenceInDays(endDate, startDate) + 1; // Incluir o dia de início e fim
+
+        // Calcular a posição e largura em pixels
+        const left = startOffsetDays * PIXELS_PER_DAY;
+        const width = durationDays * PIXELS_PER_DAY;
 
         return {
           ...task,
-          startMinutes,
+          startDate,
+          endDate,
+          startOffsetDays,
+          durationDays,
           left,
           width,
-          durationMinutes,
         };
       })
-      .filter(Boolean) as (TodoistTask & { startMinutes: number; left: number; width: number; durationMinutes: number; })[];
+      .filter(Boolean) as (TodoistTask & { 
+        startDate: Date; 
+        endDate: Date; 
+        startOffsetDays: number; 
+        durationDays: number; 
+        left: number; 
+        width: number; 
+      })[];
 
-    // Sort tasks by start time
-    tasksDueToday.sort((a, b) => a.startMinutes - b.startMinutes);
+    // Ordenar as tarefas por data de início
+    validTasks.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 
-    return tasksDueToday;
+    return validTasks;
   }, [subtasks, today]);
 
-  const tasksWithoutDueDate = useMemo(() => {
-    return subtasks.filter(task => !task.due?.datetime && !task.due?.date);
+  const tasksWithoutTimeline = useMemo(() => {
+    return subtasks.filter(task => {
+      const startDateString = task.due?.date || task.due?.datetime;
+      const endDateString = task.deadline;
+      return !startDateString || !endDateString || !isValid(parseISO(startDateString)) || !isValid(parseISO(endDateString));
+    });
   }, [subtasks]);
 
-  const totalTimelineWidth = MINUTES_IN_DAY * PIXELS_PER_MINUTE;
-  const totalHeight = tasksWithLayout.length * TASK_ROW_HEIGHT;
+  // Determinar o intervalo de datas para o eixo X
+  const { minDate, maxDate, totalDays } = useMemo(() => {
+    if (tasksWithTimelineData.length === 0) {
+      return { minDate: today, maxDate: addDays(today, 7), totalDays: 8 };
+    }
 
-  const renderHourMarkers = () => {
+    const allDates = tasksWithTimelineData.flatMap(t => [t.startDate, t.endDate]);
+    const min = startOfDay(allDates.reduce((a, b) => (isBefore(a, b) ? a : b), today));
+    const max = startOfDay(allDates.reduce((a, b) => (isAfter(a, b) ? a : b), today));
+
+    // Garantir que o cronograma comece no máximo 7 dias antes de hoje e termine 7 dias depois do último deadline
+    const effectiveMin = isBefore(min, addDays(today, -7)) ? min : addDays(today, -7);
+    const effectiveMax = isAfter(max, addDays(today, 7)) ? max : addDays(today, 7);
+
+    const days = differenceInDays(effectiveMax, effectiveMin) + 1;
+
+    return { minDate: effectiveMin, maxDate: effectiveMax, totalDays: days };
+  }, [tasksWithTimelineData, today]);
+
+  const totalTimelineWidth = totalDays * PIXELS_PER_DAY;
+  const totalHeight = tasksWithTimelineData.length * TASK_ROW_HEIGHT;
+  const startReferenceDate = minDate;
+
+  const renderDayMarkers = () => {
     const markers: JSX.Element[] = [];
-    for (let hour = 0; hour < 24; hour++) {
-      const leftPosition = hour * 60 * PIXELS_PER_MINUTE;
+    for (let i = 0; i < totalDays; i++) {
+      const date = addDays(startReferenceDate, i);
+      const isTodayMarker = isSameDay(date, today);
+      const isPastDay = isBefore(date, today);
+      const leftPosition = i * PIXELS_PER_DAY;
+
       markers.push(
         <div 
-          key={`hour-marker-${hour}`} 
-          className="absolute top-0 bottom-0 border-l border-gray-200 text-xs text-gray-500 pt-1 px-1"
-          style={{ left: `${leftPosition}px`, width: `${60 * PIXELS_PER_MINUTE}px` }}
+          key={`day-marker-${i}`} 
+          className={cn(
+            "absolute top-0 bottom-0 border-l border-gray-200 text-xs pt-1 px-1 flex flex-col justify-start items-center",
+            isTodayMarker && "bg-blue-50 border-blue-500 font-semibold",
+            isPastDay && "bg-gray-100 text-gray-500"
+          )}
+          style={{ left: `${leftPosition}px`, width: `${PIXELS_PER_DAY}px` }}
         >
-          {format(setHours(today, hour), "HH:mm")}
+          <span className="text-xs">{format(date, "EEE", { locale: ptBR })}</span>
+          <span className="text-sm">{format(date, "dd/MM")}</span>
         </div>
       );
     }
@@ -104,11 +136,8 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
   };
 
   const renderTodayLine = () => {
-    const now = new Date();
-    if (!isToday(now)) return null;
-
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const leftPosition = currentMinutes * PIXELS_PER_MINUTE;
+    const todayOffsetDays = differenceInDays(today, startReferenceDate);
+    const leftPosition = todayOffsetDays * PIXELS_PER_DAY;
 
     return (
       <div
@@ -128,10 +157,10 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
     <Card className="p-4">
       <CardHeader>
         <CardTitle className="text-xl font-bold mb-2 flex items-center gap-2">
-          <ListTodo className="h-5 w-5 text-indigo-600" /> Cronograma de Execução (Gantt - Hoje)
+          <CalendarIcon className="h-5 w-5 text-indigo-600" /> Cronograma de Projeto (Gantt - Dias)
         </CardTitle>
         <p className="text-sm text-gray-600">
-          Visualização detalhada das subtarefas com prazo para hoje.
+          Visualização do cronograma das subtarefas. Início = Due Date, Fim = Deadline.
         </p>
       </CardHeader>
       <CardContent className="p-0">
@@ -139,9 +168,9 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
           
           {/* Task List Column (Y-Axis Labels) */}
           <div className="sticky left-0 z-10 w-48 flex-shrink-0 bg-white border-r border-gray-200 divide-y divide-gray-100">
-            <div className="h-10 flex items-center p-2 text-sm font-semibold border-b border-gray-200">Subtarefas (Hoje)</div>
+            <div className="h-10 flex items-center p-2 text-sm font-semibold border-b border-gray-200">Subtarefas</div>
             <div style={{ height: `${totalHeight}px` }}>
-                {tasksWithLayout.map((task, index) => {
+                {tasksWithTimelineData.map((task, index) => {
                     const isContentURL = isURL(task.content);
                     return (
                         <div 
@@ -167,39 +196,47 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
 
           {/* Gantt Chart Area (X-Axis Timeline) */}
           <div className="flex-grow overflow-x-auto">
-            {/* Timeline Header (Hours) */}
+            {/* Timeline Header (Days) */}
             <div className="relative h-10 flex-shrink-0 border-b border-gray-200" style={{ width: `${totalTimelineWidth}px` }}>
-              {renderHourMarkers()}
+              {renderDayMarkers()}
             </div>
 
             {/* Task Bars Container */}
             <div className="relative" style={{ height: `${totalHeight}px`, minWidth: `${totalTimelineWidth}px` }}>
-              {/* Horizontal Row Separators */}
-              {tasksWithLayout.map((_, index) => (
+              {/* Linha de Hoje */}
+              {renderTodayLine()}
+
+              {/* Linhas de Grade Diárias */}
+              {Array.from({ length: totalDays }).map((_, i) => (
                 <div 
-                  key={`row-sep-${index}`} 
-                  className="absolute left-0 right-0 border-t border-gray-100"
-                  style={{ top: `${index * TASK_ROW_HEIGHT}px` }}
+                  key={`grid-line-${i}`} 
+                  className="absolute top-0 bottom-0 border-l border-gray-100"
+                  style={{ left: `${i * PIXELS_PER_DAY}px` }}
                 ></div>
               ))}
 
               {/* Task Bars */}
-              {tasksWithLayout.map((task, index) => {
+              {tasksWithTimelineData.map((task, index) => {
                 const isContentURL = isURL(task.content);
+                const isCompleted = task.is_completed;
+                const isPastDue = isPast(task.endDate);
+
                 return (
                   <div
                     key={`bar-${task.id}`}
                     className={cn(
                       "absolute h-8 rounded-md p-1 text-xs font-semibold flex items-center justify-start overflow-hidden shadow-md transition-all duration-300 z-10",
                       PRIORITY_COLORS[task.priority],
-                      "text-white"
+                      "text-white",
+                      isCompleted && "opacity-50 bg-green-600",
+                      isPastDue && !isCompleted && "bg-red-700"
                     )}
                     style={{
                       left: `${task.left}px`,
                       width: `${task.width}px`,
                       top: `${index * TASK_ROW_HEIGHT + 2}px`, // Position vertically based on index
                     }}
-                    title={`${task.content} (${task.durationMinutes} min)`}
+                    title={`${task.content} (${format(task.startDate, "dd/MM")} - ${format(task.endDate, "dd/MM")})`}
                   >
                     {isContentURL ? (
                         <a href={task.content} target="_blank" rel="noopener noreferrer" className="truncate px-1 text-white hover:underline">
@@ -220,16 +257,15 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
                   </div>
                 );
               })}
-              {renderTodayLine()}
             </div>
           </div>
         </div>
 
-        {tasksWithoutDueDate.length > 0 && (
+        {tasksWithoutTimeline.length > 0 && (
           <div className="mt-4 p-3 border border-gray-200 rounded-md bg-gray-50">
-            <h4 className="font-semibold text-gray-700 mb-2">Subtarefas sem Prazo Definido:</h4>
+            <h4 className="font-semibold text-gray-700 mb-2">Subtarefas sem Prazo/Deadline Definido (Não exibidas no Gantt):</h4>
             <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-              {tasksWithoutDueDate.map(task => {
+              {tasksWithoutTimeline.map(task => {
                 const isContentURL = isURL(task.content);
                 return (
                   <li key={task.id} className="flex items-center justify-between">
