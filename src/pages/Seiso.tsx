@@ -65,6 +65,7 @@ const Seiso = () => {
   const [objectiveInput, setObjectiveInput] = useState("");
   const [nextStepSeisoInput, setNextStepSeisoInput] = useState("");
   const [observationInput, setObservationInput] = useState("");
+  const [solicitanteInput, setSolicitanteInput] = useState(""); // Novo estado para Solicitante
 
   // Delegation states
   const [delegateName, setDelegateName] = useState("");
@@ -110,6 +111,7 @@ const Seiso = () => {
           const description = task.description || "";
           setObjectiveInput(extractSectionContent(description, '[OBJETIVO]:'));
           setNextStepSeisoInput(extractSectionContent(description, '[PRÓXIMO PASSO SEISO]:'));
+          setSolicitanteInput(getSolicitante(task) || ""); // Inicializa Solicitante
 
         } else {
           toast.error("Tarefa não encontrada.");
@@ -160,6 +162,25 @@ const Seiso = () => {
     }
   }, [currentTask, observationInput, updateTask]);
 
+  const handleSaveSolicitante = useCallback(async () => {
+    if (!currentTask) return;
+    
+    const newSolicitante = solicitanteInput.trim();
+    const updatedDescription = updateDescriptionWithSection(
+      currentTask.description || "",
+      '[SOLICITANTE]:',
+      newSolicitante
+    );
+
+    const updated = await updateTask(currentTask.id, { description: updatedDescription });
+    if (updated) {
+      toast.success("Solicitante atualizado!");
+      setCurrentTask(updated);
+    } else {
+      toast.error("Falha ao atualizar Solicitante.");
+    }
+  }, [currentTask, solicitanteInput, updateTask]);
+
   const handleDelegateTask = useCallback(async () => {
     if (!currentTask || !delegateName.trim()) {
       toast.error("Por favor, insira o nome do responsável.");
@@ -170,6 +191,7 @@ const Seiso = () => {
     let newDescription = currentTask.description || "";
     newDescription = updateDescriptionWithSection(newDescription, '[OBJETIVO]:', objectiveInput);
     newDescription = updateDescriptionWithSection(newDescription, '[PRÓXIMO PASSO SEISO]:', nextStepSeisoInput);
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteInput); // Incluir Solicitante
     newDescription = currentTask.description ? `${newDescription}\n\n[DELEGADO PARA]: ${delegateName.trim()}` : `[DELEGADO PARA]: ${delegateName.trim()}`;
 
     const updatedLabels = [...currentTask.labels.filter(l => !l.startsWith("espera_de_")), `espera_de_${delegateName.trim().toLowerCase().replace(/\s/g, '_')}`, SEISO_PROCESSED_LABEL];
@@ -186,7 +208,7 @@ const Seiso = () => {
     } else {
       toast.error("Falha ao delegar a tarefa.");
     }
-  }, [currentTask, delegateName, objectiveInput, nextStepSeisoInput, updateTask]);
+  }, [currentTask, delegateName, objectiveInput, nextStepSeisoInput, solicitanteInput, updateTask]);
 
   const handleScheduleTask = useCallback(async () => {
     if (!currentTask) {
@@ -198,6 +220,7 @@ const Seiso = () => {
     let newDescription = currentTask.description || "";
     newDescription = updateDescriptionWithSection(newDescription, '[OBJETIVO]:', objectiveInput);
     newDescription = updateDescriptionWithSection(newDescription, '[PRÓXIMO PASSO SEISO]:', nextStepSeisoInput);
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteInput); // Incluir Solicitante
 
     let finalDueDate: string | null = null;
     let finalDueDateTime: string | null = null;
@@ -248,7 +271,7 @@ const Seiso = () => {
     } else {
       toast.error("Falha ao agendar a tarefa.");
     }
-  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, selectedPriority, selectedDuration, objectiveInput, nextStepSeisoInput, updateTask]);
+  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, selectedPriority, selectedDuration, objectiveInput, nextStepSeisoInput, solicitanteInput, updateTask]);
 
   const handleClearSchedule = useCallback(async () => {
     if (!currentTask) return;
@@ -275,6 +298,7 @@ const Seiso = () => {
     let newDescription = currentTask.description || "";
     newDescription = updateDescriptionWithSection(newDescription, '[OBJETIVO]:', objectiveInput);
     newDescription = updateDescriptionWithSection(newDescription, '[PRÓXIMO PASSO SEISO]:', nextStepSeisoInput);
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteInput); // Incluir Solicitante
     const updatedParentDescription = await updateTask(currentTask.id, { description: newDescription });
     if (updatedParentDescription) setCurrentTask(updatedParentDescription);
 
@@ -316,7 +340,7 @@ const Seiso = () => {
     } else {
       toast.info("Nenhuma subtarefa foi criada.");
     }
-  }, [currentTask, subtaskContent, createTodoistTask, objectiveInput, nextStepSeisoInput, updateTask, fetchTasks]);
+  }, [currentTask, subtaskContent, createTodoistTask, objectiveInput, nextStepSeisoInput, solicitanteInput, updateTask, fetchTasks]);
 
   const handleMarkAsProcessed = useCallback(async () => {
     if (!currentTask) return;
@@ -325,6 +349,7 @@ const Seiso = () => {
     let newDescription = currentTask.description || "";
     newDescription = updateDescriptionWithSection(newDescription, '[OBJETIVO]:', objectiveInput);
     newDescription = updateDescriptionWithSection(newDescription, '[PRÓXIMO PASSO SEISO]:', nextStepSeisoInput);
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteInput); // Incluir Solicitante
     const updatedParentDescription = await updateTask(currentTask.id, { description: newDescription });
     if (updatedParentDescription) setCurrentTask(updatedParentDescription);
 
@@ -336,7 +361,7 @@ const Seiso = () => {
     } else {
       toast.error("Falha ao marcar tarefa como processada.");
     }
-  }, [currentTask, objectiveInput, nextStepSeisoInput, updateTask]);
+  }, [currentTask, objectiveInput, nextStepSeisoInput, solicitanteInput, updateTask]);
 
   // Funções para toggle de etiquetas
   const handleToggleLabel = useCallback(async (taskId: string, currentLabels: string[], labelToToggle: string) => {
@@ -503,6 +528,28 @@ const Seiso = () => {
               </CardContent>
             </Card>
           )}
+
+          <Card className="p-6">
+            <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
+              <User className="h-5 w-5 text-blue-600" /> Gerenciar Solicitante
+            </CardTitle>
+            <CardContent className="grid gap-4">
+              <div>
+                <Label htmlFor="solicitante-input">Nome do Solicitante</Label>
+                <Input
+                  id="solicitante-input"
+                  value={solicitanteInput}
+                  onChange={(e) => setSolicitanteInput(e.target.value)}
+                  placeholder="Ex: João Silva"
+                  className="mt-1"
+                  disabled={isLoadingTodoist}
+                />
+              </div>
+              <Button onClick={handleSaveSolicitante} className="w-full flex items-center gap-2" disabled={isLoadingTodoist}>
+                <Save className="h-4 w-4" /> Salvar Solicitante
+              </Button>
+            </CardContent>
+          </Card>
 
           <Card className="p-6">
             <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
