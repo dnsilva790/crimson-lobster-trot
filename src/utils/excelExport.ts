@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { TodoistTask } from "@/lib/types";
 import { format, parseISO, isValid } from "date-fns";
+import { getSolicitante, getDelegateNameFromLabels } from "@/lib/utils"; // Importar utilitários
 
 interface ExportableTask {
   ID: string;
@@ -13,6 +14,8 @@ interface ExportableTask {
   Deadline: string;
   Recorrência: string;
   Duração_Minutos: number | string;
+  Solicitante: string; // Adicionado
+  Responsável: string; // Adicionado
   Etiquetas: string;
   URL: string;
 }
@@ -42,6 +45,8 @@ const formatTaskForExport = (task: TodoistTask): ExportableTask => {
     Deadline: formattedDeadline,
     Recorrência: task.due?.is_recurring ? (task.due.string || "Sim") : "Não",
     Duração_Minutos: task.estimatedDurationMinutes || "",
+    Solicitante: getSolicitante(task) || "", // Usar utilitário
+    Responsável: getDelegateNameFromLabels(task.labels) || "", // Usar utilitário
     Etiquetas: task.labels.join(', '),
     URL: task.url,
   };
