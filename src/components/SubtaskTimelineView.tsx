@@ -42,34 +42,15 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
 
         if (!isValid(startDate) || !isValid(endDate) || isBefore(endDate, startDate)) return null;
 
-        // Definir o ponto de referência como o dia de início mais antigo ou hoje
-        const referenceDate = startOfDay(today);
-        
-        // Calcular a diferença em dias a partir da data de referência
-        const startOffsetDays = differenceInDays(startDate, referenceDate);
-        const durationDays = differenceInDays(endDate, startDate) + 1; // Incluir o dia de início e fim
-
-        // Calcular a posição e largura em pixels
-        const left = startOffsetDays * PIXELS_PER_DAY;
-        const width = durationDays * PIXELS_PER_DAY;
-
         return {
           ...task,
           startDate,
           endDate,
-          startOffsetDays,
-          durationDays,
-          left,
-          width,
         };
       })
       .filter(Boolean) as (TodoistTask & { 
         startDate: Date; 
         endDate: Date; 
-        startOffsetDays: number; 
-        durationDays: number; 
-        left: number; 
-        width: number; 
       })[];
 
     // Ordenar as tarefas por data de início
@@ -77,6 +58,59 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
 
     return validTasks;
   }, [subtasks, today]);
+
+  // Determinar o intervalo de datas para o eixo X
+  const { minDate, maxDate, totalDays, tasksWithCalculatedLayout } = useMemo(() => {
+    if (tasksWithTimelineData.length === 0) {
+      return { minDate: today, maxDate: addDays(today, 7), totalDays: 8, tasksWithCalculatedLayout: [] };
+    }
+
+    const allDates = tasksWithTimelineData.flatMap(t => [t.startDate, t.endDate]);
+    const earliestTaskDate = allDates.reduce((a, b) => (isBefore(a, b) ? a : b), today);
+    const latestTaskDate = allDates.reduce((a, b) => (isAfter(a, b) ? a : b), today);
+
+    // Definir o início do cronograma: 
+    // 1. Se a tarefa mais antiga for anterior a 7 dias atrás, comece na tarefa mais antiga.
+    // 2. Caso contrário, comece 7 dias antes de hoje, ou na tarefa mais antiga, o que for mais cedo.
+    const sevenDaysAgo = addDays(today, -7);
+    const effectiveMin = isBefore(earliestTaskDate, sevenDaysAgo) ? earliestTaskDate : sevenDaysAgo;
+    
+    // Definir o fim do cronograma: 
+    // 1. Se a tarefa mais recente for muito no futuro, limite a 7 dias após a tarefa mais recente.
+    // 2. Garantir que o fim seja pelo menos 7 dias após hoje.
+    const sevenDaysFromNow = addDays(today, 7);
+    const effectiveMax = isAfter(latestTaskDate, sevenDaysFromNow) ? latestTaskDate : sevenDaysFromNow;
+    
+    const finalMinDate = startOfDay(effectiveMin);
+    const finalMaxDate = startOfDay(effectiveMax);
+
+    const days = differenceInDays(finalMaxDate, finalMinDate) + 1;
+
+    const tasksWithLayout = tasksWithTimelineData.map(task => {
+      // Calcular a diferença em dias a partir da data de referência (finalMinDate)
+      const startOffsetDays = differenceInDays(task.startDate, finalMinDate);
+      const durationDays = differenceInDays(task.endDate, task.startDate) + 1; // Incluir o dia de início e fim
+
+      // Calcular a posição e largura em pixels
+      const left = startOffsetDays * PIXELS_PER_DAY;
+      const width = durationDays * PIXELS_PER_DAY;
+
+      return {
+        ...task,
+        startOffsetDays,
+        durationDays,
+        left,
+        width,
+      };
+    });
+
+    return { 
+      minDate: finalMinDate, 
+      maxDate: finalMaxDate, 
+      totalDays: days, 
+      tasksWithCalculatedLayout: tasksWithLayout 
+    };
+  }, [tasksWithTimelineData, today]);
 
   const tasksWithoutTimeline = useMemo(() => {
     return subtasks.filter(task => {
@@ -86,27 +120,8 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
     });
   }, [subtasks]);
 
-  // Determinar o intervalo de datas para o eixo X
-  const { minDate, maxDate, totalDays } = useMemo(() => {
-    if (tasksWithTimelineData.length === 0) {
-      return { minDate: today, maxDate: addDays(today, 7), totalDays: 8 };
-    }
-
-    const allDates = tasksWithTimelineData.flatMap(t => [t.startDate, t.endDate]);
-    const min = startOfDay(allDates.reduce((a, b) => (isBefore(a, b) ? a : b), today));
-    const max = startOfDay(allDates.reduce((a, b) => (isAfter(a, b) ? a : b), today));
-
-    // Garantir que o cronograma comece no máximo 7 dias antes de hoje e termine 7 dias depois do último deadline
-    const effectiveMin = isBefore(min, addDays(today, -7)) ? min : addDays(today, -7);
-    const effectiveMax = isAfter(max, addDays(today, 7)) ? max : addDays(today, 7);
-
-    const days = differenceInDays(effectiveMax, effectiveMin) + 1;
-
-    return { minDate: effectiveMin, maxDate: effectiveMax, totalDays: days };
-  }, [tasksWithTimelineData, today]);
-
   const totalTimelineWidth = totalDays * PIXELS_PER_DAY;
-  const totalHeight = tasksWithTimelineData.length * TASK_ROW_HEIGHT;
+  const totalHeight = tasksWithCalculatedLayout.length * TASK_ROW_HEIGHT;
   const startReferenceDate = minDate;
 
   const renderDayMarkers = () => {
@@ -170,7 +185,7 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
           <div className="sticky left-0 z-10 w-48 flex-shrink-0 bg-white border-r border-gray-200 divide-y divide-gray-100">
             <div className="h-10 flex items-center p-2 text-sm font-semibold border-b border-gray-200">Subtarefas</div>
             <div style={{ height: `${totalHeight}px` }}>
-                {tasksWithTimelineData.map((task, index) => {
+                {tasksWithCalculatedLayout.map((task, index) => {
                     return (
                         <div 
                             key={task.id} 
@@ -209,7 +224,7 @@ const SubtaskTimelineView: React.FC<SubtaskTimelineViewProps> = ({ subtasks }) =
               ))}
 
               {/* Task Bars */}
-              {tasksWithTimelineData.map((task, index) => {
+              {tasksWithCalculatedLayout.map((task, index) => {
                 const isCompleted = task.is_completed;
                 const isPastDue = isPast(task.endDate);
 
