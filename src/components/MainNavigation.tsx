@@ -19,6 +19,7 @@ import {
   Mail,
   Lightbulb,
   FileText,
+  BarChart3, // Importar BarChart3
 } from "lucide-react";
 import {
   Dialog,
@@ -32,6 +33,14 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 
 const modules = [
+  {
+    path: "/agent-manager", // Novo módulo
+    icon: BarChart3,
+    title: "AGE - IA",
+    description: "Gerenciamento Estratégico",
+    colorClass: "bg-green-100 hover:bg-green-200",
+    activeColor: "border-green-600",
+  },
   {
     path: "/seiri",
     icon: ClipboardList,
@@ -48,14 +57,6 @@ const modules = [
     colorClass: "bg-orange-50 hover:bg-orange-100",
     activeColor: "border-orange-500",
   },
-  // {
-  //   path: "/ai-eisenhower", // Novo módulo - REMOVIDO
-  //   icon: Lightbulb, // Ícone para o novo módulo
-  //   title: "EISENHOWER - IA",
-  //   description: "Priorização Automática",
-  //   colorClass: "bg-purple-50 hover:bg-purple-100",
-  //   activeColor: "border-purple-500",
-  // },
   {
     path: "/seiso",
     icon: ClipboardCheck,
