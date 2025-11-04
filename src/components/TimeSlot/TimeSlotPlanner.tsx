@@ -325,7 +325,7 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                       )}
                   </div>
                   
-                  {/* Bottom Row: Solicitante/Delegate (if space allows) */}
+                  {/* Middle Row: Solicitante/Delegate (if space allows) */}
                   {(solicitante || delegateName) && task.height > 40 && (
                       <div className="flex flex-wrap gap-x-2 text-xs text-indigo-900/80 mt-auto">
                           {solicitante && (

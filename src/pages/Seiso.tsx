@@ -407,7 +407,7 @@ const Seiso = () => {
               )}
               {delegateName && (
                 <span className="flex items-center gap-1">
-                  <Users className="h-4 w-4 text-orange-500" /> Responsável: <span className="font-semibold">{delegateName}</span>
+                  <Users className="h-4 w-4 text-orange-500" /> Delegado para: <span className="font-semibold">{delegateName}</span>
                 </span>
               )}
             </div>
