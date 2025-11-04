@@ -13,7 +13,7 @@ import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo, Save, User } from "lucide-react";
-import { cn, getDelegateNameFromLabels, getSolicitante } from "@/lib/utils";
+import { cn, getDelegateNameFromLabels, getSolicitante, updateDescriptionWithSection } from "@/lib/utils";
 import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import FollowUpAIAssistant from "@/components/FollowUpAIAssistant";
@@ -52,6 +52,7 @@ const FollowUp = () => {
   const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
   const [isEditPopoverOpen, setIsEditPopoverOpen] = useState(false); // Estado para controlar o popover de edição
   const [editedSolicitante, setEditedSolicitante] = useState(""); // Novo estado para Solicitante
+  const [editedDelegateLabel, setEditedDelegateLabel] = useState(""); // Novo estado para a etiqueta de delegação
 
   const fetchDelegatedTasks = useCallback(async () => {
     setIsFetchingDelegatedTasks(true);
@@ -311,6 +312,10 @@ const FollowUp = () => {
     setEditedDeadline((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
     setObservationInput(""); // Limpar o campo de observação ao abrir o popover
     setEditedSolicitante(getSolicitante(task) || ""); // Carregar Solicitante
+    
+    const currentDelegateLabel = task.labels.find(label => label.startsWith("espera_de_"));
+    setEditedDelegateLabel(currentDelegateLabel ? currentDelegateLabel.replace("espera_de_", "") : ""); // Carregar nome do delegado
+    
     setIsEditPopoverOpen(true); // Abrir o popover
   }, []);
 
@@ -322,6 +327,7 @@ const FollowUp = () => {
     setEditedDeadline(undefined);
     setObservationInput(""); // Limpar o campo de observação
     setEditedSolicitante(""); // Limpar Solicitante
+    setEditedDelegateLabel(""); // Limpar Delegate Label
     setIsEditPopoverOpen(false); // Fechar o popover
   }, []);
 
@@ -339,6 +345,7 @@ const FollowUp = () => {
       duration_unit?: "minute" | "day" | undefined;
       deadline?: string | null;
       description?: string;
+      labels?: string[];
     } = {};
     let changed = false;
 
@@ -392,6 +399,19 @@ const FollowUp = () => {
       changed = true;
     }
 
+    // Handle Delegation Label
+    const currentDelegateLabel = taskToEdit.labels.find(label => label.startsWith("espera_de_"));
+    const newDelegateLabel = editedDelegateLabel.trim() ? `espera_de_${editedDelegateLabel.trim().toLowerCase().replace(/\s/g, '_')}` : null;
+
+    if (currentDelegateLabel !== newDelegateLabel) {
+      let newLabels = taskToEdit.labels.filter(label => !label.startsWith("espera_de_"));
+      if (newDelegateLabel) {
+        newLabels.push(newDelegateLabel);
+      }
+      updateData.labels = newLabels;
+      changed = true;
+    }
+
     // Handle Solicitante and Observation
     let newDescription = taskToEdit.description || "";
     const currentSolicitante = getSolicitante(taskToEdit);
@@ -418,7 +438,7 @@ const FollowUp = () => {
       toast.info("Nenhuma alteração detectada.");
     }
     handleCancelEditing();
-  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadline, editedSolicitante, observationInput, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
+  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadline, editedSolicitante, observationInput, editedDelegateLabel, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
 
 
   const renderTaskItem = (task: TodoistTask) => {
@@ -450,6 +470,21 @@ const FollowUp = () => {
                 className="mt-1"
                 disabled={isLoadingTodoist}
               />
+            </div>
+            <div>
+              <Label htmlFor={`edit-delegate-${task.id}`} className="text-sm">Responsável (Etiqueta)</Label>
+              <Input
+                id={`edit-delegate-${task.id}`}
+                type="text"
+                value={editedDelegateLabel}
+                onChange={(e) => setEditedDelegateLabel(e.target.value)}
+                placeholder="Ex: joao_silva (sem 'espera_de_')"
+                className="mt-1"
+                disabled={isLoadingTodoist}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Altere para mudar o responsável. Deixe vazio para remover a delegação.
+              </p>
             </div>
             <div>
               <Label htmlFor={`edit-due-date-${task.id}`} className="text-sm">Data de Vencimento</Label>
