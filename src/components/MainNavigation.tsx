@@ -19,7 +19,8 @@ import {
   Mail,
   Lightbulb,
   FileText,
-  BarChart3, // Importar BarChart3
+  BarChart3,
+  Database, // Importar Database
 } from "lucide-react";
 import {
   Dialog,
@@ -152,6 +153,14 @@ const modules = [
     description: "Tabela e Exportação",
     colorClass: "bg-indigo-50 hover:bg-indigo-100",
     activeColor: "border-indigo-500",
+  },
+  {
+    path: "/card-database", // NOVO MÓDULO
+    icon: Database,
+    title: "CARDS REF.",
+    description: "Base de Conhecimento",
+    colorClass: "bg-yellow-50 hover:bg-yellow-100",
+    activeColor: "border-yellow-500",
   },
 ];
 

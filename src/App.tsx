@@ -27,7 +27,8 @@ import Seiso from "./pages/Seiso";
 import Agenda from "./pages/Agenda";
 import MassivePlanner from "./pages/MassivePlanner";
 import TaskReport from "./pages/TaskReport";
-import AIAgentManagerPage from "./pages/AIAgentManagerPage"; // Importar o novo Agente de Gerenciamento
+import AIAgentManagerPage from "./pages/AIAgentManagerPage";
+import CardDatabase from "./pages/CardDatabase"; // Importar o novo módulo
 
 const queryClient = new QueryClient();
 
@@ -58,7 +59,8 @@ const App = () => (
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/massive-planner" element={<MassivePlanner />} />
               <Route path="/task-report" element={<TaskReport />} />
-              <Route path="/agent-manager" element={<AIAgentManagerPage />} /> {/* Nova Rota */}
+              <Route path="/agent-manager" element={<AIAgentManagerPage />} />
+              <Route path="/card-database" element={<CardDatabase />} /> {/* NOVA ROTA */}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>
