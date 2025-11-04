@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO, isValid, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, getDelegateNameFromLabels, getSolicitante } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
 
 interface TaskTableComponentProps {
@@ -59,6 +59,8 @@ const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
             <TableHead className="min-w-[150px]">Vencimento</TableHead>
             <TableHead className="min-w-[150px]">Deadline</TableHead>
             <TableHead className="min-w-[150px]">Duração (min)</TableHead>
+            <TableHead className="min-w-[150px]">Solicitante</TableHead>
+            <TableHead className="min-w-[150px]">Responsável</TableHead>
             <TableHead className="min-w-[200px]">Etiquetas</TableHead>
             <TableHead className="w-[50px]">Link</TableHead>
           </TableRow>
@@ -67,6 +69,8 @@ const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
           {tasks.map((task) => {
             const urgency = (task as any).urgency;
             const importance = (task as any).importance;
+            const solicitante = getSolicitante(task);
+            const delegateName = getDelegateNameFromLabels(task.labels);
 
             return (
               <TableRow key={task.id}>
@@ -102,6 +106,8 @@ const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
                 <TableCell className="text-sm">
                   {task.estimatedDurationMinutes || "N/A"}
                 </TableCell>
+                <TableCell className="text-sm">{solicitante || "N/A"}</TableCell>
+                <TableCell className="text-sm">{delegateName || "N/A"}</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {task.labels.map((label) => (

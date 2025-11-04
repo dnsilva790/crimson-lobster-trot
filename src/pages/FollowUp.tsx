@@ -12,8 +12,8 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo, Save } from "lucide-react";
-import { cn, getDelegateNameFromLabels } from "@/lib/utils";
+import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo, Save, User } from "lucide-react";
+import { cn, getDelegateNameFromLabels, getSolicitante } from "@/lib/utils";
 import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import FollowUpAIAssistant from "@/components/FollowUpAIAssistant";
@@ -51,6 +51,7 @@ const FollowUp = () => {
   const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined);
   const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
   const [isEditPopoverOpen, setIsEditPopoverOpen] = useState(false); // Estado para controlar o popover de edição
+  const [editedSolicitante, setEditedSolicitante] = useState(""); // Novo estado para Solicitante
 
   const fetchDelegatedTasks = useCallback(async () => {
     setIsFetchingDelegatedTasks(true);
@@ -309,6 +310,7 @@ const FollowUp = () => {
     setEditedPriority(task.priority);
     setEditedDeadline((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
     setObservationInput(""); // Limpar o campo de observação ao abrir o popover
+    setEditedSolicitante(getSolicitante(task) || ""); // Carregar Solicitante
     setIsEditPopoverOpen(true); // Abrir o popover
   }, []);
 
@@ -319,6 +321,7 @@ const FollowUp = () => {
     setEditedPriority(1);
     setEditedDeadline(undefined);
     setObservationInput(""); // Limpar o campo de observação
+    setEditedSolicitante(""); // Limpar Solicitante
     setIsEditPopoverOpen(false); // Fechar o popover
   }, []);
 
@@ -377,7 +380,7 @@ const FollowUp = () => {
       changed = true;
     }
 
-    // Handle Deadline (Adicionado)
+    // Handle Deadline
     if (editedDeadline && isValid(editedDeadline)) {
       const formattedDeadline = format(editedDeadline, "yyyy-MM-dd");
       if (formattedDeadline !== taskToEdit.deadline) {
@@ -389,15 +392,25 @@ const FollowUp = () => {
       changed = true;
     }
 
-    // Handle Observation
+    // Handle Solicitante and Observation
+    let newDescription = taskToEdit.description || "";
+    const currentSolicitante = getSolicitante(taskToEdit);
+
+    // 1. Update Solicitante in description
+    if (editedSolicitante !== currentSolicitante) {
+      newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', editedSolicitante);
+      changed = true;
+    }
+
+    // 2. Append Observation to description
     if (observationInput.trim()) {
       const timestamp = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
-      const newObservation = `\n\n[${timestamp}] - ${observationInput.trim()}`;
-      updateData.description = (taskToEdit.description || "") + newObservation;
+      newDescription += `\n\n[${timestamp}] - ${observationInput.trim()}`;
       changed = true;
     }
 
     if (changed) {
+      updateData.description = newDescription;
       await updateTask(editingTaskId, updateData);
       toast.success("Tarefa delegada atualizada!");
       fetchDelegatedTasks();
@@ -405,10 +418,13 @@ const FollowUp = () => {
       toast.info("Nenhuma alteração detectada.");
     }
     handleCancelEditing();
-  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadline, observationInput, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
+  }, [editingTaskId, editedDueDate, editedDueTime, editedPriority, editedDeadline, editedSolicitante, observationInput, delegatedTasks, updateTask, fetchDelegatedTasks, handleCancelEditing]);
 
 
   const renderTaskItem = (task: TodoistTask) => {
+    const delegateName = getDelegateNameFromLabels(task.labels);
+    const solicitante = getSolicitante(task);
+
     return (
       <div 
         key={task.id} 
@@ -423,6 +439,18 @@ const FollowUp = () => {
             <h4 className="text-lg font-semibold text-gray-800">
               {task.content}
             </h4>
+            <div>
+              <Label htmlFor={`edit-solicitante-${task.id}`} className="text-sm">Solicitante</Label>
+              <Input
+                id={`edit-solicitante-${task.id}`}
+                type="text"
+                value={editedSolicitante}
+                onChange={(e) => setEditedSolicitante(e.target.value)}
+                placeholder="Nome do Solicitante"
+                className="mt-1"
+                disabled={isLoadingTodoist}
+              />
+            </div>
             <div>
               <Label htmlFor={`edit-due-date-${task.id}`} className="text-sm">Data de Vencimento</Label>
               <Popover>
@@ -533,7 +561,17 @@ const FollowUp = () => {
                 {task.content}
               </h4>
               {task.description && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{task.description}</p>}
-              <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mt-2">
+                {solicitante && (
+                  <span className="flex items-center gap-1 text-blue-600">
+                    <User className="h-3 w-3" /> Solicitante: {solicitante}
+                  </span>
+                )}
+                {delegateName && (
+                  <span className="flex items-center gap-1 text-orange-600">
+                    <Users className="h-3 w-3" /> Responsável: {delegateName}
+                  </span>
+                )}
                 {(typeof task.due?.datetime === 'string' && task.due.datetime) && isValid(parseISO(task.due.datetime)) && (
                   <span className="flex items-center gap-1">
                     <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}

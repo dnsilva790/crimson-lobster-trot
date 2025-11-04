@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,13 +27,14 @@ import {
   FolderOpen,
   Hourglass,
   RotateCcw,
+  User,
+  Save,
 } from "lucide-react";
-import { cn, getTaskCategory } from "@/lib/utils";
+import { cn, getTaskCategory, getSolicitante, updateDescriptionWithSection } from "@/lib/utils";
 import { format, parseISO, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
 
 type GtdState =
   | "initial"
@@ -52,6 +54,7 @@ interface GtdProcessorState {
   selectedDueTime: string; // Novo estado para hora
   selectedDeadlineDate?: Date;
   delegateName: string;
+  solicitanteName: string; // Novo estado para Solicitante
 }
 
 const GTD_STORAGE_KEY = "gtdProcessorState";
@@ -64,6 +67,7 @@ const Seiketsu = () => {
   console.log("Seiketsu component rendered.");
   const { fetchTasks, closeTask, deleteTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const navigate = useNavigate();
+  const location = useLocation();
   const [gtdState, setGtdState] = useState<GtdState>("initial");
   const [actionableStep, setActionableStep] = useState<ActionableStep>("isActionable");
   const [tasksToProcess, setTasksToProcess] = useState<TodoistTask[]>([]);
@@ -77,11 +81,13 @@ const Seiketsu = () => {
 
   const [isSchedulingPopoverOpen, setIsSchedulingPopoverOpen] = useState(false);
   const [isDelegatingPopoverOpen, setIsDelegatingPopoverOpen] = useState(false);
+  const [isSolicitantePopoverOpen, setIsSolicitantePopoverOpen] = useState(false); // Novo estado para popover Solicitante
 
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>(undefined); // Revertido para Date
   const [selectedDueTime, setSelectedDueTime] = useState<string>(""); // Novo estado para hora
   const [selectedDeadlineDate, setSelectedDeadlineDate] = useState<Date | undefined>(undefined);
   const [delegateName, setDelegateName] = useState<string>("");
+  const [solicitanteName, setSolicitanteName] = useState<string>(""); // Novo estado para Solicitante
 
   const currentTask = tasksToProcess[currentTaskIndex];
   const isLoading = isLoadingTodoist || gtdState === "loading";
@@ -120,6 +126,7 @@ const Seiketsu = () => {
           
           setSelectedDeadlineDate(parsedState.selectedDeadlineDate && isValid(parsedState.selectedDeadlineDate) ? parseISO(parsedState.selectedDeadlineDate.toISOString()) : undefined);
           setDelegateName(parsedState.delegateName);
+          setSolicitanteName(parsedState.solicitanteName || ""); // Carregar Solicitante
           
           if (newGtdState === "reviewing" && parsedState.tasksToProcess.length > 0) {
             toast.info("Processamento GTD retomado.");
@@ -145,11 +152,12 @@ const Seiketsu = () => {
         selectedDueTime, // Salvar string de hora
         selectedDeadlineDate,
         delegateName,
+        solicitanteName, // Salvar Solicitante
       };
       localStorage.setItem(GTD_STORAGE_KEY, JSON.stringify(stateToSave));
       localStorage.setItem(INBOX_FILTER_STORAGE_KEY, inboxFilter);
     }
-  }, [gtdState, actionableStep, tasksToProcess, currentTaskIndex, inboxFilter, selectedDueDate, selectedDueTime, selectedDeadlineDate, delegateName]);
+  }, [gtdState, actionableStep, tasksToProcess, currentTaskIndex, inboxFilter, selectedDueDate, selectedDueTime, selectedDeadlineDate, delegateName, solicitanteName]);
 
   useEffect(() => {
     if (isSchedulingPopoverOpen && currentTask) {
@@ -163,6 +171,14 @@ const Seiketsu = () => {
       setSelectedDeadlineDate(undefined);
     }
   }, [isSchedulingPopoverOpen, currentTask]);
+
+  useEffect(() => {
+    if (isSolicitantePopoverOpen && currentTask) {
+      setSolicitanteName(getSolicitante(currentTask) || "");
+    } else if (!isSolicitantePopoverOpen) {
+      setSolicitanteName("");
+    }
+  }, [isSolicitantePopoverOpen, currentTask]);
 
 
   const loadTasksForProcessing = useCallback(async () => {
@@ -202,6 +218,7 @@ const Seiketsu = () => {
     setSelectedDueTime("");
     setSelectedDeadlineDate(undefined);
     setDelegateName("");
+    setSolicitanteName("");
   }, [currentTaskIndex, currentTask]);
 
   const handleEliminate = useCallback(async () => {
@@ -216,41 +233,59 @@ const Seiketsu = () => {
   const handleIncubate = useCallback(async () => {
     if (!currentTask) return;
     const updatedLabels = [...currentTask.labels.filter(l => l !== "pessoal" && l !== "profissional"), "um_dia_talvez"];
+    
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteName);
+
     const updated = await updateTask(currentTask.id, {
       labels: updatedLabels,
       due_date: null,
       due_datetime: null,
       deadline: null,
       priority: 1,
+      description: newDescription,
     });
     if (updated) {
       toast.info(`Tarefa "${currentTask.content}" incubada (Um Dia/Talvez).`);
       advanceToNextTask();
     }
-  }, [currentTask, updateTask, advanceToNextTask]);
+  }, [currentTask, updateTask, advanceToNextTask, solicitanteName]);
 
   const handleArchive = useCallback(async () => {
     if (!currentTask) return;
     const updatedLabels = [...currentTask.labels.filter(l => l !== "pessoal" && l !== "profissional"), "arquivo"];
-    const updated = await updateTask(currentTask.id, { labels: updatedLabels });
+    
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteName);
+
+    const updated = await updateTask(currentTask.id, { 
+      labels: updatedLabels,
+      description: newDescription,
+    });
     if (updated) {
       toast.info(`Tarefa "${currentTask.content}" arquivada.`);
       advanceToNextTask();
     }
-  }, [currentTask, updateTask, advanceToNextTask]);
+  }, [currentTask, updateTask, advanceToNextTask, solicitanteName]);
 
   const handleDoNow = useCallback(async () => {
     if (!currentTask) return;
-    const updatedLabels = [...new Set([...currentTask.labels, FOCO_LABEL_ID])];
-    const updated = await updateTask(currentTask.id, { labels: updatedLabels });
+    const updatedLabels = [...new Set([...currentTask.labels, FOCO_LABEL_ID, GTD_PROCESSED_LABEL])];
+    
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteName);
+
+    const updated = await updateTask(currentTask.id, { 
+      labels: updatedLabels,
+      description: newDescription,
+    });
     if (updated) {
       toast.success(`Tarefa "${currentTask.content}" marcada com a etiqueta de foco.`);
-      // window.open(currentTask.url, "_blank"); // REMOVIDO: Não abrir a tarefa no Todoist
       advanceToNextTask();
     } else {
       toast.error("Falha ao adicionar a etiqueta de foco à tarefa.");
     }
-  }, [currentTask, updateTask, advanceToNextTask]);
+  }, [currentTask, updateTask, advanceToNextTask, solicitanteName]);
 
   const handleSetSchedule = useCallback(async () => {
     if (!currentTask) {
@@ -281,17 +316,22 @@ const Seiketsu = () => {
     }
 
     const updatedLabels = [...new Set([...currentTask.labels, GTD_PROCESSED_LABEL, AGENDA_LABEL])];
+    
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteName);
 
     const updatePayload: {
       due_date?: string | null;
       due_datetime?: string | null;
       deadline?: string | null;
       labels?: string[];
+      description?: string;
     } = {
       due_date: finalDueDate,
       due_datetime: finalDueDateTime,
       deadline: finalDeadline,
       labels: updatedLabels,
+      description: newDescription,
     };
 
     const updated = await updateTask(currentTask.id, updatePayload);
@@ -300,7 +340,7 @@ const Seiketsu = () => {
       setIsSchedulingPopoverOpen(false);
       advanceToNextTask();
     }
-  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, updateTask, advanceToNextTask]);
+  }, [currentTask, selectedDueDate, selectedDueTime, selectedDeadlineDate, updateTask, advanceToNextTask, solicitanteName]);
 
   const handleClearSchedule = useCallback(async () => {
     if (!currentTask) return;
@@ -322,11 +362,15 @@ const Seiketsu = () => {
       toast.error("Por favor, insira o nome do responsável.");
       return;
     }
-    const updatedDescription = currentTask.description ? `${currentTask.description}\n\n[DELEGADO PARA]: ${delegateName.trim()}` : `[DELEGADO PARA]: ${delegateName.trim()}`;
-    const updatedLabels = [...currentTask.labels.filter(l => !l.startsWith("espera_de_")), `espera_de_${delegateName.trim().toLowerCase().replace(/\s/g, '_')}`];
+    
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteName);
+    newDescription = currentTask.description ? `${newDescription}\n\n[DELEGADO PARA]: ${delegateName.trim()}` : `[DELEGADO PARA]: ${delegateName.trim()}`;
+    
+    const updatedLabels = [...currentTask.labels.filter(l => !l.startsWith("espera_de_")), `espera_de_${delegateName.trim().toLowerCase().replace(/\s/g, '_')}`, GTD_PROCESSED_LABEL];
 
     const updated = await updateTask(currentTask.id, {
-      description: updatedDescription,
+      description: newDescription,
       labels: updatedLabels,
     });
     if (updated) {
@@ -334,14 +378,18 @@ const Seiketsu = () => {
       setIsDelegatingPopoverOpen(false);
       advanceToNextTask();
     }
-  }, [currentTask, delegateName, updateTask, advanceToNextTask]);
+  }, [currentTask, delegateName, updateTask, advanceToNextTask, solicitanteName]);
 
   const handleMarkAsProject = useCallback(async () => {
     if (!currentTask) return;
 
     // 1. Add GTD_PROCESSED_LABEL to the current task
     const updatedLabels = [...new Set([...currentTask.labels, GTD_PROCESSED_LABEL])];
-    const updated = await updateTask(currentTask.id, { labels: updatedLabels });
+    
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteName);
+
+    const updated = await updateTask(currentTask.id, { labels: updatedLabels, description: newDescription });
 
     if (updated) {
       toast.success(`Tarefa "${currentTask.content}" marcada como processada e vinculada a um novo projeto.`);
@@ -357,13 +405,17 @@ const Seiketsu = () => {
     } else {
       toast.error("Falha ao marcar a tarefa como processada para o projeto.");
     }
-  }, [currentTask, navigate, updateTask, advanceToNextTask]);
+  }, [currentTask, navigate, updateTask, advanceToNextTask, solicitanteName]);
 
   const handleNextAction = useCallback(async () => {
     if (!currentTask) return;
     
     const updatedLabels = [...new Set([...currentTask.labels, GTD_PROCESSED_LABEL])];
-    const updated = await updateTask(currentTask.id, { labels: updatedLabels });
+    
+    let newDescription = currentTask.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteName);
+
+    const updated = await updateTask(currentTask.id, { labels: updatedLabels, description: newDescription });
 
     if (updated) {
       toast.success(`Tarefa "${currentTask.content}" movida para Próximas Ações e marcada como processada.`);
@@ -371,7 +423,7 @@ const Seiketsu = () => {
     } else {
       toast.error("Falha ao mover a tarefa para Próximas Ações e marcar como processada.");
     }
-  }, [currentTask, updateTask, advanceToNextTask]);
+  }, [currentTask, updateTask, advanceToNextTask, solicitanteName]);
 
   const handleRestartProcessing = useCallback(() => {
     setGtdState("initial");
@@ -382,15 +434,39 @@ const Seiketsu = () => {
     setSelectedDueTime("");
     setSelectedDeadlineDate(undefined);
     setDelegateName("");
+    setSolicitanteName("");
     localStorage.removeItem(GTD_STORAGE_KEY);
     toast.info("Processamento GTD reiniciado.");
   }, []);
+
+  const handleSaveSolicitante = useCallback(async () => {
+    if (!currentTask) return;
+    
+    const newSolicitante = solicitanteName.trim();
+    const updatedDescription = updateDescriptionWithSection(
+      currentTask.description || "",
+      '[SOLICITANTE]:',
+      newSolicitante
+    );
+
+    const updated = await updateTask(currentTask.id, { description: updatedDescription });
+    if (updated) {
+      toast.success("Solicitante atualizado!");
+      setIsSolicitantePopoverOpen(false);
+      // Atualiza o estado local da tarefa para refletir a mudança
+      setTasksToProcess(prevTasks => prevTasks.map(t => t.id === currentTask.id ? updated : t));
+    } else {
+      toast.error("Falha ao atualizar Solicitante.");
+    }
+  }, [currentTask, solicitanteName, updateTask]);
 
   const renderTaskCard = (task: TodoistTask) => {
     const category = getTaskCategory(task);
     const hasDueDate = (typeof task.due?.date === 'string' && task.due.date) || (typeof task.due?.datetime === 'string' && task.due.datetime);
     const hasDuration = task.duration?.amount && task.duration.unit === "minute";
     const hasDeadline = typeof task.deadline === 'string' && task.deadline;
+    const currentSolicitante = getSolicitante(task);
+    const delegateName = getDelegateNameFromLabels(task.labels);
 
     return (
       <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
@@ -417,46 +493,62 @@ const Seiketsu = () => {
             <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>
           )}
         </div>
-        <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
-          <div className="flex flex-col gap-1">
-            {task.due?.string && (
-              <span className="flex items-center gap-1">
-                <CalendarIcon className="h-3 w-3" /> Recorrência: {task.due.string}
-              </span>
-            )}
-            {(typeof task.due?.datetime === 'string' && task.due.datetime) && !task.due?.string && (
-              <span className="flex items-center gap-1">
-                <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-              </span>
-            )}
-            {(typeof task.due?.date === 'string' && task.due.date) && !task.due?.string && !(typeof task.due?.datetime === 'string' && task.due.datetime) && (
-              <span className="flex items-center gap-1">
-                <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
-              </span>
-            )}
-            {hasDeadline && (
-              <span className="flex items-center gap-1 text-red-600 font-semibold">
-                <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline!), "dd/MM/yyyy", { locale: ptBR })}
-              </span>
-            )}
-            {hasDuration && (
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" /> Duração: {task.duration?.amount} min
-              </span>
-            )}
-            {!hasDueDate && !hasDeadline && !task.due?.string && <span>Sem prazo</span>}
+        <div className="flex flex-col gap-2 text-sm text-gray-600 mt-auto pt-4 border-t border-gray-200">
+          {(currentSolicitante || delegateName) && (
+            <div className="flex flex-wrap gap-4">
+              {currentSolicitante && (
+                <span className="flex items-center gap-1">
+                  <User className="h-4 w-4 text-blue-500" /> Solicitante: <span className="font-semibold">{currentSolicitante}</span>
+                </span>
+              )}
+              {delegateName && (
+                <span className="flex items-center gap-1">
+                  <Users className="h-4 w-4 text-orange-500" /> Responsável: <span className="font-semibold">{delegateName}</span>
+                </span>
+              )}
+            </div>
+          )}
+          <div className="flex items-center justify-between text-sm text-gray-500 pt-2">
+            <div className="flex flex-col gap-1">
+              {task.due?.string && (
+                <span className="flex items-center gap-1">
+                  <CalendarIcon className="h-3 w-3" /> Recorrência: {task.due.string}
+                </span>
+              )}
+              {(typeof task.due?.datetime === 'string' && task.due.datetime) && !task.due?.string && (
+                <span className="flex items-center gap-1">
+                  <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </span>
+              )}
+              {(typeof task.due?.date === 'string' && task.due.date) && !task.due?.string && !(typeof task.due?.datetime === 'string' && task.due.datetime) && (
+                <span className="flex items-center gap-1">
+                  <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
+                </span>
+              )}
+              {hasDeadline && (
+                <span className="flex items-center gap-1 text-red-600 font-semibold">
+                  <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline!), "dd/MM/yyyy", { locale: ptBR })}
+                </span>
+              )}
+              {hasDuration && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> Duração: {task.duration?.amount} min
+                </span>
+              )}
+              {!hasDueDate && !hasDeadline && !task.due?.string && <span>Sem prazo</span>}
+            </div>
+            <span
+              className={cn(
+                "px-2 py-1 rounded-full text-white text-xs font-medium",
+                task.priority === 4 && "bg-red-500",
+                task.priority === 3 && "bg-orange-500",
+                task.priority === 2 && "bg-yellow-500",
+                task.priority === 1 && "bg-gray-400",
+              )}
+            >
+              P{task.priority}
+            </span>
           </div>
-          <span
-            className={cn(
-              "px-2 py-1 rounded-full text-white text-xs font-medium",
-              task.priority === 4 && "bg-red-500",
-              task.priority === 3 && "bg-orange-500",
-              task.priority === 2 && "bg-yellow-500",
-              task.priority === 1 && "bg-gray-400",
-            )}
-          >
-            P{task.priority}
-          </span>
         </div>
       </Card>
     );
@@ -666,12 +758,41 @@ const Seiketsu = () => {
               </Button>
             </div>
           )}
-          <div className="mt-8 text-center">
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Popover open={isSolicitantePopoverOpen} onOpenChange={setIsSolicitantePopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={isLoading}
+                  className="py-3 text-md flex items-center justify-center"
+                >
+                  <User className="mr-2 h-5 w-5" /> Definir Solicitante
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4">
+                <h4 className="font-semibold text-lg mb-3">Definir Solicitante</h4>
+                <div className="grid gap-4">
+                  <div>
+                    <Label htmlFor="solicitante-input">Nome do Solicitante</Label>
+                    <Input
+                      id="solicitante-input"
+                      value={solicitanteName}
+                      onChange={(e) => setSolicitanteName(e.target.value)}
+                      placeholder="Ex: João Silva"
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button onClick={handleSaveSolicitante} className="w-full" disabled={isLoading}>
+                    <Save className="h-4 w-4 mr-2" /> Salvar Solicitante
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button
               onClick={handleRestartProcessing}
               disabled={isLoading}
               variant="destructive"
-              className="px-6 py-3 text-md flex items-center justify-center mx-auto"
+              className="py-3 text-md flex items-center justify-center"
             >
               <RotateCcw className="mr-2 h-5 w-5" /> Reiniciar Processamento
             </Button>

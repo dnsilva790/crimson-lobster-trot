@@ -4,10 +4,10 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TodoistTask } from "@/lib/types";
-import { cn } from "@/lib/utils"; // Remover isURL
+import { cn, getDelegateNameFromLabels, getSolicitante, updateDescriptionWithSection } from "@/lib/utils"; // Importar updateDescriptionWithSection
 import { format, setHours, setMinutes, parseISO, isValid, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw, Tag, MessageSquare } from "lucide-react";
+import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw, Tag, MessageSquare, User, Users, Save } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
@@ -85,6 +85,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
       : ""
   );
   const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
+  const [solicitanteInput, setSolicitanteInput] = useState(""); // Novo estado para Solicitante
+  const [isSolicitantePopoverOpen, setIsSolicitantePopoverOpen] = useState(false);
 
   const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -109,6 +111,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         ? String(task.estimatedDurationMinutes)
         : ""
     );
+    setSolicitanteInput(getSolicitante(task) || "");
     console.log("TaskReviewCard: New task.deadline:", task.deadline);
     console.log("TaskReviewCard: New selectedFieldDeadlineDate:", (typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
   }, [task]);
@@ -195,6 +198,19 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     toast.success("Observação adicionada à descrição da tarefa!");
   }, [observationInput, task.id, task.description, onUpdateTaskDescription]);
 
+  const handleSaveSolicitante = useCallback(async () => {
+    const newSolicitante = solicitanteInput.trim();
+    const updatedDescription = updateDescriptionWithSection(
+      task.description || "",
+      '[SOLICITANTE]:',
+      newSolicitante
+    );
+
+    await onUpdateTaskDescription(task.id, updatedDescription);
+    setIsSolicitantePopoverOpen(false);
+    toast.success("Solicitante atualizado!");
+  }, [solicitanteInput, task.id, task.description, onUpdateTaskDescription]);
+
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
 
@@ -255,6 +271,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   const isFocoActive = task.labels?.includes(FOCO_LABEL_ID);
   const isRapidaActive = task.labels?.includes(RAPIDA_LABEL_ID);
   const isCronogramaActive = task.labels?.includes(CRONOGRAMA_HOJE_LABEL);
+  const delegateName = getDelegateNameFromLabels(task.labels);
+  const currentSolicitante = getSolicitante(task);
 
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
@@ -266,16 +284,33 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>
         )}
       </div>
-      <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
-        {renderDueDate()}
-        <span
-          className={cn(
-            "px-2 py-1 rounded-full text-white text-xs font-medium",
-            PRIORITY_COLORS[task.priority],
-          )}
-        >
-          {PRIORITY_LABELS[task.priority]}
-        </span>
+      
+      <div className="flex flex-col gap-2 text-sm text-gray-600 mt-auto pt-4 border-t border-gray-200">
+        {(currentSolicitante || delegateName) && (
+          <div className="flex flex-wrap gap-4 mb-2">
+            {currentSolicitante && (
+              <span className="flex items-center gap-1">
+                <User className="h-4 w-4 text-blue-500" /> Solicitante: <span className="font-semibold">{currentSolicitante}</span>
+              </span>
+            )}
+            {delegateName && (
+              <span className="flex items-center gap-1">
+                <Users className="h-4 w-4 text-orange-500" /> Responsável: <span className="font-semibold">{delegateName}</span>
+              </span>
+            )}
+          </div>
+        )}
+        <div className="flex items-center justify-between text-sm text-gray-500 pt-2">
+          {renderDueDate()}
+          <span
+            className={cn(
+              "px-2 py-1 rounded-full text-white text-xs font-medium",
+              PRIORITY_COLORS[task.priority],
+            )}
+          >
+            {PRIORITY_LABELS[task.priority]}
+          </span>
+        </div>
       </div>
 
       <div className="mt-6">
@@ -429,7 +464,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           <RotateCcw className="mr-2 h-5 w-5" /> Reprogramar (Próx. Hora)
         </Button>
       </div>
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <Popover open={isDeadlinePopoverOpen} onOpenChange={setIsDeadlinePopoverOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -513,6 +548,41 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
               </Button>
               <Button onClick={handleClearFieldDeadline} variant="outline" className="w-full" disabled={isLoading}>
                 Limpar Deadline
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <Popover open={isSolicitantePopoverOpen} onOpenChange={setIsSolicitantePopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              disabled={isLoading}
+              className="w-full py-3 text-md flex items-center justify-center text-blue-600 border-blue-600 hover:bg-blue-50"
+            >
+              <User className="mr-2 h-4 w-4" />
+              {currentSolicitante ? (
+                <span>Solicitante: {currentSolicitante}</span>
+              ) : (
+                <span>Definir Solicitante</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-4">
+            <h4 className="font-semibold text-lg mb-3">Definir Solicitante</h4>
+            <div className="grid gap-4">
+              <div>
+                <Label htmlFor="solicitante-input">Nome do Solicitante</Label>
+                <Input
+                  id="solicitante-input"
+                  value={solicitanteInput}
+                  onChange={(e) => setSolicitanteInput(e.target.value)}
+                  placeholder="Ex: João Silva"
+                  className="mt-1"
+                />
+              </div>
+              <Button onClick={handleSaveSolicitante} className="w-full" disabled={isLoading}>
+                <Save className="h-4 w-4 mr-2" /> Salvar Solicitante
               </Button>
             </div>
           </PopoverContent>

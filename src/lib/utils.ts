@@ -30,3 +30,50 @@ export function getDelegateNameFromLabels(labels: string[]): string | undefined 
   }
   return undefined;
 }
+
+// Helper to extract content from a specific tag in the description
+const extractSectionContent = (description: string, tag: string): string => {
+  const escapedTag = tag.replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+  // Regex para encontrar a tag e capturar o conteúdo até a próxima tag ou fim da string
+  const regex = new RegExp(`${escapedTag}\\s*([\\s\\S]*?)(?=\\n\\[[A-Z_]+\\]:|$|\\n\\n)`, 'i');
+  const match = description.match(regex);
+  return match && match[1] ? match[1].trim() : '';
+};
+
+// Helper to update or add a section in the description, preserving other content
+export const updateDescriptionWithSection = (
+  fullDescription: string,
+  tag: string,
+  newContent: string
+): string => {
+  const escapedTag = tag.replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+  const regex = new RegExp(`(${escapedTag}\\s*)([\\s\\S]*?)(?=\\n\\[[A-Z_]+\\]:|$|\\n\\n)`, 'i');
+
+  if (newContent.trim()) {
+    if (fullDescription.match(regex)) {
+      // Replace existing section
+      return fullDescription.replace(regex, `${tag} ${newContent.trim()}\n`);
+    } else {
+      // Add new section at the end if it doesn't exist
+      return `${fullDescription.trim()}\n\n${tag} ${newContent.trim()}\n`;
+    }
+  } else {
+    // Remove section if newContent is empty
+    return fullDescription.replace(regex, '').trim();
+  }
+};
+
+export function getSolicitante(task: TodoistTask): string | undefined {
+  const description = task.description || '';
+  const solicitante = extractSectionContent(description, '[SOLICITANTE]:');
+  return solicitante || undefined;
+}
+
+export function isURL(str: string): boolean {
+  try {
+    new URL(str);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}

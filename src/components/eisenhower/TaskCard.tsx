@@ -3,10 +3,10 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EisenhowerTask } from "@/lib/types";
-import { cn } from "@/lib/utils"; // Remover isURL
+import { cn, getDelegateNameFromLabels, getSolicitante } from "@/lib/utils"; // Importar getSolicitante e getDelegateNameFromLabels
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Clock, ExternalLink } from "lucide-react";
+import { CalendarIcon, Clock, ExternalLink, User, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface TaskCardProps {
@@ -78,6 +78,9 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, className }) => {
     return <div className="flex flex-wrap gap-x-4 gap-y-1">{dateElements}</div>;
   };
 
+  const delegateName = getDelegateNameFromLabels(task.labels);
+  const solicitante = getSolicitante(task);
+
   return (
     <Card className={cn("p-6 rounded-xl shadow-lg bg-white flex flex-col h-full", className)}>
       <div className="flex-grow">
@@ -100,16 +103,32 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, className }) => {
           </div>
         )}
       </div>
-      <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
-        {renderDueDateAndDuration()}
-        <span
-          className={cn(
-            "px-2 py-1 rounded-full text-white text-xs font-medium",
-            PRIORITY_COLORS[task.priority],
-          )}
-        >
-          {PRIORITY_LABELS[task.priority]}
-        </span>
+      <div className="flex flex-col gap-2 text-sm text-gray-600 mt-auto pt-4 border-t border-gray-200">
+        {(solicitante || delegateName) && (
+          <div className="flex flex-wrap gap-4">
+            {solicitante && (
+              <span className="flex items-center gap-1">
+                <User className="h-4 w-4 text-blue-500" /> Solicitante: <span className="font-semibold">{solicitante}</span>
+              </span>
+            )}
+            {delegateName && (
+              <span className="flex items-center gap-1">
+                <Users className="h-4 w-4 text-orange-500" /> Responsável: <span className="font-semibold">{delegateName}</span>
+              </span>
+            )}
+          </div>
+        )}
+        <div className="flex items-center justify-between text-sm text-gray-500 pt-2">
+          {renderDueDateAndDuration()}
+          <span
+            className={cn(
+              "px-2 py-1 rounded-full text-white text-xs font-medium",
+              PRIORITY_COLORS[task.priority],
+            )}
+          >
+            {PRIORITY_LABELS[task.priority]}
+          </span>
+        </div>
       </div>
       {(task.urgency !== null || task.importance !== null) && (
         <div className="mt-4 pt-4 border-t border-gray-100 text-sm text-gray-600 flex justify-between">

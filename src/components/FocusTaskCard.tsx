@@ -3,10 +3,10 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { TodoistTask } from "@/lib/types";
-import { cn, getTaskCategory } from "@/lib/utils";
+import { cn, getTaskCategory, getDelegateNameFromLabels, getSolicitante } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink, CalendarIcon, Clock, Repeat2 } from "lucide-react";
+import { ExternalLink, CalendarIcon, Clock, Repeat2, User, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface FocusTaskCardProps {
@@ -81,6 +81,8 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
 
   const category = getTaskCategory(task);
   const isRecurring = task.due?.is_recurring === true;
+  const delegateName = getDelegateNameFromLabels(task.labels);
+  const solicitante = getSolicitante(task);
 
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
@@ -123,16 +125,32 @@ const FocusTaskCard: React.FC<FocusTaskCardProps> = ({
           </div>
         )}
       </div>
-      <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
-        {renderDueDateAndDuration()}
-        <span
-          className={cn(
-            "px-2 py-1 rounded-full text-white text-xs font-medium",
-            PRIORITY_COLORS[task.priority],
-          )}
-        >
-          {PRIORITY_LABELS[task.priority]}
-        </span>
+      <div className="flex flex-col gap-2 text-sm text-gray-600 mt-auto pt-4 border-t border-gray-200">
+        {(solicitante || delegateName) && (
+          <div className="flex flex-wrap gap-4">
+            {solicitante && (
+              <span className="flex items-center gap-1">
+                <User className="h-4 w-4 text-blue-500" /> Solicitante: <span className="font-semibold">{solicitante}</span>
+              </span>
+            )}
+            {delegateName && (
+              <span className="flex items-center gap-1">
+                <Users className="h-4 w-4 text-orange-500" /> Responsável: <span className="font-semibold">{delegateName}</span>
+              </span>
+            )}
+          </div>
+        )}
+        <div className="flex items-center justify-between text-sm text-gray-500 pt-2">
+          {renderDueDateAndDuration()}
+          <span
+            className={cn(
+              "px-2 py-1 rounded-full text-white text-xs font-medium",
+              PRIORITY_COLORS[task.priority],
+            )}
+          >
+            {PRIORITY_LABELS[task.priority]}
+          </span>
+        </div>
       </div>
     </Card>
   );
