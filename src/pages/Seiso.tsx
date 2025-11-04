@@ -22,10 +22,11 @@ import {
   Tag,
   ExternalLink,
   MessageSquare,
+  User, // Importar User
 } from "lucide-react";
 import { format, parseISO, setHours, setMinutes, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn, getTaskCategory } from "@/lib/utils";
+import { cn, getTaskCategory, getDelegateNameFromLabels, getSolicitante, updateDescriptionWithSection } from "@/lib/utils";
 import { TodoistTask } from "@/lib/types";
 import { useTodoist } from "@/context/TodoistContext";
 import LoadingSpinner from "@/components/ui/loading-spinner";
@@ -48,27 +49,7 @@ const extractSectionContent = (description: string, tag: string): string => {
 };
 
 // Helper to update or add a section in the description, preserving other content
-const updateDescriptionWithSection = (
-  fullDescription: string,
-  tag: string,
-  newContent: string
-): string => {
-  const escapedTag = tag.replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-  const regex = new RegExp(`(${escapedTag}\\s*)([\\s\\S]*?)(?=\\n\\[[A-Z_]+\\]:|$|\\n\\n)`, 'i');
-
-  if (newContent.trim()) {
-    if (fullDescription.match(regex)) {
-      // Replace existing section
-      return fullDescription.replace(regex, `${tag} ${newContent.trim()}\n`);
-    } else {
-      // Add new section at the end if it doesn't exist
-      return `${fullDescription.trim()}\n\n${tag} ${newContent.trim()}\n`;
-    }
-  } else {
-    // Remove section if newContent is empty
-    return fullDescription.replace(regex, '').trim();
-  }
-};
+// (Already defined in src/lib/utils.ts, but kept here for context if needed)
 
 const Seiso = () => {
   const navigate = useNavigate();
@@ -379,6 +360,8 @@ const Seiso = () => {
 
   const renderTaskDetails = (task: TodoistTask) => {
     const category = getTaskCategory(task);
+    const currentSolicitante = getSolicitante(task);
+    const delegateName = getDelegateNameFromLabels(task.labels);
 
     return (
       <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full">
@@ -414,41 +397,57 @@ const Seiso = () => {
             </div>
           )}
         </div>
-        <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-4 border-t border-gray-200">
-          <div className="flex flex-col gap-1">
-            {task.due?.string && (
-              <span className="flex items-center gap-1">
-                <CalendarIcon className="h-3 w-3" /> Recorrência: {task.due.string}
-              </span>
-            )}
-            {(typeof task.due?.datetime === 'string' && task.due.datetime) && !task.due?.string && (
-              <span className="flex items-center gap-1">
-                <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-              </span>
-            )}
-            {(typeof task.due?.date === 'string' && task.due.date) && !task.due?.string && !(typeof task.due?.datetime === 'string' && task.due.datetime) && (
-              <span className="flex items-center gap-1">
-                <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
-              </span>
-            )}
-            {task.deadline && isValid(parseISO(task.deadline)) && (
-              <span className="flex items-center gap-1 text-red-600 font-semibold">
-                <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
-              </span>
-            )}
-            {!task.due?.date && !task.due?.datetime && !task.deadline && !task.due?.string && <span>Sem prazo</span>}
+        <div className="flex flex-col gap-2 text-sm text-gray-600 mt-auto pt-4 border-t border-gray-200">
+          {(currentSolicitante || delegateName) && (
+            <div className="flex flex-wrap gap-4">
+              {currentSolicitante && (
+                <span className="flex items-center gap-1">
+                  <User className="h-4 w-4 text-blue-500" /> Solicitante: <span className="font-semibold">{currentSolicitante}</span>
+                </span>
+              )}
+              {delegateName && (
+                <span className="flex items-center gap-1">
+                  <Users className="h-4 w-4 text-orange-500" /> Responsável: <span className="font-semibold">{delegateName}</span>
+                </span>
+              )}
+            </div>
+          )}
+          <div className="flex items-center justify-between text-sm text-gray-500 pt-2">
+            <div className="flex flex-col gap-1">
+              {task.due?.string && (
+                <span className="flex items-center gap-1">
+                  <CalendarIcon className="h-3 w-3" /> Recorrência: {task.due.string}
+                </span>
+              )}
+              {(typeof task.due?.datetime === 'string' && task.due.datetime) && !task.due?.string && (
+                <span className="flex items-center gap-1">
+                  <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </span>
+              )}
+              {(typeof task.due?.date === 'string' && task.due.date) && !task.due?.string && !(typeof task.due?.datetime === 'string' && task.due.datetime) && (
+                <span className="flex items-center gap-1">
+                  <CalendarIcon className="h-3 w-3" /> Vencimento: {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
+                </span>
+              )}
+              {task.deadline && isValid(parseISO(task.deadline)) && (
+                <span className="flex items-center gap-1 text-red-600 font-semibold">
+                  <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
+                </span>
+              )}
+              {!task.due?.date && !task.due?.datetime && !task.deadline && !task.due?.string && <span>Sem prazo</span>}
+            </div>
+            <span
+              className={cn(
+                "px-2 py-1 rounded-full text-white text-xs font-medium",
+                task.priority === 4 && "bg-red-500",
+                task.priority === 3 && "bg-orange-500",
+                task.priority === 2 && "bg-yellow-500",
+                task.priority === 1 && "bg-gray-400",
+              )}
+            >
+              P{task.priority}
+            </span>
           </div>
-          <span
-            className={cn(
-              "px-2 py-1 rounded-full text-white text-xs font-medium",
-              task.priority === 4 && "bg-red-500",
-              task.priority === 3 && "bg-orange-500",
-              task.priority === 2 && "bg-yellow-500",
-              task.priority === 1 && "bg-gray-400",
-            )}
-          >
-            P{task.priority}
-          </span>
         </div>
       </Card>
     );

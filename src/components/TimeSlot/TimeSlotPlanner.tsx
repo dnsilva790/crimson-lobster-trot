@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { DaySchedule, TimeBlock, ScheduledTask, TimeBlockType } from "@/lib/types";
+import { DaySchedule, TimeBlock, ScheduledTask, TimeBlockType, TodoistTask } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, getSolicitante, getDelegateNameFromLabels } from "@/lib/utils"; // Importar utilitários
 import { format, parseISO, setHours, setMinutes, addMinutes, isWithinInterval, parse, isBefore, isAfter, isEqual, addDays, isToday, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink, CheckCircle, Repeat2 } from "lucide-react";
+import { ExternalLink, CheckCircle, Repeat2, User, Users } from "lucide-react"; // Importar User e Users
 import { Button } from "@/components/ui/button";
 import { useDrag, useDrop } from 'react-dnd';
 
@@ -271,13 +271,17 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
             }), [task]);
 
             const isRecurring = task.originalTask && 'due' in task.originalTask && task.originalTask.due?.is_recurring === true;
+            
+            const originalTask = task.originalTask as TodoistTask | undefined;
+            const solicitante = originalTask ? getSolicitante(originalTask) : undefined;
+            const delegateName = originalTask ? getDelegateNameFromLabels(originalTask.labels) : undefined;
 
             return (
               <div
                 key={`scheduled-task-${task.id}`}
                 ref={drag} // Atribuir ref do drag
                 className={cn(
-                  "absolute flex items-center bg-indigo-100 bg-opacity-70 text-indigo-800 text-sm font-semibold overflow-hidden cursor-pointer z-30 rounded-md border border-indigo-300 p-1 group",
+                  "absolute flex flex-col justify-between bg-indigo-100 bg-opacity-70 text-indigo-800 text-sm font-semibold overflow-hidden cursor-pointer z-30 rounded-md border border-indigo-300 p-1 group",
                   isDragging ? "opacity-50 border-dashed" : "opacity-100" // Estilo quando arrastando
                 )}
                 style={{
@@ -289,37 +293,55 @@ const TimeSlotPlanner: React.FC<TimeSlotPlannerProps> = ({
                 }}
                 onClick={(e) => { e.stopPropagation(); onSelectTask?.(task); }}
               >
-                  {/* Prioridade à esquerda */}
-                  <span className={cn(
-                      "flex-shrink-0 px-1 py-0.5 rounded-full text-white text-xs font-bold mr-1",
-                      task.priority === 4 && "bg-red-500",
-                      task.priority === 3 && "bg-orange-500",
-                      task.priority === 2 && "bg-yellow-500",
-                      task.priority === 1 && "bg-gray-400",
-                      task.height < 25 && "hidden" // Esconde a prioridade se a barra for muito pequena
-                  )}>
-                      P{task.priority}
-                  </span>
-                  {/* Conteúdo da tarefa */}
-                  <span 
-                    className={cn(
-                      "truncate flex-grow px-1 leading-tight",
-                      task.height < 25 ? "text-xs" : "text-sm" // Reduz o tamanho da fonte para tarefas muito curtas
-                    )} 
-                    title={task.content}
-                  >
-                      {task.content}
-                  </span>
-                  {/* Ícone de Recorrência */}
-                  {isRecurring && (
-                    <Repeat2 
-                      className={cn(
-                        "h-3 w-3 text-purple-600 flex-shrink-0 mr-1",
-                        task.height < 25 && "hidden"
-                      )} 
-                      title="Tarefa Recorrente"
-                    />
+                  {/* Top Row: Priority, Content, Recurrence */}
+                  <div className="flex items-center w-full">
+                      <span className={cn(
+                          "flex-shrink-0 px-1 py-0.5 rounded-full text-white text-xs font-bold mr-1",
+                          task.priority === 4 && "bg-red-500",
+                          task.priority === 3 && "bg-orange-500",
+                          task.priority === 2 && "bg-yellow-500",
+                          task.priority === 1 && "bg-gray-400",
+                          task.height < 25 && "hidden" // Esconde a prioridade se a barra for muito pequena
+                      )}>
+                          P{task.priority}
+                      </span>
+                      <span 
+                        className={cn(
+                          "truncate flex-grow px-1 leading-tight",
+                          task.height < 25 ? "text-xs" : "text-sm" // Reduz o tamanho da fonte para tarefas muito curtas
+                        )} 
+                        title={task.content}
+                      >
+                          {task.content}
+                      </span>
+                      {isRecurring && (
+                        <Repeat2 
+                          className={cn(
+                            "h-3 w-3 text-purple-600 flex-shrink-0 mr-1",
+                            task.height < 25 && "hidden"
+                          )} 
+                          title="Tarefa Recorrente"
+                        />
+                      )}
+                  </div>
+                  
+                  {/* Bottom Row: Solicitante/Delegate (if space allows) */}
+                  {(solicitante || delegateName) && task.height > 40 && (
+                      <div className="flex flex-wrap gap-x-2 text-xs text-indigo-900/80 mt-auto">
+                          {solicitante && (
+                              <span className="flex items-center gap-0.5">
+                                  <User className="h-3 w-3 text-blue-600" /> {solicitante.split(' ')[0]}
+                              </span>
+                          )}
+                          {delegateName && (
+                              <span className="flex items-center gap-0.5">
+                                  <Users className="h-3 w-3 text-orange-600" /> {delegateName.split(' ')[0]}
+                              </span>
+                          )}
+                      </div>
                   )}
+
+                  {/* Action Buttons (Hover) */}
                   {task.originalTask && 'url' in task.originalTask && task.originalTask.url && (
                     <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {onCompleteTask && (

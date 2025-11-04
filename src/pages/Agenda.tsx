@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ListTodo, Edit, Save, XCircle, Clock, MessageSquare, ExternalLink, Filter } from "lucide-react";
+import { CalendarIcon, ListTodo, Edit, Save, XCircle, Clock, MessageSquare, ExternalLink, Filter, User } from "lucide-react";
 import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes, isPast, isToday, isSameDay, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn, getTaskCategory } from "@/lib/utils";
+import { cn, getTaskCategory, getSolicitante, updateDescriptionWithSection } from "@/lib/utils";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask, ScheduledTask, DaySchedule } from "@/lib/types";
 import TimeSlotPlanner from "@/components/TimeSlot/TimeSlotPlanner";
@@ -51,6 +51,7 @@ const Agenda = () => {
   const [editedDuration, setEditedDuration] = useState<string>("30");
   const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined);
   const [observationInput, setObservationInput] = useState("");
+  const [editedSolicitante, setEditedSolicitante] = useState(""); // Novo estado para Solicitante
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -189,7 +190,15 @@ const Agenda = () => {
     }
     setEditedPriority(task.priority);
     setEditedDuration(String(task.estimatedDurationMinutes || DEFAULT_TASK_DURATION_MINUTES));
-    setObservationInput("");
+    setObservationInput(""); // Limpar observação
+    
+    // Carregar Solicitante
+    if (task.originalTask && 'description' in task.originalTask) {
+      setEditedSolicitante(getSolicitante(task.originalTask as TodoistTask) || "");
+    } else {
+      setEditedSolicitante("");
+    }
+
     setIsEditPopoverOpen(true);
   }, []);
 
@@ -275,14 +284,24 @@ const Agenda = () => {
       changed = true;
     }
 
+    let newDescription = originalTodoistTask.description || "";
+    const currentSolicitante = getSolicitante(originalTodoistTask);
+
+    // 1. Update Solicitante in description
+    if (editedSolicitante !== currentSolicitante) {
+      newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', editedSolicitante);
+      changed = true;
+    }
+
+    // 2. Append Observation to description
     if (observationInput.trim()) {
       const timestamp = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
-      const newObservation = `\n\n[${timestamp}] - ${observationInput.trim()}`;
-      updateData.description = (originalTodoistTask.description || "") + newObservation;
+      newDescription += `\n\n[${timestamp}] - ${observationInput.trim()}`;
       changed = true;
     }
 
     if (changed) {
+      updateData.description = newDescription;
       await updateTask(originalTodoistTask.id, updateData);
       toast.success("Tarefa agendada atualizada no Todoist!");
       loadAgendaTasks();
@@ -292,7 +311,8 @@ const Agenda = () => {
     setIsEditPopoverOpen(false);
     setEditingScheduledTask(null);
     setObservationInput("");
-  }, [editingScheduledTask, editedDueDate, editedDueTime, editedPriority, editedDuration, editedDeadline, observationInput, updateTask, loadAgendaTasks, selectedDate]);
+    setEditedSolicitante("");
+  }, [editingScheduledTask, editedDueDate, editedDueTime, editedPriority, editedDuration, editedDeadline, observationInput, editedSolicitante, updateTask, loadAgendaTasks, selectedDate]);
 
   const handleCompleteScheduledTask = useCallback(async (taskId: string) => {
     const success = await closeTask(taskId);
@@ -460,6 +480,17 @@ const Agenda = () => {
                       </Button>
                     </a>
                   )}
+                  <div>
+                    <Label htmlFor="edit-solicitante">Solicitante</Label>
+                    <Input
+                      id="edit-solicitante"
+                      type="text"
+                      value={editedSolicitante}
+                      onChange={(e) => setEditedSolicitante(e.target.value)}
+                      placeholder="Nome do Solicitante"
+                      className="mt-1"
+                    />
+                  </div>
                   <div>
                     <Label htmlFor="edit-due-date">Data de Vencimento</Label>
                     <Calendar
