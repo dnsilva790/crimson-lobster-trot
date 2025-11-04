@@ -25,6 +25,7 @@ interface Message {
 }
 
 const AI_MANAGER_CHAT_HISTORY_KEY = "ai_agent_manager_chat_history";
+// Usando a URL hardcoded da função Edge
 const GEMINI_CHAT_FUNCTION_URL = "https://nesiwmsujsulwncbmcnc.supabase.co/functions/v1/gemini-chat";
 
 const AIAgentManager: React.FC<AIAgentManagerProps> = ({

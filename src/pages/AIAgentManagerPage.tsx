@@ -8,7 +8,7 @@ import AIAgentManager from "@/components/AIAgentManager";
 import AIAgentPromptEditor from "@/components/AIAgentPromptEditor";
 import { defaultAiManagerPrompt, AI_MANAGER_PROMPT_STORAGE_KEY } from "@/lib/constants";
 import { BarChart3, ListTodo } from "lucide-react";
-import { Card, CardContent, CardTitle } from "@/components/ui/card"; // Adicionando importações
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 
 const AIAgentManagerPage = () => {
   const { fetchTasks, updateTask, isLoading: isLoadingTodoist } = useTodoist();
