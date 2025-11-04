@@ -27,6 +27,7 @@ import Eisenhower from "./pages/Eisenhower";
 import Seiso from "./pages/Seiso";
 import Agenda from "./pages/Agenda";
 import MassivePlanner from "./pages/MassivePlanner";
+import TaskReport from "./pages/TaskReport";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,7 @@ const App = () => (
               {/* <Route path="/ai-eisenhower" element={<AiEisenhower />} /> REMOVIDO */}
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/massive-planner" element={<MassivePlanner />} />
+              <Route path="/task-report" element={<TaskReport />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>

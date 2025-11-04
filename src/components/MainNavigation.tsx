@@ -18,6 +18,7 @@ import {
   Settings,
   Mail,
   Lightbulb,
+  FileText,
 } from "lucide-react";
 import {
   Dialog,
@@ -142,6 +143,14 @@ const modules = [
     description: "Tarefas Pessoais/Profissionais",
     colorClass: "bg-gray-100 hover:bg-gray-200",
     activeColor: "border-gray-600",
+  },
+  {
+    path: "/task-report",
+    icon: FileText,
+    title: "RELATÓRIO",
+    description: "Tabela e Exportação",
+    colorClass: "bg-indigo-50 hover:bg-indigo-100",
+    activeColor: "border-indigo-500",
   },
 ];
 

@@ -1,0 +1,115 @@
+"use client";
+
+import React from "react";
+import { TodoistTask } from "@/lib/types";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { format, parseISO, isValid, isBefore } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { ExternalLink } from "lucide-react";
+
+interface TaskTableComponentProps {
+  tasks: TodoistTask[];
+}
+
+const PRIORITY_COLORS: Record<1 | 2 | 3 | 4, string> = {
+  4: "bg-red-500 hover:bg-red-500",
+  3: "bg-orange-500 hover:bg-orange-500",
+  2: "bg-yellow-500 hover:bg-yellow-500",
+  1: "bg-gray-400 hover:bg-gray-400",
+};
+
+const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
+  const formatDueDate = (task: TodoistTask) => {
+    const dueDate = task.due?.datetime || task.due?.date;
+    if (!dueDate) return "N/A";
+    
+    const parsedDate = parseISO(dueDate);
+    if (!isValid(parsedDate)) return "Data Inválida";
+
+    const formatString = task.due?.datetime ? "dd/MM/yyyy HH:mm" : "dd/MM/yyyy";
+    return format(parsedDate, formatString, { locale: ptBR });
+  };
+
+  const formatDeadline = (deadline: string | null | undefined) => {
+    if (!deadline) return "N/A";
+    const parsedDate = parseISO(deadline);
+    if (!isValid(parsedDate)) return "Data Inválida";
+    return format(parsedDate, "dd/MM/yyyy", { locale: ptBR });
+  };
+
+  return (
+    <div className="overflow-x-auto border rounded-lg">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[40px]">P</TableHead>
+            <TableHead className="min-w-[250px]">Conteúdo</TableHead>
+            <TableHead className="min-w-[300px]">Descrição</TableHead>
+            <TableHead className="min-w-[150px]">Vencimento</TableHead>
+            <TableHead className="min-w-[150px]">Deadline</TableHead>
+            <TableHead className="min-w-[150px]">Duração (min)</TableHead>
+            <TableHead className="min-w-[200px]">Etiquetas</TableHead>
+            <TableHead className="w-[50px]">Link</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tasks.map((task) => (
+            <TableRow key={task.id}>
+              <TableCell>
+                <Badge
+                  className={cn(
+                    "text-white font-bold",
+                    PRIORITY_COLORS[task.priority]
+                  )}
+                >
+                  {task.priority}
+                </Badge>
+              </TableCell>
+              <TableCell className="font-medium">{task.content}</TableCell>
+              <TableCell className="text-sm text-gray-600 max-w-xs truncate" title={task.description}>
+                {task.description || "N/A"}
+              </TableCell>
+              <TableCell className={cn(
+                "text-sm",
+                task.due?.datetime && isValid(parseISO(task.due.datetime)) && isBefore(parseISO(task.due.datetime), new Date()) && "text-red-600 font-semibold"
+              )}>
+                {formatDueDate(task)}
+              </TableCell>
+              <TableCell className="text-sm text-red-700 font-semibold">
+                {formatDeadline(task.deadline)}
+              </TableCell>
+              <TableCell className="text-sm">
+                {task.estimatedDurationMinutes || "N/A"}
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-wrap gap-1">
+                  {task.labels.map((label) => (
+                    <Badge key={label} variant="secondary" className="text-xs">
+                      {label}
+                    </Badge>
+                  ))}
+                </div>
+              </TableCell>
+              <TableCell>
+                <a href={task.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700">
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+};
+
+export default TaskTableComponent;
