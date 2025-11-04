@@ -259,17 +259,24 @@ const Seiri = () => {
     }
   }, [updateTask, handleNextTask]);
 
-  const handleUpdateTaskDescription = useCallback(async (taskId: string, newDescription: string) => {
-    const updated = await updateTask(taskId, { description: newDescription });
+  const handleUpdateTaskDescription = useCallback(async (taskId: string, newDescription: string, newLabels?: string[]) => {
+    const updatePayload: { description: string; labels?: string[] } = { description: newDescription };
+    if (newLabels) {
+      updatePayload.labels = newLabels;
+    }
+
+    const updated = await updateTask(taskId, updatePayload);
     if (updated) {
       setTasksToReview(prevTasks =>
         prevTasks.map(task =>
-          task.id === taskId ? { ...task, description: updated.description } : task
+          task.id === taskId ? { ...task, description: updated.description, labels: updated.labels || task.labels } : task
         )
       );
-      toast.success("Descrição da tarefa atualizada!");
+      toast.success("Descrição/Etiquetas da tarefa atualizadas!");
+      return updated;
     } else {
-      toast.error("Falha ao atualizar a descrição da tarefa.");
+      toast.error("Falha ao atualizar a descrição/etiquetas da tarefa.");
+      return undefined;
     }
   }, [tasksToReview, updateTask]);
 

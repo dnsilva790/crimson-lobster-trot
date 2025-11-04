@@ -87,6 +87,9 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
   const [solicitanteInput, setSolicitanteInput] = useState(""); // Novo estado para Solicitante
   const [isSolicitantePopoverOpen, setIsSolicitantePopoverOpen] = useState(false);
+  
+  const [delegateNameInput, setDelegateNameInput] = useState(""); // Novo estado para Delegado
+  const [isDelegatingPopoverOpen, setIsDelegatingPopoverOpen] = useState(false); // Novo estado para popover Delegado
 
   const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -112,6 +115,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
         : ""
     );
     setSolicitanteInput(getSolicitante(task) || "");
+    setDelegateNameInput(getDelegateNameFromLabels(task.labels) || ""); // Inicializa o input do delegado
     console.log("TaskReviewCard: New task.deadline:", task.deadline);
     console.log("TaskReviewCard: New selectedFieldDeadlineDate:", (typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
   }, [task]);
@@ -210,6 +214,56 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     setIsSolicitantePopoverOpen(false);
     toast.success("Solicitante atualizado!");
   }, [solicitanteInput, task.id, task.description, onUpdateTaskDescription]);
+
+  const handleSaveDelegate = useCallback(async () => {
+    const newDelegateName = delegateNameInput.trim();
+    
+    if (!newDelegateName) {
+      toast.error("O nome do responsável não pode ser vazio.");
+      return;
+    }
+
+    const delegateLabel = `espera_de_${newDelegateName.toLowerCase().replace(/\s/g, '_')}`;
+    
+    // Remove qualquer etiqueta de delegação existente
+    let updatedLabels = task.labels.filter(label => !label.startsWith("espera_de_"));
+    
+    // Adiciona a nova etiqueta de delegação
+    updatedLabels.push(delegateLabel);
+
+    // Adiciona a informação de delegação na descrição (opcional, mas útil para contexto)
+    let newDescription = task.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[DELEGADO PARA]:', newDelegateName);
+
+    const updated = await onUpdateTaskDescription(task.id, newDescription);
+    if (updated) {
+      // Atualiza as etiquetas
+      await onUpdateTaskDescription(task.id, updated.description, updatedLabels);
+      toast.success(`Tarefa delegada para ${newDelegateName}!`);
+      setIsDelegatingPopoverOpen(false);
+    } else {
+      toast.error("Falha ao delegar a tarefa.");
+    }
+  }, [delegateNameInput, task.id, task.labels, task.description, onUpdateTaskDescription]);
+
+  const handleClearDelegate = useCallback(async () => {
+    // Remove qualquer etiqueta de delegação existente
+    let updatedLabels = task.labels.filter(label => !label.startsWith("espera_de_"));
+    
+    // Remove a seção [DELEGADO PARA] da descrição
+    let newDescription = task.description || "";
+    newDescription = updateDescriptionWithSection(newDescription, '[DELEGADO PARA]:', '');
+
+    const updated = await onUpdateTaskDescription(task.id, newDescription, updatedLabels);
+    if (updated) {
+      toast.info("Delegação removida!");
+      setDelegateNameInput("");
+      setIsDelegatingPopoverOpen(false);
+    } else {
+      toast.error("Falha ao remover delegação.");
+    }
+  }, [task.id, task.labels, task.description, onUpdateTaskDescription]);
+
 
   const renderDueDate = () => {
     const dateElements: JSX.Element[] = [];
@@ -588,6 +642,53 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
           </PopoverContent>
         </Popover>
       </div>
+      
+      {/* Novo botão de Delegação */}
+      <div className="mt-4">
+        <Popover open={isDelegatingPopoverOpen} onOpenChange={setIsDelegatingPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              disabled={isLoading}
+              className="w-full py-3 text-md flex items-center justify-center text-orange-600 border-orange-600 hover:bg-orange-50"
+            >
+              <Users className="mr-2 h-4 w-4" />
+              {delegateName ? (
+                <span>Delegado para: {delegateName}</span>
+              ) : (
+                <span>Delegar Tarefa</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-4">
+            <h4 className="font-semibold text-lg mb-3">Delegar Tarefa</h4>
+            <div className="grid gap-4">
+              <div>
+                <Label htmlFor="delegate-input">Nome do Responsável (para etiqueta espera_de_)</Label>
+                <Input
+                  id="delegate-input"
+                  value={delegateNameInput}
+                  onChange={(e) => setDelegateNameInput(e.target.value)}
+                  placeholder="Ex: joao_silva"
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Use letras minúsculas e underscores.
+                </p>
+              </div>
+              <Button onClick={handleSaveDelegate} className="w-full" disabled={isLoading || !delegateNameInput.trim()}>
+                <Save className="h-4 w-4 mr-2" /> Salvar Delegação
+              </Button>
+              {delegateName && (
+                <Button onClick={handleClearDelegate} variant="outline" className="w-full" disabled={isLoading}>
+                  <XCircle className="h-4 w-4 mr-2" /> Remover Delegação
+                </Button>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+
       <div className="mt-4">
         <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
           <Button variant="outline" className="w-full py-3 text-md flex items-center justify-center">
