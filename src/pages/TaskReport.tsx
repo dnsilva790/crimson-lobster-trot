@@ -7,13 +7,18 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ListTodo, FileText, Search, RotateCcw, Download, Filter } from "lucide-react";
 import { useTodoist } from "@/context/TodoistContext";
-import { TodoistTask } from "@/lib/types";
+import { TodoistTask, EisenhowerTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import TaskTableComponent from "@/components/TaskTableComponent";
 import { exportTasksToExcel } from "@/utils/excelExport";
 
 const TASK_REPORT_FILTER_INPUT_STORAGE_KEY = "task_report_filter_input";
+const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState"; // Chave do Eisenhower
+
+interface EisenhowerState {
+  tasksToProcess: EisenhowerTask[];
+}
 
 const TaskReport = () => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
@@ -37,13 +42,35 @@ const TaskReport = () => {
     setTasks([]);
     try {
       const filter = filterInput.trim() || undefined;
-      // Request all tasks, including subtasks, recurring, and completed, if filter is 'all' or 'completed'
       const includeCompleted = filter?.toLowerCase() === 'all' || filter?.toLowerCase().includes('completed');
       const fetchedTasks = await fetchTasks(filter, { includeSubtasks: true, includeRecurring: true, includeCompleted: includeCompleted });
       
-      if (fetchedTasks && fetchedTasks.length > 0) {
-        setTasks(fetchedTasks);
-        toast.success(`Carregadas ${fetchedTasks.length} tarefas para o relatório.`);
+      // 1. Carregar dados do Eisenhower
+      let eisenhowerRatingsMap = new Map<string, { urgency: number | null, importance: number | null }>();
+      try {
+        const savedState = localStorage.getItem(EISENHOWER_STORAGE_KEY);
+        if (savedState) {
+          const parsedState: EisenhowerState = JSON.parse(savedState);
+          parsedState.tasksToProcess.forEach(task => {
+            eisenhowerRatingsMap.set(task.id, { urgency: task.urgency, importance: task.importance });
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load Eisenhower state for report:", e);
+      }
+
+      // 2. Mesclar tarefas do Todoist com as pontuações do Eisenhower
+      const mergedTasks = fetchedTasks.map(task => {
+        const ratings = eisenhowerRatingsMap.get(task.id);
+        if (ratings) {
+          return { ...task, urgency: ratings.urgency, importance: ratings.importance } as TodoistTask;
+        }
+        return task;
+      });
+      
+      if (mergedTasks && mergedTasks.length > 0) {
+        setTasks(mergedTasks);
+        toast.success(`Carregadas ${mergedTasks.length} tarefas para o relatório.`);
       } else {
         toast.info("Nenhuma tarefa encontrada com o filtro atual.");
       }

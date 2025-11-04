@@ -7,6 +7,8 @@ interface ExportableTask {
   Conteúdo: string;
   Descrição: string;
   Prioridade: string;
+  Urgência: number | string; // Adicionado
+  Importância: number | string; // Adicionado
   Vencimento: string;
   Deadline: string;
   Recorrência: string;
@@ -25,11 +27,17 @@ const formatTaskForExport = (task: TodoistTask): ExportableTask => {
     ? format(parseISO(task.deadline), "dd/MM/yyyy")
     : "";
 
+  // Assume que a tarefa pode ter as propriedades urgency e importance se vier do estado do Eisenhower
+  const urgency = (task as any).urgency !== undefined && (task as any).urgency !== null ? (task as any).urgency : "";
+  const importance = (task as any).importance !== undefined && (task as any).importance !== null ? (task as any).importance : "";
+
   return {
     ID: task.id,
     Conteúdo: task.content,
     Descrição: task.description,
     Prioridade: `P${task.priority}`,
+    Urgência: urgency,
+    Importância: importance,
     Vencimento: formattedDueDate,
     Deadline: formattedDeadline,
     Recorrência: task.due?.is_recurring ? (task.due.string || "Sim") : "Não",

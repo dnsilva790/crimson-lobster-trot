@@ -54,6 +54,8 @@ const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
             <TableHead className="w-[40px]">P</TableHead>
             <TableHead className="min-w-[250px]">Conteúdo</TableHead>
             <TableHead className="min-w-[300px]">Descrição</TableHead>
+            <TableHead className="w-[80px]">Urgência</TableHead>
+            <TableHead className="w-[80px]">Importância</TableHead>
             <TableHead className="min-w-[150px]">Vencimento</TableHead>
             <TableHead className="min-w-[150px]">Deadline</TableHead>
             <TableHead className="min-w-[150px]">Duração (min)</TableHead>
@@ -62,50 +64,61 @@ const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {tasks.map((task) => (
-            <TableRow key={task.id}>
-              <TableCell>
-                <Badge
-                  className={cn(
-                    "text-white font-bold",
-                    PRIORITY_COLORS[task.priority]
-                  )}
-                >
-                  {task.priority}
-                </Badge>
-              </TableCell>
-              <TableCell className="font-medium">{task.content}</TableCell>
-              <TableCell className="text-sm text-gray-600 max-w-xs truncate" title={task.description}>
-                {task.description || "N/A"}
-              </TableCell>
-              <TableCell className={cn(
-                "text-sm",
-                task.due?.datetime && isValid(parseISO(task.due.datetime)) && isBefore(parseISO(task.due.datetime), new Date()) && "text-red-600 font-semibold"
-              )}>
-                {formatDueDate(task)}
-              </TableCell>
-              <TableCell className="text-sm text-red-700 font-semibold">
-                {formatDeadline(task.deadline)}
-              </TableCell>
-              <TableCell className="text-sm">
-                {task.estimatedDurationMinutes || "N/A"}
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {task.labels.map((label) => (
-                    <Badge key={label} variant="secondary" className="text-xs">
-                      {label}
-                    </Badge>
-                  ))}
-                </div>
-              </TableCell>
-              <TableCell>
-                <a href={task.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700">
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </TableCell>
-            </TableRow>
-          ))}
+          {tasks.map((task) => {
+            const urgency = (task as any).urgency;
+            const importance = (task as any).importance;
+
+            return (
+              <TableRow key={task.id}>
+                <TableCell>
+                  <Badge
+                    className={cn(
+                      "text-white font-bold",
+                      PRIORITY_COLORS[task.priority]
+                    )}
+                  >
+                    {task.priority}
+                  </Badge>
+                </TableCell>
+                <TableCell className="font-medium">{task.content}</TableCell>
+                <TableCell className="text-sm text-gray-600 max-w-xs truncate" title={task.description}>
+                  {task.description || "N/A"}
+                </TableCell>
+                <TableCell className="text-sm font-semibold text-blue-600">
+                  {urgency !== null && urgency !== undefined ? urgency : "N/A"}
+                </TableCell>
+                <TableCell className="text-sm font-semibold text-green-600">
+                  {importance !== null && importance !== undefined ? importance : "N/A"}
+                </TableCell>
+                <TableCell className={cn(
+                  "text-sm",
+                  task.due?.datetime && isValid(parseISO(task.due.datetime)) && isBefore(parseISO(task.due.datetime), new Date()) && "text-red-600 font-semibold"
+                )}>
+                  {formatDueDate(task)}
+                </TableCell>
+                <TableCell className="text-sm text-red-700 font-semibold">
+                  {formatDeadline(task.deadline)}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {task.estimatedDurationMinutes || "N/A"}
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {task.labels.map((label) => (
+                      <Badge key={label} variant="secondary" className="text-xs">
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <a href={task.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>
