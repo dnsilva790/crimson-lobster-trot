@@ -33,8 +33,6 @@ const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
   1: "P4",
 };
 
-// Removendo PriorityLineOverlay, pois causou problemas de posicionamento.
-
 const FollowUp = () => {
   const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const [delegatedTasks, setDelegatedTasks] = useState<TodoistTask[]>([]);
@@ -486,13 +484,14 @@ const FollowUp = () => {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Linha Diagonal de Prioridade (apenas para visualização) */}
+        {/* Linha Diagonal de Prioridade (usando gradiente CSS) */}
         {isHovering && (
           <div 
             className="absolute inset-0 pointer-events-none"
             style={{
-              // Cria um gradiente linear que simula a linha diagonal
-              background: 'linear-gradient(135deg, rgba(129, 140, 248, 0.1) 49.5%, rgba(129, 140, 248, 0.5) 50%, rgba(129, 140, 248, 0.1) 50.5%)',
+              // Gradiente linear de 135 graus (diagonal decrescente da esquerda para a direita)
+              // A linha é criada pela transição de cor em 50%
+              background: 'linear-gradient(135deg, transparent 49.5%, rgba(129, 140, 248, 0.5) 50%, transparent 50.5%)',
               backgroundSize: '100% 100%',
               zIndex: 10,
             }}
@@ -635,7 +634,7 @@ const FollowUp = () => {
             </div>
           </div>
         ) : (
-          <div className="flex items-start justify-between relative z-20">
+          <div className="flex items-start justify-between">
             <div className="flex-grow pr-4">
               <h4 className="text-lg font-semibold text-gray-800">
                 {task.content}
