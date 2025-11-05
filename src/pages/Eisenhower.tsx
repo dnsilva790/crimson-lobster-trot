@@ -33,6 +33,8 @@ const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter"; // No
 const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter"; // Nova chave para o filtro de avaliação
 const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_display_filter"; // Nova chave para o filtro de categoria de exibição
 const EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY = "eisenhower_manual_thresholds"; // Nova chave para thresholds manuais
+const EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY = "eisenhower_diagonal_x_point"; // Novo
+const EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY = "eisenhower_diagonal_y_point"; // Novo
 
 const defaultManualThresholds: ManualThresholds = { urgency: 50, importance: 50 };
 
@@ -97,6 +99,22 @@ const Eisenhower = () => {
     return defaultManualThresholds;
   });
 
+  // NOVOS ESTADOS PARA LINHA DIAGONAL
+  const [diagonalXPoint, setDiagonalXPoint] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY);
+      return saved ? parseInt(saved, 10) : 50;
+    }
+    return 50;
+  });
+  const [diagonalYPoint, setDiagonalYPoint] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY);
+      return saved ? parseInt(saved, 10) : 50;
+    }
+    return 50;
+  });
+
   // Estado para tarefas que ainda precisam ser avaliadas
   const [unratedTasks, setUnratedTasks] = useState<EisenhowerTask[]>([]);
 
@@ -104,50 +122,16 @@ const Eisenhower = () => {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY, filterInput);
-    }
-  }, [filterInput]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
       localStorage.setItem(EISENHOWER_STATUS_FILTER_STORAGE_KEY, statusFilter);
-    }
-  }, [statusFilter]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
       localStorage.setItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY, categoryFilter);
-    }
-  }, [categoryFilter]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
       localStorage.setItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY, displayFilter);
-    }
-  }, [displayFilter]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
       localStorage.setItem(EISENHOWER_RATING_FILTER_STORAGE_KEY, ratingFilter);
-    }
-  }, [ratingFilter]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
       localStorage.setItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY, categoryDisplayFilter);
-    }
-  }, [categoryDisplayFilter]);
-
-  useEffect(() => {
-    // Mantemos o salvamento do threshold, mas removemos a dependência de mudança de estado local
-    if (typeof window !== 'undefined') {
       localStorage.setItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY, JSON.stringify(manualThresholds));
+      localStorage.setItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY, String(diagonalXPoint));
+      localStorage.setItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY, String(diagonalYPoint));
     }
-    // Recategoriza as tarefas sempre que os thresholds mudam
-    if (tasksToProcess.length > 0) {
-      // Chamamos a categorização aqui, mas ela usará o threshold dinâmico
-      handleCategorizeTasks();
-    }
-  }, [manualThresholds]);
+  }, [filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
 
   // Efeito para atualizar a lista de tarefas não avaliadas sempre que tasksToProcess mudar
   useEffect(() => {
@@ -347,8 +331,12 @@ const Eisenhower = () => {
     setTasksToProcess([]);
     setCurrentView("setup");
     setManualThresholds(defaultManualThresholds);
+    setDiagonalXPoint(50);
+    setDiagonalYPoint(50);
     localStorage.removeItem(EISENHOWER_STORAGE_KEY);
     localStorage.removeItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
+    localStorage.removeItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY);
+    localStorage.removeItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY);
     toast.info("Matriz de Eisenhower resetada.");
   }, []);
 
@@ -438,73 +426,6 @@ const Eisenhower = () => {
 
   const filteredTasksForDisplay = getFilteredTasksForDisplay(tasksToProcess, displayFilter, categoryDisplayFilter);
 
-  // Nova função para atualizar a matriz
-  const handleRefreshMatrix = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const filterParts: string[] = [];
-
-      if (filterInput.trim()) {
-        filterParts.push(`(${filterInput.trim()})`);
-      }
-      
-      if (statusFilter === "overdue") {
-        filterParts.push("due before: in 0 min");
-      }
-
-      if (categoryFilter === "pessoal") {
-        filterParts.push("@pessoal");
-      } else if (categoryFilter === "profissional") {
-        filterParts.push("@profissional");
-      }
-
-      const finalFilter = filterParts.join(" & ");
-      
-      const fetchedTodoistTasks = await fetchTasks(finalFilter || undefined, { includeSubtasks: false, includeRecurring: false });
-      
-      // Preserve existing ratings
-      const existingTasksMap = new Map(tasksToProcess.map(t => [t.id, t]));
-
-      const updatedEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => {
-        const existing = existingTasksMap.get(task.id);
-        return {
-          ...task,
-          urgency: existing?.urgency ?? null,
-          importance: existing?.importance ?? null,
-          quadrant: existing?.quadrant ?? null,
-          url: task.url,
-        };
-      });
-      
-      const sortedTasks = sortEisenhowerTasks(updatedEisenhowerTasks);
-      setTasksToProcess(sortedTasks);
-      handleCategorizeTasks(); // Recategoriza as tarefas após a atualização (usando thresholds dinâmicos)
-      toast.success("Matriz atualizada com as últimas tarefas do Todoist!");
-    } catch (error) {
-      console.error("Failed to refresh Eisenhower Matrix:", error);
-      toast.error("Falha ao atualizar a matriz.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filterInput, statusFilter, categoryFilter, fetchTasks, tasksToProcess, sortEisenhowerTasks, handleCategorizeTasks]);
-
-  const handleStartReview = useCallback(() => {
-    setCurrentView("rating");
-    toast.info("Iniciando revisão de avaliação.");
-  }, []);
-
-  // Função para filtrar as tarefas na tela de avaliação
-  const getTasksForRatingScreen = useCallback((tasks: EisenhowerTask[], filter: RatingFilter): EisenhowerTask[] => {
-    if (filter === "unrated") {
-      return tasks.filter(task => task.urgency === null || task.importance === null);
-    }
-    return tasks; // "all"
-  }, []);
-
-  const tasksForRatingScreen = getTasksForRatingScreen(tasksToProcess, ratingFilter);
-
-  // Removida a função handleUpdateThreshold
-
   const renderContent = () => {
     if (isLoading || isLoadingTodoist) {
       return (
@@ -552,9 +473,7 @@ const Eisenhower = () => {
       case "matrix":
         return (
           <div className="flex flex-col gap-4">
-            {/* Removido ThresholdSlider Urgência */}
             <div className="flex">
-              {/* Removido ThresholdSlider Importância */}
               <div className="flex-grow">
                 <EisenhowerMatrixView
                   tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
@@ -564,6 +483,8 @@ const Eisenhower = () => {
                   onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
                   onRefreshMatrix={handleRefreshMatrix} // Passa a nova função de atualização
                   manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
+                  diagonalXPoint={diagonalXPoint} // Novo
+                  diagonalYPoint={diagonalYPoint} // Novo
                 />
               </div>
             </div>
@@ -588,6 +509,10 @@ const Eisenhower = () => {
             displayFilter={displayFilter} // Passa o filtro de exibição
             onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
             manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
+            diagonalXPoint={diagonalXPoint} // Novo
+            diagonalYPoint={diagonalYPoint} // Novo
+            onDiagonalXChange={setDiagonalXPoint} // Novo
+            onDiagonalYChange={setDiagonalYPoint} // Novo
           />
         );
       default:

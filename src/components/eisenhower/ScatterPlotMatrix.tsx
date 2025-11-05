@@ -28,6 +28,8 @@ interface ScatterPlotData {
 interface ScatterPlotMatrixProps {
   data: ScatterPlotData[];
   manualThresholds: ManualThresholds | null; // Mantemos o prop, mas o usamos apenas para o rótulo
+  diagonalXPoint: number; // Novo
+  diagonalYPoint: number; // Novo
 }
 
 const quadrantColors: Record<Quadrant, string> = {
@@ -90,7 +92,7 @@ const getDynamicDomainAndThreshold = (values: number[]): { domain: [number, numb
 };
 
 
-const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThresholds }) => {
+const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThresholds, diagonalXPoint, diagonalYPoint }) => {
   const navigate = useNavigate();
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -142,6 +144,15 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const xMax = urgencyDomain[1];
   const yMin = importanceDomain[0];
   const yMax = importanceDomain[1];
+
+  // Definir os pontos da linha diagonal
+  const diagonalSegment = useMemo(() => {
+    // A linha vai de (diagonalXPoint, 0) a (0, diagonalYPoint)
+    return [
+      { x: diagonalXPoint, y: 0 },
+      { x: 0, y: diagonalYPoint },
+    ];
+  }, [diagonalXPoint, diagonalYPoint]);
 
   return (
     <div 
@@ -205,18 +216,12 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
           <ZAxis dataKey="content" name="Tarefa" />
           <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-          {/* Linhas Diagonais (Fixas de 0 a 100 - estas só serão visíveis se o domínio incluir 0 e 100) */}
+          {/* Linha Diagonal Dinâmica (Baseada em X e Y) */}
           <ReferenceLine 
-            segment={[ { x: 0, y: 0 }, { x: 100, y: 100 } ]} 
-            stroke="#4b5563" 
+            segment={diagonalSegment} 
+            stroke="#10b981" // Cor verde para destaque
             strokeDasharray="5 5" 
-            strokeWidth={1} 
-          />
-          <ReferenceLine 
-            segment={[ { x: 0, y: 100 }, { x: 100, y: 0 } ]} 
-            stroke="#4b5563" 
-            strokeDasharray="5 5" 
-            strokeWidth={1} 
+            strokeWidth={2} 
           />
 
           <Scatter

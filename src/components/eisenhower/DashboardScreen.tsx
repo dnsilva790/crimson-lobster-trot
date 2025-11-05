@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, LayoutDashboard, RotateCcw } from "lucide-react";
 import { EisenhowerTask, Quadrant, ManualThresholds } from "@/lib/types";
 import ScatterPlotMatrix from "./ScatterPlotMatrix"; // Importar o ScatterPlotMatrix
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 interface DashboardScreenProps {
   tasks: EisenhowerTask[];
@@ -14,9 +16,24 @@ interface DashboardScreenProps {
   displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // Adicionado
   onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void; // Adicionado
   manualThresholds: ManualThresholds; // Novo prop
+  diagonalXPoint: number; // Novo
+  diagonalYPoint: number; // Novo
+  onDiagonalXChange: (value: number) => void; // Novo
+  onDiagonalYChange: (value: number) => void; // Novo
 }
 
-const DashboardScreen: React.FC<DashboardScreenProps> = ({ tasks, onBack, onReset, displayFilter, onDisplayFilterChange, manualThresholds }) => {
+const DashboardScreen: React.FC<DashboardScreenProps> = ({ 
+  tasks, 
+  onBack, 
+  onReset, 
+  displayFilter, 
+  onDisplayFilterChange, 
+  manualThresholds,
+  diagonalXPoint,
+  diagonalYPoint,
+  onDiagonalXChange,
+  onDiagonalYChange,
+}) => {
   const quadrantCounts = tasks.reduce((acc, task) => {
     if (task.quadrant) {
       acc[task.quadrant] = (acc[task.quadrant] || 0) + 1;
@@ -36,6 +53,20 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ tasks, onBack, onRese
       quadrant: task.quadrant,
       url: task.url, // ADICIONADO: Passa a URL para o ScatterPlotMatrix
     }));
+
+  const handleXChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    if (!isNaN(value) && value >= 0 && value <= 100) {
+      onDiagonalXChange(value);
+    }
+  };
+
+  const handleYChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    if (!isNaN(value) && value >= 0 && value <= 100) {
+      onDiagonalYChange(value);
+    }
+  };
 
   return (
     <div className="p-4">
@@ -62,6 +93,40 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ tasks, onBack, onRese
         </div>
       ) : (
         <>
+          <Card className="mb-6 p-6">
+            <CardTitle className="text-xl font-bold mb-4 text-gray-800">
+              Configuração da Linha Diagonal
+            </CardTitle>
+            <div className="grid grid-cols-2 gap-4 max-w-md">
+              <div>
+                <Label htmlFor="diagonal-x">Ponto X (Urgência)</Label>
+                <Input
+                  id="diagonal-x"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={diagonalXPoint}
+                  onChange={handleXChange}
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">Onde a linha cruza o eixo X (0-100).</p>
+              </div>
+              <div>
+                <Label htmlFor="diagonal-y">Ponto Y (Importância)</Label>
+                <Input
+                  id="diagonal-y"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={diagonalYPoint}
+                  onChange={handleYChange}
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">Onde a linha cruza o eixo Y (0-100).</p>
+              </div>
+            </div>
+          </Card>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card className="bg-blue-50 border-blue-200">
               <CardHeader>
@@ -110,7 +175,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ tasks, onBack, onRese
                   </p>
                 </div>
               ) : (
-                <ScatterPlotMatrix data={dataForScatterPlot} manualThresholds={manualThresholds} />
+                <ScatterPlotMatrix 
+                  data={dataForScatterPlot} 
+                  manualThresholds={manualThresholds} 
+                  diagonalXPoint={diagonalXPoint}
+                  diagonalYPoint={diagonalYPoint}
+                />
               )}
             </CardContent>
           </Card>

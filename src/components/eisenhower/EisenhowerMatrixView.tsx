@@ -15,9 +15,11 @@ interface EisenhowerMatrixViewProps {
   onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void;
   onRefreshMatrix: (filter: string) => Promise<void>;
   manualThresholds: ManualThresholds; // Novo prop
+  diagonalXPoint: number; // Novo
+  diagonalYPoint: number; // Novo
 }
 
-const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, onRefreshMatrix, manualThresholds }) => {
+const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, onRefreshMatrix, manualThresholds, diagonalXPoint, diagonalYPoint }) => {
   const dataForScatterPlot = tasks
     .filter(task => task.urgency !== null && task.importance !== null)
     .map(task => ({
@@ -61,7 +63,12 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
         </div>
       ) : (
         <div className="aspect-square max-h-[750px] mx-auto">
-          <ScatterPlotMatrix data={dataForScatterPlot} manualThresholds={manualThresholds} />
+          <ScatterPlotMatrix 
+            data={dataForScatterPlot} 
+            manualThresholds={manualThresholds} 
+            diagonalXPoint={diagonalXPoint}
+            diagonalYPoint={diagonalYPoint}
+          />
         </div>
       )}
     </div>
