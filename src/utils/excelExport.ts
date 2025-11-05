@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { TodoistTask } from "@/lib/types";
 import { format, parseISO, isValid } from "date-fns";
-import { getSolicitante, getDelegateNameFromLabels, get5W2H } from "@/lib/utils"; // Importar utilitários e get5W2H
+import { getSolicitante, getDelegateNameFromLabels, get5W2H, getEisenhowerRating } from "@/lib/utils"; // Importar getEisenhowerRating
 
 interface ExportableTask {
   ID: string;
@@ -10,6 +10,7 @@ interface ExportableTask {
   Prioridade: string;
   Urgência: number | string; // Adicionado
   Importância: number | string; // Adicionado
+  Quadrante: string; // Adicionado
   Vencimento: string;
   Deadline: string;
   Recorrência: string;
@@ -37,9 +38,8 @@ const formatTaskForExport = (task: TodoistTask): ExportableTask => {
     ? format(parseISO(task.deadline), "dd/MM/yyyy")
     : "";
 
-  // Assume que a tarefa pode ter as propriedades urgency e importance se vier do estado do Eisenhower
-  const urgency = (task as any).urgency !== undefined && (task as any).urgency !== null ? (task as any).urgency : "";
-  const importance = (task as any).importance !== undefined && (task as any).importance !== null ? (task as any).importance : "";
+  // Extrair ratings e quadrante da descrição
+  const { urgency, importance, quadrant } = getEisenhowerRating(task);
 
   const w2h = get5W2H(task); // Obter dados 5W2H
 
@@ -48,8 +48,9 @@ const formatTaskForExport = (task: TodoistTask): ExportableTask => {
     Conteúdo: task.content,
     Descrição: task.description,
     Prioridade: `P${task.priority}`,
-    Urgência: urgency,
-    Importância: importance,
+    Urgência: urgency !== null ? urgency : "",
+    Importância: importance !== null ? importance : "",
+    Quadrante: quadrant || "N/A",
     Vencimento: formattedDueDate,
     Deadline: formattedDeadline,
     Recorrência: task.due?.is_recurring ? (task.due.string || "Sim") : "Não",

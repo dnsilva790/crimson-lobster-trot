@@ -37,6 +37,8 @@ interface Message {
 }
 
 const PLANNER_AI_CHAT_HISTORY_KEY_PREFIX = "planner_ai_chat_history_";
+// URL da função Edge do Supabase (ATUALIZADA)
+const GEMINI_CHAT_FUNCTION_URL = "https://nesiwmsujsulwncbmcnc.supabase.co/functions/v1/ai-chat";
 
 const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssistantProps>(({
   plannerAiPrompt,
@@ -474,14 +476,40 @@ const PlannerAIAssistant = React.forwardRef<PlannerAIAssistantRef, PlannerAIAssi
     } else if (lowerCaseMessage.includes("refinar")) {
       responseText = "Para refinar a sugestão, você pode me dar mais detalhes sobre suas preferências, como 'mais cedo', 'outro dia', ou 'mais longo'. (Funcionalidade de refinar sugestão em desenvolvimento)";
     } else {
-      responseText = "Entendi. Como posso refinar a sugestão ou te ajudar de outra forma?";
+      // Se não for um comando de planejamento, envia para a função Edge genérica
+      try {
+        const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            aiPrompt: plannerAiPrompt,
+            userMessage,
+            currentTask: selectedTaskToSchedule,
+            allTasks: [], // Não precisa de todas as tarefas para o planejador
+            chatHistory: messages.map(msg => ({ sender: msg.sender, text: msg.text })),
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Erro na função Edge: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        responseText = data.response;
+      } catch (error: any) {
+        console.error("Erro ao chamar a função Gemini Chat:", error);
+        responseText = `Desculpe, tive um problema ao me comunicar com o Tutor IA: ${error.message}`;
+      }
     }
 
     setTimeout(() => {
       addMessage("ai", responseText);
       setIsLoadingAI(false);
     }, 1000);
-  }, [addMessage, selectedTaskToSchedule, lastSuggestionDetails, handleTriggerSuggestion, getCombinedTimeBlocksForDate]);
+  }, [addMessage, selectedTaskToSchedule, lastSuggestionDetails, handleTriggerSuggestion, getCombinedTimeBlocksForDate, plannerAiPrompt, messages]);
 
   const handleSendMessage = async () => {
     if (inputMessage.trim() === "" || isLoadingAI) return;

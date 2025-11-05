@@ -174,9 +174,11 @@ export interface CustomSortingPreference {
 }
 
 // Novos tipos para o módulo Eisenhower
+// Adicionamos as propriedades de volta, mas elas serão preenchidas pelo front-end
+// lendo a descrição da tarefa do Todoist.
 export interface EisenhowerTask extends TodoistTask {
-  urgency: number | null; // 1-10 scale, or null if not rated
-  importance: number | null; // 1-10 scale, or null if not rated
+  urgency: number | null; // 0-100 scale, or null if not rated
+  importance: number | null; // 0-100 scale, or null if not rated
   quadrant: 'do' | 'decide' | 'delegate' | 'delete' | null; // The quadrant it falls into
 }
 

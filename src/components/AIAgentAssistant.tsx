@@ -55,8 +55,8 @@ type DialogueState = 'initial' | 'awaiting_task_action' | 'general_conversation'
 const AI_CHAT_HISTORY_KEY_PREFIX = "ai_agent_chat_history_task_";
 const AI_GENERAL_CHAT_HISTORY_KEY = "ai_agent_chat_history_general"; // Chave para histórico geral
 
-// URL da função Edge do Supabase
-const GEMINI_CHAT_FUNCTION_URL = "https://nesiwmsujsulwncbmcnc.supabase.co/functions/v1/gemini-chat";
+// URL da função Edge do Supabase (ATUALIZADA)
+const GEMINI_CHAT_FUNCTION_URL = "https://nesiwmsujsulwncbmcnc.supabase.co/functions/v1/ai-chat";
 
 const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
   aiPrompt,
@@ -133,8 +133,8 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
           aiPrompt,
           userMessage,
           currentTask: taskContext, // Pass the task in context
-          allTasks, // Pass all tasks for Radar functionality
-          chatHistory: messages.map(msg => ({ role: msg.sender === 'user' ? 'user' : 'model', parts: [{ text: msg.text }] })), // Pass the chat history
+          allTasks: allTasks, // Pass all tasks for Radar functionality
+          chatHistory: messages.map(msg => ({ sender: msg.sender, text: msg.text })), // Pass the chat history
         }),
       });
 

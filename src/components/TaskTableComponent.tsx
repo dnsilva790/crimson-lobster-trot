@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO, isValid, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn, getDelegateNameFromLabels, getSolicitante, get5W2H } from "@/lib/utils";
+import { cn, getDelegateNameFromLabels, getSolicitante, get5W2H, getEisenhowerRating } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
 
 interface TaskTableComponentProps {
@@ -56,6 +56,7 @@ const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
             <TableHead className="min-w-[300px]">Descrição</TableHead>
             <TableHead className="w-[80px]">Urgência</TableHead>
             <TableHead className="w-[80px]">Importância</TableHead>
+            <TableHead className="w-[80px]">Quadrante</TableHead>
             <TableHead className="min-w-[150px]">Vencimento</TableHead>
             <TableHead className="min-w-[150px]">Deadline</TableHead>
             <TableHead className="min-w-[150px]">Duração (min)</TableHead>
@@ -74,8 +75,7 @@ const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
         </TableHeader>
         <TableBody>
           {tasks.map((task) => {
-            const urgency = (task as any).urgency;
-            const importance = (task as any).importance;
+            const { urgency, importance, quadrant } = getEisenhowerRating(task);
             const solicitante = getSolicitante(task);
             const delegateName = getDelegateNameFromLabels(task.labels);
             const w2h = get5W2H(task);
@@ -97,10 +97,13 @@ const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
                   {task.description || "N/A"}
                 </TableCell>
                 <TableCell className="text-sm font-semibold text-blue-600">
-                  {urgency !== null && urgency !== undefined ? urgency : "N/A"}
+                  {urgency !== null ? urgency : "N/A"}
                 </TableCell>
                 <TableCell className="text-sm font-semibold text-green-600">
-                  {importance !== null && importance !== undefined ? importance : "N/A"}
+                  {importance !== null ? importance : "N/A"}
+                </TableCell>
+                <TableCell className="text-sm font-semibold">
+                  {quadrant ? quadrant.charAt(0).toUpperCase() + quadrant.slice(1) : "N/A"}
                 </TableCell>
                 <TableCell className={cn(
                   "text-sm",

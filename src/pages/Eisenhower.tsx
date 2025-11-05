@@ -11,8 +11,7 @@ import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw, Searc
 import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
 import { Input } from "@/components/ui/input"; // Importar Input
-import { getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
-import { eisenhowerService } from "@/services/eisenhowerService"; // Importar o novo service
+import { getTaskCategory, getEisenhowerRating, updateEisenhowerRating } from "@/lib/utils"; // Importar getTaskCategory e novas funções de Eisenhower
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth"; // Importar o hook de auth
 
 // Importar os componentes do Eisenhower
@@ -46,8 +45,8 @@ const EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY = "eisenhower_diagonal_y_point";
 const defaultManualThresholds: ManualThresholds = { urgency: 50, importance: 50 };
 
 const Eisenhower = () => {
-  const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
-  const { user, isLoading: isLoadingAuth } = useSupabaseAuth();
+  const { fetchTasks, updateTask, isLoading: isLoadingTodoist } = useTodoist();
+  const { user, isLoading: isLoadingAuth } = useSupabaseAuth(); // Mantemos o hook de auth, mas ele não é mais crucial para o armazenamento
   
   const [currentView, setCurrentView] = useState<EisenhowerView>("setup");
   const [tasksToProcess, setTasksToProcess] = useState<EisenhowerTask[]>([]);
@@ -141,8 +140,6 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY, filterInput);
       localStorage.setItem(EISENHOWER_STATUS_FILTER_STORAGE_KEY, statusFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY, categoryFilter);
-      // Removidos: localStorage.setItem(EISENHOWER_PRIORITY_FILTER_STORAGE_KEY, priorityFilter);
-      // Removidos: localStorage.setItem(EISENHOWER_DEADLINE_FILTER_STORAGE_KEY, deadlineFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY, displayFilter);
       localStorage.setItem(EISENHOWER_RATING_FILTER_STORAGE_KEY, ratingFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY, categoryDisplayFilter);
@@ -154,140 +151,21 @@ const Eisenhower = () => {
     }
   }, [filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
 
-  // --- Lógica de Carregamento e Persistência Supabase ---
+  // --- Lógica de Carregamento e Persistência Todoist Description ---
 
-  // 1. Carregar avaliações do Supabase na inicialização
-  const loadRatingsFromSupabase = useCallback(async () => {
-    if (!user) return new Map<string, any>();
-    try {
-      return await eisenhowerService.fetchAllRatings();
-    } catch (e) {
-      console.error("Failed to load ratings from Supabase:", e);
-      toast.error("Falha ao carregar avaliações da nuvem.");
-      return new Map();
-    }
-  }, [user]);
-
-  // 2. Função para salvar o estado atual (apenas a view, pois as ratings são salvas individualmente)
-  const saveCurrentViewToLocalStorage = useCallback(() => {
-    // Mantemos a view no localStorage para persistência de sessão
-    localStorage.setItem('eisenhower_current_view', currentView);
-  }, [currentView]);
-
-  // 3. Carregar estado inicial (view)
-  useEffect(() => {
-    const savedView = localStorage.getItem('eisenhower_current_view');
-    if (savedView) {
-      setCurrentView(savedView as EisenhowerView);
-    }
-  }, []);
-
-  // 4. Salvar view quando ela muda
-  useEffect(() => {
-    saveCurrentViewToLocalStorage();
-  }, [currentView, saveCurrentViewToLocalStorage]);
-
-
-  const sortEisenhowerTasks = useCallback((tasks: EisenhowerTask[]): EisenhowerTask[] => {
-    return [...tasks].sort((a, b) => {
-      // 1. Starred tasks first
-      const isAStarred = a.content.startsWith("*");
-      const isBStarred = b.content.startsWith("*");
-      if (isAStarred && !isBStarred) return -1;
-      if (!isAStarred && isBStarred) return 1;
-
-      // Helper to get date value, handling null/undefined and invalid dates
-      const getDateValue = (dateString: string | null | undefined) => {
-        if (typeof dateString === 'string' && dateString) {
-          const parsedDate = parseISO(dateString);
-          return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
-        }
-        return Infinity; // Tasks without a date go last
-      };
-
-      // 2. Deadline: earliest first
-      const deadlineA = getDateValue(a.deadline);
-      const deadlineB = getDateValue(b.deadline);
-      if (deadlineA !== deadlineB) {
-        return deadlineA - deadlineB;
-      }
-
-      // 3. Priority: P1 (4) > P2 (3) > P3 (2) > P4 (1)
-      if (b.priority !== a.priority) {
-        return b.priority - a.priority;
-      }
-
-      // 4. Due date/time: earliest first
-      const dueDateTimeA = getDateValue(a.due?.datetime);
-      const dueDateTimeB = getDateValue(b.due?.datetime);
-      if (dueDateTimeA !== dueDateTimeB) {
-        return dueDateTimeA - dueDateTimeB;
-      }
-
-      const dueDateA = getDateValue(a.due?.date);
-      const dueDateB = getDateValue(b.due?.date);
-      if (dueDateA !== dueDateB) { 
-        return dueDateA - dueDateB;
-      }
-
-      // 5. Created at: earliest first (tie-breaker)
-      const createdAtA = getDateValue(a.created_at);
-      const createdAtB = getDateValue(b.created_at);
-      if (createdAtA !== createdAtB) {
-        return createdAtA - createdAtB;
-      }
-      return 0;
-    });
-  }, []);
-
-  // Função auxiliar para construir o filtro final (para o Todoist API)
-  const buildFinalFilter = useCallback((
-    input: string,
-    status: "all" | "overdue",
-    category: "all" | "pessoal" | "profissional",
-    // Removidos: priority: PriorityFilter, deadline: DeadlineFilter
-  ): string => {
-    const filterParts: string[] = [];
-
-    if (input.trim()) {
-      filterParts.push(`(${input.trim()})`);
-    }
-    
-    if (status === "overdue") {
-      filterParts.push("due before: in 0 min");
-    }
-
-    if (category === "pessoal") {
-      filterParts.push("@pessoal");
-    } else if (category === "profissional") {
-      filterParts.push("@profissional");
-    }
-
-    // Removidos: Lógica de filtro de prioridade e deadline
-
-    const finalFilter = filterParts.join(" & ");
-    return finalFilter || undefined as unknown as string; // Retorna undefined se o filtro estiver vazio
-  }, []);
-
+  // 1. Função para carregar tarefas e mesclar com ratings da descrição
   const handleLoadTasks = useCallback(async (filter: string) => {
-    if (isLoadingAuth || !user) {
-      toast.error("Usuário não autenticado. Não é possível carregar tarefas.");
-      return;
-    }
     setIsLoading(true);
     try {
-      const [fetchedTodoistTasks, existingRatingsMap] = await Promise.all([
-        fetchTasks(filter, { includeSubtasks: false, includeRecurring: false }),
-        loadRatingsFromSupabase(),
-      ]);
+      const fetchedTodoistTasks = await fetchTasks(filter, { includeSubtasks: false, includeRecurring: false });
       
       const initialEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => {
-        const existingRating = existingRatingsMap.get(task.id);
+        const { urgency, importance, quadrant } = getEisenhowerRating(task);
         return {
           ...task,
-          urgency: existingRating?.urgency ?? null,
-          importance: existingRating?.importance ?? null,
-          quadrant: existingRating?.quadrant as EisenhowerTask['quadrant'] ?? null,
+          urgency: urgency,
+          importance: importance,
+          quadrant: quadrant,
           url: task.url,
         };
       });
@@ -303,8 +181,43 @@ const Eisenhower = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchTasks, sortEisenhowerTasks, loadRatingsFromSupabase, user, isLoadingAuth]);
+  }, [fetchTasks, sortEisenhowerTasks]);
 
+  // 2. Função para salvar a pontuação e categorizar
+  const handleUpdateTaskRating = useCallback(async (taskId: string, urgency: number | null, importance: number | null) => {
+    const taskToUpdate = tasksToProcess.find(t => t.id === taskId);
+    if (!taskToUpdate) return;
+
+    // 1. Atualiza o estado local (sem quadrante ainda)
+    setTasksToProcess(prevTasks => {
+      return prevTasks.map(task =>
+        task.id === taskId ? { ...task, urgency, importance } : task
+      );
+    });
+
+    // 2. Persiste no Todoist (apenas as pontuações)
+    const newDescriptionWithRating = updateEisenhowerRating(
+      taskToUpdate.description || '',
+      urgency,
+      importance,
+      null // Não salva o quadrante ainda
+    );
+
+    const updated = await updateTask(taskId, { description: newDescriptionWithRating });
+    if (!updated) {
+      toast.error("Falha ao salvar pontuação no Todoist.");
+    }
+
+    // 3. Recalcula e persiste o quadrante para todas as tarefas avaliadas
+    // Chamamos handleCategorizeTasks após um pequeno delay para garantir que o estado local (tasksToProcess)
+    // tenha sido atualizado com a nova pontuação antes de recalcular os thresholds.
+    setTimeout(() => {
+      handleCategorizeTasks();
+    }, 100);
+
+  }, [tasksToProcess, updateTask]);
+
+  // 3. Função para categorizar (calcula thresholds dinâmicos e salva o quadrante na descrição)
   const getDynamicDomainAndThreshold = useCallback((values: number[]): { domain: [number, number], threshold: number } => {
     if (values.length === 0) {
       return { domain: [0, 100], threshold: 50 };
@@ -332,7 +245,6 @@ const Eisenhower = () => {
     return { domain, threshold };
   }, []);
 
-  // Categorização usando o threshold dinâmico (ponto médio do domínio dos dados)
   const handleCategorizeTasks = useCallback(async () => {
     const ratedTasks = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null);
     
@@ -351,7 +263,7 @@ const Eisenhower = () => {
     const urgencyThreshold = dynamicUrgencyThreshold;
     const importanceThreshold = dynamicImportanceThreshold;
 
-    const updatesToSupabase: Promise<any>[] = [];
+    const updatesToTodoist: Promise<any>[] = [];
 
     setTasksToProcess(prevTasks => {
       return prevTasks.map(task => {
@@ -372,14 +284,15 @@ const Eisenhower = () => {
             quadrant = 'delete';
           }
           
-          // Persiste o novo quadrante no Supabase
-          if (user && task.quadrant !== quadrant) {
-            updatesToSupabase.push(eisenhowerService.upsertRating({
-              todoist_task_id: task.id,
-              urgency: task.urgency,
-              importance: task.importance,
-              quadrant: quadrant,
-            }));
+          // Persiste o novo quadrante na descrição do Todoist
+          if (task.quadrant !== quadrant) {
+            const newDescription = updateEisenhowerRating(
+              task.description || '',
+              task.urgency,
+              task.importance,
+              quadrant
+            );
+            updatesToTodoist.push(updateTask(task.id, { description: newDescription }));
           }
 
           return { ...task, quadrant };
@@ -388,56 +301,32 @@ const Eisenhower = () => {
       });
     });
 
-    // Executa todas as atualizações de quadrante no Supabase
-    if (updatesToSupabase.length > 0) {
-      Promise.all(updatesToSupabase).then(() => {
-        console.log(`Persistidos ${updatesToSupabase.length} quadrantes no Supabase.`);
+    // Executa todas as atualizações de quadrante no Todoist
+    if (updatesToTodoist.length > 0) {
+      Promise.all(updatesToTodoist).then(() => {
+        console.log(`Persistidos ${updatesToTodoist.length} quadrantes no Todoist.`);
       }).catch(e => {
-        console.error("Failed to persist quadrants to Supabase:", e);
-        toast.error("Falha ao salvar quadrantes na nuvem.");
+        console.error("Failed to persist quadrants to Todoist:", e);
+        toast.error("Falha ao salvar quadrantes no Todoist.");
       });
     }
-  }, [tasksToProcess, getDynamicDomainAndThreshold, user]);
-
-  const handleUpdateTaskRating = useCallback(async (taskId: string, urgency: number | null, importance: number | null) => {
-    // 1. Atualiza o estado local imediatamente
-    setTasksToProcess(prevTasks => {
-      return prevTasks.map(task =>
-        task.id === taskId ? { ...task, urgency, importance } : task
-      );
-    });
-
-    // 2. Persiste no Supabase (apenas as pontuações)
-    if (user) {
-      // Não precisamos buscar a tarefa novamente, apenas persistir as pontuações
-      await eisenhowerService.upsertRating({
-        todoist_task_id: taskId,
-        urgency,
-        importance,
-        quadrant: null, // O quadrante será recalculado e salvo em handleCategorizeTasks
-      });
-    }
-
-    // 3. Recalcula e persiste o quadrante para todas as tarefas avaliadas
-    // Isso garante que os thresholds dinâmicos sejam aplicados corretamente
-    // Chamamos handleCategorizeTasks após um pequeno delay para garantir que o estado local (tasksToProcess)
-    // tenha sido atualizado com a nova pontuação antes de recalcular os thresholds.
-    setTimeout(() => {
-      handleCategorizeTasks();
-    }, 100);
-
-  }, [user, handleCategorizeTasks]); // Adicionado handleCategorizeTasks como dependência
+  }, [tasksToProcess, getDynamicDomainAndThreshold, updateTask]);
 
   const handleReset = useCallback(async () => {
-    if (!user) {
-      toast.error("Usuário não autenticado.");
-      return;
-    }
-    if (confirm("Tem certeza que deseja resetar a Matriz de Eisenhower? Isso apagará todas as avaliações salvas na nuvem.")) {
+    if (confirm("Tem certeza que deseja resetar a Matriz de Eisenhower? Isso apagará todas as avaliações salvas nas descrições das tarefas.")) {
       setIsLoading(true);
       try {
-        await eisenhowerService.deleteAllRatings();
-        setTasksToProcess([]);
+        const tasksToClear = tasksToProcess.filter(t => t.urgency !== null || t.importance !== null);
+        const updatesToTodoist: Promise<any>[] = [];
+
+        for (const task of tasksToClear) {
+          const newDescription = updateEisenhowerRating(task.description || '', null, null, null);
+          updatesToTodoist.push(updateTask(task.id, { description: newDescription }));
+        }
+
+        await Promise.all(updatesToTodoist);
+
+        setTasksToProcess(prev => prev.map(t => ({ ...t, urgency: null, importance: null, quadrant: null })));
         setCurrentView("setup");
         setManualThresholds(defaultManualThresholds);
         setDiagonalXPoint(50);
@@ -446,14 +335,14 @@ const Eisenhower = () => {
         localStorage.removeItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
         localStorage.removeItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY);
         localStorage.removeItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY);
-        toast.success("Matriz de Eisenhower resetada e dados apagados da nuvem.");
+        toast.success("Matriz de Eisenhower resetada e dados apagados das descrições.");
       } catch (e) {
-        toast.error("Erro ao resetar a matriz e apagar dados da nuvem.");
+        toast.error("Erro ao resetar a matriz.");
       } finally {
         setIsLoading(false);
       }
     }
-  }, [user]);
+  }, [tasksToProcess, updateTask]);
 
   const handleFinishRating = useCallback(() => {
     handleCategorizeTasks(); // Categoriza todas as tarefas (usando thresholds dinâmicos)
@@ -469,10 +358,36 @@ const Eisenhower = () => {
     await handleLoadTasks(currentFilter); // Recarrega as tarefas do Todoist
     handleCategorizeTasks(); // Recategoriza as tarefas recém-carregadas
     toast.success("Matriz atualizada com os dados mais recentes do Todoist.");
-  }, [handleCategorizeTasks, handleLoadTasks, filterInput, statusFilter, categoryFilter, buildFinalFilter]);
+  }, [handleCategorizeTasks, handleLoadTasks, filterInput, statusFilter, categoryFilter]);
 
   const ratedTasksCount = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null).length;
   const canViewMatrixOrResults = tasksToProcess.length > 0;
+
+  // Função auxiliar para construir o filtro final (para o Todoist API)
+  const buildFinalFilter = useCallback((
+    input: string,
+    status: "all" | "overdue",
+    category: "all" | "pessoal" | "profissional",
+  ): string => {
+    const filterParts: string[] = [];
+
+    if (input.trim()) {
+      filterParts.push(`(${input.trim()})`);
+    }
+    
+    if (status === "overdue") {
+      filterParts.push("due before: in 0 min");
+    }
+
+    if (category === "pessoal") {
+      filterParts.push("@pessoal");
+    } else if (category === "profissional") {
+      filterParts.push("@profissional");
+    }
+
+    const finalFilter = filterParts.join(" & ");
+    return finalFilter || undefined as unknown as string; // Retorna undefined se o filtro estiver vazio
+  }, []);
 
   // Função para filtrar as tarefas com base no displayFilter e categoryDisplayFilter
   const getFilteredTasksForDisplay = useCallback((tasks: EisenhowerTask[], dateFilter: DisplayFilter, categoryFilter: CategoryDisplayFilter, priorityFilter: PriorityFilter, deadlineFilter: DeadlineFilter): EisenhowerTask[] => {
@@ -600,13 +515,9 @@ const Eisenhower = () => {
           initialFilterInput={filterInput}
           initialStatusFilter={statusFilter}
           initialCategoryFilter={categoryFilter}
-          initialPriorityFilter={"all"} // Removido
-          initialDeadlineFilter={"all"} // Removido
           onFilterInputChange={setFilterInput}
           onStatusFilterChange={setStatusFilter}
           onCategoryFilterChange={setCategoryFilter}
-          onPriorityFilterChange={() => {}} // Removido
-          onDeadlineFilterChange={() => {}} // Removido
         />;
       case "rating":
         return (
@@ -627,20 +538,18 @@ const Eisenhower = () => {
       case "matrix":
         return (
           <div className="flex flex-col gap-4">
-            <div className="flex">
-              <div className="flex-grow">
-                <EisenhowerMatrixView
-                  tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
-                  onBack={handleStartReview} // Volta para a tela de avaliação
-                  onViewResults={() => setCurrentView("results")}
-                  displayFilter={displayFilter} // Passa o filtro de exibição
-                  onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
-                  onRefreshMatrix={handleRefreshMatrix} // Passa a nova função de atualização
-                  manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
-                  diagonalXPoint={diagonalXPoint} // Novo
-                  diagonalYPoint={diagonalYPoint} // Novo
-                />
-              </div>
+            <div className="flex-grow">
+              <EisenhowerMatrixView
+                tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
+                onBack={handleStartReview} // Volta para a tela de avaliação
+                onViewResults={() => setCurrentView("results")}
+                displayFilter={displayFilter} // Passa o filtro de exibição
+                onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
+                onRefreshMatrix={handleRefreshMatrix} // Passa a nova função de atualização
+                manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
+                diagonalXPoint={diagonalXPoint} // Novo
+                diagonalYPoint={diagonalYPoint} // Novo
+              />
             </div>
           </div>
         );
@@ -675,13 +584,9 @@ const Eisenhower = () => {
           initialFilterInput={filterInput}
           initialStatusFilter={statusFilter}
           initialCategoryFilter={categoryFilter}
-          initialPriorityFilter={"all"} // Removido
-          initialDeadlineFilter={"all"} // Removido
           onFilterInputChange={setFilterInput}
           onStatusFilterChange={setStatusFilter}
           onCategoryFilterChange={setCategoryFilter}
-          onPriorityFilterChange={() => {}} // Removido
-          onDeadlineFilterChange={() => {}} // Removido
         />;
     }
   };

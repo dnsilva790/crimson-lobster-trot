@@ -11,6 +11,7 @@ import TaskCard from "./TaskCard";
 import { toast } from "sonner";
 import LoadingSpinner from "@/components/ui/loading-spinner"; // Importar LoadingSpinner
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
+import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay, differenceInDays } from 'date-fns'; // Importar funções de data
 
 interface RatingScreenProps {
   tasks: EisenhowerTask[]; // Agora recebe a lista FILTRADA de tarefas
@@ -22,9 +23,6 @@ interface RatingScreenProps {
   ratingFilter: "all" | "unrated"; // Nova prop para o filtro
   onRatingFilterChange: (filter: "all" | "unrated") => void; // Nova prop para mudar o filtro
 }
-
-// URL da função Edge do Supabase
-const GEMINI_CHAT_FUNCTION_URL = "https://nesiwmsujsulwncbmcnc.supabase.co/functions/v1/gemini-chat";
 
 const RatingScreen: React.FC<RatingScreenProps> = ({
   tasks,
@@ -114,43 +112,82 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
     }
 
     setIsAiThinking(true);
-    try {
-      const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          eisenhowerRatingRequest: true, // Sinaliza para a função Edge que é uma requisição de avaliação Eisenhower
-          currentTask: currentTask,
-        }),
-      });
+    
+    // --- Lógica de Sugestão de IA Simplificada (Front-end) ---
+    let urgencyScore = 50;
+    let importanceScore = 50;
+    let reasoning = "Avaliação baseada em heurísticas de produtividade.";
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Erro na função Edge: ${response.statusText}`);
-      }
+    const now = new Date();
+    const startOfToday = startOfDay(now);
 
-      const data = await response.json();
-      const aiSuggestion = data.response;
-
-      if (aiSuggestion && typeof aiSuggestion.urgency === 'number' && typeof aiSuggestion.importance === 'number') {
-        setUrgencyInput(String(Math.max(0, Math.min(100, Math.round(aiSuggestion.urgency)))));
-        setImportanceInput(String(Math.max(0, Math.min(100, Math.round(aiSuggestion.importance)))));
-        toast.success("Sugestões da IA carregadas! Revise e salve.");
-        if (aiSuggestion.reasoning) {
-          toast.info(`Razão da IA: ${aiSuggestion.reasoning}`, { duration: 5000 });
-        }
-      } else {
-        toast.error("A IA não retornou sugestões válidas de urgência e importância.");
-      }
-
-    } catch (error: any) {
-      console.error("Erro ao chamar a função Gemini Chat para Eisenhower:", error);
-      toast.error(`Erro no Assistente IA: ${error.message || "Não foi possível obter uma resposta."}`);
-    } finally {
-      setIsAiThinking(false);
+    // 1. Urgência baseada no prazo/deadline
+    let effectiveDate: Date | null = null;
+    if (currentTask.deadline) {
+      effectiveDate = parseISO(currentTask.deadline);
+    } else if (currentTask.due?.datetime) {
+      effectiveDate = parseISO(currentTask.due.datetime);
+    } else if (currentTask.due?.date) {
+      effectiveDate = parseISO(currentTask.due.date);
     }
+
+    if (effectiveDate && isValid(effectiveDate)) {
+      const daysUntilDue = differenceInDays(effectiveDate, startOfToday);
+      
+      if (isBefore(effectiveDate, now)) {
+        urgencyScore = 95; // Atrasada
+        reasoning = "Urgência alta devido ao prazo já ter passado.";
+      } else if (daysUntilDue === 0) {
+        urgencyScore = 85; // Hoje
+        reasoning = "Urgência alta devido ao prazo ser hoje.";
+      } else if (daysUntilDue === 1) {
+        urgencyScore = 70; // Amanhã
+        reasoning = "Urgência moderada devido ao prazo ser amanhã.";
+      } else if (daysUntilDue > 1 && daysUntilDue <= 7) {
+        urgencyScore = 55; // Próxima semana
+        reasoning = "Urgência média, prazo na próxima semana.";
+      } else {
+        urgencyScore = 30; // Longo prazo
+        reasoning = "Urgência baixa, prazo distante.";
+      }
+    } else {
+      urgencyScore = 20; // Sem prazo
+      reasoning = "Urgência baixa, pois a tarefa não tem prazo definido.";
+    }
+
+    // 2. Importância baseada na Prioridade Todoist e Conteúdo
+    switch (currentTask.priority) {
+      case 4: // P1
+        importanceScore = Math.min(100, urgencyScore + 15); // P1 geralmente é importante
+        reasoning += " Importância aumentada devido à prioridade P1 do Todoist.";
+        break;
+      case 3: // P2
+        importanceScore = Math.min(90, urgencyScore + 5);
+        break;
+      case 2: // P3
+        importanceScore = Math.max(30, urgencyScore - 10);
+        break;
+      case 1: // P4
+        importanceScore = Math.max(10, urgencyScore - 20);
+        reasoning += " Importância reduzida devido à prioridade P4 do Todoist.";
+        break;
+    }
+
+    // 3. Ajuste final para garantir 0-100
+    urgencyScore = Math.max(0, Math.min(100, urgencyScore));
+    importanceScore = Math.max(0, Math.min(100, importanceScore));
+
+    // Simular tempo de pensamento da IA
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    setUrgencyInput(String(Math.round(urgencyScore)));
+    setImportanceInput(String(Math.round(importanceScore)));
+    toast.success("Sugestões da IA carregadas! Revise e salve.");
+    toast.info(`Razão da IA: ${reasoning}`, { duration: 5000 });
+
+    setIsAiThinking(false);
+    // --- Fim da Lógica de Sugestão de IA Simplificada ---
+
   }, [currentTask]);
 
   if (tasks.length === 0) {

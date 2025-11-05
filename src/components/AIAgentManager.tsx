@@ -25,8 +25,8 @@ interface Message {
 }
 
 const AI_MANAGER_CHAT_HISTORY_KEY = "ai_agent_manager_chat_history";
-// Usando a URL hardcoded da função Edge
-const GEMINI_CHAT_FUNCTION_URL = "https://nesiwmsujsulwncbmcnc.supabase.co/functions/v1/gemini-chat";
+// Usando a URL hardcoded da função Edge (ATUALIZADA)
+const GEMINI_CHAT_FUNCTION_URL = "https://nesiwmsujsulwncbmcnc.supabase.co/functions/v1/ai-chat";
 
 const AIAgentManager: React.FC<AIAgentManagerProps> = ({
   aiPrompt,
@@ -82,7 +82,7 @@ const AIAgentManager: React.FC<AIAgentManagerProps> = ({
           userMessage,
           currentTask: null, // No specific task in focus for management agent
           allTasks: allTasks, // Pass all tasks for global context
-          chatHistory: messages.map(msg => ({ role: msg.sender === 'user' ? 'user' : 'model', parts: [{ text: msg.text }] })),
+          chatHistory: messages.map(msg => ({ sender: msg.sender, text: msg.text })),
         }),
       });
 

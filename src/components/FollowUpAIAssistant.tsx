@@ -9,7 +9,7 @@ import { Send, Bot, User, Copy } from "lucide-react";
 import { TodoistTask } from "@/lib/types";
 import { toast } from "sonner";
 import { cn, getDelegateNameFromLabels } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface FollowUpAIAssistantProps {
@@ -35,6 +35,8 @@ interface Message {
 }
 
 const FOLLOW_UP_AI_HISTORY_KEY_PREFIX = "follow_up_ai_chat_history_";
+// URL da função Edge do Supabase (ATUALIZADA)
+const GEMINI_CHAT_FUNCTION_URL = "https://nesiwmsujsulwncbmcnc.supabase.co/functions/v1/ai-chat";
 
 const FollowUpAIAssistant: React.FC<FollowUpAIAssistantProps> = ({
   currentTask,
@@ -45,6 +47,7 @@ const FollowUpAIAssistant: React.FC<FollowUpAIAssistantProps> = ({
   const [inputMessage, setInputMessage] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [lastAiSuggestion, setLastAiSuggestion] = useState<string | null>(null);
+  const [isThinking, setIsThinking] = useState(false);
 
   const getTaskHistoryKey = (taskId: string) => `${FOLLOW_UP_AI_HISTORY_KEY_PREFIX}${taskId}`;
 
@@ -82,62 +85,56 @@ const FollowUpAIAssistant: React.FC<FollowUpAIAssistantProps> = ({
     setMessages((prev) => [...prev, { id: Date.now().toString(), sender, text }]);
   }, []);
 
-  const simulateAIResponse = useCallback(async (userMessage: string) => {
-    let responseText = "Não entendi sua solicitação. Por favor, tente novamente ou peça uma sugestão de follow-up.";
+  const callGeminiChatFunction = useCallback(async (userMessage: string) => {
+    setIsThinking(true);
+    try {
+      const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          aiPrompt: "Você é um assistente de follow-up focado em comunicação assertiva e lembretes de prazos. Sua missão é ajudar o usuário a redigir mensagens de acompanhamento para tarefas delegadas.",
+          userMessage,
+          currentTask: currentTask,
+          allTasks: [], // Não precisa de todas as tarefas para follow-up
+          chatHistory: messages.map(msg => ({ sender: msg.sender, text: msg.text })),
+        }),
+      });
 
-    if (!currentTask) {
-      responseText = "Por favor, selecione uma tarefa delegada para que eu possa te ajudar.";
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Erro na função Edge: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      let responseText = data.response;
+
+      // Heurística para extrair sugestão de follow-up se a IA a gerar
+      if (responseText.toLowerCase().includes("sugestão de mensagem") || responseText.toLowerCase().includes("aqui está uma sugestão")) {
+        setLastAiSuggestion(responseText);
+      } else {
+        setLastAiSuggestion(null);
+      }
+
       addMessage("ai", responseText);
-      return;
+    } catch (error: any) {
+      console.error("Erro ao chamar a função Gemini Chat:", error);
+      toast.error(`Erro no Tutor IA: ${error.message || "Não foi possível obter uma resposta."}`);
+      addMessage("ai", "Desculpe, tive um problema ao me comunicar com o Tutor IA. Por favor, tente novamente mais tarde.");
+    } finally {
+      setIsThinking(false);
     }
-
-    const delegateName = getDelegateNameFromLabels(currentTask.labels) || "o responsável";
-    const taskContent = currentTask.content;
-    const taskDueDate = currentTask.due?.datetime 
-      ? format(parseISO(currentTask.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })
-      : currentTask.due?.date
-      ? format(parseISO(currentTask.due.date), "dd/MM/yyyy", { locale: ptBR })
-      : "sem prazo definido";
-
-    if (userMessage.toLowerCase().includes("sugestão de follow-up") || userMessage.toLowerCase().includes("gerar mensagem")) {
-      responseText = `Claro! Aqui está uma sugestão de mensagem de follow-up para ${delegateName} sobre a tarefa "${taskContent}" (vencimento: ${taskDueDate}):\n\n` +
-                     `"Olá ${delegateName},\n\n` +
-                     `Gostaria de fazer um rápido follow-up sobre a tarefa "${taskContent}", que tem vencimento para ${taskDueDate}. Você conseguiu avançar com ela? Há algo em que eu possa ajudar para garantir que seja concluída no prazo?\n\n` +
-                     `Agradeço o seu retorno!\n\n` +
-                     `Atenciosamente,\n[Seu Nome]"`;
-      setLastAiSuggestion(responseText);
-    } else if (userMessage.toLowerCase().includes("próximo passo")) {
-      responseText = `Para a tarefa "${taskContent}" delegada a ${delegateName}, o próximo passo é: **Verificar o status atual com ${delegateName} e oferecer suporte, se necessário.**`;
-      setLastAiSuggestion(responseText);
-    } else if (userMessage.toLowerCase().includes("urgente")) {
-      responseText = `Entendido. Para uma abordagem mais urgente com ${delegateName} sobre "${taskContent}", você pode enviar:\n\n` +
-                     `"Olá ${delegateName},\n\n` +
-                     `Preciso de uma atualização urgente sobre a tarefa "${taskContent}", com vencimento para ${taskDueDate}. É crucial que tenhamos um status o mais breve possível. Por favor, me informe sobre o andamento.\n\n` +
-                     `Obrigado,\n[Seu Nome]"`;
-      setLastAiSuggestion(responseText);
-    } else {
-      responseText = `Para a tarefa "${taskContent}" delegada a ${delegateName}, como posso te ajudar a fazer o follow-up? Posso sugerir uma mensagem, um próximo passo, ou algo mais?`;
-    }
-    addMessage("ai", responseText);
-  }, [addMessage, currentTask]);
-
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
-  }, [messages]);
+  }, [addMessage, currentTask, messages]);
 
   const handleSendMessage = async () => {
-    if (inputMessage.trim() === "") return;
+    if (inputMessage.trim() === "" || isThinking || !currentTask) return;
 
     addMessage("user", inputMessage);
     const userMsg = inputMessage;
     setInputMessage("");
 
-    // Simulate AI thinking time
-    setTimeout(() => {
-      simulateAIResponse(userMsg);
-    }, 1000);
+    await callGeminiChatFunction(userMsg);
   };
 
   const handleCopySuggestion = useCallback(() => {
@@ -189,6 +186,14 @@ const FollowUpAIAssistant: React.FC<FollowUpAIAssistantProps> = ({
                 </div>
               </div>
             ))}
+            {isThinking && (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] p-3 rounded-lg shadow-sm bg-gray-100 text-gray-800 border border-gray-200">
+                  <span className="font-semibold text-indigo-600 block mb-1">Tutor IA:</span>
+                  <span className="animate-pulse">Pensando...</span>
+                </div>
+              </div>
+            )}
           </div>
         </ScrollArea>
         <div className="p-4 border-t flex flex-col gap-2">
@@ -202,10 +207,10 @@ const FollowUpAIAssistant: React.FC<FollowUpAIAssistantProps> = ({
                   handleSendMessage();
                 }
               }}
-              disabled={isLoading || !currentTask}
+              disabled={isLoading || !currentTask || isThinking}
               className="flex-grow"
             />
-            <Button onClick={handleSendMessage} disabled={isLoading || !currentTask}>
+            <Button onClick={handleSendMessage} disabled={isLoading || !currentTask || isThinking}>
               <Send className="h-4 w-4" />
             </Button>
           </div>

@@ -12,13 +12,9 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import TaskTableComponent from "@/components/TaskTableComponent";
 import { exportTasksToExcel } from "@/utils/excelExport";
+import { getEisenhowerRating } from "@/lib/utils"; // Importar a nova função
 
 const TASK_REPORT_FILTER_INPUT_STORAGE_KEY = "task_report_filter_input";
-const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState"; // Chave do Eisenhower
-
-interface EisenhowerState {
-  tasksToProcess: EisenhowerTask[];
-}
 
 const TaskReport = () => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
@@ -45,27 +41,10 @@ const TaskReport = () => {
       const includeCompleted = filter?.toLowerCase() === 'all' || filter?.toLowerCase().includes('completed');
       const fetchedTasks = await fetchTasks(filter, { includeSubtasks: true, includeRecurring: true, includeCompleted: includeCompleted });
       
-      // 1. Carregar dados do Eisenhower
-      let eisenhowerRatingsMap = new Map<string, { urgency: number | null, importance: number | null }>();
-      try {
-        const savedState = localStorage.getItem(EISENHOWER_STORAGE_KEY);
-        if (savedState) {
-          const parsedState: EisenhowerState = JSON.parse(savedState);
-          parsedState.tasksToProcess.forEach(task => {
-            eisenhowerRatingsMap.set(task.id, { urgency: task.urgency, importance: task.importance });
-          });
-        }
-      } catch (e) {
-        console.error("Failed to load Eisenhower state for report:", e);
-      }
-
-      // 2. Mesclar tarefas do Todoist com as pontuações do Eisenhower
+      // 1. Mesclar tarefas do Todoist com as pontuações do Eisenhower da descrição
       const mergedTasks = fetchedTasks.map(task => {
-        const ratings = eisenhowerRatingsMap.get(task.id);
-        if (ratings) {
-          return { ...task, urgency: ratings.urgency, importance: ratings.importance } as TodoistTask;
-        }
-        return task;
+        const { urgency, importance } = getEisenhowerRating(task);
+        return { ...task, urgency, importance } as TodoistTask;
       });
       
       if (mergedTasks && mergedTasks.length > 0) {
