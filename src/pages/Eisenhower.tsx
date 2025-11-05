@@ -33,16 +33,15 @@ type DeadlineFilter = "all" | "has_deadline" | "no_deadline"; // Novo tipo de fi
 const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input";
 const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
 const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
-const EISENHOWER_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_priority_filter";
-const EISENHOWER_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_deadline_filter";
+// Removidos: EISENHOWER_PRIORITY_FILTER_STORAGE_KEY, EISENHOWER_DEADLINE_FILTER_STORAGE_KEY
 const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter";
 const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter";
 const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_display_filter";
+const EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_display_priority_filter";
+const EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_display_deadline_filter";
 const EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY = "eisenhower_manual_thresholds";
 const EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY = "eisenhower_diagonal_x_point";
 const EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY = "eisenhower_diagonal_y_point";
-const EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_display_priority_filter";
-const EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_display_deadline_filter";
 
 const defaultManualThresholds: ManualThresholds = { urgency: 50, importance: 50 };
 
@@ -75,18 +74,7 @@ const Eisenhower = () => {
     }
     return "all";
   });
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem(EISENHOWER_PRIORITY_FILTER_STORAGE_KEY) as PriorityFilter) || "all";
-    }
-    return "all";
-  });
-  const [deadlineFilter, setDeadlineFilter] = useState<DeadlineFilter>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem(EISENHOWER_DEADLINE_FILTER_STORAGE_KEY) as DeadlineFilter) || "all";
-    }
-    return "all";
-  });
+  // Removidos: priorityFilter, deadlineFilter
 
   // Estados para os filtros de exibição (Matrix/Results/Dashboard)
   const [displayFilter, setDisplayFilter] = useState<DisplayFilter>(() => {
@@ -153,8 +141,8 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY, filterInput);
       localStorage.setItem(EISENHOWER_STATUS_FILTER_STORAGE_KEY, statusFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY, categoryFilter);
-      localStorage.setItem(EISENHOWER_PRIORITY_FILTER_STORAGE_KEY, priorityFilter);
-      localStorage.setItem(EISENHOWER_DEADLINE_FILTER_STORAGE_KEY, deadlineFilter);
+      // Removidos: localStorage.setItem(EISENHOWER_PRIORITY_FILTER_STORAGE_KEY, priorityFilter);
+      // Removidos: localStorage.setItem(EISENHOWER_DEADLINE_FILTER_STORAGE_KEY, deadlineFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY, displayFilter);
       localStorage.setItem(EISENHOWER_RATING_FILTER_STORAGE_KEY, ratingFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY, categoryDisplayFilter);
@@ -164,7 +152,7 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY, String(diagonalXPoint));
       localStorage.setItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY, String(diagonalYPoint));
     }
-  }, [filterInput, statusFilter, categoryFilter, priorityFilter, deadlineFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
+  }, [filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
 
   // --- Lógica de Carregamento e Persistência Supabase ---
 
@@ -257,8 +245,7 @@ const Eisenhower = () => {
     input: string,
     status: "all" | "overdue",
     category: "all" | "pessoal" | "profissional",
-    priority: PriorityFilter,
-    deadline: DeadlineFilter
+    // Removidos: priority: PriorityFilter, deadline: DeadlineFilter
   ): string => {
     const filterParts: string[] = [];
 
@@ -276,15 +263,7 @@ const Eisenhower = () => {
       filterParts.push("@profissional");
     }
 
-    if (priority !== "all") {
-      filterParts.push(priority);
-    }
-
-    if (deadline === "has_deadline") {
-      filterParts.push("deadline: *");
-    } else if (deadline === "no_deadline") {
-      filterParts.push("no deadline");
-    }
+    // Removidos: Lógica de filtro de prioridade e deadline
 
     const finalFilter = filterParts.join(" & ");
     return finalFilter || undefined as unknown as string; // Retorna undefined se o filtro estiver vazio
@@ -480,11 +459,11 @@ const Eisenhower = () => {
   }, []);
 
   const handleRefreshMatrix = useCallback(async () => {
-    const currentFilter = buildFinalFilter(filterInput, statusFilter, categoryFilter, priorityFilter, deadlineFilter);
+    const currentFilter = buildFinalFilter(filterInput, statusFilter, categoryFilter);
     await handleLoadTasks(currentFilter); // Recarrega as tarefas do Todoist
     handleCategorizeTasks(); // Recategoriza as tarefas recém-carregadas
     toast.success("Matriz atualizada com os dados mais recentes do Todoist.");
-  }, [handleCategorizeTasks, handleLoadTasks, filterInput, statusFilter, categoryFilter, priorityFilter, deadlineFilter, buildFinalFilter]);
+  }, [handleCategorizeTasks, handleLoadTasks, filterInput, statusFilter, categoryFilter, buildFinalFilter]);
 
   const ratedTasksCount = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null).length;
   const canViewMatrixOrResults = tasksToProcess.length > 0;
@@ -615,13 +594,13 @@ const Eisenhower = () => {
           initialFilterInput={filterInput}
           initialStatusFilter={statusFilter}
           initialCategoryFilter={categoryFilter}
-          initialPriorityFilter={priorityFilter}
-          initialDeadlineFilter={deadlineFilter}
+          initialPriorityFilter={"all"} // Removido
+          initialDeadlineFilter={"all"} // Removido
           onFilterInputChange={setFilterInput}
           onStatusFilterChange={setStatusFilter}
           onCategoryFilterChange={setCategoryFilter}
-          onPriorityFilterChange={setPriorityFilter}
-          onDeadlineFilterChange={setDeadlineFilter}
+          onPriorityFilterChange={() => {}} // Removido
+          onDeadlineFilterChange={() => {}} // Removido
         />;
       case "rating":
         return (
@@ -690,13 +669,13 @@ const Eisenhower = () => {
           initialFilterInput={filterInput}
           initialStatusFilter={statusFilter}
           initialCategoryFilter={categoryFilter}
-          initialPriorityFilter={priorityFilter}
-          initialDeadlineFilter={deadlineFilter}
+          initialPriorityFilter={"all"} // Removido
+          initialDeadlineFilter={"all"} // Removido
           onFilterInputChange={setFilterInput}
           onStatusFilterChange={setStatusFilter}
           onCategoryFilterChange={setCategoryFilter}
-          onPriorityFilterChange={setPriorityFilter}
-          onDeadlineFilterChange={setDeadlineFilter}
+          onPriorityFilterChange={() => {}} // Removido
+          onDeadlineFilterChange={() => {}} // Removido
         />;
     }
   };
