@@ -44,6 +44,54 @@ const EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY = "eisenhower_diagonal_y_point";
 
 const defaultManualThresholds: ManualThresholds = { urgency: 50, importance: 50 };
 
+// Função de ordenação para tarefas Eisenhower
+const sortEisenhowerTasks = (tasks: EisenhowerTask[]): EisenhowerTask[] => {
+  return [...tasks].sort((a, b) => {
+    // 1. Tarefas não avaliadas primeiro
+    const isARated = a.urgency !== null && a.importance !== null;
+    const isBRated = b.urgency !== null && b.importance !== null;
+    if (isARated && !isBRated) return 1;
+    if (!isARated && isBRated) return -1;
+
+    // 2. Se ambas avaliadas, ordenar por Urgência (decrescente)
+    if (isARated && isBRated) {
+      if (b.urgency! !== a.urgency!) return b.urgency! - a.urgency!;
+      if (b.importance! !== a.importance!) return b.importance! - a.importance!;
+    }
+
+    // Helper para obter valor de data
+    const getDateValue = (dateString: string | null | undefined) => {
+      if (typeof dateString === 'string' && dateString) {
+        const parsedDate = parseISO(dateString);
+        return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
+      }
+      return Infinity;
+    };
+
+    // 3. Deadline: mais cedo primeiro
+    const deadlineA = getDateValue(a.deadline);
+    const deadlineB = getDateValue(b.deadline);
+    if (deadlineA !== deadlineB) {
+      return deadlineA - deadlineB;
+    }
+
+    // 4. Prioridade Todoist: P1 (4) > P4 (1)
+    if (b.priority !== a.priority) {
+      return b.priority - a.priority;
+    }
+
+    // 5. Due date/time: mais cedo primeiro
+    const dueDateTimeA = getDateValue(a.due?.datetime);
+    const dueDateTimeB = getDateValue(b.due?.datetime);
+    if (dueDateTimeA !== dueDateTimeB) {
+      return dueDateTimeA - dueDateTimeB;
+    }
+
+    return 0;
+  });
+};
+
+
 const Eisenhower = () => {
   const { fetchTasks, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const { user, isLoading: isLoadingAuth } = useSupabaseAuth(); // Mantemos o hook de auth, mas ele não é mais crucial para o armazenamento
@@ -181,7 +229,7 @@ const Eisenhower = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchTasks, sortEisenhowerTasks]);
+  }, [fetchTasks]);
 
   // 2. Função para salvar a pontuação e categorizar
   const handleUpdateTaskRating = useCallback(async (taskId: string, urgency: number | null, importance: number | null) => {
@@ -488,7 +536,7 @@ const Eisenhower = () => {
     }
     // Aplica a ordenação padrão para a tela de rating
     return sortEisenhowerTasks(tasks);
-  }, [tasksToProcess, ratingFilter, sortEisenhowerTasks]);
+  }, [tasksToProcess, ratingFilter]);
 
 
   const renderContent = () => {
