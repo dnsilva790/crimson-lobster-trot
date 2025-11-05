@@ -47,19 +47,37 @@ export const updateDescriptionWithSection = (
   newContent: string
 ): string => {
   const escapedTag = tag.replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-  const regex = new RegExp(`(${escapedTag}\\s*)([\\s\\S]*?)(?=\\n\\[[A-Z_]+\\]:|$|\\n\\n)`, 'i');
+  
+  // Regex para encontrar a tag e o conteúdo associado, incluindo quebras de linha
+  // Captura a tag e o conteúdo até a próxima tag ou o final da string.
+  // Adicionado \s* para capturar espaços/quebras de linha após o conteúdo da tag.
+  const regex = new RegExp(`(\\n\\n|\\n|^)(${escapedTag}\\s*)([\\s\\S]*?)(?=\\n\\[[A-Z_]+\\]:|$|\\n\\n)`, 'i');
 
   if (newContent.trim()) {
+    const contentToInsert = `${tag} ${newContent.trim()}`;
+    
     if (fullDescription.match(regex)) {
-      // Replace existing section
-      return fullDescription.replace(regex, `${tag} ${newContent.trim()}\n`);
+      // Se a tag existir, substitui a seção inteira (incluindo a tag e o conteúdo antigo)
+      // Usamos uma regex mais simples para substituição para evitar problemas com grupos de captura complexos
+      const replacementRegex = new RegExp(`(${escapedTag}\\s*)([\\s\\S]*?)(?=\\n\\[[A-Z_]+\\]:|$|\\n\\n)`, 'i');
+      
+      // Se a descrição começar com a tag, substitui sem adicionar quebra de linha extra
+      if (fullDescription.trim().startsWith(tag)) {
+        return fullDescription.replace(replacementRegex, `${tag} ${newContent.trim()}`);
+      }
+      
+      // Caso contrário, garante que haja uma quebra de linha antes da tag
+      return fullDescription.replace(replacementRegex, `${tag} ${newContent.trim()}`);
     } else {
-      // Add new section at the end if it doesn't exist
-      return `${fullDescription.trim()}\n\n${tag} ${newContent.trim()}\n`;
+      // Adiciona nova seção no final, garantindo pelo menos duas quebras de linha antes
+      const trimmedDescription = fullDescription.trim();
+      return `${trimmedDescription}${trimmedDescription ? '\n\n' : ''}${contentToInsert}\n`;
     }
   } else {
-    // Remove section if newContent is empty
-    return fullDescription.replace(regex, '').trim();
+    // Remove a seção inteira (incluindo a tag e o conteúdo) se newContent for vazio
+    // A regex busca a tag e o conteúdo, e remove a quebra de linha anterior se houver.
+    const removalRegex = new RegExp(`(\\n\\n|\\n|^)(${escapedTag}\\s*)([\\s\\S]*?)(?=\\n\\[[A-Z_]+\\]:|$|\\n\\n)`, 'i');
+    return fullDescription.replace(removalRegex, '\n').trim();
   }
 };
 
