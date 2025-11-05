@@ -305,29 +305,6 @@ const Eisenhower = () => {
     }
   }, [fetchTasks, sortEisenhowerTasks, loadRatingsFromSupabase, user, isLoadingAuth]);
 
-  const handleUpdateTaskRating = useCallback(async (taskId: string, urgency: number | null, importance: number | null) => {
-    // 1. Atualiza o estado local imediatamente
-    setTasksToProcess(prevTasks => {
-      return prevTasks.map(task =>
-        task.id === taskId ? { ...task, urgency, importance } : task
-      );
-    });
-
-    // 2. Persiste no Supabase
-    if (user) {
-      const taskToUpdate = tasksToProcess.find(t => t.id === taskId);
-      if (taskToUpdate) {
-        await eisenhowerService.upsertRating({
-          todoist_task_id: taskId,
-          urgency,
-          importance,
-          quadrant: taskToUpdate.quadrant, // Mantém o quadrante atual (será recalculado em handleCategorizeTasks)
-        });
-      }
-    }
-  }, [tasksToProcess, user]);
-
-  // Helper function to calculate dynamic domain and threshold (reintroduzida)
   const getDynamicDomainAndThreshold = useCallback((values: number[]): { domain: [number, number], threshold: number } => {
     if (values.length === 0) {
       return { domain: [0, 100], threshold: 50 };
@@ -421,6 +398,35 @@ const Eisenhower = () => {
       });
     }
   }, [tasksToProcess, getDynamicDomainAndThreshold, user]);
+
+  const handleUpdateTaskRating = useCallback(async (taskId: string, urgency: number | null, importance: number | null) => {
+    // 1. Atualiza o estado local imediatamente
+    setTasksToProcess(prevTasks => {
+      return prevTasks.map(task =>
+        task.id === taskId ? { ...task, urgency, importance } : task
+      );
+    });
+
+    // 2. Persiste no Supabase (apenas as pontuações)
+    if (user) {
+      // Não precisamos buscar a tarefa novamente, apenas persistir as pontuações
+      await eisenhowerService.upsertRating({
+        todoist_task_id: taskId,
+        urgency,
+        importance,
+        quadrant: null, // O quadrante será recalculado e salvo em handleCategorizeTasks
+      });
+    }
+
+    // 3. Recalcula e persiste o quadrante para todas as tarefas avaliadas
+    // Isso garante que os thresholds dinâmicos sejam aplicados corretamente
+    // Chamamos handleCategorizeTasks após um pequeno delay para garantir que o estado local (tasksToProcess)
+    // tenha sido atualizado com a nova pontuação antes de recalcular os thresholds.
+    setTimeout(() => {
+      handleCategorizeTasks();
+    }, 100);
+
+  }, [user, handleCategorizeTasks]); // Adicionado handleCategorizeTasks como dependência
 
   const handleReset = useCallback(async () => {
     if (!user) {
