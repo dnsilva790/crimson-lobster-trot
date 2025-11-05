@@ -20,7 +20,7 @@ import EisenhowerMatrixView from "@/components/eisenhower/EisenhowerMatrixView";
 import ResultsScreen from "@/components/eisenhower/ResultsScreen";
 import DashboardScreen from "@/components/eisenhower/DashboardScreen";
 import AiAssistantModal from "@/components/eisenhower/AiAssistantModal";
-import ThresholdSlider from "@/components/eisenhower/ThresholdSlider"; // Importar o novo slider
+// import ThresholdSlider from "@/components/eisenhower/ThresholdSlider"; // Removido
 
 type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
 type RatingFilter = "all" | "unrated"; // Novo tipo de filtro para avaliação
@@ -88,7 +88,7 @@ const Eisenhower = () => {
     return "unrated";
   });
 
-  // Novo estado para thresholds manuais
+  // Novo estado para thresholds manuais (mantido para o ScatterPlotMatrix, mas não controlado por sliders aqui)
   const [manualThresholds, setManualThresholds] = useState<ManualThresholds>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
@@ -138,6 +138,7 @@ const Eisenhower = () => {
   }, [categoryDisplayFilter]);
 
   useEffect(() => {
+    // Mantemos o salvamento do threshold, mas removemos a dependência de mudança de estado local
     if (typeof window !== 'undefined') {
       localStorage.setItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY, JSON.stringify(manualThresholds));
     }
@@ -502,9 +503,7 @@ const Eisenhower = () => {
 
   const tasksForRatingScreen = getTasksForRatingScreen(tasksToProcess, ratingFilter);
 
-  const handleUpdateThreshold = useCallback((key: keyof ManualThresholds, value: number) => {
-    setManualThresholds(prev => ({ ...prev, [key]: value }));
-  }, []);
+  // Removida a função handleUpdateThreshold
 
   const renderContent = () => {
     if (isLoading || isLoadingTodoist) {
@@ -515,7 +514,7 @@ const Eisenhower = () => {
       );
     }
 
-    // Recalcula o threshold dinâmico para exibição no rótulo do slider
+    // Recalcula o threshold dinâmico para o ScatterPlotMatrix
     const ratedTasks = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null);
     const urgencyValues = ratedTasks.map(t => t.urgency!).filter(v => v !== null) as number[];
     const importanceValues = ratedTasks.map(t => t.importance!).filter(v => v !== null) as number[];
@@ -553,25 +552,9 @@ const Eisenhower = () => {
       case "matrix":
         return (
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-center">
-              <ThresholdSlider
-                value={dynamicUrgencyThreshold} // Exibe o threshold dinâmico
-                onValueChange={(v) => handleUpdateThreshold('urgency', v)}
-                label={`Threshold Urgência (Dinâmico: ${dynamicUrgencyThreshold.toFixed(0)})`}
-                orientation="horizontal"
-                className="w-full max-w-[750px] mx-auto"
-              />
-            </div>
+            {/* Removido ThresholdSlider Urgência */}
             <div className="flex">
-              <div className="flex-shrink-0 mr-4">
-                <ThresholdSlider
-                  value={dynamicImportanceThreshold} // Exibe o threshold dinâmico
-                  onValueChange={(v) => handleUpdateThreshold('importance', v)}
-                  label={`Threshold Importância (Dinâmico: ${dynamicImportanceThreshold.toFixed(0)})`}
-                  orientation="vertical"
-                  className="h-[300px]"
-                />
-              </div>
+              {/* Removido ThresholdSlider Importância */}
               <div className="flex-grow">
                 <EisenhowerMatrixView
                   tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição

@@ -49,7 +49,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
       </div>
 
       <p className="text-lg text-gray-700 mb-6 text-center">
-        Seus thresholds manuais: Urgência {manualThresholds.urgency.toFixed(0)}, Importância {manualThresholds.importance.toFixed(0)}.
+        A divisão dos quadrantes é calculada dinamicamente com base na distribuição dos seus dados.
       </p>
 
       {dataForScatterPlot.length === 0 ? (
