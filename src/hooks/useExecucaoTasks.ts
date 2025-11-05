@@ -253,16 +253,13 @@ export const useExecucaoTasks = (
             }
         }
 
-        const overdueScheduledTasks = allRelevantScheduledTasks.filter(st => isBefore(st.scheduledDateTime, now));
-        const futureOrCurrentScheduledTasks = allRelevantScheduledTasks.filter(st => !isBefore(st.scheduledDateTime, now));
+        // --- CORREÇÃO DE ORDENAÇÃO AQUI ---
+        // 1. Ordenar todas as tarefas agendadas cronologicamente (mais antiga para mais nova)
+        allRelevantScheduledTasks.sort((a, b) => a.scheduledDateTime.getTime() - b.scheduledDateTime.getTime());
 
-        overdueScheduledTasks.sort((a, b) => a.scheduledDateTime.getTime() - b.scheduledDateTime.getTime());
-        futureOrCurrentScheduledTasks.sort((a, b) => a.scheduledDateTime.getTime() - b.scheduledDateTime.getTime());
-
-        const combinedPlannerTasks = [...overdueScheduledTasks, ...futureOrCurrentScheduledTasks];
         let tasks: TodoistTask[] = [];
 
-        for (const st of combinedPlannerTasks) {
+        for (const st of allRelevantScheduledTasks) {
             if (seenTaskIds.has(st.taskId)) continue;
 
             let actualTask: TodoistTask | InternalTask | undefined = st.originalTask;
@@ -271,16 +268,18 @@ export const useExecucaoTasks = (
                 const latestTodoistTask = await fetchTaskById(actualTask.id);
                 if (latestTodoistTask && !latestTodoistTask.is_completed) {
                     tasks.push(latestTodoistTask);
+                    seenTaskIds.add(latestTodoistTask.id);
                 }
             } else if (actualTask && 'category' in actualTask) { // It's an InternalTask
                 if (!actualTask.isCompleted) {
                     tasks.push(convertInternalTaskToTodoistTask(actualTask));
+                    seenTaskIds.add(actualTask.id);
                 }
             }
         }
-        // IMPORTANT: Do NOT re-sort tasks here. The planner order is already established.
+        
         if (tasks.length > 0) {
-          toast.info(`Adicionadas ${tasks.length} tarefas agendadas do Planejador (incluindo atrasadas).`);
+          toast.info(`Adicionadas ${tasks.length} tarefas agendadas do Planejador (ordenadas cronologicamente).`);
         } else {
           toast.info("Nenhuma tarefa encontrada no Planejador.");
         }
@@ -327,7 +326,8 @@ export const useExecucaoTasks = (
             tasks.forEach(task => { if (!seenTaskIds.has(task.id)) { finalCombinedTasks.push(task); seenTaskIds.add(task.id); } });
         }
 
-        tasks = await _loadFromPlanner(); // Always try planner after initial filters
+        // Load from Planner and keep its chronological order
+        tasks = await _loadFromPlanner(); 
         tasks.forEach(task => { if (!seenTaskIds.has(task.id)) { finalCombinedTasks.push(task); seenTaskIds.add(task.id); } });
 
         tasks = await _loadFromSeitonRanking(); // Always try seiton after planner
