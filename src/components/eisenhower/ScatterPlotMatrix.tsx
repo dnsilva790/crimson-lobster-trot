@@ -138,7 +138,6 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
   };
 
   const getFillColor = (entry: ScatterPlotData) => {
-    // Garante que a cor seja baseada no quadrante, ou cinza se não houver quadrante
     return entry.quadrant ? quadrantColors[entry.quadrant] : "#6b7280";
   };
 
@@ -157,9 +156,9 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
         >
           <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
           
-          {/* Linhas de Threshold Ortogonais (Mantidas, pois a imagem as mostra) */}
-          <ReferenceLine x={safeUrgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
-          <ReferenceLine y={safeImportanceThreshold} stroke="#4b5563" strokeDasharray="5 5" />
+          {/* Linhas de Threshold Ortogonais REMOVIDAS */}
+          {/* <ReferenceLine x={safeUrgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
+          <ReferenceLine y={safeImportanceThreshold} stroke="#4b5563" strokeDasharray="5 5" /> */}
 
           <XAxis
             type="number"
@@ -182,7 +181,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           <ZAxis dataKey="content" name="Tarefa" />
           <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-          {/* Linhas Diagonais (Restauradas) */}
+          {/* Linhas Diagonais MANTIDAS */}
           <ReferenceLine 
             segment={[ { x: 0, y: 0 }, { x: 100, y: 100 } ]} 
             stroke="#4b5563" 
