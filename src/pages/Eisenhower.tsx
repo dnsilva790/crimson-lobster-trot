@@ -143,7 +143,8 @@ const Eisenhower = () => {
     }
     // Recategoriza as tarefas sempre que os thresholds mudam
     if (tasksToProcess.length > 0) {
-      handleCategorizeTasks(manualThresholds);
+      // Chamamos a categorização aqui, mas ela usará o threshold dinâmico
+      handleCategorizeTasks();
     }
   }, [manualThresholds]);
 
@@ -269,7 +270,7 @@ const Eisenhower = () => {
     });
   }, []);
 
-  // Helper function to calculate dynamic domain and threshold, similar to ScatterPlotMatrix
+  // Helper function to calculate dynamic domain and threshold (reintroduzida)
   const getDynamicDomainAndThreshold = useCallback((values: number[]): { domain: [number, number], threshold: number } => {
     if (values.length === 0) {
       return { domain: [0, 100], threshold: 50 };
@@ -297,7 +298,8 @@ const Eisenhower = () => {
     return { domain, threshold };
   }, []);
 
-  const handleCategorizeTasks = useCallback((manualThresholds: ManualThresholds | null = null) => {
+  // Categorização usando o threshold dinâmico (ponto médio do domínio dos dados)
+  const handleCategorizeTasks = useCallback(() => {
     const ratedTasks = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null);
     
     if (ratedTasks.length === 0) {
@@ -305,28 +307,20 @@ const Eisenhower = () => {
       return;
     }
 
-    let urgencyThreshold: number;
-    let importanceThreshold: number;
+    // Calcula o threshold dinâmico (ponto médio do domínio dos dados)
+    const urgencyValues = ratedTasks.map(t => t.urgency!).filter(v => v !== null) as number[];
+    const importanceValues = ratedTasks.map(t => t.importance!).filter(v => v !== null) as number[];
 
-    if (manualThresholds) {
-      urgencyThreshold = manualThresholds.urgency;
-      importanceThreshold = manualThresholds.importance;
-    } else {
-      // Calculate dynamic thresholds based on the *rated tasks* data
-      const urgencyValues = ratedTasks.map(t => t.urgency!).filter(v => v !== null) as number[];
-      const importanceValues = ratedTasks.map(t => t.importance!).filter(v => v !== null) as number[];
-
-      const { threshold: dynamicUrgencyThreshold } = getDynamicDomainAndThreshold(urgencyValues);
-      const { threshold: dynamicImportanceThreshold } = getDynamicDomainAndThreshold(importanceValues);
-      
-      urgencyThreshold = dynamicUrgencyThreshold;
-      importanceThreshold = dynamicImportanceThreshold;
-    }
+    const { threshold: dynamicUrgencyThreshold } = getDynamicDomainAndThreshold(urgencyValues);
+    const { threshold: dynamicImportanceThreshold } = getDynamicDomainAndThreshold(importanceValues);
+    
+    const urgencyThreshold = dynamicUrgencyThreshold;
+    const importanceThreshold = dynamicImportanceThreshold;
 
     setTasksToProcess(prevTasks => {
       return prevTasks.map(task => {
         if (task.urgency !== null && task.importance !== null) {
-          // Categorização baseada nos thresholds
+          // Categorização baseada nos thresholds dinâmicos
           const isUrgent = task.urgency >= urgencyThreshold;
           const isImportant = task.importance >= importanceThreshold;
 
@@ -346,7 +340,6 @@ const Eisenhower = () => {
         return task;
       });
     });
-    // toast.success("Tarefas categorizadas na Matriz de Eisenhower!"); // Removido para evitar spam de toast
   }, [tasksToProcess, getDynamicDomainAndThreshold]);
 
   const handleReset = useCallback(() => {
@@ -359,9 +352,9 @@ const Eisenhower = () => {
   }, []);
 
   const handleFinishRating = useCallback(() => {
-    handleCategorizeTasks(manualThresholds); // Categoriza todas as tarefas (incluindo as já avaliadas)
+    handleCategorizeTasks(); // Categoriza todas as tarefas (usando thresholds dinâmicos)
     setCurrentView("matrix"); // Muda para a visualização da matriz
-  }, [handleCategorizeTasks, manualThresholds]);
+  }, [handleCategorizeTasks]);
 
   const ratedTasksCount = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null).length;
   const canViewMatrixOrResults = tasksToProcess.length > 0; // Habilitar se houver tarefas carregadas
@@ -484,7 +477,7 @@ const Eisenhower = () => {
       
       const sortedTasks = sortEisenhowerTasks(updatedEisenhowerTasks);
       setTasksToProcess(sortedTasks);
-      handleCategorizeTasks(manualThresholds); // Recategoriza as tarefas após a atualização
+      handleCategorizeTasks(); // Recategoriza as tarefas após a atualização (usando thresholds dinâmicos)
       toast.success("Matriz atualizada com as últimas tarefas do Todoist!");
     } catch (error) {
       console.error("Failed to refresh Eisenhower Matrix:", error);
@@ -492,7 +485,7 @@ const Eisenhower = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filterInput, statusFilter, categoryFilter, fetchTasks, tasksToProcess, sortEisenhowerTasks, handleCategorizeTasks, manualThresholds]);
+  }, [filterInput, statusFilter, categoryFilter, fetchTasks, tasksToProcess, sortEisenhowerTasks, handleCategorizeTasks]);
 
   const handleStartReview = useCallback(() => {
     setCurrentView("rating");
@@ -522,6 +515,14 @@ const Eisenhower = () => {
       );
     }
 
+    // Recalcula o threshold dinâmico para exibição no rótulo do slider
+    const ratedTasks = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null);
+    const urgencyValues = ratedTasks.map(t => t.urgency!).filter(v => v !== null) as number[];
+    const importanceValues = ratedTasks.map(t => t.importance!).filter(v => v !== null) as number[];
+    const { threshold: dynamicUrgencyThreshold } = getDynamicDomainAndThreshold(urgencyValues);
+    const { threshold: dynamicImportanceThreshold } = getDynamicDomainAndThreshold(importanceValues);
+
+
     switch (currentView) {
       case "setup":
         return <SetupScreen 
@@ -541,7 +542,7 @@ const Eisenhower = () => {
             onFinishRating={handleFinishRating} // Usa a nova função handleFinishRating
             onBack={() => setCurrentView("setup")}
             onViewMatrix={() => {
-              handleCategorizeTasks(manualThresholds); // Categoriza todas as tarefas antes de visualizar a matriz
+              handleCategorizeTasks(); // Categoriza todas as tarefas antes de visualizar a matriz
               setCurrentView("matrix");
             }}
             canViewMatrix={canViewMatrixOrResults} // Passa a prop canViewMatrixOrResults
@@ -554,9 +555,9 @@ const Eisenhower = () => {
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-center">
               <ThresholdSlider
-                value={manualThresholds.urgency}
+                value={dynamicUrgencyThreshold} // Exibe o threshold dinâmico
                 onValueChange={(v) => handleUpdateThreshold('urgency', v)}
-                label="Threshold Urgência"
+                label={`Threshold Urgência (Dinâmico: ${dynamicUrgencyThreshold.toFixed(0)})`}
                 orientation="horizontal"
                 className="w-full max-w-[750px] mx-auto"
               />
@@ -564,9 +565,9 @@ const Eisenhower = () => {
             <div className="flex">
               <div className="flex-shrink-0 mr-4">
                 <ThresholdSlider
-                  value={manualThresholds.importance}
+                  value={dynamicImportanceThreshold} // Exibe o threshold dinâmico
                   onValueChange={(v) => handleUpdateThreshold('importance', v)}
-                  label="Threshold Importância"
+                  label={`Threshold Importância (Dinâmico: ${dynamicImportanceThreshold.toFixed(0)})`}
                   orientation="vertical"
                   className="h-[300px]"
                 />
@@ -579,7 +580,7 @@ const Eisenhower = () => {
                   displayFilter={displayFilter} // Passa o filtro de exibição
                   onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
                   onRefreshMatrix={handleRefreshMatrix} // Passa a nova função de atualização
-                  manualThresholds={manualThresholds} // Passa os thresholds manuais
+                  manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
                 />
               </div>
             </div>
@@ -603,7 +604,7 @@ const Eisenhower = () => {
             onReset={handleReset}
             displayFilter={displayFilter} // Passa o filtro de exibição
             onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
-            manualThresholds={manualThresholds} // Passa os thresholds manuais
+            manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
           />
         );
       default:
@@ -647,7 +648,7 @@ const Eisenhower = () => {
         </Button>
         <Button
           variant={currentView === "matrix" ? "default" : "outline"}
-          onClick={() => { handleCategorizeTasks(manualThresholds); setCurrentView("matrix"); }} // Categoriza e vai para a matriz
+          onClick={() => { handleCategorizeTasks(); setCurrentView("matrix"); }} // Categoriza e vai para a matriz
           disabled={isLoading || isLoadingTodoist || !canViewMatrixOrResults}
           className="flex items-center gap-2"
         >
