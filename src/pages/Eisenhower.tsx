@@ -232,6 +232,44 @@ const Eisenhower = () => {
     });
   }, []);
 
+  // Função auxiliar para construir o filtro final
+  const buildFinalFilter = useCallback((
+    input: string,
+    status: "all" | "overdue",
+    category: "all" | "pessoal" | "profissional",
+    priority: PriorityFilter,
+    deadline: DeadlineFilter
+  ): string => {
+    const filterParts: string[] = [];
+
+    if (input.trim()) {
+      filterParts.push(`(${input.trim()})`);
+    }
+    
+    if (status === "overdue") {
+      filterParts.push("due before: in 0 min");
+    }
+
+    if (category === "pessoal") {
+      filterParts.push("@pessoal");
+    } else if (category === "profissional") {
+      filterParts.push("@profissional");
+    }
+
+    if (priority !== "all") {
+      filterParts.push(priority);
+    }
+
+    if (deadline === "has_deadline") {
+      filterParts.push("deadline: *");
+    } else if (deadline === "no_deadline") {
+      filterParts.push("no deadline");
+    }
+
+    const finalFilter = filterParts.join(" & ");
+    return finalFilter || undefined as unknown as string; // Retorna undefined se o filtro estiver vazio
+  }, []);
+
   const handleLoadTasks = useCallback(async (filter: string) => {
     setIsLoading(true);
     try {
@@ -368,9 +406,11 @@ const Eisenhower = () => {
   }, []);
 
   const handleRefreshMatrix = useCallback(async () => {
-    handleCategorizeTasks();
-    toast.success("Matriz atualizada com os ratings mais recentes.");
-  }, [handleCategorizeTasks]);
+    const currentFilter = buildFinalFilter(filterInput, statusFilter, categoryFilter, priorityFilter, deadlineFilter);
+    await handleLoadTasks(currentFilter); // Recarrega as tarefas do Todoist
+    handleCategorizeTasks(); // Recategoriza as tarefas recém-carregadas
+    toast.success("Matriz atualizada com os dados mais recentes do Todoist.");
+  }, [handleCategorizeTasks, handleLoadTasks, filterInput, statusFilter, categoryFilter, priorityFilter, deadlineFilter, buildFinalFilter]);
 
   const ratedTasksCount = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null).length;
   const canViewMatrixOrResults = tasksToProcess.length > 0; // Habilitar se houver tarefas carregadas
