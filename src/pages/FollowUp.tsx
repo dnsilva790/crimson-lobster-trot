@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -33,15 +33,87 @@ const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
   1: "P4",
 };
 
+// Componente de Overlay da Linha de Prioridade
+interface PriorityLineOverlayProps {
+  taskRef: React.RefObject<HTMLDivElement>;
+  isHovering: boolean;
+}
+
+const PriorityLineOverlay: React.FC<PriorityLineOverlayProps> = ({ taskRef, isHovering }) => {
+  const [overlayStyle, setOverlayStyle] = useState<React.CSSProperties>({});
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isHovering || !taskRef.current || !containerRef.current) {
+      setOverlayStyle({});
+      return;
+    }
+
+    const taskElement = taskRef.current;
+    const containerElement = containerRef.current;
+    
+    // Calcula a posição da tarefa em relação ao topo do container de rolagem
+    const taskRect = taskElement.getBoundingClientRect();
+    const containerRect = containerElement.getBoundingClientRect();
+    
+    // A altura da área que queremos cobrir é do topo do container até o topo da tarefa
+    const height = taskRect.top - containerRect.top;
+    
+    // A posição vertical (top) é o topo do container
+    const top = 0;
+    
+    // A largura é a largura do container
+    const width = containerRect.width;
+
+    setOverlayStyle({
+      top: `${top}px`,
+      left: `${containerRect.left}px`,
+      width: `${width}px`,
+      height: `${height}px`,
+      position: 'fixed', // Usar fixed para sobrepor corretamente
+      pointerEvents: 'none',
+      overflow: 'hidden',
+      zIndex: 50,
+    });
+  }, [isHovering, taskRef]);
+
+  if (!isHovering || !taskRef.current) return null;
+
+  // Calcula a diagonal: 
+  // A linha deve ir do canto superior esquerdo (0, 0) ao canto inferior direito (width, height)
+  // A linha é um div rotacionado. Para cobrir a área, usamos um gradiente linear.
+  
+  return (
+    <div 
+      ref={containerRef}
+      style={overlayStyle}
+      className="absolute"
+    >
+      <div 
+        className="absolute inset-0"
+        style={{
+          // Gradiente linear de 135 graus (diagonal decrescente da esquerda para a direita)
+          // Começa transparente e termina com uma cor sutil para simular a linha
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0) 49.5%, rgba(129, 140, 248, 0.5) 50%, rgba(255, 255, 255, 0) 50.5%)',
+          backgroundSize: '100% 100%',
+          pointerEvents: 'none',
+        }}
+      />
+      <div className="absolute inset-0 bg-indigo-50 opacity-20"></div>
+    </div>
+  );
+};
+
+
 const FollowUp = () => {
   const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
   const [delegatedTasks, setDelegatedTasks] = useState<TodoistTask[]>([]);
   const [tasksByDelegate, setTasksByDelegate] = useState<Record<string, TodoistTask[]>>({});
   const [allDelegates, setAllDelegates] = useState<string[]>([]);
-  const [allSolicitantes, setAllSolicitantes] = useState<string[]>([]); // Novo estado para solicitantes
+  const [allSolicitantes, setAllSolicitantes] = useState<string[]>([]);
   
   const [selectedDelegateFilter, setSelectedDelegateFilter] = useState<string>("all");
-  const [selectedSolicitanteFilter, setSelectedSolicitanteFilter] = useState<string>("all"); // Novo filtro
+  const [selectedSolicitanteFilter, setSelectedSolicitanteFilter] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "overdue" | "today" | "tomorrow">("all");
   const [isFetchingDelegatedTasks, setIsFetchingDelegatedTasks] = useState(false);
   const [selectedTaskForAI, setSelectedTaskForAI] = useState<TodoistTask | null>(null);
@@ -56,6 +128,12 @@ const FollowUp = () => {
   const [isEditPopoverOpen, setIsEditPopoverOpen] = useState(false);
   const [editedSolicitante, setEditedSolicitante] = useState("");
   const [editedDelegateLabel, setEditedDelegateLabel] = useState("");
+
+  // Estados para a linha de prioridade
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
+  const taskRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
 
   const fetchDelegatedTasks = useCallback(async () => {
     setIsFetchingDelegatedTasks(true);
@@ -462,16 +540,34 @@ const FollowUp = () => {
   const renderTaskItem = (task: TodoistTask) => {
     const delegateName = getDelegateNameFromLabels(task.labels);
     const solicitante = getSolicitante(task);
+    const taskRef = useRef<HTMLDivElement>(null);
+    const isHovering = hoveredTaskId === task.id;
 
     return (
       <div 
         key={task.id} 
+        ref={(el) => {
+          taskRefs.current[task.id] = el;
+          if (el) {
+            // Adiciona listeners de mouse para o efeito de linha
+            el.onmouseenter = () => setHoveredTaskId(task.id);
+            el.onmouseleave = () => setHoveredTaskId(null);
+          }
+        }}
         className={cn(
-          "p-4 border-b border-gray-200 last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors",
+          "p-4 border-b border-gray-200 last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors relative",
           selectedTaskForAI?.id === task.id && "bg-indigo-50 border-indigo-400 ring-1 ring-blue-400"
         )}
         onClick={() => handleSelectTaskForAI(task)}
       >
+        {/* Priority Line Overlay (Rendered outside the task item for fixed positioning) */}
+        {isHovering && (
+          <PriorityLineOverlay 
+            taskRef={taskRef as React.RefObject<HTMLDivElement>} 
+            isHovering={isHovering} 
+          />
+        )}
+
         {editingTaskId === task.id ? (
           <div className="grid gap-2 p-2 bg-white rounded-md shadow-inner">
             <h4 className="text-lg font-semibold text-gray-800">
@@ -811,7 +907,7 @@ const FollowUp = () => {
                 <LoadingSpinner size={40} />
               </div>
             ) : Object.keys(groupedFilteredTasks).length > 0 ? (
-              <div className="divide-y divide-gray-200">
+              <div ref={scrollContainerRef} className="divide-y divide-gray-200 overflow-y-auto max-h-[calc(100vh-450px)]">
                 {Object.entries(groupedFilteredTasks).map(([delegateName, tasks]) => (
                   <div key={delegateName} className="mb-4">
                     <h3 className="text-xl font-bold bg-gray-100 p-4 sticky top-0 z-10 border-b border-gray-200">
