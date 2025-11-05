@@ -579,6 +579,7 @@ const Eisenhower = () => {
                   displayFilter={displayFilter} // Passa o filtro de exibição
                   onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
                   onRefreshMatrix={handleRefreshMatrix} // Passa a nova função de atualização
+                  manualThresholds={manualThresholds} // Passa os thresholds manuais
                 />
               </div>
             </div>
@@ -602,6 +603,7 @@ const Eisenhower = () => {
             onReset={handleReset}
             displayFilter={displayFilter} // Passa o filtro de exibição
             onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
+            manualThresholds={manualThresholds} // Passa os thresholds manuais
           />
         );
       default:

@@ -4,7 +4,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, LayoutDashboard, RotateCcw } from "lucide-react";
-import { EisenhowerTask, Quadrant } from "@/lib/types";
+import { EisenhowerTask, Quadrant, ManualThresholds } from "@/lib/types";
 import ScatterPlotMatrix from "./ScatterPlotMatrix"; // Importar o ScatterPlotMatrix
 
 interface DashboardScreenProps {
@@ -13,9 +13,10 @@ interface DashboardScreenProps {
   onReset: () => void;
   displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // Adicionado
   onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void; // Adicionado
+  manualThresholds: ManualThresholds; // Novo prop
 }
 
-const DashboardScreen: React.FC<DashboardScreenProps> = ({ tasks, onBack, onReset, displayFilter, onDisplayFilterChange }) => {
+const DashboardScreen: React.FC<DashboardScreenProps> = ({ tasks, onBack, onReset, displayFilter, onDisplayFilterChange, manualThresholds }) => {
   const quadrantCounts = tasks.reduce((acc, task) => {
     if (task.quadrant) {
       acc[task.quadrant] = (acc[task.quadrant] || 0) + 1;
@@ -109,7 +110,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ tasks, onBack, onRese
                   </p>
                 </div>
               ) : (
-                <ScatterPlotMatrix data={dataForScatterPlot} />
+                <ScatterPlotMatrix data={dataForScatterPlot} manualThresholds={manualThresholds} />
               )}
             </CardContent>
           </Card>
