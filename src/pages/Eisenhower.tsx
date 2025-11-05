@@ -345,6 +345,15 @@ const Eisenhower = () => {
     setCurrentView("matrix"); // Muda para a visualização da matriz
   }, [handleCategorizeTasks]);
 
+  const handleStartReview = useCallback(() => {
+    setCurrentView("rating");
+  }, []);
+
+  const handleRefreshMatrix = useCallback(async () => {
+    handleCategorizeTasks();
+    toast.success("Matriz atualizada com os ratings mais recentes.");
+  }, [handleCategorizeTasks]);
+
   const ratedTasksCount = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null).length;
   const canViewMatrixOrResults = tasksToProcess.length > 0; // Habilitar se houver tarefas carregadas
 
@@ -426,6 +435,17 @@ const Eisenhower = () => {
 
   const filteredTasksForDisplay = getFilteredTasksForDisplay(tasksToProcess, displayFilter, categoryDisplayFilter);
 
+  // Tarefas para a tela de avaliação (RatingScreen)
+  const tasksForRatingScreen = useMemo(() => {
+    let tasks = tasksToProcess;
+    if (ratingFilter === "unrated") {
+      tasks = tasks.filter(t => t.urgency === null || t.importance === null);
+    }
+    // Aplica a ordenação padrão para a tela de rating
+    return sortEisenhowerTasks(tasks);
+  }, [tasksToProcess, ratingFilter, sortEisenhowerTasks]);
+
+
   const renderContent = () => {
     if (isLoading || isLoadingTodoist) {
       return (
@@ -504,7 +524,7 @@ const Eisenhower = () => {
         return (
           <DashboardScreen
             tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
-            onBack={() => setCurrentView("results")}
+            onBack={handleStartReview}
             onReset={handleReset}
             displayFilter={displayFilter} // Passa o filtro de exibição
             onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
