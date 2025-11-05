@@ -66,8 +66,8 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Forçar o domínio para [0, 100] para manter a consistência da matriz Eisenhower
-  const safeUrgencyDomain: [number, number] = [0, 100];
-  const safeImportanceDomain: [number, number] = [0, 100];
+  // Usando uma função para garantir que o Recharts não tente inferir o domínio
+  const fixedDomain: [number, number] = [0, 100];
 
   // Usar thresholds manuais se fornecidos, caso contrário, usar 50 como padrão
   const finalUrgencyThreshold = manualThresholds?.urgency ?? 50;
@@ -120,28 +120,28 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
         >
           <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
           
-          {/* Linhas de Threshold Ortogonais (Usando thresholds finais) */}
+          {/* Linhas de Threshold Ortogonais (Móveis) */}
           <ReferenceLine x={finalUrgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
           <ReferenceLine y={finalImportanceThreshold} stroke="#4b5563" strokeDasharray="5 5" />
 
-          {/* Áreas de Quadrante (Usando thresholds finais) */}
+          {/* Áreas de Quadrante (Ajustam-se aos thresholds móveis) */}
           <ReferenceArea 
-            x1={finalUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={finalImportanceThreshold} y2={safeImportanceDomain[1]} 
+            x1={finalUrgencyThreshold} x2={fixedDomain[1]} y1={finalImportanceThreshold} y2={fixedDomain[1]} 
             fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
             label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
           />
           <ReferenceArea 
-            x1={safeUrgencyDomain[0]} x2={finalUrgencyThreshold} y1={finalImportanceThreshold} y2={safeImportanceDomain[1]} 
+            x1={fixedDomain[0]} x2={finalUrgencyThreshold} y1={finalImportanceThreshold} y2={fixedDomain[1]} 
             fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} 
             label={{ value: "Q2: Decidir", position: 'top', fill: quadrantColors.decide, fontSize: 14, fontWeight: 'bold', dx: -40, dy: 10 }}
           />
           <ReferenceArea 
-            x1={safeUrgencyDomain[0]} x2={finalUrgencyThreshold} y1={safeImportanceDomain[0]} y2={finalImportanceThreshold} 
+            x1={fixedDomain[0]} x2={finalUrgencyThreshold} y1={fixedDomain[0]} y2={finalImportanceThreshold} 
             fill={quadrantBackgroundColors.delete} stroke={quadrantColors.delete} strokeOpacity={0.5} 
             label={{ value: "Q4: Eliminar", position: 'bottom', fill: quadrantColors.delete, fontSize: 14, fontWeight: 'bold', dx: -40, dy: -10 }}
           />
           <ReferenceArea 
-            x1={finalUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceDomain[0]} y2={finalImportanceThreshold} 
+            x1={finalUrgencyThreshold} x2={fixedDomain[1]} y1={fixedDomain[0]} y2={finalImportanceThreshold} 
             fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
             label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
           />
@@ -151,7 +151,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="urgency"
             name="Urgência"
             unit=""
-            domain={safeUrgencyDomain}
+            domain={fixedDomain} // Domínio Fixo
             label={{ value: `Urgência (Threshold: ${finalUrgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
@@ -160,14 +160,14 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="importance"
             name="Importância"
             unit=""
-            domain={safeImportanceDomain}
+            domain={fixedDomain} // Domínio Fixo
             label={{ value: `Importância (Threshold: ${finalImportanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
           <ZAxis dataKey="content" name="Tarefa" />
           <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-          {/* Linhas Diagonais (Agora visíveis porque o domínio é [0, 100]) */}
+          {/* Linhas Diagonais (Fixas de 0 a 100) */}
           <ReferenceLine 
             segment={[ { x: 0, y: 0 }, { x: 100, y: 100 } ]} 
             stroke="#4b5563" 
