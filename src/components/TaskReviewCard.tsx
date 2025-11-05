@@ -7,7 +7,7 @@ import { TodoistTask } from "@/lib/types";
 import { cn, getDelegateNameFromLabels, getSolicitante, updateDescriptionWithSection } from "@/lib/utils"; // Importar updateDescriptionWithSection
 import { format, setHours, setMinutes, parseISO, isValid, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw, Tag, MessageSquare, User, Users, Save } from "lucide-react";
+import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw, Tag, MessageSquare, User, Users, Save, XCircle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
@@ -31,7 +31,7 @@ interface TaskReviewCardProps {
   onUpdateFieldDeadline: (taskId: string, deadlineDate: string | null) => Promise<void>;
   onReschedule: (taskId: string) => Promise<void>;
   onUpdateDuration: (taskId: string, duration: number | null) => Promise<void>;
-  onUpdateTaskDescription: (taskId: string, newDescription: string) => Promise<void>; // Nova prop
+  onUpdateTaskDescription: (taskId: string, newDescription: string, newLabels?: string[]) => Promise<TodoistTask | undefined>; // Nova prop
   onToggleFoco: (taskId: string, currentLabels: string[]) => Promise<void>;
   onToggleRapida: (taskId: string, currentLabels: string[]) => Promise<void>;
   onToggleCronograma: (taskId: string, currentLabels: string[]) => Promise<void>;
@@ -235,10 +235,8 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
     let newDescription = task.description || "";
     newDescription = updateDescriptionWithSection(newDescription, '[DELEGADO PARA]:', newDelegateName);
 
-    const updated = await onUpdateTaskDescription(task.id, newDescription);
+    const updated = await onUpdateTaskDescription(task.id, newDescription, updatedLabels);
     if (updated) {
-      // Atualiza as etiquetas
-      await onUpdateTaskDescription(task.id, updated.description, updatedLabels);
       toast.success(`Tarefa delegada para ${newDelegateName}!`);
       setIsDelegatingPopoverOpen(false);
     } else {
@@ -562,7 +560,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
                 Salvar Prazo
               </Button>
               <Button onClick={handleClearDeadline} variant="outline" className="w-full" disabled={isLoading}>
-                Limpar Prazo
+                <XCircle className="mr-2 h-4 w-4" /> Limpar Prazo
               </Button>
             </div>
           </PopoverContent>
@@ -601,7 +599,7 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
                 Salvar Deadline
               </Button>
               <Button onClick={handleClearFieldDeadline} variant="outline" className="w-full" disabled={isLoading}>
-                Limpar Deadline
+                <XCircle className="h-4 w-4 mr-2" /> Limpar Deadline
               </Button>
             </div>
           </PopoverContent>
