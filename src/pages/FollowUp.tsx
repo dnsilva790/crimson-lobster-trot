@@ -12,9 +12,9 @@ import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo, Save, User } from "lucide-react";
+import { Check, Trash2, ExternalLink, Users, MessageSquare, CalendarIcon, Edit, Clock, XCircle, ListTodo, Save, User, RotateCcw } from "lucide-react";
 import { cn, getDelegateNameFromLabels, getSolicitante, updateDescriptionWithSection } from "@/lib/utils";
-import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes, isValid } from "date-fns";
+import { format, isPast, parseISO, isToday, isTomorrow, setHours, setMinutes, isValid, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import FollowUpAIAssistant from "@/components/FollowUpAIAssistant";
 import { Textarea } from "@/components/ui/textarea"; // Importar Textarea
@@ -38,7 +38,10 @@ const FollowUp = () => {
   const [delegatedTasks, setDelegatedTasks] = useState<TodoistTask[]>([]);
   const [tasksByDelegate, setTasksByDelegate] = useState<Record<string, TodoistTask[]>>({});
   const [allDelegates, setAllDelegates] = useState<string[]>([]);
+  const [allSolicitantes, setAllSolicitantes] = useState<string[]>([]); // Novo estado para solicitantes
+  
   const [selectedDelegateFilter, setSelectedDelegateFilter] = useState<string>("all");
+  const [selectedSolicitanteFilter, setSelectedSolicitanteFilter] = useState<string>("all"); // Novo filtro
   const [filterStatus, setFilterStatus] = useState<"all" | "overdue" | "today" | "tomorrow">("all");
   const [isFetchingDelegatedTasks, setIsFetchingDelegatedTasks] = useState(false);
   const [selectedTaskForAI, setSelectedTaskForAI] = useState<TodoistTask | null>(null);
@@ -49,21 +52,25 @@ const FollowUp = () => {
   const [editedDueTime, setEditedDueTime] = useState<string>("");
   const [editedPriority, setEditedPriority] = useState<1 | 2 | 3 | 4>(1);
   const [editedDeadline, setEditedDeadline] = useState<Date | undefined>(undefined);
-  const [observationInput, setObservationInput] = useState(""); // Novo estado para observação
-  const [isEditPopoverOpen, setIsEditPopoverOpen] = useState(false); // Estado para controlar o popover de edição
-  const [editedSolicitante, setEditedSolicitante] = useState(""); // Novo estado para Solicitante
-  const [editedDelegateLabel, setEditedDelegateLabel] = useState(""); // Novo estado para a etiqueta de delegação
+  const [observationInput, setObservationInput] = useState("");
+  const [isEditPopoverOpen, setIsEditPopoverOpen] = useState(false);
+  const [editedSolicitante, setEditedSolicitante] = useState("");
+  const [editedDelegateLabel, setEditedDelegateLabel] = useState("");
 
   const fetchDelegatedTasks = useCallback(async () => {
     setIsFetchingDelegatedTasks(true);
     try {
+      // Busca todas as tarefas que estão em espera de alguém
       const tasks = await fetchTasks("label:espera_de_*", { includeSubtasks: false, includeRecurring: false });
       
       const grouped: Record<string, TodoistTask[]> = {};
       const delegates: Set<string> = new Set();
+      const solicitantes: Set<string> = new Set();
 
       tasks.forEach(task => {
         const delegateName = getDelegateNameFromLabels(task.labels);
+        const solicitanteName = getSolicitante(task);
+
         if (delegateName) {
           delegates.add(delegateName);
           if (!grouped[delegateName]) {
@@ -71,8 +78,12 @@ const FollowUp = () => {
           }
           grouped[delegateName].push(task);
         }
+        if (solicitanteName) {
+          solicitantes.add(solicitanteName);
+        }
       });
 
+      // Sorting logic for display groups
       Object.keys(grouped).forEach(delegate => {
         grouped[delegate].sort((a, b) => {
           // 1. Starred tasks first
@@ -128,6 +139,7 @@ const FollowUp = () => {
       setDelegatedTasks(tasks);
       setTasksByDelegate(grouped);
       setAllDelegates(Array.from(delegates).sort());
+      setAllSolicitantes(Array.from(solicitantes).sort());
       toast.success(`Carregadas ${tasks.length} tarefas delegadas.`);
     } catch (error) {
       console.error("Failed to fetch delegated tasks:", error);
@@ -174,15 +186,23 @@ const FollowUp = () => {
   const filteredTasksToDisplay = useMemo(() => {
     let tasks = delegatedTasks;
 
+    // 1. Filtrar por Delegado
     if (selectedDelegateFilter !== "all") {
       tasks = tasks.filter(task => getDelegateNameFromLabels(task.labels) === selectedDelegateFilter);
     }
 
+    // 2. Filtrar por Solicitante
+    if (selectedSolicitanteFilter !== "all") {
+      tasks = tasks.filter(task => getSolicitante(task) === selectedSolicitanteFilter);
+    }
+
     const now = new Date();
+    const startOfToday = startOfDay(now);
+
+    // 3. Filtrar por Status
     return tasks.filter(task => {
       if (filterStatus === "all") return true;
 
-      // Check due date/datetime
       let dueDate: Date | null = null;
       if (typeof task.due?.datetime === 'string' && task.due.datetime) {
         dueDate = parseISO(task.due.datetime);
@@ -190,21 +210,19 @@ const FollowUp = () => {
         dueDate = parseISO(task.due.date);
       }
 
-      // Check deadline
       let deadlineDate: Date | null = null;
       if (typeof task.deadline === 'string' && task.deadline) {
         deadlineDate = parseISO(task.deadline);
       }
 
-      // If neither due date nor deadline exists, filter out if not 'all' status
       if (!dueDate && !deadlineDate) return false;
 
-      // Prioritize deadline for status checks if both exist
       const effectiveDate = deadlineDate || dueDate;
       if (!effectiveDate || !isValid(effectiveDate)) return false;
 
       if (filterStatus === "overdue") {
-        return isPast(effectiveDate) && !isToday(effectiveDate);
+        // Atrasadas: Data efetiva é anterior ao início do dia de hoje.
+        return isBefore(effectiveDate, startOfToday);
       }
       if (filterStatus === "today") {
         return isToday(effectiveDate);
@@ -228,7 +246,7 @@ const FollowUp = () => {
 
         const effectiveDate = deadlineDate || dueDate;
         if (!effectiveDate || !isValid(effectiveDate)) return 4; // No date, lowest rank
-        if (isPast(effectiveDate) && !isToday(effectiveDate)) return 0; // Overdue, highest rank
+        if (isBefore(effectiveDate, startOfToday)) return 0; // Overdue, highest rank
         if (isToday(effectiveDate)) return 1;
         if (isTomorrow(effectiveDate)) return 2;
         return 3; // Future date
@@ -250,7 +268,7 @@ const FollowUp = () => {
           const parsedDate = parseISO(dateString);
           return isValid(parsedDate) ? parsedDate.getTime() : Infinity;
         }
-        return Infinity; // Tasks without a date go last
+        return Infinity;
       };
 
       // 2. Deadline: earliest first
@@ -286,7 +304,7 @@ const FollowUp = () => {
       }
       return 0;
     });
-  }, [delegatedTasks, selectedDelegateFilter, filterStatus]);
+  }, [delegatedTasks, selectedDelegateFilter, selectedSolicitanteFilter, filterStatus]);
 
   const groupedFilteredTasks = useMemo(() => {
     const grouped: Record<string, TodoistTask[]> = {};
@@ -310,13 +328,13 @@ const FollowUp = () => {
     setEditedDueTime((typeof task.due?.datetime === 'string' && task.due.datetime) ? format(parseISO(task.due.datetime), "HH:mm") : "");
     setEditedPriority(task.priority);
     setEditedDeadline((typeof task.deadline === 'string' && task.deadline) ? parseISO(task.deadline) : undefined);
-    setObservationInput(""); // Limpar o campo de observação ao abrir o popover
-    setEditedSolicitante(getSolicitante(task) || ""); // Carregar Solicitante
+    setObservationInput("");
+    setEditedSolicitante(getSolicitante(task) || "");
     
     const currentDelegateLabel = task.labels.find(label => label.startsWith("espera_de_"));
-    setEditedDelegateLabel(currentDelegateLabel ? currentDelegateLabel.replace("espera_de_", "") : ""); // Carregar nome do delegado
+    setEditedDelegateLabel(currentDelegateLabel ? currentDelegateLabel.replace("espera_de_", "") : "");
     
-    setIsEditPopoverOpen(true); // Abrir o popover
+    setIsEditPopoverOpen(true);
   }, []);
 
   const handleCancelEditing = useCallback(() => {
@@ -325,10 +343,10 @@ const FollowUp = () => {
     setEditedDueTime("");
     setEditedPriority(1);
     setEditedDeadline(undefined);
-    setObservationInput(""); // Limpar o campo de observação
-    setEditedSolicitante(""); // Limpar Solicitante
-    setEditedDelegateLabel(""); // Limpar Delegate Label
-    setIsEditPopoverOpen(false); // Fechar o popover
+    setObservationInput("");
+    setEditedSolicitante("");
+    setEditedDelegateLabel("");
+    setIsEditPopoverOpen(false);
   }, []);
 
   const handleSaveEdit = useCallback(async () => {
@@ -525,7 +543,7 @@ const FollowUp = () => {
               />
             </div>
             <div>
-              <Label htmlFor={`edit-deadline-${task.id}`} className="text-sm">Deadline (Opcional)</Label> {/* Adicionado */}
+              <Label htmlFor={`edit-deadline-${task.id}`} className="text-sm">Deadline (Opcional)</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -595,7 +613,7 @@ const FollowUp = () => {
               <h4 className="text-lg font-semibold text-gray-800">
                 {task.content}
               </h4>
-              {task.description && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{task.description}</p>}
+              {task.description && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap line-clamp-3">{task.description}</p>}
               <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mt-2">
                 {solicitante && (
                   <span className="flex items-center gap-1 text-blue-600">
@@ -617,7 +635,7 @@ const FollowUp = () => {
                     <CalendarIcon className="h-3 w-3" /> {format(parseISO(task.due.date), "dd/MM/yyyy", { locale: ptBR })}
                   </span>
                 )}
-                {(typeof task.deadline === 'string' && task.deadline) && isValid(parseISO(task.deadline)) && ( // Adicionado
+                {(typeof task.deadline === 'string' && task.deadline) && isValid(parseISO(task.deadline)) && (
                   <span className="flex items-center gap-1 text-red-600 font-semibold">
                     <CalendarIcon className="h-3 w-3" /> Deadline: {format(parseISO(task.deadline), "dd/MM/yyyy", { locale: ptBR })}
                   </span>
@@ -627,7 +645,7 @@ const FollowUp = () => {
                     <Clock className="h-3 w-3" /> Recorrência: {task.due.string}
                   </span>
                 )}
-                {!(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && !(typeof task.deadline === 'string' && task.deadline) && !task.due?.string && <span>Sem prazo</span>} {/* Adicionado */}
+                {!(typeof task.due?.date === 'string' && task.due.date) && !(typeof task.due?.datetime === 'string' && task.due.datetime) && !(typeof task.deadline === 'string' && task.deadline) && !task.due?.string && <span>Sem prazo</span>}
                 {task.duration?.amount && task.duration.unit === "minute" && (
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" /> {task.duration.amount} min
@@ -729,10 +747,10 @@ const FollowUp = () => {
           <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-indigo-600" /> Filtros e Pauta
           </CardTitle>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="delegate-filter">Filtrar por Responsável</Label>
-              <Select value={selectedDelegateFilter} onValueChange={setSelectedDelegateFilter} disabled={isLoading}>
+              <Select value={selectedDelegateFilter} onValueChange={setSelectedDelegateFilter} disabled={isLoadingCombined}>
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder="Todos os Responsáveis" />
                 </SelectTrigger>
@@ -745,8 +763,22 @@ const FollowUp = () => {
               </Select>
             </div>
             <div>
+              <Label htmlFor="solicitante-filter">Filtrar por Solicitante</Label>
+              <Select value={selectedSolicitanteFilter} onValueChange={setSelectedSolicitanteFilter} disabled={isLoadingCombined}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Todos os Solicitantes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Solicitantes</SelectItem>
+                  {allSolicitantes.map(solicitante => (
+                    <SelectItem key={solicitante} value={solicitante}>{solicitante}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label htmlFor="status-filter">Filtrar por Status</Label>
-              <Select value={filterStatus} onValueChange={(value: "all" | "overdue" | "today" | "tomorrow") => setFilterStatus(value)} disabled={isLoading}>
+              <Select value={filterStatus} onValueChange={(value: "all" | "overdue" | "today" | "tomorrow") => setFilterStatus(value)} disabled={isLoadingCombined}>
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder="Todos os Status" />
                 </SelectTrigger>
@@ -759,6 +791,9 @@ const FollowUp = () => {
               </Select>
             </div>
           </div>
+          <Button onClick={fetchDelegatedTasks} disabled={isLoadingCombined} className="w-full mt-4 flex items-center justify-center">
+            <RotateCcw className="h-4 w-4 mr-2" /> Recarregar Tarefas
+          </Button>
           <div className="mt-6 p-4 border rounded-md bg-gray-50">
             {renderAgenda()}
           </div>
