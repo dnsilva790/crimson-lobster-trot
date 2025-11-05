@@ -24,11 +24,15 @@ import AiAssistantModal from "@/components/eisenhower/AiAssistantModal";
 
 type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
 type RatingFilter = "all" | "unrated"; // Novo tipo de filtro para avaliação
+type PriorityFilter = "all" | "p1" | "p2" | "p3" | "p4"; // Novo tipo de filtro de prioridade
+type DeadlineFilter = "all" | "has_deadline" | "no_deadline"; // Novo tipo de filtro de deadline
 
 const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState";
 const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input"; // Corrected typo here
 const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
 const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
+const EISENHOWER_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_priority_filter"; // Novo
+const EISENHOWER_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_deadline_filter"; // Novo
 const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter"; // Nova chave para o filtro de exibição
 const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter"; // Nova chave para o filtro de avaliação
 const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_display_filter"; // Nova chave para o filtro de categoria de exibição
@@ -62,6 +66,18 @@ const Eisenhower = () => {
   const [categoryFilter, setCategoryFilter] = useState<"all" | "pessoal" | "profissional">(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY) as "all" | "pessoal" | "profissional") || "all";
+    }
+    return "all";
+  });
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>(() => { // Novo
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(EISENHOWER_PRIORITY_FILTER_STORAGE_KEY) as PriorityFilter) || "all";
+    }
+    return "all";
+  });
+  const [deadlineFilter, setDeadlineFilter] = useState<DeadlineFilter>(() => { // Novo
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(EISENHOWER_DEADLINE_FILTER_STORAGE_KEY) as DeadlineFilter) || "all";
     }
     return "all";
   });
@@ -124,6 +140,8 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY, filterInput);
       localStorage.setItem(EISENHOWER_STATUS_FILTER_STORAGE_KEY, statusFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY, categoryFilter);
+      localStorage.setItem(EISENHOWER_PRIORITY_FILTER_STORAGE_KEY, priorityFilter); // Novo
+      localStorage.setItem(EISENHOWER_DEADLINE_FILTER_STORAGE_KEY, deadlineFilter); // Novo
       localStorage.setItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY, displayFilter);
       localStorage.setItem(EISENHOWER_RATING_FILTER_STORAGE_KEY, ratingFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY, categoryDisplayFilter);
@@ -131,7 +149,7 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY, String(diagonalXPoint));
       localStorage.setItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY, String(diagonalYPoint));
     }
-  }, [filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
+  }, [filterInput, statusFilter, categoryFilter, priorityFilter, deadlineFilter, displayFilter, ratingFilter, categoryDisplayFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
 
   // Efeito para atualizar a lista de tarefas não avaliadas sempre que tasksToProcess mudar
   useEffect(() => {
@@ -470,9 +488,13 @@ const Eisenhower = () => {
           initialFilterInput={filterInput}
           initialStatusFilter={statusFilter}
           initialCategoryFilter={categoryFilter}
+          initialPriorityFilter={priorityFilter} // Novo
+          initialDeadlineFilter={deadlineFilter} // Novo
           onFilterInputChange={setFilterInput}
           onStatusFilterChange={setStatusFilter}
           onCategoryFilterChange={setCategoryFilter}
+          onPriorityFilterChange={setPriorityFilter} // Novo
+          onDeadlineFilterChange={setDeadlineFilter} // Novo
         />;
       case "rating":
         return (
@@ -541,9 +563,13 @@ const Eisenhower = () => {
           initialFilterInput={filterInput}
           initialStatusFilter={statusFilter}
           initialCategoryFilter={categoryFilter}
+          initialPriorityFilter={priorityFilter} // Novo
+          initialDeadlineFilter={deadlineFilter} // Novo
           onFilterInputChange={setFilterInput}
           onStatusFilterChange={setStatusFilter}
           onCategoryFilterChange={setCategoryFilter}
+          onPriorityFilterChange={setPriorityFilter} // Novo
+          onDeadlineFilterChange={setDeadlineFilter} // Novo
         />;
     }
   };

@@ -14,9 +14,13 @@ interface SetupScreenProps {
   initialFilterInput: string;
   initialStatusFilter: "all" | "overdue";
   initialCategoryFilter: "all" | "pessoal" | "profissional";
+  initialPriorityFilter: "all" | "p1" | "p2" | "p3" | "p4"; // Novo
+  initialDeadlineFilter: "all" | "has_deadline" | "no_deadline"; // Novo
   onFilterInputChange: (value: string) => void;
   onStatusFilterChange: (value: "all" | "overdue") => void;
   onCategoryFilterChange: (value: "all" | "pessoal" | "profissional") => void;
+  onPriorityFilterChange: (value: "all" | "p1" | "p2" | "p3" | "p4") => void; // Novo
+  onDeadlineFilterChange: (value: "all" | "has_deadline" | "no_deadline") => void; // Novo
 }
 
 const SetupScreen: React.FC<SetupScreenProps> = ({ 
@@ -24,9 +28,13 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   initialFilterInput,
   initialStatusFilter,
   initialCategoryFilter,
+  initialPriorityFilter, // Novo
+  initialDeadlineFilter, // Novo
   onFilterInputChange,
   onStatusFilterChange,
   onCategoryFilterChange,
+  onPriorityFilterChange, // Novo
+  onDeadlineFilterChange, // Novo
 }) => {
   const handleStart = () => {
     const filterParts: string[] = [];
@@ -43,6 +51,16 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
       filterParts.push("@pessoal");
     } else if (initialCategoryFilter === "profissional") {
       filterParts.push("@profissional");
+    }
+
+    if (initialPriorityFilter !== "all") {
+      filterParts.push(initialPriorityFilter);
+    }
+
+    if (initialDeadlineFilter === "has_deadline") {
+      filterParts.push("deadline: *");
+    } else if (initialDeadlineFilter === "no_deadline") {
+      filterParts.push("no deadline");
     }
 
     const finalFilter = filterParts.join(" & ");
@@ -112,6 +130,38 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                 <SelectItem value="all">Todas as Categorias</SelectItem>
                 <SelectItem value="pessoal">Pessoal</SelectItem>
                 <SelectItem value="profissional">Profissional</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="priority-filter" className="text-left text-gray-600 font-medium">
+              Filtrar por Prioridade
+            </Label>
+            <Select value={initialPriorityFilter} onValueChange={(value: "all" | "p1" | "p2" | "p3" | "p4") => onPriorityFilterChange(value)}>
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Todas as Prioridades" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Prioridades</SelectItem>
+                <SelectItem value="p4">P4 (Baixa)</SelectItem>
+                <SelectItem value="p3">P3 (Média)</SelectItem>
+                <SelectItem value="p2">P2 (Alta)</SelectItem>
+                <SelectItem value="p1">P1 (Urgente)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="deadline-filter" className="text-left text-gray-600 font-medium">
+              Filtrar por Deadline
+            </Label>
+            <Select value={initialDeadlineFilter} onValueChange={(value: "all" | "has_deadline" | "no_deadline") => onDeadlineFilterChange(value)}>
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Todos os Deadlines" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Deadlines</SelectItem>
+                <SelectItem value="has_deadline">Com Deadline Definido</SelectItem>
+                <SelectItem value="no_deadline">Sem Deadline Definido</SelectItem>
               </SelectContent>
             </Select>
           </div>

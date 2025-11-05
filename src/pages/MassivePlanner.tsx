@@ -6,17 +6,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Clock, ListTodo, Play, RotateCcw, PlusCircle, Trash2, Briefcase, Home, Bed } from "lucide-react";
+import { CalendarIcon, Clock, ListTodo, Play, RotateCcw, PlusCircle, Trash2, Briefcase, Home, Bed, Scale } from "lucide-react";
 import { format, parseISO, isValid, startOfDay, addMinutes, parse, setHours, setMinutes, getDay, addDays, isBefore, isEqual, isToday } from "date-fns"; // Adicionado isToday e isBefore
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { useTodoist } from "@/context/TodoistContext";
 import LoadingSpinner from "@/components/ui/loading-spinner";
-import { RecurringTimeBlock, TimeBlockType, DayOfWeek, TodoistTask } from "@/lib/types";
+import { RecurringTimeBlock, TimeBlockType, DayOfWeek, TodoistTask, Quadrant } from "@/lib/types";
 import { cn, getTaskCategory } from "@/lib/utils";
+import { useEisenhowerTasks } from "@/hooks/useEisenhowerTasks"; // Importar o novo hook
 
 const MASSIVE_PLANNER_BLOCKS_STORAGE_KEY = "massive_planner_recurring_blocks";
 const MASSIVE_PLANNER_FILTER_STORAGE_KEY = "massive_planner_filter_input";
+const MASSIVE_PLANNER_PRIORITIZE_EISENHOWER_KEY = "massive_planner_prioritize_eisenhower"; // Nova chave
 
 const DayOfWeekNames: Record<DayOfWeek, string> = {
   "0": "Domingo",
@@ -30,6 +32,7 @@ const DayOfWeekNames: Record<DayOfWeek, string> = {
 
 const MassivePlanner = () => {
   const { fetchTasks, updateTask, isLoading: isLoadingTodoist } = useTodoist();
+  const { eisenhowerTasks, isEisenhowerLoaded } = useEisenhowerTasks(); // Usar o novo hook
   const [recurringBlocks, setRecurringBlocks] = useState<RecurringTimeBlock[]>([]);
   const [newBlockStart, setNewBlockStart] = useState("09:00");
   const [newBlockEnd, setNewBlockEnd] = useState("17:00");
@@ -45,7 +48,21 @@ const MassivePlanner = () => {
   });
   const [planningHorizonDays, setPlanningHorizonDays] = useState<string>("7");
   const [isPlanning, setIsPlanning] = useState(false);
-  const [planningSummary, setPlanningSummary] = useState<{ planned: number; displaced: number; skipped: number; } | null>(null);
+  const [planningSummary, setPlanningSummary] = useState<{ planned: number; displaced: number; skipped: number; priorityUpdated: number; } | null>(null); // Adicionado priorityUpdated
+  const [prioritizeByEisenhower, setPrioritizeByEisenhower] = useState<boolean>(() => { // Novo estado
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(MASSIVE_PLANNER_PRIORITIZE_EISENHOWER_KEY) === 'true';
+    }
+    return false;
+  });
+
+  // Mapeamento de Quadrante para Prioridade Todoist
+  const QUADRANT_TO_PRIORITY: Record<Quadrant, 1 | 2 | 3 | 4> = {
+    do: 4,       // Q1 (Urgente/Importante) -> P1
+    decide: 3,   // Q2 (Não Urgente/Importante) -> P2
+    delegate: 2, // Q3 (Urgente/Não Importante) -> P3
+    delete: 1,   // Q4 (Não Urgente/Não Importante) -> P4
+  };
 
   useEffect(() => {
     try {
@@ -68,6 +85,12 @@ const MassivePlanner = () => {
       localStorage.setItem(MASSIVE_PLANNER_FILTER_STORAGE_KEY, filterInput);
     }
   }, [filterInput]);
+
+  useEffect(() => { // Novo useEffect para salvar a preferência
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(MASSIVE_PLANNER_PRIORITIZE_EISENHOWER_KEY, prioritizeByEisenhower ? 'true' : 'false');
+    }
+  }, [prioritizeByEisenhower]);
 
   const handleAddBlock = useCallback(() => {
     if (!newBlockStart || !newBlockEnd) {
@@ -195,16 +218,56 @@ const MassivePlanner = () => {
     let plannedCount = 0;
     let displacedCount = 0;
     let skippedCount = 0;
+    let priorityUpdatedCount = 0;
 
     try {
       const tasksToPlan = await fetchTasks(filterInput, { includeSubtasks: false, includeRecurring: false });
-      const sortedTasks = sortTasksForPlanning(tasksToPlan.filter(task => !task.is_completed));
+      let sortedTasks = sortTasksForPlanning(tasksToPlan.filter(task => !task.is_completed));
 
       if (sortedTasks.length === 0) {
         toast.info("Nenhuma tarefa encontrada com o filtro atual para planejar.");
         setIsPlanning(false);
         return;
       }
+
+      // --- Lógica de Priorização Eisenhower ---
+      if (prioritizeByEisenhower && eisenhowerTasks.length > 0) {
+        const eisenhowerMap = new Map(eisenhowerTasks.map(t => [t.id, t]));
+        const tasksToUpdatePriority: TodoistTask[] = [];
+
+        for (const task of sortedTasks) {
+          const eisenhowerData = eisenhowerMap.get(task.id);
+          if (eisenhowerData && eisenhowerData.quadrant) {
+            const newPriority = QUADRANT_TO_PRIORITY[eisenhowerData.quadrant];
+            if (task.priority !== newPriority) {
+              tasksToUpdatePriority.push(task);
+            }
+          }
+        }
+
+        if (tasksToUpdatePriority.length > 0) {
+          toast.info(`Atualizando prioridades de ${tasksToUpdatePriority.length} tarefas com base no Eisenhower...`);
+          for (const task of tasksToUpdatePriority) {
+            const eisenhowerData = eisenhowerMap.get(task.id)!;
+            const newPriority = QUADRANT_TO_PRIORITY[eisenhowerData.quadrant!];
+            
+            const updated = await updateTask(task.id, { priority: newPriority });
+            if (updated) {
+              priorityUpdatedCount++;
+              // Atualiza a tarefa na lista sortedTasks para usar a nova prioridade no planejamento
+              const index = sortedTasks.findIndex(t => t.id === task.id);
+              if (index !== -1) {
+                sortedTasks[index] = updated;
+              }
+            }
+          }
+          // Re-sort the list after priority updates
+          sortedTasks = sortTasksForPlanning(sortedTasks);
+          toast.success(`${priorityUpdatedCount} prioridades atualizadas no Todoist.`);
+        }
+      }
+      // --- Fim da Lógica de Priorização Eisenhower ---
+
 
       const horizon = parseInt(planningHorizonDays, 10);
       if (isNaN(horizon) || horizon <= 0) {
@@ -330,7 +393,7 @@ const MassivePlanner = () => {
         }
       }
 
-      setPlanningSummary({ planned: plannedCount, displaced: displacedCount, skipped: skippedCount });
+      setPlanningSummary({ planned: plannedCount, displaced: displacedCount, skipped: skippedCount, priorityUpdated: priorityUpdatedCount });
       toast.success("Planejamento massivo concluído!");
 
     } catch (error) {
@@ -339,7 +402,7 @@ const MassivePlanner = () => {
     } finally {
       setIsPlanning(false);
     }
-  }, [recurringBlocks, filterInput, planningHorizonDays, fetchTasks, sortTasksForPlanning, updateTask]);
+  }, [recurringBlocks, filterInput, planningHorizonDays, fetchTasks, sortTasksForPlanning, updateTask, prioritizeByEisenhower, eisenhowerTasks, QUADRANT_TO_PRIORITY]);
 
   const groupedRecurringBlocks = recurringBlocks.reduce((acc, block) => {
     const key = `${block.start}-${block.end}-${block.type}-${block.label || ''}`;
@@ -384,7 +447,7 @@ const MassivePlanner = () => {
     );
   };
 
-  const isLoadingCombined = isLoadingTodoist || isPlanning;
+  const isLoadingCombined = isLoadingTodoist || isPlanning || !isEisenhowerLoaded;
 
   return (
     <div className="p-4">
@@ -528,6 +591,25 @@ const MassivePlanner = () => {
               Quantos dias à frente a IA deve tentar planejar as tarefas.
             </p>
           </div>
+          <div className="flex items-center space-x-2 p-3 border rounded-md">
+            <Scale className="h-5 w-5 text-purple-600" />
+            <Label htmlFor="prioritize-eisenhower" className="flex-grow text-sm font-medium">
+              Priorizar por Matriz Eisenhower (Q1=P4, Q4=P1)
+            </Label>
+            <input
+              type="checkbox"
+              id="prioritize-eisenhower"
+              checked={prioritizeByEisenhower}
+              onChange={(e) => setPrioritizeByEisenhower(e.target.checked)}
+              disabled={isLoadingCombined || eisenhowerTasks.length === 0}
+              className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+            />
+            {eisenhowerTasks.length === 0 && (
+              <p className="text-xs text-red-500 absolute bottom-0 right-0">
+                (Nenhuma tarefa avaliada no Eisenhower)
+              </p>
+            )}
+          </div>
           <Button
             onClick={handleMassivePlanning}
             className="w-full py-3 text-lg bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
@@ -554,6 +636,9 @@ const MassivePlanner = () => {
             </p>
             <p className="text-lg text-gray-700">
               Tarefas remanejadas: <span className="font-semibold text-orange-600">{planningSummary.displaced}</span>
+            </p>
+            <p className="text-lg text-gray-700">
+              Prioridades atualizadas (Eisenhower): <span className="font-semibold text-purple-600">{planningSummary.priorityUpdated}</span>
             </p>
             <p className="text-lg text-gray-700">
               Tarefas puladas: <span className="font-semibold text-red-600">{planningSummary.skipped}</span>
