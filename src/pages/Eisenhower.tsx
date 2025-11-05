@@ -12,6 +12,8 @@ import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, start
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
 import { Input } from "@/components/ui/input"; // Importar Input
 import { getTaskCategory } from "@/lib/utils"; // Importar getTaskCategory
+import { eisenhowerService } from "@/services/eisenhowerService"; // Importar o novo service
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth"; // Importar o hook de auth
 
 // Importar os componentes do Eisenhower
 import SetupScreen from "@/components/eisenhower/SetupScreen";
@@ -27,30 +29,32 @@ type RatingFilter = "all" | "unrated"; // Novo tipo de filtro para avaliação
 type PriorityFilter = "all" | "p1" | "p2" | "p3" | "p4"; // Novo tipo de filtro de prioridade
 type DeadlineFilter = "all" | "has_deadline" | "no_deadline"; // Novo tipo de filtro de deadline
 
-const EISENHOWER_STORAGE_KEY = "eisenhowerMatrixState";
-const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input"; // Corrected typo here
+// Removendo EISENHOWER_STORAGE_KEY e usando Supabase
+const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input";
 const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
 const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
-const EISENHOWER_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_priority_filter"; // Novo
-const EISENHOWER_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_deadline_filter"; // Novo
-const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter"; // Nova chave para o filtro de exibição
-const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter"; // Nova chave para o filtro de avaliação
-const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_display_filter"; // Nova chave para o filtro de categoria de exibição
-const EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY = "eisenhower_manual_thresholds"; // Nova chave para thresholds manuais
-const EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY = "eisenhower_diagonal_x_point"; // Novo
-const EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY = "eisenhower_diagonal_y_point"; // Novo
-const EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_display_priority_filter"; // NOVO
-const EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_display_deadline_filter"; // NOVO
+const EISENHOWER_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_priority_filter";
+const EISENHOWER_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_deadline_filter";
+const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter";
+const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter";
+const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_display_filter";
+const EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY = "eisenhower_manual_thresholds";
+const EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY = "eisenhower_diagonal_x_point";
+const EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY = "eisenhower_diagonal_y_point";
+const EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_display_priority_filter";
+const EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_display_deadline_filter";
 
 const defaultManualThresholds: ManualThresholds = { urgency: 50, importance: 50 };
 
 const Eisenhower = () => {
   const { fetchTasks, isLoading: isLoadingTodoist } = useTodoist();
+  const { user, isLoading: isLoadingAuth } = useSupabaseAuth();
+  
   const [currentView, setCurrentView] = useState<EisenhowerView>("setup");
   const [tasksToProcess, setTasksToProcess] = useState<EisenhowerTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(""); // Novo estado para busca
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Estados para os filtros de carregamento (SetupScreen)
   const [filterInput, setFilterInput] = useState<string>(() => {
@@ -71,13 +75,13 @@ const Eisenhower = () => {
     }
     return "all";
   });
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>(() => { // Novo
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(EISENHOWER_PRIORITY_FILTER_STORAGE_KEY) as PriorityFilter) || "all";
     }
     return "all";
   });
-  const [deadlineFilter, setDeadlineFilter] = useState<DeadlineFilter>(() => { // Novo
+  const [deadlineFilter, setDeadlineFilter] = useState<DeadlineFilter>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(EISENHOWER_DEADLINE_FILTER_STORAGE_KEY) as DeadlineFilter) || "all";
     }
@@ -97,13 +101,13 @@ const Eisenhower = () => {
     }
     return "all";
   });
-  const [displayPriorityFilter, setDisplayPriorityFilter] = useState<PriorityFilter>(() => { // NOVO
+  const [displayPriorityFilter, setDisplayPriorityFilter] = useState<PriorityFilter>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY) as PriorityFilter) || "all";
     }
     return "all";
   });
-  const [displayDeadlineFilter, setDisplayDeadlineFilter] = useState<DeadlineFilter>(() => { // NOVO
+  const [displayDeadlineFilter, setDisplayDeadlineFilter] = useState<DeadlineFilter>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY) as DeadlineFilter) || "all";
     }
@@ -118,7 +122,7 @@ const Eisenhower = () => {
     return "unrated";
   });
 
-  // Novo estado para thresholds manuais (mantido para o ScatterPlotMatrix, mas não controlado por sliders aqui)
+  // Novo estado para thresholds manuais
   const [manualThresholds, setManualThresholds] = useState<ManualThresholds>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
@@ -143,9 +147,6 @@ const Eisenhower = () => {
     return 50;
   });
 
-  // Estado para tarefas que ainda precisam ser avaliadas
-  const [unratedTasks, setUnratedTasks] = useState<EisenhowerTask[]>([]);
-
   // Efeitos para salvar os filtros no localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -157,42 +158,47 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY, displayFilter);
       localStorage.setItem(EISENHOWER_RATING_FILTER_STORAGE_KEY, ratingFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY, categoryDisplayFilter);
-      localStorage.setItem(EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY, displayPriorityFilter); // NOVO
-      localStorage.setItem(EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY, displayDeadlineFilter); // NOVO
+      localStorage.setItem(EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY, displayPriorityFilter);
+      localStorage.setItem(EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY, displayDeadlineFilter);
       localStorage.setItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY, JSON.stringify(manualThresholds));
       localStorage.setItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY, String(diagonalXPoint));
       localStorage.setItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY, String(diagonalYPoint));
     }
   }, [filterInput, statusFilter, categoryFilter, priorityFilter, deadlineFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
 
-  // Efeito para atualizar a lista de tarefas não avaliadas sempre que tasksToProcess mudar
-  useEffect(() => {
-    const filtered = tasksToProcess.filter(task => task.urgency === null || task.importance === null);
-    setUnratedTasks(filtered);
-  }, [tasksToProcess]);
+  // --- Lógica de Carregamento e Persistência Supabase ---
 
+  // 1. Carregar avaliações do Supabase na inicialização
+  const loadRatingsFromSupabase = useCallback(async () => {
+    if (!user) return new Map<string, any>();
+    try {
+      return await eisenhowerService.fetchAllRatings();
+    } catch (e) {
+      console.error("Failed to load ratings from Supabase:", e);
+      toast.error("Falha ao carregar avaliações da nuvem.");
+      return new Map();
+    }
+  }, [user]);
 
+  // 2. Função para salvar o estado atual (apenas a view, pois as ratings são salvas individualmente)
+  const saveCurrentViewToLocalStorage = useCallback(() => {
+    // Mantemos a view no localStorage para persistência de sessão
+    localStorage.setItem('eisenhower_current_view', currentView);
+  }, [currentView]);
+
+  // 3. Carregar estado inicial (view)
   useEffect(() => {
-    const savedState = localStorage.getItem(EISENHOWER_STORAGE_KEY);
-    if (savedState) {
-      try {
-        const parsedState = JSON.parse(savedState);
-        setTasksToProcess(parsedState.tasksToProcess || []);
-        setCurrentView(parsedState.currentView || "setup");
-        toast.info("Estado da Matriz de Eisenhower carregado.");
-      } catch (e) {
-        console.error("Failed to load Eisenhower state from localStorage", e);
-        localStorage.removeItem(EISENHOWER_STORAGE_KEY);
-        toast.error("Erro ao carregar estado da Matriz de Eisenhower. Reiniciando.");
-      }
+    const savedView = localStorage.getItem('eisenhower_current_view');
+    if (savedView) {
+      setCurrentView(savedView as EisenhowerView);
     }
   }, []);
 
+  // 4. Salvar view quando ela muda
   useEffect(() => {
-    if (currentView !== "setup" || tasksToProcess.length > 0) {
-      localStorage.setItem(EISENHOWER_STORAGE_KEY, JSON.stringify({ tasksToProcess, currentView }));
-    }
-  }, [tasksToProcess, currentView]);
+    saveCurrentViewToLocalStorage();
+  }, [currentView, saveCurrentViewToLocalStorage]);
+
 
   const sortEisenhowerTasks = useCallback((tasks: EisenhowerTask[]): EisenhowerTask[] => {
     return [...tasks].sort((a, b) => {
@@ -285,20 +291,24 @@ const Eisenhower = () => {
   }, []);
 
   const handleLoadTasks = useCallback(async (filter: string) => {
+    if (isLoadingAuth || !user) {
+      toast.error("Usuário não autenticado. Não é possível carregar tarefas.");
+      return;
+    }
     setIsLoading(true);
     try {
-      const fetchedTodoistTasks = await fetchTasks(filter, { includeSubtasks: false, includeRecurring: false });
+      const [fetchedTodoistTasks, existingRatingsMap] = await Promise.all([
+        fetchTasks(filter, { includeSubtasks: false, includeRecurring: false }),
+        loadRatingsFromSupabase(),
+      ]);
       
-      // Merge logic: preserve existing ratings for tasks that are re-fetched
-      const existingTasksMap = new Map(tasksToProcess.map(t => [t.id, t]));
-
       const initialEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => {
-        const existing = existingTasksMap.get(task.id);
+        const existingRating = existingRatingsMap.get(task.id);
         return {
           ...task,
-          urgency: existing?.urgency ?? null,
-          importance: existing?.importance ?? null,
-          quadrant: existing?.quadrant ?? null,
+          urgency: existingRating?.urgency ?? null,
+          importance: existingRating?.importance ?? null,
+          quadrant: existingRating?.quadrant as EisenhowerTask['quadrant'] ?? null,
           url: task.url,
         };
       });
@@ -314,16 +324,29 @@ const Eisenhower = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchTasks, sortEisenhowerTasks, tasksToProcess]);
+  }, [fetchTasks, sortEisenhowerTasks, loadRatingsFromSupabase, user, isLoadingAuth]);
 
-  const handleUpdateTaskRating = useCallback((taskId: string, urgency: number | null, importance: number | null) => {
+  const handleUpdateTaskRating = useCallback(async (taskId: string, urgency: number | null, importance: number | null) => {
+    // 1. Atualiza o estado local imediatamente
     setTasksToProcess(prevTasks => {
-      const updatedTasks = prevTasks.map(task =>
+      return prevTasks.map(task =>
         task.id === taskId ? { ...task, urgency, importance } : task
       );
-      return updatedTasks;
     });
-  }, []);
+
+    // 2. Persiste no Supabase
+    if (user) {
+      const taskToUpdate = tasksToProcess.find(t => t.id === taskId);
+      if (taskToUpdate) {
+        await eisenhowerService.upsertRating({
+          todoist_task_id: taskId,
+          urgency,
+          importance,
+          quadrant: taskToUpdate.quadrant, // Mantém o quadrante atual (será recalculado em handleCategorizeTasks)
+        });
+      }
+    }
+  }, [tasksToProcess, user]);
 
   // Helper function to calculate dynamic domain and threshold (reintroduzida)
   const getDynamicDomainAndThreshold = useCallback((values: number[]): { domain: [number, number], threshold: number } => {
@@ -354,7 +377,7 @@ const Eisenhower = () => {
   }, []);
 
   // Categorização usando o threshold dinâmico (ponto médio do domínio dos dados)
-  const handleCategorizeTasks = useCallback(() => {
+  const handleCategorizeTasks = useCallback(async () => {
     const ratedTasks = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null);
     
     if (ratedTasks.length === 0) {
@@ -371,6 +394,8 @@ const Eisenhower = () => {
     
     const urgencyThreshold = dynamicUrgencyThreshold;
     const importanceThreshold = dynamicImportanceThreshold;
+
+    const updatesToSupabase: Promise<any>[] = [];
 
     setTasksToProcess(prevTasks => {
       return prevTasks.map(task => {
@@ -390,25 +415,60 @@ const Eisenhower = () => {
           } else {
             quadrant = 'delete';
           }
+          
+          // Persiste o novo quadrante no Supabase
+          if (user && task.quadrant !== quadrant) {
+            updatesToSupabase.push(eisenhowerService.upsertRating({
+              todoist_task_id: task.id,
+              urgency: task.urgency,
+              importance: task.importance,
+              quadrant: quadrant,
+            }));
+          }
+
           return { ...task, quadrant };
         }
         return task;
       });
     });
-  }, [tasksToProcess, getDynamicDomainAndThreshold]);
 
-  const handleReset = useCallback(() => {
-    setTasksToProcess([]);
-    setCurrentView("setup");
-    setManualThresholds(defaultManualThresholds);
-    setDiagonalXPoint(50);
-    setDiagonalYPoint(50);
-    localStorage.removeItem(EISENHOWER_STORAGE_KEY);
-    localStorage.removeItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
-    localStorage.removeItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY);
-    localStorage.removeItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY);
-    toast.info("Matriz de Eisenhower resetada.");
-  }, []);
+    // Executa todas as atualizações de quadrante no Supabase
+    if (updatesToSupabase.length > 0) {
+      Promise.all(updatesToSupabase).then(() => {
+        console.log(`Persistidos ${updatesToSupabase.length} quadrantes no Supabase.`);
+      }).catch(e => {
+        console.error("Failed to persist quadrants to Supabase:", e);
+        toast.error("Falha ao salvar quadrantes na nuvem.");
+      });
+    }
+  }, [tasksToProcess, getDynamicDomainAndThreshold, user]);
+
+  const handleReset = useCallback(async () => {
+    if (!user) {
+      toast.error("Usuário não autenticado.");
+      return;
+    }
+    if (confirm("Tem certeza que deseja resetar a Matriz de Eisenhower? Isso apagará todas as avaliações salvas na nuvem.")) {
+      setIsLoading(true);
+      try {
+        await eisenhowerService.deleteAllRatings();
+        setTasksToProcess([]);
+        setCurrentView("setup");
+        setManualThresholds(defaultManualThresholds);
+        setDiagonalXPoint(50);
+        setDiagonalYPoint(50);
+        localStorage.removeItem('eisenhower_current_view');
+        localStorage.removeItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
+        localStorage.removeItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY);
+        localStorage.removeItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY);
+        toast.success("Matriz de Eisenhower resetada e dados apagados da nuvem.");
+      } catch (e) {
+        toast.error("Erro ao resetar a matriz e apagar dados da nuvem.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  }, [user]);
 
   const handleFinishRating = useCallback(() => {
     handleCategorizeTasks(); // Categoriza todas as tarefas (usando thresholds dinâmicos)
@@ -427,7 +487,7 @@ const Eisenhower = () => {
   }, [handleCategorizeTasks, handleLoadTasks, filterInput, statusFilter, categoryFilter, priorityFilter, deadlineFilter, buildFinalFilter]);
 
   const ratedTasksCount = tasksToProcess.filter(t => t.urgency !== null && t.importance !== null).length;
-  const canViewMatrixOrResults = tasksToProcess.length > 0; // Habilitar se houver tarefas carregadas
+  const canViewMatrixOrResults = tasksToProcess.length > 0;
 
   // Função para filtrar as tarefas com base no displayFilter e categoryDisplayFilter
   const getFilteredTasksForDisplay = useCallback((tasks: EisenhowerTask[], dateFilter: DisplayFilter, categoryFilter: CategoryDisplayFilter, priorityFilter: PriorityFilter, deadlineFilter: DeadlineFilter): EisenhowerTask[] => {
@@ -532,7 +592,7 @@ const Eisenhower = () => {
 
 
   const renderContent = () => {
-    if (isLoading || isLoadingTodoist) {
+    if (isLoading || isLoadingTodoist || isLoadingAuth) {
       return (
         <div className="flex justify-center items-center h-96">
           <LoadingSpinner size={40} />
@@ -654,7 +714,7 @@ const Eisenhower = () => {
         <Button
           variant={currentView === "setup" ? "default" : "outline"}
           onClick={() => setCurrentView("setup")}
-          disabled={isLoading || isLoadingTodoist}
+          disabled={isLoading || isLoadingTodoist || isLoadingAuth}
           className="flex items-center gap-2"
         >
           <Settings className="h-4 w-4" /> Configurar
@@ -662,7 +722,7 @@ const Eisenhower = () => {
         <Button
           variant={currentView === "rating" ? "default" : "outline"}
           onClick={() => setCurrentView("rating")}
-          disabled={isLoading || isLoadingTodoist || tasksToProcess.length === 0}
+          disabled={isLoading || isLoadingTodoist || tasksToProcess.length === 0 || isLoadingAuth}
           className="flex items-center gap-2"
         >
           <Scale className="h-4 w-4" /> Avaliar
@@ -670,7 +730,7 @@ const Eisenhower = () => {
         <Button
           variant={currentView === "matrix" ? "default" : "outline"}
           onClick={() => { handleCategorizeTasks(); setCurrentView("matrix"); }} // Categoriza e vai para a matriz
-          disabled={isLoading || isLoadingTodoist || !canViewMatrixOrResults}
+          disabled={isLoading || isLoadingTodoist || !canViewMatrixOrResults || isLoadingAuth}
           className="flex items-center gap-2"
         >
           <LayoutDashboard className="h-4 w-4" /> Matriz
@@ -678,7 +738,7 @@ const Eisenhower = () => {
         <Button
           variant={currentView === "results" ? "default" : "outline"}
           onClick={() => setCurrentView("results")}
-          disabled={isLoading || isLoadingTodoist || !canViewMatrixOrResults}
+          disabled={isLoading || isLoadingTodoist || !canViewMatrixOrResults || isLoadingAuth}
           className="flex items-center gap-2"
         >
           <ListTodo className="h-4 w-4" /> Resultados
@@ -686,7 +746,7 @@ const Eisenhower = () => {
         <Button
           variant={currentView === "dashboard" ? "default" : "outline"}
           onClick={() => setCurrentView("dashboard")}
-          disabled={isLoading || isLoadingTodoist || !canViewMatrixOrResults}
+          disabled={isLoading || isLoadingTodoist || !canViewMatrixOrResults || isLoadingAuth}
           className="flex items-center gap-2"
         >
           <LayoutDashboard className="h-4 w-4" /> Dashboard
@@ -694,7 +754,7 @@ const Eisenhower = () => {
         <Button
           variant="outline"
           onClick={() => setIsAiModalOpen(true)}
-          disabled={isLoading || isLoadingTodoist}
+          disabled={isLoading || isLoadingTodoist || isLoadingAuth}
           className="flex items-center gap-2 ml-auto"
         >
           <Lightbulb className="h-4 w-4" /> Assistente IA
