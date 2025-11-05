@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useTodoist } from "@/context/TodoistContext";
 import { TodoistTask, SeitonStateSnapshot, ScheduledTask, InternalTask } from "@/lib/types";
 import { toast } from "sonner";
-import { parseISO, isValid, format, startOfDay, addDays, isAfter, isEqual, startOfMinute, parse, isBefore } from "date-fns";
+import { parseISO, isValid, format, startOfDay, addDays, isAfter, isEqual, startOfMinute, parse, isBefore, isPast, isToday } from "date-fns"; // Adicionado isPast e isToday
+import { CRONOGRAMA_HOJE_LABEL } from "@/lib/constants"; // Importar a constante
 
 type ExecucaoState = "initial" | "focusing" | "finished";
 
@@ -32,6 +33,7 @@ export const useExecucaoTasks = (
     comparisonIndex: 0,
     tournamentState: "initial",
     selectedPrioritizationContext: "none",
+    customSortingPreferences: { primary: "deadline", secondary: "priority", tertiary: "due_date_time" },
   };
 
   // Load Seiton ranked tasks once on mount or when relevant state changes
@@ -69,13 +71,10 @@ export const useExecucaoTasks = (
   }, []); // Run once on mount
 
   const sortTasksForFocus = useCallback((tasks: TodoistTask[]): TodoistTask[] => {
-    return [...tasks].sort((a, b) => {
-      // 1. Starred tasks first
-      const isAStarred = a.content.startsWith("*");
-      const isBStarred = b.content.startsWith("*");
-      if (isAStarred && !isBStarred) return -1;
-      if (!isAStarred && isBStarred) return 1;
+    const now = new Date();
+    const startOfToday = startOfDay(now);
 
+    return [...tasks].sort((a, b) => {
       // Helper to get date value, handling null/undefined and invalid dates
       const getDateValue = (dateString: string | null | undefined) => {
         if (typeof dateString === 'string' && dateString) {
@@ -84,6 +83,29 @@ export const useExecucaoTasks = (
         }
         return Infinity; // Tasks without a date go last
       };
+
+      // --- NOVO CRITÉRIO DE PRIORIDADE MÁXIMA: AGENDAMENTO E CRONOGRAMA ---
+      const isAOverdueOrToday = (a.due?.datetime && isValid(parseISO(a.due.datetime)) && (isPast(parseISO(a.due.datetime)) || isToday(parseISO(a.due.datetime)))) ||
+                                (a.due?.date && isValid(parseISO(a.due.date)) && isBefore(parseISO(a.due.date), addDays(startOfToday, 1)));
+      const isBOverdueOrToday = (b.due?.datetime && isValid(parseISO(b.due.datetime)) && (isPast(parseISO(b.due.datetime)) || isToday(parseISO(b.due.datetime)))) ||
+                                (b.due?.date && isValid(parseISO(b.due.date)) && isBefore(parseISO(b.due.date), addDays(startOfToday, 1)));
+      
+      const isACronograma = a.labels.includes(CRONOGRAMA_HOJE_LABEL);
+      const isBCronograma = b.labels.includes(CRONOGRAMA_HOJE_LABEL);
+
+      const scoreA = (isAOverdueOrToday ? 10000 : 0) + (isACronograma ? 5000 : 0);
+      const scoreB = (isBOverdueOrToday ? 10000 : 0) + (isBCronograma ? 5000 : 0);
+
+      if (scoreA !== scoreB) {
+        return scoreB - scoreA; // Maior score primeiro
+      }
+      // --- FIM DO NOVO CRITÉRIO ---
+
+      // 1. Starred tasks next
+      const isAStarred = a.content.startsWith("*");
+      const isBStarred = b.content.startsWith("*");
+      if (isAStarred && !isBStarred) return -1;
+      if (!isAStarred && isBStarred) return 1;
 
       // 2. Deadline: earliest first
       const deadlineA = getDateValue(a.deadline);
