@@ -36,12 +36,7 @@ const quadrantColors: Record<Quadrant, string> = {
   delete: "#6b7280", // gray-500 (Não Urgente e Não Importante)
 };
 
-const quadrantBackgroundColors: Record<Quadrant, string> = {
-  do: "rgba(239, 68, 68, 0.1)", // red-100 with transparency
-  decide: "rgba(34, 197, 94, 0.1)", // green-100 with transparency
-  delegate: "rgba(234, 179, 8, 0.1)", // yellow-100 with transparency
-  delete: "rgba(107, 114, 128, 0.1)", // gray-100 with transparency
-};
+// Removendo quadrantBackgroundColors pois não serão mais usadas para áreas ortogonais
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -163,9 +158,9 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
         >
           <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
           
-          {/* Linhas de Threshold Dinâmicas */}
-          <ReferenceArea x1={safeUrgencyThreshold} x2={safeUrgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
-          <ReferenceArea y1={safeImportanceThreshold} y2={safeImportanceThreshold} stroke="#4b5563" strokeDasharray="5 5" />
+          {/* Linhas de Threshold Ortogonais REMOVIDAS */}
+          {/* <ReferenceArea x1={safeUrgencyThreshold} x2={safeUrgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
+          <ReferenceArea y1={safeImportanceThreshold} y2={safeImportanceThreshold} stroke="#4b5563" strokeDasharray="5 5" /> */}
 
           <XAxis
             type="number"
@@ -188,8 +183,8 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
           <ZAxis dataKey="content" name="Tarefa" />
           <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-          {/* Áreas de Quadrante */}
-          <ReferenceArea 
+          {/* Áreas de Quadrante REMOVIDAS */}
+          {/* <ReferenceArea 
             x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceThreshold} y2={safeImportanceDomain[1]} 
             fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
             label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
@@ -208,9 +203,9 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data }) => {
             x1={safeUrgencyThreshold} x2={safeUrgencyDomain[1]} y1={safeImportanceDomain[0]} y2={safeImportanceThreshold} 
             fill={quadrantBackgroundColors.delegate} stroke={quadrantColors.delegate} strokeOpacity={0.5} 
             label={{ value: "Q3: Delegar", position: 'bottom', fill: quadrantColors.delegate, fontSize: 14, fontWeight: 'bold', dx: 40, dy: -10 }}
-          />
+          /> */}
 
-          {/* Linhas Diagonais para comparação de pontos */}
+          {/* Linhas Diagonais (Mantidas) */}
           <ReferenceLine 
             segment={[ { x: 0, y: 0 }, { x: 100, y: 100 } ]} 
             stroke="#4b5563" 
