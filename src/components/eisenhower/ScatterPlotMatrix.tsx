@@ -65,56 +65,13 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const navigate = useNavigate();
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { urgencyDomain, importanceDomain, dynamicUrgencyThreshold, dynamicImportanceThreshold } = useMemo(() => {
-    const urgencyValues = data.map(d => d.urgency).filter(v => v !== null) as number[];
-    const importanceValues = data.map(d => d.importance).filter(v => v !== null) as number[];
+  // Forçar o domínio para [0, 100] para manter a consistência da matriz Eisenhower
+  const safeUrgencyDomain: [number, number] = [0, 100];
+  const safeImportanceDomain: [number, number] = [0, 100];
 
-    // Helper para calcular o domínio dinâmico e o threshold (ponto médio)
-    const getDynamicDomainAndThreshold = (values: number[]): { domain: [number, number], threshold: number } => {
-      if (values.length === 0) {
-        return { domain: [0, 100], threshold: 50 }; // Default se não houver dados
-      }
-
-      const minVal = Math.min(...values);
-      const maxVal = Math.max(...values);
-
-      if (minVal === maxVal) {
-        return { domain: [0, 100], threshold: 50 };
-      }
-
-      const range = maxVal - minVal;
-      const padding = range * 0.1;
-
-      const domainMin = Math.max(0, minVal - padding);
-      const domainMax = Math.min(100, maxVal + padding);
-
-      const domain: [number, number] = [domainMin, domainMax];
-      const threshold = (domainMin + domainMax) / 2;
-      
-      if (isNaN(domainMin) || isNaN(domainMax) || domainMin >= domainMax) {
-        return { domain: [0, 100], threshold: 50 };
-      }
-
-      return { domain, threshold };
-    };
-
-    const { domain: uDomain, threshold: uThreshold } = getDynamicDomainAndThreshold(urgencyValues);
-    const { domain: iDomain, threshold: iThreshold } = getDynamicDomainAndThreshold(importanceValues);
-
-    return { 
-      urgencyDomain: uDomain, 
-      importanceDomain: iDomain,
-      dynamicUrgencyThreshold: uThreshold,
-      dynamicImportanceThreshold: iThreshold,
-    };
-  }, [data]);
-
-  // Use manual thresholds if provided, otherwise use dynamic thresholds
-  const finalUrgencyThreshold = manualThresholds?.urgency ?? dynamicUrgencyThreshold;
-  const finalImportanceThreshold = manualThresholds?.importance ?? dynamicImportanceThreshold;
-  
-  const safeUrgencyDomain: [number, number] = urgencyDomain;
-  const safeImportanceDomain: [number, number] = importanceDomain;
+  // Usar thresholds manuais se fornecidos, caso contrário, usar 50 como padrão
+  const finalUrgencyThreshold = manualThresholds?.urgency ?? 50;
+  const finalImportanceThreshold = manualThresholds?.importance ?? 50;
 
   const handleSingleClick = (payload: any) => {
     if (clickTimer.current) {
@@ -210,7 +167,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
           <ZAxis dataKey="content" name="Tarefa" />
           <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-          {/* Linhas Diagonais */}
+          {/* Linhas Diagonais (Agora visíveis porque o domínio é [0, 100]) */}
           <ReferenceLine 
             segment={[ { x: 0, y: 0 }, { x: 100, y: 100 } ]} 
             stroke="#4b5563" 
