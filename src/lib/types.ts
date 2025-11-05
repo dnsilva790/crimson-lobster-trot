@@ -51,7 +51,6 @@ export interface SeitonStateSnapshot {
   comparisonCandidate: TodoistTask | null;
   comparisonIndex: number;
   tournamentState: "initial" | "comparing" | "finished";
-  selectedPrioritizationContext: "none" | "pessoal" | "profissional";
   customSortingPreferences: CustomSortingPreference; // Adicionado
 }
 
@@ -192,4 +191,10 @@ export interface ImportedCard {
   link: string;
   description?: string;
   createdAt: string;
+}
+
+// NOVO: Interface para thresholds manuais
+export interface ManualThresholds {
+  urgency: number;
+  importance: number;
 }

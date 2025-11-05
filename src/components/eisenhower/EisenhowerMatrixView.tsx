@@ -4,7 +4,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, ListTodo, LayoutDashboard, RefreshCw, Scale } from "lucide-react"; // Importar Scale
-import { EisenhowerTask } from "@/lib/types";
+import { EisenhowerTask, ManualThresholds } from "@/lib/types";
 import ScatterPlotMatrix from "./ScatterPlotMatrix";
 
 interface EisenhowerMatrixViewProps {
@@ -14,9 +14,10 @@ interface EisenhowerMatrixViewProps {
   displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today";
   onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void;
   onRefreshMatrix: (filter: string) => Promise<void>;
+  manualThresholds: ManualThresholds; // Novo prop
 }
 
-const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, onRefreshMatrix }) => {
+const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, onRefreshMatrix, manualThresholds }) => {
   const dataForScatterPlot = tasks
     .filter(task => task.urgency !== null && task.importance !== null)
     .map(task => ({
@@ -48,7 +49,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
       </div>
 
       <p className="text-lg text-gray-700 mb-6 text-center">
-        Suas tarefas categorizadas por Urgência e Importância.
+        Seus thresholds manuais: Urgência {manualThresholds.urgency.toFixed(0)}, Importância {manualThresholds.importance.toFixed(0)}.
       </p>
 
       {dataForScatterPlot.length === 0 ? (
@@ -60,7 +61,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
         </div>
       ) : (
         <div className="aspect-square max-h-[750px] mx-auto">
-          <ScatterPlotMatrix data={dataForScatterPlot} />
+          <ScatterPlotMatrix data={dataForScatterPlot} manualThresholds={manualThresholds} />
         </div>
       )}
     </div>
