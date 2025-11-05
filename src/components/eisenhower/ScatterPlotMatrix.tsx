@@ -190,7 +190,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             name="Urgência"
             unit=""
             domain={urgencyDomain} // Domínio Dinâmico
-            label={{ value: `Urgência (Threshold: ${finalUrencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
+            label={{ value: `Urgência (Threshold: ${finalUrgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
           <YAxis
