@@ -20,7 +20,7 @@ import {
   Lightbulb,
   FileText,
   BarChart3,
-  Database, // Importar Database
+  Database,
 } from "lucide-react";
 import {
   Dialog,
@@ -86,9 +86,17 @@ const modules = [
     path: "/seiketsu",
     icon: BarChart,
     title: "SEIKETSU",
-    description: "Padronização",
+    description: "Processador GTD",
     colorClass: "bg-purple-100 hover:bg-purple-200",
     activeColor: "border-purple-600",
+  },
+  {
+    path: "/seiketsu-5w2h", // NOVO MÓDULO
+    icon: FolderOpen,
+    title: "5W2H",
+    description: "Entendimento da Tarefa",
+    colorClass: "bg-yellow-100 hover:bg-yellow-200",
+    activeColor: "border-yellow-600",
   },
   {
     path: "/seiton",

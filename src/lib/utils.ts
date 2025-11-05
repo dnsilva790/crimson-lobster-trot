@@ -77,3 +77,26 @@ export function isURL(str: string): boolean {
     return false;
   }
 }
+
+// --- Funções 5W2H ---
+
+export function get5W2H(task: TodoistTask): {
+  what: string;
+  why: string;
+  who: string;
+  where: string;
+  when: string;
+  how: string;
+  howMuch: string;
+} {
+  const description = task.description || '';
+  return {
+    what: extractSectionContent(description, '[WHAT]:'),
+    why: extractSectionContent(description, '[WHY]:'),
+    who: extractSectionContent(description, '[WHO]:'),
+    where: extractSectionContent(description, '[WHERE]:'),
+    when: extractSectionContent(description, '[WHEN]:'),
+    how: extractSectionContent(description, '[HOW]:'),
+    howMuch: extractSectionContent(description, '[HOW_MUCH]:'),
+  };
+}

@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO, isValid, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn, getDelegateNameFromLabels, getSolicitante } from "@/lib/utils";
+import { cn, getDelegateNameFromLabels, getSolicitante, get5W2H } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
 
 interface TaskTableComponentProps {
@@ -61,6 +61,13 @@ const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
             <TableHead className="min-w-[150px]">Duração (min)</TableHead>
             <TableHead className="min-w-[150px]">Solicitante</TableHead>
             <TableHead className="min-w-[150px]">Responsável</TableHead>
+            <TableHead className="min-w-[150px]">5W2H: O Quê</TableHead>
+            <TableHead className="min-w-[150px]">5W2H: Por Quê</TableHead>
+            <TableHead className="min-w-[150px]">5W2H: Quem</TableHead>
+            <TableHead className="min-w-[150px]">5W2H: Onde</TableHead>
+            <TableHead className="min-w-[150px]">5W2H: Quando</TableHead>
+            <TableHead className="min-w-[150px]">5W2H: Como</TableHead>
+            <TableHead className="min-w-[150px]">5W2H: Quanto</TableHead>
             <TableHead className="min-w-[200px]">Etiquetas</TableHead>
             <TableHead className="w-[50px]">Link</TableHead>
           </TableRow>
@@ -71,6 +78,7 @@ const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
             const importance = (task as any).importance;
             const solicitante = getSolicitante(task);
             const delegateName = getDelegateNameFromLabels(task.labels);
+            const w2h = get5W2H(task);
 
             return (
               <TableRow key={task.id}>
@@ -108,6 +116,13 @@ const TaskTableComponent: React.FC<TaskTableComponentProps> = ({ tasks }) => {
                 </TableCell>
                 <TableCell className="text-sm">{solicitante || "N/A"}</TableCell>
                 <TableCell className="text-sm">{delegateName || "N/A"}</TableCell>
+                <TableCell className="text-sm max-w-[150px] truncate" title={w2h.what}>{w2h.what || "N/A"}</TableCell>
+                <TableCell className="text-sm max-w-[150px] truncate" title={w2h.why}>{w2h.why || "N/A"}</TableCell>
+                <TableCell className="text-sm max-w-[150px] truncate" title={w2h.who}>{w2h.who || "N/A"}</TableCell>
+                <TableCell className="text-sm max-w-[150px] truncate" title={w2h.where}>{w2h.where || "N/A"}</TableCell>
+                <TableCell className="text-sm max-w-[150px] truncate" title={w2h.when}>{w2h.when || "N/A"}</TableCell>
+                <TableCell className="text-sm max-w-[150px] truncate" title={w2h.how}>{w2h.how || "N/A"}</TableCell>
+                <TableCell className="text-sm max-w-[150px] truncate" title={w2h.howMuch}>{w2h.howMuch || "N/A"}</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {task.labels.map((label) => (

@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { TodoistTask } from "@/lib/types";
 import { format, parseISO, isValid } from "date-fns";
-import { getSolicitante, getDelegateNameFromLabels } from "@/lib/utils"; // Importar utilitários
+import { getSolicitante, getDelegateNameFromLabels, get5W2H } from "@/lib/utils"; // Importar utilitários e get5W2H
 
 interface ExportableTask {
   ID: string;
@@ -16,6 +16,13 @@ interface ExportableTask {
   Duração_Minutos: number | string;
   Solicitante: string; // Adicionado
   Responsável: string; // Adicionado
+  '5W2H_O_Que': string; // Novo
+  '5W2H_Por_Que': string; // Novo
+  '5W2H_Quem': string; // Novo
+  '5W2H_Onde': string; // Novo
+  '5W2H_Quando': string; // Novo
+  '5W2H_Como': string; // Novo
+  '5W2H_Quanto': string; // Novo
   Etiquetas: string;
   URL: string;
 }
@@ -34,6 +41,8 @@ const formatTaskForExport = (task: TodoistTask): ExportableTask => {
   const urgency = (task as any).urgency !== undefined && (task as any).urgency !== null ? (task as any).urgency : "";
   const importance = (task as any).importance !== undefined && (task as any).importance !== null ? (task as any).importance : "";
 
+  const w2h = get5W2H(task); // Obter dados 5W2H
+
   return {
     ID: task.id,
     Conteúdo: task.content,
@@ -47,6 +56,13 @@ const formatTaskForExport = (task: TodoistTask): ExportableTask => {
     Duração_Minutos: task.estimatedDurationMinutes || "",
     Solicitante: getSolicitante(task) || "", // Usar utilitário
     Responsável: getDelegateNameFromLabels(task.labels) || "", // Usar utilitário
+    '5W2H_O_Que': w2h.what,
+    '5W2H_Por_Que': w2h.why,
+    '5W2H_Quem': w2h.who,
+    '5W2H_Onde': w2h.where,
+    '5W2H_Quando': w2h.when,
+    '5W2H_Como': w2h.how,
+    '5W2H_Quanto': w2h.howMuch,
     Etiquetas: task.labels.join(', '),
     URL: task.url,
   };
