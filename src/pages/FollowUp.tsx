@@ -468,7 +468,7 @@ const FollowUp = () => {
     const delegateName = getDelegateNameFromLabels(task.labels);
     const solicitante = getSolicitante(task);
 
-    // Adicionando a lógica de hover e o estilo de gradiente aqui
+    // Adicionando a lógica de hover e o estilo de realce de fundo
     const isHovering = hoveredTaskId === task.id;
     const handleMouseEnter = () => setHoveredTaskId(task.id);
     const handleMouseLeave = () => setHoveredTaskId(null);
@@ -484,19 +484,17 @@ const FollowUp = () => {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Linha Diagonal de Prioridade (usando gradiente CSS) */}
-        {isHovering && (
+        {/* Linha Diagonal de Prioridade REMOVIDA */}
+        {/* {isHovering && (
           <div 
             className="absolute inset-0 pointer-events-none"
             style={{
-              // Gradiente linear de 135 graus (diagonal decrescente da esquerda para a direita)
-              // A linha é criada pela transição de cor em 50%
               background: 'linear-gradient(135deg, transparent 49.5%, rgba(129, 140, 248, 0.5) 50%, transparent 50.5%)',
               backgroundSize: '100% 100%',
               zIndex: 10,
             }}
           />
-        )}
+        )} */}
 
         {editingTaskId === task.id ? (
           <div className="grid gap-2 p-2 bg-white rounded-md shadow-inner relative z-20">
