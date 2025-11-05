@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,7 @@ const Seiketsu5W2H = () => {
     }
     return `no date & !@${SEIKETSU_5W2H_PROCESSED_LABEL}`;
   });
+  const [localSearchTerm, setLocalSearchTerm] = useState<string>(""); // Novo estado para busca local
 
   // 5W2H States
   const [what, setWhat] = useState("");
@@ -133,6 +134,17 @@ const Seiketsu5W2H = () => {
 
   const isLoadingCombined = isLoadingTodoist || isLoadingTasks;
 
+  const filteredLocalTasks = useMemo(() => {
+    if (!localSearchTerm.trim()) {
+      return availableTasks;
+    }
+    const lowerCaseSearch = localSearchTerm.toLowerCase();
+    return availableTasks.filter(task => 
+      task.content.toLowerCase().includes(lowerCaseSearch) ||
+      task.description.toLowerCase().includes(lowerCaseSearch)
+    );
+  }, [availableTasks, localSearchTerm]);
+
   return (
     <div className="p-4">
       <h2 className="text-3xl font-bold mb-2 text-gray-800">
@@ -150,7 +162,7 @@ const Seiketsu5W2H = () => {
           <div className="grid gap-4">
             <div>
               <Label htmlFor="task-filter" className="text-gray-700">
-                Filtro de Tarefas
+                Filtro de Tarefas (API Todoist)
               </Label>
               <Input
                 id="task-filter"
@@ -171,15 +183,28 @@ const Seiketsu5W2H = () => {
               Buscar Tarefas
             </Button>
             
-            <Label htmlFor="task-select" className="text-gray-700 mt-2">
-              Tarefas Disponíveis ({availableTasks.length})
+            <Label htmlFor="local-search" className="text-gray-700 mt-2">
+              Buscar Localmente ({availableTasks.length} carregadas)
             </Label>
-            <Select value={selectedTaskId || ""} onValueChange={handleTaskSelection} disabled={isLoadingCombined || availableTasks.length === 0}>
+            <Input
+              id="local-search"
+              type="text"
+              placeholder="Filtrar por título ou descrição..."
+              value={localSearchTerm}
+              onChange={(e) => setLocalSearchTerm(e.target.value)}
+              className="mt-1"
+              disabled={isLoadingCombined}
+            />
+
+            <Label htmlFor="task-select" className="text-gray-700 mt-2">
+              Tarefas Filtradas ({filteredLocalTasks.length})
+            </Label>
+            <Select value={selectedTaskId || ""} onValueChange={handleTaskSelection} disabled={isLoadingCombined || filteredLocalTasks.length === 0}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione uma tarefa" />
               </SelectTrigger>
               <SelectContent>
-                {availableTasks.map(task => (
+                {filteredLocalTasks.map(task => (
                   <SelectItem key={task.id} value={task.id}>
                     {task.content} (P{task.priority})
                   </SelectItem>
