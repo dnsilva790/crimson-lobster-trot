@@ -39,6 +39,8 @@ const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_disp
 const EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY = "eisenhower_manual_thresholds"; // Nova chave para thresholds manuais
 const EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY = "eisenhower_diagonal_x_point"; // Novo
 const EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY = "eisenhower_diagonal_y_point"; // Novo
+const EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_display_priority_filter"; // NOVO
+const EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_display_deadline_filter"; // NOVO
 
 const defaultManualThresholds: ManualThresholds = { urgency: 50, importance: 50 };
 
@@ -50,7 +52,7 @@ const Eisenhower = () => {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(""); // Novo estado para busca
 
-  // Novos estados para os filtros de carregamento
+  // Estados para os filtros de carregamento (SetupScreen)
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY) || "";
@@ -82,18 +84,28 @@ const Eisenhower = () => {
     return "all";
   });
 
-  // Novo estado para o filtro de exibição
+  // Estados para os filtros de exibição (Matrix/Results/Dashboard)
   const [displayFilter, setDisplayFilter] = useState<DisplayFilter>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY) as DisplayFilter) || "all";
     }
     return "all";
   });
-
-  // Novo estado para o filtro de categoria de exibição
   const [categoryDisplayFilter, setCategoryDisplayFilter] = useState<CategoryDisplayFilter>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY) as CategoryDisplayFilter) || "all";
+    }
+    return "all";
+  });
+  const [displayPriorityFilter, setDisplayPriorityFilter] = useState<PriorityFilter>(() => { // NOVO
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY) as PriorityFilter) || "all";
+    }
+    return "all";
+  });
+  const [displayDeadlineFilter, setDisplayDeadlineFilter] = useState<DeadlineFilter>(() => { // NOVO
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY) as DeadlineFilter) || "all";
     }
     return "all";
   });
@@ -140,16 +152,18 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY, filterInput);
       localStorage.setItem(EISENHOWER_STATUS_FILTER_STORAGE_KEY, statusFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY, categoryFilter);
-      localStorage.setItem(EISENHOWER_PRIORITY_FILTER_STORAGE_KEY, priorityFilter); // Novo
-      localStorage.setItem(EISENHOWER_DEADLINE_FILTER_STORAGE_KEY, deadlineFilter); // Novo
+      localStorage.setItem(EISENHOWER_PRIORITY_FILTER_STORAGE_KEY, priorityFilter);
+      localStorage.setItem(EISENHOWER_DEADLINE_FILTER_STORAGE_KEY, deadlineFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY, displayFilter);
       localStorage.setItem(EISENHOWER_RATING_FILTER_STORAGE_KEY, ratingFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY, categoryDisplayFilter);
+      localStorage.setItem(EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY, displayPriorityFilter); // NOVO
+      localStorage.setItem(EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY, displayDeadlineFilter); // NOVO
       localStorage.setItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY, JSON.stringify(manualThresholds));
       localStorage.setItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY, String(diagonalXPoint));
       localStorage.setItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY, String(diagonalYPoint));
     }
-  }, [filterInput, statusFilter, categoryFilter, priorityFilter, deadlineFilter, displayFilter, ratingFilter, categoryDisplayFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
+  }, [filterInput, statusFilter, categoryFilter, priorityFilter, deadlineFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
 
   // Efeito para atualizar a lista de tarefas não avaliadas sempre que tasksToProcess mudar
   useEffect(() => {
@@ -232,7 +246,7 @@ const Eisenhower = () => {
     });
   }, []);
 
-  // Função auxiliar para construir o filtro final
+  // Função auxiliar para construir o filtro final (para o Todoist API)
   const buildFinalFilter = useCallback((
     input: string,
     status: "all" | "overdue",
@@ -416,7 +430,7 @@ const Eisenhower = () => {
   const canViewMatrixOrResults = tasksToProcess.length > 0; // Habilitar se houver tarefas carregadas
 
   // Função para filtrar as tarefas com base no displayFilter e categoryDisplayFilter
-  const getFilteredTasksForDisplay = useCallback((tasks: EisenhowerTask[], dateFilter: DisplayFilter, categoryFilter: CategoryDisplayFilter): EisenhowerTask[] => {
+  const getFilteredTasksForDisplay = useCallback((tasks: EisenhowerTask[], dateFilter: DisplayFilter, categoryFilter: CategoryDisplayFilter, priorityFilter: PriorityFilter, deadlineFilter: DeadlineFilter): EisenhowerTask[] => {
     let filteredTasks = tasks;
 
     // 1. Filtragem por Categoria (categoryDisplayFilter)
@@ -427,7 +441,20 @@ const Eisenhower = () => {
       });
     }
 
-    // 2. Filtragem por Data/Status (dateFilter)
+    // 2. Filtragem por Prioridade (displayPriorityFilter)
+    if (priorityFilter !== "all") {
+      const targetPriority = parseInt(priorityFilter.replace('p', ''), 10);
+      filteredTasks = filteredTasks.filter(task => task.priority === targetPriority);
+    }
+
+    // 3. Filtragem por Deadline (displayDeadlineFilter)
+    if (deadlineFilter === "has_deadline") {
+      filteredTasks = filteredTasks.filter(task => task.deadline !== null && task.deadline !== undefined);
+    } else if (deadlineFilter === "no_deadline") {
+      filteredTasks = filteredTasks.filter(task => task.deadline === null || task.deadline === undefined);
+    }
+
+    // 4. Filtragem por Data/Status (dateFilter)
     if (dateFilter !== "all") {
       const now = new Date();
       const startOfToday = startOfDay(now);
@@ -477,7 +504,7 @@ const Eisenhower = () => {
       });
     }
 
-    // 3. Filtragem por Termo de Busca (searchTerm)
+    // 5. Filtragem por Termo de Busca (searchTerm)
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     if (lowerCaseSearchTerm.trim() === "") {
       return filteredTasks;
@@ -489,9 +516,9 @@ const Eisenhower = () => {
       task.labels.some(label => label.toLowerCase().includes(lowerCaseSearchTerm))
     );
 
-  }, [tasksToProcess, displayFilter, categoryDisplayFilter, searchTerm]);
+  }, [tasksToProcess, displayFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, searchTerm]);
 
-  const filteredTasksForDisplay = getFilteredTasksForDisplay(tasksToProcess, displayFilter, categoryDisplayFilter);
+  const filteredTasksForDisplay = getFilteredTasksForDisplay(tasksToProcess, displayFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter);
 
   // Tarefas para a tela de avaliação (RatingScreen)
   const tasksForRatingScreen = useMemo(() => {
@@ -528,13 +555,13 @@ const Eisenhower = () => {
           initialFilterInput={filterInput}
           initialStatusFilter={statusFilter}
           initialCategoryFilter={categoryFilter}
-          initialPriorityFilter={priorityFilter} // Novo
-          initialDeadlineFilter={deadlineFilter} // Novo
+          initialPriorityFilter={priorityFilter}
+          initialDeadlineFilter={deadlineFilter}
           onFilterInputChange={setFilterInput}
           onStatusFilterChange={setStatusFilter}
           onCategoryFilterChange={setCategoryFilter}
-          onPriorityFilterChange={setPriorityFilter} // Novo
-          onDeadlineFilterChange={setDeadlineFilter} // Novo
+          onPriorityFilterChange={setPriorityFilter}
+          onDeadlineFilterChange={setDeadlineFilter}
         />;
       case "rating":
         return (
@@ -603,13 +630,13 @@ const Eisenhower = () => {
           initialFilterInput={filterInput}
           initialStatusFilter={statusFilter}
           initialCategoryFilter={categoryFilter}
-          initialPriorityFilter={priorityFilter} // Novo
-          initialDeadlineFilter={deadlineFilter} // Novo
+          initialPriorityFilter={priorityFilter}
+          initialDeadlineFilter={deadlineFilter}
           onFilterInputChange={setFilterInput}
           onStatusFilterChange={setStatusFilter}
           onCategoryFilterChange={setCategoryFilter}
-          onPriorityFilterChange={setPriorityFilter} // Novo
-          onDeadlineFilterChange={setDeadlineFilter} // Novo
+          onPriorityFilterChange={setPriorityFilter}
+          onDeadlineFilterChange={setDeadlineFilter}
         />;
     }
   };
@@ -676,7 +703,7 @@ const Eisenhower = () => {
 
       {/* Seletor de filtro de exibição e busca */}
       {(currentView === "matrix" || currentView === "results" || currentView === "dashboard") && (
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-6 gap-4">
           <div className="relative md:col-span-2">
             <Input
               type="text"
@@ -692,7 +719,7 @@ const Eisenhower = () => {
               <SelectValue placeholder="Filtrar por Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas as Tarefas</SelectItem>
+              <SelectItem value="all">Todas as Datas</SelectItem>
               <SelectItem value="overdue">Apenas Atrasadas</SelectItem>
               <SelectItem value="today">Apenas Vencem Hoje</SelectItem>
               <SelectItem value="tomorrow">Apenas Vencem Amanhã</SelectItem>
@@ -707,6 +734,28 @@ const Eisenhower = () => {
               <SelectItem value="all">Todas as Categorias</SelectItem>
               <SelectItem value="pessoal">Pessoal</SelectItem>
               <SelectItem value="profissional">Profissional</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={displayPriorityFilter} onValueChange={(value: PriorityFilter) => setDisplayPriorityFilter(value)}>
+            <SelectTrigger className="w-full mt-1">
+              <SelectValue placeholder="Filtrar por Prioridade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as Prioridades</SelectItem>
+              <SelectItem value="p4">P4 (Baixa)</SelectItem>
+              <SelectItem value="p3">P3 (Média)</SelectItem>
+              <SelectItem value="p2">P2 (Alta)</SelectItem>
+              <SelectItem value="p1">P1 (Urgente)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={displayDeadlineFilter} onValueChange={(value: DeadlineFilter) => setDisplayDeadlineFilter(value)}>
+            <SelectTrigger className="w-full mt-1">
+              <SelectValue placeholder="Filtrar por Deadline" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Deadlines</SelectItem>
+              <SelectItem value="has_deadline">Com Deadline Definido</SelectItem>
+              <SelectItem value="no_deadline">Sem Deadline Definido</SelectItem>
             </SelectContent>
           </Select>
         </div>
