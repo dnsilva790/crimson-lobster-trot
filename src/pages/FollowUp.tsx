@@ -33,77 +33,7 @@ const PRIORITY_LABELS: Record<1 | 2 | 3 | 4, string> = {
   1: "P4",
 };
 
-// Componente de Overlay da Linha de Prioridade
-interface PriorityLineOverlayProps {
-  taskRef: React.RefObject<HTMLDivElement>;
-  isHovering: boolean;
-}
-
-const PriorityLineOverlay: React.FC<PriorityLineOverlayProps> = ({ taskRef, isHovering }) => {
-  const [overlayStyle, setOverlayStyle] = useState<React.CSSProperties>({});
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isHovering || !taskRef.current || !containerRef.current) {
-      setOverlayStyle({});
-      return;
-    }
-
-    const taskElement = taskRef.current;
-    const containerElement = containerRef.current;
-    
-    // Calcula a posição da tarefa em relação ao topo do container de rolagem
-    const taskRect = taskElement.getBoundingClientRect();
-    const containerRect = containerElement.getBoundingClientRect();
-    
-    // A altura da área que queremos cobrir é do topo do container até o topo da tarefa
-    const height = taskRect.top - containerRect.top;
-    
-    // A posição vertical (top) é o topo do container
-    const top = 0;
-    
-    // A largura é a largura do container
-    const width = containerRect.width;
-
-    setOverlayStyle({
-      top: `${top}px`,
-      left: `${containerRect.left}px`,
-      width: `${width}px`,
-      height: `${height}px`,
-      position: 'fixed', // Usar fixed para sobrepor corretamente
-      pointerEvents: 'none',
-      overflow: 'hidden',
-      zIndex: 50,
-    });
-  }, [isHovering, taskRef]);
-
-  if (!isHovering || !taskRef.current) return null;
-
-  // Calcula a diagonal: 
-  // A linha deve ir do canto superior esquerdo (0, 0) ao canto inferior direito (width, height)
-  // A linha é um div rotacionado. Para cobrir a área, usamos um gradiente linear.
-  
-  return (
-    <div 
-      ref={containerRef}
-      style={overlayStyle}
-      className="absolute"
-    >
-      <div 
-        className="absolute inset-0"
-        style={{
-          // Gradiente linear de 135 graus (diagonal decrescente da esquerda para a direita)
-          // Começa transparente e termina com uma cor sutil para simular a linha
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0) 49.5%, rgba(129, 140, 248, 0.5) 50%, rgba(255, 255, 255, 0) 50.5%)',
-          backgroundSize: '100% 100%',
-          pointerEvents: 'none',
-        }}
-      />
-      <div className="absolute inset-0 bg-indigo-50 opacity-20"></div>
-    </div>
-  );
-};
-
+// Removendo PriorityLineOverlay, pois causou problemas de posicionamento.
 
 const FollowUp = () => {
   const { fetchTasks, closeTask, updateTask, isLoading: isLoadingTodoist } = useTodoist();
@@ -131,7 +61,6 @@ const FollowUp = () => {
 
   // Estados para a linha de prioridade
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
-  const taskRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
 
@@ -540,36 +469,38 @@ const FollowUp = () => {
   const renderTaskItem = (task: TodoistTask) => {
     const delegateName = getDelegateNameFromLabels(task.labels);
     const solicitante = getSolicitante(task);
-    const taskRef = useRef<HTMLDivElement>(null);
+
+    // Adicionando a lógica de hover e o estilo de gradiente aqui
     const isHovering = hoveredTaskId === task.id;
+    const handleMouseEnter = () => setHoveredTaskId(task.id);
+    const handleMouseLeave = () => setHoveredTaskId(null);
 
     return (
       <div 
         key={task.id} 
-        ref={(el) => {
-          taskRefs.current[task.id] = el;
-          if (el) {
-            // Adiciona listeners de mouse para o efeito de linha
-            el.onmouseenter = () => setHoveredTaskId(task.id);
-            el.onmouseleave = () => setHoveredTaskId(null);
-          }
-        }}
         className={cn(
-          "p-4 border-b border-gray-200 last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors relative",
-          selectedTaskForAI?.id === task.id && "bg-indigo-50 border-indigo-400 ring-1 ring-blue-400"
+          "p-4 border-b border-gray-200 last:border-b-0 cursor-pointer transition-colors relative group",
+          selectedTaskForAI?.id === task.id ? "bg-indigo-50 border-indigo-400 ring-1 ring-blue-400" : "hover:bg-gray-50"
         )}
         onClick={() => handleSelectTaskForAI(task)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
-        {/* Priority Line Overlay (Rendered outside the task item for fixed positioning) */}
+        {/* Linha Diagonal de Prioridade (apenas para visualização) */}
         {isHovering && (
-          <PriorityLineOverlay 
-            taskRef={taskRef as React.RefObject<HTMLDivElement>} 
-            isHovering={isHovering} 
+          <div 
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              // Cria um gradiente linear que simula a linha diagonal
+              background: 'linear-gradient(135deg, rgba(129, 140, 248, 0.1) 49.5%, rgba(129, 140, 248, 0.5) 50%, rgba(129, 140, 248, 0.1) 50.5%)',
+              backgroundSize: '100% 100%',
+              zIndex: 10,
+            }}
           />
         )}
 
         {editingTaskId === task.id ? (
-          <div className="grid gap-2 p-2 bg-white rounded-md shadow-inner">
+          <div className="grid gap-2 p-2 bg-white rounded-md shadow-inner relative z-20">
             <h4 className="text-lg font-semibold text-gray-800">
               {task.content}
             </h4>
@@ -704,7 +635,7 @@ const FollowUp = () => {
             </div>
           </div>
         ) : (
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between relative z-20">
             <div className="flex-grow pr-4">
               <h4 className="text-lg font-semibold text-gray-800">
                 {task.content}
