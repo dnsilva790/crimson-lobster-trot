@@ -13,7 +13,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO, isValid, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn, getDelegateNameFromLabels, getSolicitante, get5W2H, getEisenhowerRating } from "@/lib/utils";
+import { cn, getDelegateNameFromLabels, getSolicitante, get5W2H } from "@/lib/utils";
+import { getEisenhowerRating } from "@/utils/eisenhowerUtils"; // Importação corrigida
 import { ExternalLink } from "lucide-react";
 
 interface TaskTableComponentProps {
