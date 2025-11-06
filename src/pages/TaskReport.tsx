@@ -12,7 +12,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import TaskTableComponent from "@/components/TaskTableComponent";
 import { exportTasksToExcel } from "@/utils/excelExport";
-import { getEisenhowerRating } from "@/lib/utils"; // Importar a nova função
+import { getEisenhowerRating } from "@/utils/eisenhowerUtils"; // Importar a nova função
 
 const TASK_REPORT_FILTER_INPUT_STORAGE_KEY = "task_report_filter_input";
 

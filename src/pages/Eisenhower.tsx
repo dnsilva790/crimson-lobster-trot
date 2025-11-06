@@ -8,7 +8,7 @@ import { EisenhowerTask, TodoistTask, DisplayFilter, CategoryDisplayFilter, Manu
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw, Search, RotateCcw } from "lucide-react"; // Importar Search e RotateCcw
-import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isTomorrow, isBefore, startOfDay
+import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay, differenceInDays } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isTomorrow, isBefore, startOfDay
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
 import { Input } from "@/components/ui/input"; // Importar Input
 import { getTaskCategory } from "@/lib/utils"; // Remover getEisenhowerRating, updateEisenhowerRating
