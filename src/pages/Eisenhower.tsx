@@ -18,10 +18,9 @@ import { useSupabaseAuth } from "@/hooks/useSupabaseAuth"; // Importar o hook de
 import SetupScreen from "@/components/eisenhower/SetupScreen";
 import RatingScreen from "@/components/eisenhower/RatingScreen";
 import EisenhowerMatrixView from "@/components/eisenhower/EisenhowerMatrixView";
-import ResultsScreen from "@/components/eisenhower/ResultsScreen";
 import DashboardScreen from "@/components/eisenhower/DashboardScreen";
 import AiAssistantModal from "@/components/eisenhower/AiAssistantModal";
-// import ThresholdSlider from "@/components/eisenhower/ThresholdSlider"; // Removido
+import ResultsScreen from "@/components/eisenhower/ResultsScreen";
 
 type EisenhowerView = "setup" | "rating" | "matrix" | "results" | "dashboard";
 type RatingFilter = "all" | "unrated"; // Novo tipo de filtro para avaliação
@@ -32,7 +31,6 @@ type DeadlineFilter = "all" | "has_deadline" | "no_deadline"; // Novo tipo de fi
 const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input";
 const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
 const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
-// Removidos: EISENHOWER_PRIORITY_FILTER_STORAGE_KEY, EISENHOWER_DEADLINE_FILTER_STORAGE_KEY
 const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter";
 const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter";
 const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_display_filter";
@@ -100,9 +98,14 @@ const sortEisenhowerTasks = (tasks: EisenhowerTask[]): EisenhowerTask[] => {
 
 const Eisenhower = () => {
   const { fetchTasks, updateTask, isLoading: isLoadingTodoist } = useTodoist();
-  const { user, isLoading: isLoadingAuth } = useSupabaseAuth(); // Mantemos o hook de auth, mas ele não é mais crucial para o armazenamento
+  const { user, isLoading: isLoadingAuth } = useSupabaseAuth();
   
-  const [currentView, setCurrentView] = useState<EisenhowerView>("setup");
+  const [currentView, setCurrentView] = useState<EisenhowerView>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('eisenhower_current_view') as EisenhowerView) || "setup";
+    }
+    return "setup";
+  });
   const [tasksToProcess, setTasksToProcess] = useState<EisenhowerTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -127,7 +130,6 @@ const Eisenhower = () => {
     }
     return "all";
   });
-  // Removidos: priorityFilter, deadlineFilter
 
   // Estados para os filtros de exibição (Matrix/Results/Dashboard)
   const [displayFilter, setDisplayFilter] = useState<DisplayFilter>(() => {
@@ -191,6 +193,7 @@ const Eisenhower = () => {
   // Efeitos para salvar os filtros no localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      localStorage.setItem('eisenhower_current_view', currentView);
       localStorage.setItem(EISENHOWER_FILTER_INPUT_STORAGE_KEY, filterInput);
       localStorage.setItem(EISENHOWER_STATUS_FILTER_STORAGE_KEY, statusFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY, categoryFilter);
@@ -203,7 +206,7 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY, String(diagonalXPoint));
       localStorage.setItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY, String(diagonalYPoint));
     }
-  }, [filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
+  }, [currentView, filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
 
   // --- Lógica de Carregamento e Persistência Todoist Description ---
 
@@ -391,7 +394,7 @@ const Eisenhower = () => {
 
         await Promise.all(updatesToTodoist);
 
-        setTasksToProcess(prev => prev.map(t => ({ ...t, urgency: null, importance: null, quadrant: null })));
+        setTasksToProcess([]); // Limpa a lista de tarefas
         setCurrentView("setup");
         setManualThresholds(defaultManualThresholds);
         setDiagonalXPoint(50);
