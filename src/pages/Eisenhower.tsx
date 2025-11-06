@@ -8,7 +8,7 @@ import { EisenhowerTask, TodoistTask, DisplayFilter, CategoryDisplayFilter, Manu
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw, Search, RotateCcw } from "lucide-react"; // Importar Search e RotateCcw
-import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay
+import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isTomorrow, isBefore, startOfDay
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
 import { Input } from "@/components/ui/input"; // Importar Input
 import { getTaskCategory, getEisenhowerRating, updateEisenhowerRating } from "@/lib/utils"; // Importar getTaskCategory e novas funções de Eisenhower
@@ -85,6 +85,12 @@ const sortEisenhowerTasks = (tasks: EisenhowerTask[]): EisenhowerTask[] => {
     const dueDateTimeB = getDateValue(b.due?.datetime);
     if (dueDateTimeA !== dueDateTimeB) {
       return dueDateTimeA - dueDateTimeB;
+    }
+
+    const dueDateA = getDateValue(a.due?.date);
+    const dueDateB = getDateValue(b.due?.date);
+    if (dueDateA !== dueDateB) { 
+      return dueDateA - dueDateB;
     }
 
     return 0;
@@ -232,28 +238,39 @@ const Eisenhower = () => {
   }, [fetchTasks]);
 
   // 2. Função para salvar a pontuação e categorizar
-  const handleUpdateTaskRating = useCallback(async (taskId: string, urgency: number | null, importance: number | null) => {
+  const handleUpdateTaskRating = useCallback(async (taskId: string, urgency: number | null, importance: number | null, extraUpdates?: { description?: string, labels?: string[] }) => {
     const taskToUpdate = tasksToProcess.find(t => t.id === taskId);
     if (!taskToUpdate) return;
 
     // 1. Atualiza o estado local (sem quadrante ainda)
     setTasksToProcess(prevTasks => {
       return prevTasks.map(task =>
-        task.id === taskId ? { ...task, urgency, importance } : task
+        task.id === taskId ? { ...task, urgency, importance, ...extraUpdates } : task
       );
     });
 
-    // 2. Persiste no Todoist (apenas as pontuações)
-    const newDescriptionWithRating = updateEisenhowerRating(
-      taskToUpdate.description || '',
+    // 2. Persiste no Todoist (incluindo pontuações, descrição e etiquetas)
+    let finalDescription = extraUpdates?.description || taskToUpdate.description || '';
+    
+    // Ensure the Eisenhower rating is always included in the description update
+    finalDescription = updateEisenhowerRating(
+      finalDescription,
       urgency,
       importance,
       null // Não salva o quadrante ainda
     );
 
-    const updated = await updateTask(taskId, { description: newDescriptionWithRating });
+    const updatePayload: { description: string, labels?: string[] } = {
+        description: finalDescription,
+    };
+    
+    if (extraUpdates?.labels) {
+        updatePayload.labels = extraUpdates.labels;
+    }
+
+    const updated = await updateTask(taskId, updatePayload);
     if (!updated) {
-      toast.error("Falha ao salvar pontuação no Todoist.");
+      toast.error("Falha ao salvar pontuação/dados no Todoist.");
     }
 
     // 3. Recalcula e persiste o quadrante para todas as tarefas avaliadas
@@ -263,7 +280,7 @@ const Eisenhower = () => {
       handleCategorizeTasks();
     }, 100);
 
-  }, [tasksToProcess, updateTask]);
+  }, [tasksToProcess, updateTask, handleCategorizeTasks]);
 
   // 3. Função para categorizar (calcula thresholds dinâmicos e salva o quadrante na descrição)
   const getDynamicDomainAndThreshold = useCallback((values: number[]): { domain: [number, number], threshold: number } => {
