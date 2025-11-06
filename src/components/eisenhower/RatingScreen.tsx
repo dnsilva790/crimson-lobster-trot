@@ -5,16 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Scale, Check, LayoutDashboard, Lightbulb, Filter, User, Users, Save, XCircle } from "lucide-react"; // Added User, Users, Save, XCircle
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Added Popover components
-import { Textarea } from "@/components/ui/textarea"; // Added Textarea
+import { ArrowLeft, ArrowRight, Scale, Check, LayoutDashboard, Lightbulb, Filter } from "lucide-react";
 import { EisenhowerTask } from "@/lib/types";
 import TaskCard from "./TaskCard";
 import { toast } from "sonner";
-import LoadingSpinner from "@/components/ui/loading-spinner"; // Importar LoadingSpinner
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
-import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay, differenceInDays } from 'date-fns'; // Importar funções de data
-import { getSolicitante, getDelegateNameFromLabels, updateDescriptionWithSection } from "@/lib/utils"; // Added utils
+import LoadingSpinner from "@/components/ui/loading-spinner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay, differenceInDays } from 'date-fns';
+import { getSolicitante, getDelegateNameFromLabels, updateDescriptionWithSection } from "@/lib/utils";
 
 interface RatingScreenProps {
   tasks: EisenhowerTask[]; // Agora recebe a lista FILTRADA de tarefas
@@ -42,12 +40,6 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
   const [importanceInput, setImportanceInput] = useState<string>("50");
   const [isAiThinking, setIsAiThinking] = useState(false);
   
-  // NOVOS ESTADOS
-  const [solicitanteInput, setSolicitanteInput] = useState("");
-  const [delegateNameInput, setDelegateNameInput] = useState("");
-  const [isSolicitantePopoverOpen, setIsSolicitantePopoverOpen] = useState(false);
-  const [isDelegatingPopoverOpen, setIsDelegatingPopoverOpen] = useState(false);
-
   const currentTask = useMemo(() => {
     // Garante que o índice esteja dentro dos limites
     const safeIndex = Math.min(currentTaskIndex, tasks.length - 1);
@@ -71,10 +63,6 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
       // Carrega os valores existentes ou define 50 como padrão
       setUrgencyInput(currentTask.urgency !== null ? String(currentTask.urgency) : "50");
       setImportanceInput(currentTask.importance !== null ? String(currentTask.importance) : "50");
-      
-      // Initialize Solicitante and Delegate
-      setSolicitanteInput(getSolicitante(currentTask) || "");
-      setDelegateNameInput(getDelegateNameFromLabels(currentTask.labels) || "");
     }
   }, [currentTask]); // Depender de currentTask (useMemo) para atualizar inputs
 
@@ -97,51 +85,8 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
       return;
     }
 
-    // --- Prepare Description and Labels Updates ---
-    let newDescription = currentTask.description || "";
-    let newLabels = [...currentTask.labels];
-    let labelsChanged = false;
-    let descriptionChanged = false;
-
-    // 1. Solicitante
-    const currentSolicitante = getSolicitante(currentTask);
-    if (solicitanteInput !== currentSolicitante) {
-        newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteInput);
-        descriptionChanged = true;
-    }
-
-    // 2. Delegate
-    const currentDelegateName = getDelegateNameFromLabels(currentTask.labels);
-    const newDelegateLabelName = delegateNameInput.trim();
-    
-    if (newDelegateLabelName !== currentDelegateName) {
-        // Remove existing delegation label
-        newLabels = newLabels.filter(label => !label.startsWith("espera_de_"));
-        
-        if (newDelegateLabelName) {
-            const delegateLabel = `espera_de_${newDelegateLabelName.toLowerCase().replace(/\s/g, '_')}`;
-            newLabels.push(delegateLabel);
-            
-            // Update description with delegation info
-            newDescription = updateDescriptionWithSection(newDescription, '[DELEGADO PARA]:', newDelegateLabelName);
-        } else {
-            // Clear delegation info from description if delegate is cleared
-            newDescription = updateDescriptionWithSection(newDescription, '[DELEGADO PARA]:', '');
-        }
-        labelsChanged = true;
-        descriptionChanged = true;
-    }
-
-    const extraUpdates: { description?: string, labels?: string[] } = {};
-    if (descriptionChanged) {
-        extraUpdates.description = newDescription;
-    }
-    if (labelsChanged) {
-        extraUpdates.labels = newLabels;
-    }
-
-    // 1. Atualiza o rating no estado pai, passando extraUpdates
-    onUpdateTaskRating(currentTask.id, parsedUrgency, parsedImportance, extraUpdates);
+    // 1. Atualiza o rating no estado pai, sem extraUpdates
+    onUpdateTaskRating(currentTask.id, parsedUrgency, parsedImportance);
 
     // 2. Avança para a próxima tarefa ou finaliza
     if (currentTaskIndex < tasks.length - 1) {
@@ -150,7 +95,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
       toast.success("Revisão de tarefas concluída!");
       onFinishRating(); // Chamar onFinishRating para categorizar e ir para a matriz
     }
-  }, [currentTask, currentTaskIndex, tasks.length, urgencyInput, importanceInput, solicitanteInput, delegateNameInput, onUpdateTaskRating, onFinishRating]);
+  }, [currentTask, currentTaskIndex, tasks.length, urgencyInput, importanceInput, onUpdateTaskRating, onFinishRating]);
 
   const handlePreviousTask = useCallback(() => {
     if (currentTaskIndex > 0) {
@@ -279,7 +224,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
     );
   }
 
-  const progress = ((currentTaskIndex + 1) / tasks.length) * 100;
+  const progress = (currentTaskIndex / tasks.length) * 100;
 
   return (
     <div className="p-4">
@@ -368,80 +313,6 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
             Sugerir com IA
           </Button>
           
-          {/* NOVOS CAMPOS DE SOLICITANTE E DELEGAÇÃO */}
-          <div className="grid grid-cols-2 gap-4">
-            <Popover open={isSolicitantePopoverOpen} onOpenChange={setIsSolicitantePopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  disabled={!currentTask}
-                  className="w-full py-3 text-md flex items-center justify-center text-blue-600 border-blue-600 hover:bg-blue-50"
-                >
-                  <User className="mr-2 h-4 w-4" />
-                  {solicitanteInput ? `Solicitante: ${solicitanteInput}` : 'Definir Solicitante'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-4">
-                <h4 className="font-semibold text-lg mb-3">Definir Solicitante</h4>
-                <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="solicitante-input-popover">Nome do Solicitante</Label>
-                    <Input
-                      id="solicitante-input-popover"
-                      value={solicitanteInput}
-                      onChange={(e) => setSolicitanteInput(e.target.value)}
-                      placeholder="Ex: João Silva"
-                      className="mt-1"
-                    />
-                  </div>
-                  <Button onClick={() => setIsSolicitantePopoverOpen(false)} className="w-full" disabled={!currentTask}>
-                    <Save className="h-4 w-4 mr-2" /> Fechar e Salvar Localmente
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            <Popover open={isDelegatingPopoverOpen} onOpenChange={setIsDelegatingPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  disabled={!currentTask}
-                  className="w-full py-3 text-md flex items-center justify-center text-orange-600 border-orange-600 hover:bg-orange-50"
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  {delegateNameInput ? `Delegado: ${delegateNameInput}` : 'Delegar Tarefa'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-4">
-                <h4 className="font-semibold text-lg mb-3">Delegar Tarefa</h4>
-                <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="delegate-input-popover">Nome do Responsável (para etiqueta espera_de_)</Label>
-                    <Input
-                      id="delegate-input-popover"
-                      value={delegateNameInput}
-                      onChange={(e) => setDelegateNameInput(e.target.value)}
-                      placeholder="Ex: joao_silva"
-                      className="mt-1"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Use letras minúsculas e underscores.
-                    </p>
-                  </div>
-                  <Button onClick={() => setIsDelegatingPopoverOpen(false)} className="w-full" disabled={!currentTask}>
-                    <Save className="h-4 w-4 mr-2" /> Fechar e Salvar Localmente
-                  </Button>
-                  {delegateNameInput && (
-                    <Button onClick={() => { setDelegateNameInput(""); setIsDelegatingPopoverOpen(false); }} variant="outline" className="w-full">
-                      <XCircle className="h-4 w-4 mr-2" /> Remover Delegação
-                    </Button>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-          {/* FIM NOVOS CAMPOS */}
-
           <div className="flex justify-between gap-4 mt-4">
             <Button onClick={handlePreviousTask} variant="outline" className="flex-1 flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" /> Anterior
