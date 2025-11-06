@@ -211,81 +211,6 @@ const Eisenhower = () => {
 
   // --- Lógica de Carregamento e Persistência Todoist Description ---
 
-  // 1. Função para carregar tarefas e mesclar com ratings da descrição
-  const handleLoadTasks = useCallback(async (filter: string) => {
-    setIsLoading(true);
-    try {
-      const fetchedTodoistTasks = await fetchTasks(filter, { includeSubtasks: false, includeRecurring: false });
-      
-      const initialEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => {
-        const { urgency, importance, quadrant } = getEisenhowerRating(task);
-        return {
-          ...task,
-          urgency: urgency,
-          importance: importance,
-          quadrant: quadrant,
-          url: task.url,
-        };
-      });
-      
-      const sortedTasks = sortEisenhowerTasks(initialEisenhowerTasks);
-      
-      setTasksToProcess(sortedTasks);
-      setCurrentView("rating");
-      toast.success(`Carregadas ${sortedTasks.length} tarefas para a Matriz de Eisenhower.`);
-    } catch (error) {
-      console.error("Failed to load tasks for Eisenhower Matrix:", error);
-      toast.error("Falha ao carregar tarefas.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchTasks]);
-
-  // 2. Função para salvar a pontuação e categorizar
-  const handleUpdateTaskRating = useCallback(async (taskId: string, urgency: number | null, importance: number | null, extraUpdates?: { description?: string, labels?: string[] }) => {
-    const taskToUpdate = tasksToProcess.find(t => t.id === taskId);
-    if (!taskToUpdate) return;
-
-    // 1. Atualiza o estado local (sem quadrante ainda)
-    setTasksToProcess(prevTasks => {
-      return prevTasks.map(task =>
-        task.id === taskId ? { ...task, urgency, importance, ...extraUpdates } : task
-      );
-    });
-
-    // 2. Persiste no Todoist (incluindo pontuações, descrição e etiquetas)
-    let finalDescription = extraUpdates?.description || taskToUpdate.description || '';
-    
-    // Ensure the Eisenhower rating is always included in the description update
-    finalDescription = updateEisenhowerRating(
-      finalDescription,
-      urgency,
-      importance,
-      null // Não salva o quadrante ainda
-    );
-
-    const updatePayload: { description: string, labels?: string[] } = {
-        description: finalDescription,
-    };
-    
-    if (extraUpdates?.labels) {
-        updatePayload.labels = extraUpdates.labels;
-    }
-
-    const updated = await updateTask(taskId, updatePayload);
-    if (!updated) {
-      toast.error("Falha ao salvar pontuação/dados no Todoist.");
-    }
-
-    // 3. Recalcula e persiste o quadrante para todas as tarefas avaliadas
-    // Chamamos handleCategorizeTasks após um pequeno delay para garantir que o estado local (tasksToProcess)
-    // tenha sido atualizado com a nova pontuação antes de recalcular os thresholds.
-    setTimeout(() => {
-      handleCategorizeTasks();
-    }, 100);
-
-  }, [tasksToProcess, updateTask, handleCategorizeTasks]);
-
   // 3. Função para categorizar (calcula thresholds dinâmicos e salva o quadrante na descrição)
   const getDynamicDomainAndThreshold = useCallback((values: number[]): { domain: [number, number], threshold: number } => {
     if (values.length === 0) {
@@ -380,6 +305,83 @@ const Eisenhower = () => {
       });
     }
   }, [tasksToProcess, getDynamicDomainAndThreshold, updateTask]);
+
+
+  // 1. Função para carregar tarefas e mesclar com ratings da descrição
+  const handleLoadTasks = useCallback(async (filter: string) => {
+    setIsLoading(true);
+    try {
+      const fetchedTodoistTasks = await fetchTasks(filter, { includeSubtasks: false, includeRecurring: false });
+      
+      const initialEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => {
+        const { urgency, importance, quadrant } = getEisenhowerRating(task);
+        return {
+          ...task,
+          urgency: urgency,
+          importance: importance,
+          quadrant: quadrant,
+          url: task.url,
+        };
+      });
+      
+      const sortedTasks = sortEisenhowerTasks(initialEisenhowerTasks);
+      
+      setTasksToProcess(sortedTasks);
+      setCurrentView("rating");
+      toast.success(`Carregadas ${sortedTasks.length} tarefas para a Matriz de Eisenhower.`);
+    } catch (error) {
+      console.error("Failed to load tasks for Eisenhower Matrix:", error);
+      toast.error("Falha ao carregar tarefas.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchTasks]);
+
+  // 2. Função para salvar a pontuação e categorizar
+  const handleUpdateTaskRating = useCallback(async (taskId: string, urgency: number | null, importance: number | null, extraUpdates?: { description?: string, labels?: string[] }) => {
+    const taskToUpdate = tasksToProcess.find(t => t.id === taskId);
+    if (!taskToUpdate) return;
+
+    // 1. Atualiza o estado local (sem quadrante ainda)
+    setTasksToProcess(prevTasks => {
+      return prevTasks.map(task =>
+        task.id === taskId ? { ...task, urgency, importance, ...extraUpdates } : task
+      );
+    });
+
+    // 2. Persiste no Todoist (incluindo pontuações, descrição e etiquetas)
+    let finalDescription = extraUpdates?.description || taskToUpdate.description || '';
+    
+    // Ensure the Eisenhower rating is always included in the description update
+    finalDescription = updateEisenhowerRating(
+      finalDescription,
+      urgency,
+      importance,
+      null // Não salva o quadrante ainda
+    );
+
+    const updatePayload: { description: string, labels?: string[] } = {
+        description: finalDescription,
+    };
+    
+    if (extraUpdates?.labels) {
+        updatePayload.labels = extraUpdates.labels;
+    }
+
+    const updated = await updateTask(taskId, updatePayload);
+    if (!updated) {
+      toast.error("Falha ao salvar pontuação/dados no Todoist.");
+    }
+
+    // 3. Recalcula e persiste o quadrante para todas as tarefas avaliadas
+    // Chamamos handleCategorizeTasks após um pequeno delay para garantir que o estado local (tasksToProcess)
+    // tenha sido atualizado com a nova pontuação antes de recalcular os thresholds.
+    setTimeout(() => {
+      handleCategorizeTasks();
+    }, 100);
+
+  }, [tasksToProcess, updateTask, handleCategorizeTasks]);
+
 
   const handleReset = useCallback(async () => {
     if (confirm("Tem certeza que deseja resetar a Matriz de Eisenhower? Isso apagará todas as avaliações salvas nas descrições das tarefas.")) {
