@@ -11,7 +11,8 @@ import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw, Searc
 import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isTomorrow, isBefore, startOfDay
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
 import { Input } from "@/components/ui/input"; // Importar Input
-import { getTaskCategory, getEisenhowerRating, updateEisenhowerRating } from "@/lib/utils"; // Importar getTaskCategory e novas funções de Eisenhower
+import { getTaskCategory } from "@/lib/utils"; // Remover getEisenhowerRating, updateEisenhowerRating
+import { getEisenhowerRating, updateEisenhowerRating } from "@/utils/eisenhowerUtils"; // Importar do novo local
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth"; // Importar o hook de auth
 
 // Importar os componentes do Eisenhower
