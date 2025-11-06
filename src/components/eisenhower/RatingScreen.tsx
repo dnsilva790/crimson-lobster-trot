@@ -269,6 +269,16 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
     );
   }
   
+  // Adicionar verificação de segurança para currentTask
+  if (!currentTask) {
+    return (
+      <div className="text-center p-8">
+        <LoadingSpinner size={30} />
+        <p className="text-lg text-gray-600 mt-4">Carregando tarefa...</p>
+      </div>
+    );
+  }
+
   const progress = ((currentTaskIndex + 1) / tasks.length) * 100;
 
   return (
@@ -302,7 +312,7 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
         <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
       </div>
 
-      <TaskCard task={currentTask!} className="mb-8 max-w-2xl mx-auto" />
+      <TaskCard task={currentTask} className="mb-8 max-w-2xl mx-auto" />
 
       <Card className="p-6 max-w-2xl mx-auto">
         <CardHeader>
