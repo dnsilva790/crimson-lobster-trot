@@ -1,7 +1,8 @@
 import * as XLSX from 'xlsx';
 import { TodoistTask } from "@/lib/types";
 import { format, parseISO, isValid } from "date-fns";
-import { getSolicitante, getDelegateNameFromLabels, get5W2H, getEisenhowerRating } from "@/lib/utils"; // Importar getEisenhowerRating
+import { getSolicitante, getDelegateNameFromLabels, get5W2H } from "@/lib/utils";
+import { getEisenhowerRating } from "@/utils/eisenhowerUtils"; // Importação corrigida
 
 interface ExportableTask {
   ID: string;
