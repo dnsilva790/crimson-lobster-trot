@@ -21,6 +21,7 @@ import {
   FileText,
   BarChart3,
   Database,
+  Scale, // Importar Scale
 } from "lucide-react";
 import {
   Dialog,
@@ -35,12 +36,20 @@ import { Button } from "@/components/ui/button";
 
 const modules = [
   {
-    path: "/agent-manager", // Novo módulo
+    path: "/agent-manager",
     icon: BarChart3,
     title: "AGE - IA",
     description: "Gerenciamento Estratégico",
     colorClass: "bg-green-100 hover:bg-green-200",
     activeColor: "border-green-600",
+  },
+  {
+    path: "/triagem", // NOVO MÓDULO
+    icon: Scale,
+    title: "TRIAGEM 3-em-1",
+    description: "Seiri + Eisenhower + Seiso",
+    colorClass: "bg-purple-50 hover:bg-purple-100",
+    activeColor: "border-purple-500",
   },
   {
     path: "/seiri",
@@ -91,7 +100,7 @@ const modules = [
     activeColor: "border-purple-600",
   },
   {
-    path: "/seiketsu-5w2h", // NOVO MÓDULO
+    path: "/seiketsu-5w2h",
     icon: FolderOpen,
     title: "5W2H",
     description: "Entendimento da Tarefa",
@@ -163,7 +172,7 @@ const modules = [
     activeColor: "border-indigo-500",
   },
   {
-    path: "/card-database", // NOVO MÓDULO
+    path: "/card-database",
     icon: Database,
     title: "CARDS REF.",
     description: "Base de Conhecimento",

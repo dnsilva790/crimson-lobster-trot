@@ -29,7 +29,8 @@ import MassivePlanner from "./pages/MassivePlanner";
 import TaskReport from "./pages/TaskReport";
 import AIAgentManagerPage from "./pages/AIAgentManagerPage";
 import CardDatabase from "./pages/CardDatabase";
-import Seiketsu5W2H from "./pages/Seiketsu5W2H"; // Importar o novo módulo
+import Seiketsu5W2H from "./pages/Seiketsu5W2H";
+import Triagem from "./pages/Triagem"; // Importar o novo módulo
 
 const queryClient = new QueryClient();
 
@@ -62,7 +63,8 @@ const App = () => (
               <Route path="/task-report" element={<TaskReport />} />
               <Route path="/agent-manager" element={<AIAgentManagerPage />} />
               <Route path="/card-database" element={<CardDatabase />} />
-              <Route path="/seiketsu-5w2h" element={<Seiketsu5W2H />} /> {/* NOVA ROTA */}
+              <Route path="/seiketsu-5w2h" element={<Seiketsu5W2H />} />
+              <Route path="/triagem" element={<Triagem />} /> {/* NOVA ROTA */}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>
