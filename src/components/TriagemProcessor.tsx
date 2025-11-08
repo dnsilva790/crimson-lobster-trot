@@ -45,7 +45,8 @@ import {
   RAPIDA_LABEL_ID,
   CRONOGRAMA_HOJE_LABEL,
 } from "@/lib/constants";
-import { addLearningFeedback } from "@/utils/aiLearningStorage"; // Importar utilitário de aprendizado
+import { addLearningFeedback, getLearningContextForPrompt } from "@/utils/aiLearningStorage"; // Importar utilitário de aprendizado
+import { suggestEisenhowerRating } from "@/services/aiService"; // Importar o novo serviço AI
 
 interface TriagemProcessorProps {
   task: EisenhowerTask;
@@ -152,85 +153,38 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     return 'delete';
   };
 
-  // --- AI SUGGESTION (Heuristic) ---
+  // --- AI SUGGESTION (Uses AI Service) ---
   const handleSuggestWithAI = useCallback(async () => {
+    if (!localTask) {
+      toast.error("Nenhuma tarefa selecionada para avaliação da IA.");
+      return;
+    }
+
     setIsAiThinking(true);
     
-    let urgencyScore = 50;
-    let importanceScore = 50;
-    let reasoning = "Avaliação baseada em heurísticas de produtividade.";
-
-    const now = new Date();
-    const startOfToday = startOfDay(now);
-
-    let effectiveDate: Date | null = null;
-    if (localTask.deadline) {
-      effectiveDate = parseISO(localTask.deadline);
-    } else if (localTask.due?.datetime) {
-      effectiveDate = parseISO(localTask.due.datetime);
-    } else if (localTask.due?.date) {
-      effectiveDate = parseISO(localTask.due.date);
-    }
-
-    if (effectiveDate && isValid(effectiveDate)) {
-      const daysUntilDue = differenceInDays(effectiveDate, startOfToday);
-      
-      if (isBefore(effectiveDate, now)) {
-        urgencyScore = 95;
-        reasoning = "Urgência alta devido ao prazo já ter passado.";
-      } else if (daysUntilDue === 0) {
-        urgencyScore = 85;
-        reasoning = "Urgência alta devido ao prazo ser hoje.";
-      } else if (daysUntilDue === 1) {
-        urgencyScore = 70;
-        reasoning = "Urgência moderada devido ao prazo ser amanhã.";
-      } else if (daysUntilDue > 1 && daysUntilDue <= 7) {
-        urgencyScore = 55;
-        reasoning = "Urgência média, prazo na próxima semana.";
-      } else {
-        urgencyScore = 30;
-        reasoning = "Urgência baixa, prazo distante.";
-      }
-    } else {
-      urgencyScore = 20;
-      reasoning = "Urgência baixa, pois a tarefa não tem prazo definido.";
-    }
-
-    switch (localTask.priority) {
-      case 4:
-        importanceScore = Math.min(100, urgencyScore + 15);
-        reasoning += " Importância aumentada devido à prioridade P1 do Todoist.";
-        break;
-      case 3:
-        importanceScore = Math.min(90, urgencyScore + 5);
-        break;
-      case 2:
-        importanceScore = Math.max(30, urgencyScore - 10);
-        break;
-      case 1:
-        importanceScore = Math.max(10, urgencyScore - 20);
-        reasoning += " Importância reduzida devido à prioridade P4 do Todoist.";
-        break;
-    }
-
-    urgencyScore = Math.max(0, Math.min(100, urgencyScore));
-    importanceScore = Math.max(0, Math.min(100, importanceScore));
-
-    // Simular tempo de pensamento da IA
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    const finalU = Math.round(urgencyScore);
-    const finalI = Math.round(importanceScore);
-
-    setUrgencyInput(String(finalU));
-    setImportanceInput(String(finalI));
+    const learningContext = getLearningContextForPrompt();
     
-    // Salvar a sugestão da IA para rastreamento
-    setAiSuggestedUrgency(finalU);
-    setAiSuggestedImportance(finalI);
+    const suggestion = await suggestEisenhowerRating(localTask, learningContext);
 
-    toast.success("Sugestões da IA carregadas! Revise e salve.");
-    toast.info(`Razão da IA: ${reasoning}`, { duration: 5000 });
+    if (suggestion) {
+      const finalU = Math.max(0, Math.min(100, Math.round(suggestion.urgency)));
+      const finalI = Math.max(0, Math.min(100, Math.round(suggestion.importance)));
+
+      setUrgencyInput(String(finalU));
+      setImportanceInput(String(finalI));
+      
+      setAiSuggestedUrgency(finalU);
+      setAiSuggestedImportance(finalI);
+
+      toast.success("Sugestões da IA carregadas! Revise e salve.");
+      toast.info(`Razão da IA: ${suggestion.reasoning}`, { duration: 5000 });
+    } else {
+      toast.error("Falha ao obter sugestão da IA. Usando valores padrão.");
+      setUrgencyInput("50");
+      setImportanceInput("50");
+      setAiSuggestedUrgency(null);
+      setAiSuggestedImportance(null);
+    }
 
     setIsAiThinking(false);
   }, [localTask]);
@@ -308,7 +262,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     const isAISuggestionModified = aiSuggestedUrgency !== null && aiSuggestedImportance !== null && 
                                   (aiSuggestedUrgency !== parsedUrgency || aiSuggestedImportance !== parsedImportance);
 
-    if (isAISuggestionModified && !isLearningPromptOpen) {
+    if (isAISuggestionModified && !isLearningPromptOpen && action !== 'complete' && action !== 'delete') {
       // Se a sugestão da IA foi modificada e o prompt de aprendizado não está aberto, abra-o.
       setIsLearningPromptOpen(true);
       return;
@@ -376,7 +330,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
         toast.error("Ação 'Agendar' requer uma data de vencimento.");
         return;
       }
-      newLabels.push("agenda");
+      newLabels.push(CRONOGRAMA_HOJE_LABEL); // Usar a etiqueta de cronograma
     } else if (action === 'next_action') {
       newLabels.push(FOCO_LABEL_ID);
     } else if (action === 'project') {
