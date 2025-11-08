@@ -1,3 +1,4 @@
+' characters in curly braces.">
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -828,7 +829,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
             <Lightbulb className="h-5 w-5" /> Feedback de Aprendizagem da IA
           </h4>
           <p className="text-sm text-gray-700 mb-4">
-            Você alterou a sugestão da IA (U:{aiSuggestedUrgency} -> {urgencyInput}, I:{aiSuggestedImportance} -> {importanceInput}).
+            {`Você alterou a sugestão da IA (U:${aiSuggestedUrgency} -> ${urgencyInput}, I:${aiSuggestedImportance} -> ${importanceInput}).`}
             Por favor, explique o motivo da sua correção para que a IA possa aprender e melhorar futuras sugestões.
           </p>
           <div className="grid gap-4">
