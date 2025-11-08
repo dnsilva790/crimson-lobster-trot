@@ -29,6 +29,7 @@ import {
   Home,
   MinusCircle,
   ExternalLink,
+  PlusCircle,
 } from "lucide-react";
 import { format, parseISO, setHours, setMinutes, isValid, isBefore, startOfDay, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -69,7 +70,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
   onRefreshList,
 }) => {
   const navigate = useNavigate();
-  const { updateTask, closeTask, deleteTask, isLoading: isLoadingTodoist } = useTodoist();
+  const { updateTask, closeTask, deleteTask, createTodoistTask, isLoading: isLoadingTodoist } = useTodoist();
 
   // --- SEIRI/SEISO STATES ---
   const [localTask, setLocalTask] = useState<EisenhowerTask>(task);
@@ -79,6 +80,8 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
   const [solicitanteInput, setSolicitanteInput] = useState("");
   const [delegateNameInput, setDelegateNameInput] = useState("");
   const [observationInput, setObservationInput] = useState("");
+  const [subtaskContent, setSubtaskContent] = useState(""); // Novo estado para subtarefas
+  
   const [isSchedulingPopoverOpen, setIsSchedulingPopoverOpen] = useState(false);
   const [isDelegatingPopoverOpen, setIsDelegatingPopoverOpen] = useState(false);
   const [isSolicitantePopoverOpen, setIsSolicitantePopoverOpen] = useState(false);
@@ -209,6 +212,62 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     setIsAiThinking(false);
   }, [localTask]);
 
+  // --- SEISO ACTIONS ---
+  const handleToggleLabel = useCallback(async (labelToToggle: string) => {
+    const isLabelActive = localTask.labels.includes(labelToToggle);
+    let newLabels: string[];
+
+    if (isLabelActive) {
+      newLabels = localTask.labels.filter(label => label !== labelToToggle);
+    } else {
+      newLabels = [...new Set([...localTask.labels, labelToToggle])];
+    }
+
+    const updated = await updateTask(localTask.id, { labels: newLabels });
+    if (updated) {
+      setLocalTask(prev => ({ ...prev, labels: newLabels }));
+      toast.success(`Etiqueta "${labelToToggle}" ${isLabelActive ? 'removida' : 'adicionada'}!`);
+    } else {
+      toast.error(`Falha ao atualizar etiqueta "${labelToToggle}".`);
+    }
+  }, [localTask, updateTask]);
+
+  const handleCreateSubtasks = useCallback(async () => {
+    if (!localTask || !subtaskContent.trim()) {
+      toast.error("Por favor, insira o conteúdo das subtarefas.");
+      return;
+    }
+
+    const subtasksToCreate = subtaskContent.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    if (subtasksToCreate.length === 0) {
+      toast.error("Nenhuma subtarefa válida para criar.");
+      return;
+    }
+
+    let createdCount = 0;
+    for (const sub of subtasksToCreate) {
+      const created = await createTodoistTask({
+        content: sub,
+        project_id: localTask.project_id,
+        parent_id: localTask.id,
+        priority: 2,
+        labels: ["subtarefa"],
+      });
+      if (created) {
+        createdCount++;
+      } else {
+        toast.error(`Falha ao criar subtarefa: "${sub}"`);
+      }
+    }
+
+    if (createdCount > 0) {
+      toast.success(`${createdCount} subtarefas criadas para "${localTask.content}"!`);
+      setSubtaskContent("");
+    } else {
+      toast.info("Nenhuma subtarefa foi criada.");
+    }
+  }, [localTask, subtaskContent, createTodoistTask]);
+
   // --- CORE SAVE FUNCTION ---
   const handleSaveAndAdvance = useCallback(async (action: 'keep' | 'complete' | 'delete' | 'schedule' | 'delegate' | 'project' | 'next_action') => {
     if (isLoadingTodoist) return;
@@ -293,6 +352,12 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     updatePayload.labels = [...new Set(newLabels)];
     updatePayload.description = newDescription;
 
+    // G. Handle Observation
+    if (observationInput.trim()) {
+      const timestamp = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
+      updatePayload.description += `\n\n[${timestamp}] - ${observationInput.trim()}`;
+    }
+
     // 2. Execute Todoist API calls based on action
     let success = false;
     let updatedTask: EisenhowerTask | undefined;
@@ -337,7 +402,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     } else {
       toast.error("Falha ao salvar alterações no Todoist.");
     }
-  }, [localTask, urgencyInput, importanceInput, selectedDuration, selectedCategory, selectedPriority, solicitanteInput, delegateNameInput, selectedDueDate, selectedDueTime, selectedDeadlineDate, updateTask, closeTask, deleteTask, onUpdate, onAdvance, onRemove, navigate]);
+  }, [localTask, urgencyInput, importanceInput, selectedDuration, selectedCategory, selectedPriority, solicitanteInput, delegateNameInput, selectedDueDate, selectedDueTime, selectedDeadlineDate, updateTask, closeTask, deleteTask, onUpdate, onAdvance, onRemove, navigate, observationInput]);
 
   // --- UI Helpers ---
   const renderTaskDetails = (t: EisenhowerTask) => {
@@ -608,7 +673,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
         </Card>
       </div>
 
-      {/* Coluna 3: Avaliação Eisenhower e Ação Final */}
+      {/* Coluna 3: Avaliação Eisenhower e Ações Seiso */}
       <div className="lg:col-span-1 flex flex-col gap-4">
         <Card className="p-4">
           <CardHeader>
@@ -667,6 +732,70 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
                 Quadrante Sugerido: <span className="text-indigo-600">{getQuadrant(validateAndGetNumber(urgencyInput) || 0, validateAndGetNumber(importanceInput) || 0).toUpperCase()}</span>
               </p>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="p-4">
+          <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
+            <Tag className="h-5 w-5 text-purple-600" /> Gerenciar Etiquetas
+          </CardTitle>
+          <CardContent className="grid grid-cols-3 gap-2 p-0">
+            <Button
+              onClick={() => handleToggleLabel(CRONOGRAMA_HOJE_LABEL)}
+              disabled={isLoadingTodoist}
+              variant={isCronogramaActive ? "default" : "outline"}
+              className={cn(
+                "py-3 text-sm flex items-center justify-center",
+                isCronogramaActive ? "bg-teal-600 hover:bg-teal-700 text-white" : "text-teal-600 border-teal-600 hover:bg-teal-50"
+              )}
+            >
+              <Tag className="mr-1 h-4 w-4" /> {CRONOGRAMA_HOJE_LABEL}
+            </Button>
+            <Button
+              onClick={() => handleToggleLabel(RAPIDA_LABEL_ID)}
+              disabled={isLoadingTodoist}
+              variant={isRapidaActive ? "default" : "outline"}
+              className={cn(
+                "py-3 text-sm flex items-center justify-center",
+                isRapidaActive ? "bg-purple-600 hover:bg-purple-700 text-white" : "text-purple-600 border-purple-600 hover:bg-purple-50"
+              )}
+            >
+              <Tag className="mr-1 h-4 w-4" /> {RAPIDA_LABEL_ID}
+            </Button>
+            <Button
+              onClick={() => handleToggleLabel(FOCO_LABEL_ID)}
+              disabled={isLoadingTodoist}
+              variant={isFocoActive ? "default" : "outline"}
+              className={cn(
+                "py-3 text-sm flex items-center justify-center",
+                isFocoActive ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "text-indigo-600 border-indigo-600 hover:bg-indigo-50"
+              )}
+            >
+              <Tag className="mr-1 h-4 w-4" /> {FOCO_LABEL_ID}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="p-4">
+          <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
+            <ListTodo className="h-5 w-5 text-purple-600" /> Quebrar em Subtarefas
+          </CardTitle>
+          <CardContent className="grid gap-4 p-0">
+            <div>
+              <Label htmlFor="subtask-content">Conteúdo das Subtarefas (uma por linha)</Label>
+              <Textarea
+                id="subtask-content"
+                value={subtaskContent}
+                onChange={(e) => setSubtaskContent(e.target.value)}
+                placeholder="Ex:&#10;- Pesquisar fornecedores&#10;- Contatar 3 fornecedores&#10;- Analisar propostas"
+                rows={4}
+                className="mt-1"
+                disabled={isLoadingTodoist}
+              />
+            </div>
+            <Button onClick={handleCreateSubtasks} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || !subtaskContent.trim()}>
+              <PlusCircle className="h-4 w-4" /> Criar Subtarefas
+            </Button>
           </CardContent>
         </Card>
         
