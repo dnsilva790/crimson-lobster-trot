@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Scale, Check, LayoutDashboard, Lightbulb, Filter } from "lucide-react";
+import { ArrowLeft, ArrowRight, Scale, Check, LayoutDashboard, Lightbulb, Filter, Settings, Play } from "lucide-react";
 import { EisenhowerTask } from "@/lib/types";
 import TaskCard from "./TaskCard";
 import { toast } from "sonner";
@@ -18,28 +18,43 @@ interface RatingScreenProps {
   tasks: EisenhowerTask[]; // Agora recebe a lista FILTRADA de tarefas
   onUpdateTaskRating: (taskId: string, urgency: number | null, importance: number | null, extraUpdates?: { description?: string, labels?: string[] }) => void;
   onFinishRating: () => void;
-  onBack: () => void;
   onViewMatrix: () => void;
   canViewMatrix: boolean;
   ratingFilter: "all" | "unrated"; // Nova prop para o filtro
   onRatingFilterChange: (filter: "all" | "unrated") => void; // Nova prop para mudar o filtro
+  
+  // Props de Setup integradas
+  initialFilterInput: string;
+  initialStatusFilter: "all" | "overdue";
+  initialCategoryFilter: "all" | "pessoal" | "profissional";
+  onFilterInputChange: (value: string) => void;
+  onStatusFilterChange: (value: "all" | "overdue") => void;
+  onCategoryFilterChange: (value: "all" | "pessoal" | "profissional") => void;
+  onStart: (filter: string) => void;
 }
 
 const RatingScreen: React.FC<RatingScreenProps> = ({
   tasks,
   onUpdateTaskRating,
   onFinishRating,
-  onBack,
   onViewMatrix,
   canViewMatrix,
   ratingFilter,
   onRatingFilterChange,
+  initialFilterInput,
+  initialStatusFilter,
+  initialCategoryFilter,
+  onFilterInputChange,
+  onStatusFilterChange,
+  onCategoryFilterChange,
+  onStart,
 }) => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [urgencyInput, setUrgencyInput] = useState<string>("50");
   const [importanceInput, setImportanceInput] = useState<string>("50");
   const [isAiThinking, setIsAiThinking] = useState(false);
-  
+  const [isSetupOpen, setIsSetupOpen] = useState(tasks.length === 0); // Abre o setup se não houver tarefas
+
   const currentTask = useMemo(() => {
     // Garante que o índice esteja dentro dos limites
     const safeIndex = Math.min(currentTaskIndex, tasks.length - 1);
@@ -53,8 +68,10 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
       if (currentTaskIndex >= tasks.length) {
         setCurrentTaskIndex(0);
       }
+      setIsSetupOpen(false); // Fecha o setup se as tarefas forem carregadas
     } else {
       setCurrentTaskIndex(0); // Reset index if list is empty
+      setIsSetupOpen(true); // Abre o setup se a lista estiver vazia
     }
   }, [tasks]);
 
@@ -101,10 +118,10 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
     if (currentTaskIndex > 0) {
       setCurrentTaskIndex(prev => prev - 1);
     } else {
-      // Se estiver na primeira tarefa, volta para a tela de setup
-      onBack();
+      // Se estiver na primeira tarefa, abre a tela de setup
+      setIsSetupOpen(true);
     }
-  }, [currentTaskIndex, onBack]);
+  }, [currentTaskIndex]);
 
   const handleSuggestWithAI = useCallback(async () => {
     if (!currentTask) {
@@ -191,6 +208,102 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
 
   }, [currentTask]);
 
+  const handleStart = () => {
+    const filterParts: string[] = [];
+
+    if (initialFilterInput.trim()) {
+      filterParts.push(`(${initialFilterInput.trim()})`);
+    }
+    
+    if (initialStatusFilter === "overdue") {
+      filterParts.push("due before: in 0 min");
+    }
+
+    if (initialCategoryFilter === "pessoal") {
+      filterParts.push("@pessoal");
+    } else if (initialCategoryFilter === "profissional") {
+      filterParts.push("@profissional");
+    }
+
+    const finalFilter = filterParts.join(" & ");
+    
+    if (!finalFilter) {
+      onStart(undefined as unknown as string); 
+      return;
+    }
+    
+    onStart(finalFilter);
+  };
+
+  if (isSetupOpen) {
+    return (
+      <div className="p-4 text-center">
+        <h3 className="text-2xl font-bold text-gray-800 flex items-center justify-center gap-2 mb-4">
+          <Settings className="h-6 w-6 text-indigo-600" /> Configuração e Carregamento
+        </h3>
+        <p className="text-lg text-gray-700 mb-6">
+          Defina os filtros para carregar as tarefas do Todoist que você deseja analisar.
+        </p>
+
+        <Card className="p-6 max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold text-gray-800">Carregar Tarefas</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div>
+              <Label htmlFor="todoist-filter" className="text-left text-gray-600 font-medium">
+                Filtro do Todoist (Opcional)
+              </Label>
+              <Input
+                id="todoist-filter"
+                type="text"
+                value={initialFilterInput}
+                onChange={(e) => onFilterInputChange(e.target.value)}
+                placeholder="Ex: 'hoje', 'p1', '#projeto'"
+                className="mt-1"
+              />
+              <p className="text-sm text-gray-500 text-left mt-1">
+                Use a sintaxe de filtro do Todoist para refinar a seleção.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="status-filter" className="text-left text-gray-600 font-medium">
+                Status da Tarefa
+              </Label>
+              <Select value={initialStatusFilter} onValueChange={(value: "all" | "overdue") => onStatusFilterChange(value)}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Todas as Tarefas (Backlog)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Tarefas (Backlog)</SelectItem>
+                  <SelectItem value="overdue">Apenas Atrasadas (Backlog)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="category-filter" className="text-left text-gray-600 font-medium">
+                Filtrar por Categoria
+              </Label>
+              <Select value={initialCategoryFilter} onValueChange={(value: "all" | "pessoal" | "profissional") => onCategoryFilterChange(value)}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Todas as Categorias" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Categorias</SelectItem>
+                  <SelectItem value="pessoal">Pessoal</SelectItem>
+                  <SelectItem value="profissional">Profissional</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleStart} className="w-full py-3 text-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2">
+              <Play className="h-5 w-5" /> Iniciar Análise
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (tasks.length === 0) {
     return (
       <div className="text-center p-8">
@@ -201,8 +314,8 @@ const RatingScreen: React.FC<RatingScreenProps> = ({
           }
         </p>
         <div className="flex flex-col gap-4 max-w-xs mx-auto">
-          <Button onClick={onBack} className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar para Configuração
+          <Button onClick={() => setIsSetupOpen(true)} className="flex items-center gap-2">
+            <RotateCcw className="h-4 w-4" /> Recarregar com Novo Filtro
           </Button>
           {canViewMatrix && (
             <Button onClick={onViewMatrix} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white">
