@@ -452,26 +452,58 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
             <p className="text-sm text-gray-700 mb-3 whitespace-pre-wrap max-h-24 overflow-y-auto">{t.description}</p>
           )}
         </div>
-        <div className="flex flex-col gap-1 text-xs text-gray-600 mt-auto pt-2 border-t border-gray-200">
+        <div className="flex flex-col gap-2 text-sm text-gray-600 mt-auto pt-4 border-t border-gray-200">
           {(currentSolicitante || delegateName) && (
             <div className="flex flex-wrap gap-3">
               {currentSolicitante && (
-                <span className="flex items-center gap-1">
-                  <User className="h-3 w-3 text-blue-500" /> Solicitante: <span className="font-semibold">{currentSolicitante}</span>
+                <span className="flex items-center gap-1 text-blue-600">
+                  <User className="h-4 w-4" /> Solicitante: <span className="font-semibold">{currentSolicitante}</span>
                 </span>
               )}
               {delegateName && (
-                <span className="flex items-center gap-1">
-                  <Users className="h-3 w-3 text-orange-500" /> Delegado: <span className="font-semibold">{delegateName}</span>
+                <span className="flex items-center gap-1 text-orange-600">
+                  <Users className="h-4 w-4" /> Delegado: <span className="font-semibold">{delegateName}</span>
                 </span>
               )}
             </div>
           )}
-          <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
-            <span>P{t.priority} | Duração: {t.estimatedDurationMinutes || 15} min</span>
-            {t.deadline && isValid(parseISO(t.deadline)) && (
-              <span className="text-red-600 font-semibold">Deadline: {format(parseISO(t.deadline), "dd/MM/yyyy", { locale: ptBR })}</span>
-            )}
+          
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-700">
+            <div className="flex items-center gap-1">
+              <Tag className="h-3 w-3 text-gray-500" />
+              Prioridade: <span className="font-semibold">P{t.priority}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3 text-gray-500" />
+              Duração: <span className="font-semibold">{t.estimatedDurationMinutes || 'N/A'} min</span>
+            </div>
+            
+            {/* Due Date/Time */}
+            <div className="flex items-center gap-1">
+              <CalendarIcon className="h-3 w-3 text-gray-500" />
+              Vencimento: 
+              <span className={cn(
+                "font-semibold",
+                t.due?.datetime && isValid(parseISO(t.due.datetime)) && isBefore(parseISO(t.due.datetime), new Date()) && "text-red-600"
+              )}>
+                {t.due?.datetime && isValid(parseISO(t.due.datetime)) 
+                  ? format(parseISO(t.due.datetime), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                  : t.due?.date && isValid(parseISO(t.due.date))
+                  ? format(parseISO(t.due.date), "dd/MM/yyyy", { locale: ptBR })
+                  : 'N/A'}
+              </span>
+            </div>
+            
+            {/* Deadline */}
+            <div className="flex items-center gap-1">
+              <CalendarIcon className="h-3 w-3 text-red-600" />
+              Deadline: 
+              <span className="font-semibold text-red-600">
+                {t.deadline && isValid(parseISO(t.deadline)) 
+                  ? format(parseISO(t.deadline), "dd/MM/yyyy", { locale: ptBR })
+                  : 'N/A'}
+              </span>
+            </div>
           </div>
         </div>
       </Card>
