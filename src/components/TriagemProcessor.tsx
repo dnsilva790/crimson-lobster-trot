@@ -721,6 +721,48 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
               </Popover>
             </CardContent>
           </Card>
+          
+          {/* NOVA SEÇÃO DE ETIQUETAS */}
+          <Card className="p-4">
+            <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
+              <Tag className="h-5 w-5 text-purple-600" /> Gerenciar Etiquetas
+            </CardTitle>
+            <CardContent className="grid grid-cols-3 gap-2 p-0">
+              <Button
+                onClick={() => handleToggleLabel(CRONOGRAMA_HOJE_LABEL)}
+                disabled={isLoadingTodoist}
+                variant={isCronogramaActive ? "default" : "outline"}
+                className={cn(
+                  "py-3 text-sm flex items-center justify-center",
+                  isCronogramaActive ? "bg-teal-600 hover:bg-teal-700 text-white" : "text-teal-600 border-teal-600 hover:bg-teal-50"
+                )}
+              >
+                <Tag className="mr-1 h-4 w-4" /> {CRONOGRAMA_HOJE_LABEL}
+              </Button>
+              <Button
+                onClick={() => handleToggleLabel(RAPIDA_LABEL_ID)}
+                disabled={isLoadingTodoist}
+                variant={isRapidaActive ? "default" : "outline"}
+                className={cn(
+                  "py-3 text-sm flex items-center justify-center",
+                  isRapidaActive ? "bg-purple-600 hover:bg-purple-700 text-white" : "text-purple-600 border-purple-600 hover:bg-purple-50"
+                )}
+              >
+                <Tag className="mr-1 h-4 w-4" /> {RAPIDA_LABEL_ID}
+              </Button>
+              <Button
+                onClick={() => handleToggleLabel(FOCO_LABEL_ID)}
+                disabled={isLoadingTodoist}
+                variant={isFocoActive ? "default" : "outline"}
+                className={cn(
+                  "py-3 text-sm flex items-center justify-center",
+                  isFocoActive ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "text-indigo-600 border-indigo-600 hover:bg-indigo-50"
+                )}
+              >
+                <Tag className="mr-1 h-4 w-4" /> {FOCO_LABEL_ID}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Coluna 3: Avaliação Eisenhower e Ações Seiso */}
