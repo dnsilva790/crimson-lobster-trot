@@ -30,6 +30,7 @@ import {
   MinusCircle,
   ExternalLink,
   PlusCircle,
+  ListTodo, // Adicionado ListTodo
 } from "lucide-react";
 import { format, parseISO, setHours, setMinutes, isValid, isBefore, startOfDay, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
