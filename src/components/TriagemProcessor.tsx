@@ -516,21 +516,26 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     return (
       <Card className="p-4 rounded-xl shadow-lg bg-white flex flex-col h-full">
         <div className="flex-grow">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xl font-bold text-gray-800">{t.content}</h3>
-              {category && (
-                <span
-                  className={cn(
-                    "px-2 py-1 rounded-full text-xs font-medium",
-                    category === "pessoal" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
-                  )}
-                >
-                  {category === "pessoal" ? "Pessoal" : "Profissional"}
-                </span>
-              )}
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex flex-col gap-1 pr-2">
+              {/* Ajuste aqui: h3 para o título, permitindo quebra de linha */}
+              <h3 className="text-xl font-bold text-gray-800 break-words">
+                {t.content}
+              </h3>
+              <div className="flex items-center gap-2 mt-1">
+                {category && (
+                  <span
+                    className={cn(
+                      "px-2 py-1 rounded-full text-xs font-medium",
+                      category === "pessoal" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                    )}
+                  >
+                    {category === "pessoal" ? "Pessoal" : "Profissional"}
+                  </span>
+                )}
+              </div>
             </div>
-            <a href={t.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 hover:text-indigo-800">
+            <a href={t.url} target="_blank" rel="noopener noreferrer" className="ml-2 flex-shrink-0 text-indigo-600 hover:text-indigo-800">
               <ExternalLink className="h-4 w-4" />
             </a>
           </div>
