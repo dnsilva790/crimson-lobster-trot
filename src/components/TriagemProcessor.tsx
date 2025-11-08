@@ -623,7 +623,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
               </Label>
               <Input
                 id="urgency-input"
-                type="range"
+                type="number"
                 min="0"
                 max="100"
                 step="1"
@@ -640,7 +640,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
               </Label>
               <Input
                 id="importance-input"
-                type="range"
+                type="number"
                 min="0"
                 max="100"
                 step="1"

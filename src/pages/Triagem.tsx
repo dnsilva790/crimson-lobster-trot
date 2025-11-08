@@ -24,9 +24,9 @@ const Triagem = () => {
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [filterInput, setFilterInput] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(TRIAGEM_FILTER_INPUT_STORAGE_KEY) || "no date & !@gtd_processada & !@gtd_5w2h_processada";
+      return localStorage.getItem(TRIAGEM_FILTER_INPUT_STORAGE_KEY) || "!@gtd_processada & !@gtd_5w2h_processada";
     }
-    return "no date & !@gtd_processada & !@gtd_5w2h_processada";
+    return "!@gtd_processada & !@gtd_5w2h_processada";
   });
 
   useEffect(() => {
