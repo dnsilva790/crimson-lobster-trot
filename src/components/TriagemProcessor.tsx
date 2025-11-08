@@ -1,4 +1,3 @@
-' characters in curly braces.">
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -341,9 +340,9 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     // F. Add Triagem Processed Label
     newLabels.push(TRIAGEM_PROCESSED_LABEL);
     updatePayload.labels = [...new Set(newLabels)];
-    updatePayload.description = newDescription;
+    updatePayload.description = updatePayload.description || newDescription; // Use newDescription if updatePayload.description is undefined
 
-    // G. Handle Observation
+    // G. Add Observation
     if (observationInput.trim()) {
       const timestamp = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
       updatePayload.description += `\n\n[${timestamp}] - ${observationInput.trim()}`;
