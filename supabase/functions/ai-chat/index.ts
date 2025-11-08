@@ -6,11 +6,19 @@ console.log('Hello from AI Chat Edge Function!');
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS', // Adicionado para ser explícito
 };
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    // Responde à requisição preflight OPTIONS
+    return new Response('ok', { 
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Max-Age': '86400', // Cache preflight por 24 horas
+      },
+      status: 200 
+    });
   }
 
   try {
@@ -95,14 +103,14 @@ serve(async (req) => {
     const text = response.text();
 
     return new Response(JSON.stringify({ response: text }), {
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
       status: 200,
     });
     
   } catch (error) {
     console.error('Error in AI Chat Edge Function:', error.message);
     return new Response(JSON.stringify({ error: error.message }), {
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
       status: 500,
     });
   }
