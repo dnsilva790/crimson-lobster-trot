@@ -268,9 +268,6 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
       return;
     }
     
-    // Se o prompt de aprendizado estava aberto, ele já foi tratado por handleSaveLearningCriteriaAndAdvance.
-    // Se não foi modificado, ou se a ação é 'complete'/'delete', ou se já estamos no fluxo de aprendizado, continue.
-
     const quadrant = getQuadrant(parsedUrgency, parsedImportance);
     
     // 2. Prepare all updates (Description, Labels, Rating, Scheduling)
@@ -379,13 +376,19 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
       }
 
       if (updatedTask) {
+        // Update local task state with the latest data from Todoist API
         onUpdate({ ...updatedTask, urgency: parsedUrgency, importance: parsedImportance, quadrant });
       }
       
+      // Determine if we should advance
       if (action === 'complete' || action === 'delete') {
         onRemove(task.id);
-      } else {
+      } else if (action === 'keep' || action === 'next_action') {
         onAdvance();
+      } else if (action === 'schedule') {
+        setIsSchedulingPopoverOpen(false); // Close popover on successful save, DO NOT advance
+      } else if (action === 'delegate') {
+        setIsDelegatingPopoverOpen(false); // Close popover on successful save, DO NOT advance
       }
     } else {
       toast.error("Falha ao salvar alterações no Todoist.");
@@ -691,7 +694,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
                       onChange={(e) => setDelegateNameInput(e.target.value)}
                       placeholder="Ex: joao_silva (para etiqueta)"
                     />
-                    <Button onClick={() => setIsDelegatingPopoverOpen(false)} className="w-full">
+                    <Button onClick={() => handleSaveAndAdvance('delegate')} className="w-full">
                       <Save className="h-4 w-4 mr-2" /> Salvar
                     </Button>
                   </div>
