@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useTodoist } from "@/context/TodoistContext";
 import { Label } from "@/components/ui/label";
+import { getLearningContextForPrompt } from "@/utils/aiLearningStorage"; // Importar o contexto de aprendizado
 
 interface AIAgentManagerProps {
   aiPrompt: string;
@@ -39,7 +40,7 @@ const AIAgentManager: React.FC<AIAgentManagerProps> = ({
   const [isThinking, setIsThinking] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const initialGreeting = "Olá! Sou o Agente de Gerenciamento Estratégico (AGE). Meu foco é te ajudar a analisar seu backlog, tomar decisões GTD e acompanhar o status global das suas tarefas. Como posso te ajudar a gerenciar sua carga de trabalho?";
+  const initialGreeting = "Olá! Sou o Agente de Gerenciamento Estratégico (AGE). Meu foco é te ajudar a analisar seu backlog, tomar decisões GTD e acompanhar o status global das tarefas. Como posso te ajudar a gerenciar sua carga de trabalho?";
 
   // Load messages
   useEffect(() => {
@@ -71,6 +72,11 @@ const AIAgentManager: React.FC<AIAgentManagerProps> = ({
 
   const callGeminiChatFunction = useCallback(async (userMessage: string) => {
     setIsThinking(true);
+    
+    // Adicionar o contexto de aprendizado ao prompt
+    const learningContext = getLearningContextForPrompt();
+    const fullAiPromptWithLearning = aiPrompt + learningContext;
+
     try {
       const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
         method: 'POST',
@@ -78,10 +84,10 @@ const AIAgentManager: React.FC<AIAgentManagerProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          aiPrompt,
+          aiPrompt: fullAiPromptWithLearning, // Usar o prompt com o contexto de aprendizado
           userMessage,
-          currentTask: null, // No specific task in focus for management agent
-          allTasks: allTasks, // Pass all tasks for global context
+          currentTask: null,
+          allTasks: allTasks,
           chatHistory: messages.map(msg => ({ sender: msg.sender, text: msg.text })),
         }),
       });

@@ -30,7 +30,7 @@ import {
   MinusCircle,
   ExternalLink,
   PlusCircle,
-  ListTodo, // Adicionado ListTodo
+  ListTodo,
 } from "lucide-react";
 import { format, parseISO, setHours, setMinutes, isValid, isBefore, startOfDay, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -45,6 +45,7 @@ import {
   RAPIDA_LABEL_ID,
   CRONOGRAMA_HOJE_LABEL,
 } from "@/lib/constants";
+import { addLearningFeedback } from "@/utils/aiLearningStorage"; // Importar utilitário de aprendizado
 
 interface TriagemProcessorProps {
   task: EisenhowerTask;
@@ -81,7 +82,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
   const [solicitanteInput, setSolicitanteInput] = useState("");
   const [delegateNameInput, setDelegateNameInput] = useState("");
   const [observationInput, setObservationInput] = useState("");
-  const [subtaskContent, setSubtaskContent] = useState(""); // Novo estado para subtarefas
+  const [subtaskContent, setSubtaskContent] = useState("");
   
   const [isSchedulingPopoverOpen, setIsSchedulingPopoverOpen] = useState(false);
   const [isDelegatingPopoverOpen, setIsDelegatingPopoverOpen] = useState(false);
@@ -97,6 +98,13 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
   const [urgencyInput, setUrgencyInput] = useState<string>("50");
   const [importanceInput, setImportanceInput] = useState<string>("50");
   const [isAiThinking, setIsAiThinking] = useState(false);
+  
+  // --- AI LEARNING STATES ---
+  const [aiSuggestedUrgency, setAiSuggestedUrgency] = useState<number | null>(null);
+  const [aiSuggestedImportance, setAiSuggestedImportance] = useState<number | null>(null);
+  const [isLearningPromptOpen, setIsLearningPromptOpen] = useState(false);
+  const [learningReasonInput, setLearningReasonInput] = useState("");
+
 
   // --- EFFECTS ---
   useEffect(() => {
@@ -117,6 +125,12 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     // Initialize Eisenhower states
     setUrgencyInput(task.urgency !== null ? String(task.urgency) : "50");
     setImportanceInput(task.importance !== null ? String(task.importance) : "50");
+    
+    // Reset AI suggestion tracking
+    setAiSuggestedUrgency(null);
+    setAiSuggestedImportance(null);
+    setLearningReasonInput("");
+    setIsLearningPromptOpen(false);
   }, [task]);
 
   // --- UTILS ---
@@ -129,7 +143,6 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
   };
 
   const getQuadrant = (urgency: number, importance: number): 'do' | 'decide' | 'delegate' | 'delete' => {
-    // Usando thresholds fixos para a triagem rápida, mas o Eisenhower principal usa dinâmicos.
     const isUrgent = urgency >= 50;
     const isImportant = importance >= 50;
 
@@ -139,7 +152,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     return 'delete';
   };
 
-  // --- AI SUGGESTION (Reusing logic from Eisenhower RatingScreen) ---
+  // --- AI SUGGESTION (Heuristic) ---
   const handleSuggestWithAI = useCallback(async () => {
     setIsAiThinking(true);
     
@@ -203,10 +216,19 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     urgencyScore = Math.max(0, Math.min(100, urgencyScore));
     importanceScore = Math.max(0, Math.min(100, importanceScore));
 
+    // Simular tempo de pensamento da IA
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    setUrgencyInput(String(Math.round(urgencyScore)));
-    setImportanceInput(String(Math.round(importanceScore)));
+    const finalU = Math.round(urgencyScore);
+    const finalI = Math.round(importanceScore);
+
+    setUrgencyInput(String(finalU));
+    setImportanceInput(String(finalI));
+    
+    // Salvar a sugestão da IA para rastreamento
+    setAiSuggestedUrgency(finalU);
+    setAiSuggestedImportance(finalI);
+
     toast.success("Sugestões da IA carregadas! Revise e salve.");
     toast.info(`Razão da IA: ${reasoning}`, { duration: 5000 });
 
@@ -282,9 +304,22 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
       return;
     }
 
+    // 1. Check for AI Learning Feedback
+    const isAISuggestionModified = aiSuggestedUrgency !== null && aiSuggestedImportance !== null && 
+                                  (aiSuggestedUrgency !== parsedUrgency || aiSuggestedImportance !== parsedImportance);
+
+    if (isAISuggestionModified && !isLearningPromptOpen) {
+      // Se a sugestão da IA foi modificada e o prompt de aprendizado não está aberto, abra-o.
+      setIsLearningPromptOpen(true);
+      return;
+    }
+    
+    // Se o prompt de aprendizado estava aberto, ele já foi tratado por handleSaveLearningCriteriaAndAdvance.
+    // Se não foi modificado, ou se a ação é 'complete'/'delete', ou se já estamos no fluxo de aprendizado, continue.
+
     const quadrant = getQuadrant(parsedUrgency, parsedImportance);
     
-    // 1. Prepare all updates (Description, Labels, Rating, Scheduling)
+    // 2. Prepare all updates (Description, Labels, Rating, Scheduling)
     let newDescription = localTask.description || "";
     let newLabels = [...localTask.labels];
     let updatePayload: any = {};
@@ -359,7 +394,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
       updatePayload.description += `\n\n[${timestamp}] - ${observationInput.trim()}`;
     }
 
-    // 2. Execute Todoist API calls based on action
+    // 3. Execute Todoist API calls based on action
     let success = false;
     let updatedTask: EisenhowerTask | undefined;
 
@@ -374,24 +409,22 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
       success = !!updatedTask;
     }
 
-    // 3. Update local state and advance
+    // 4. Update local state and advance
     if (success) {
       toast.success(`Tarefa "${localTask.content}" processada com sucesso!`);
       
       if (action === 'project' && updatedTask) {
-        // Special handling for project creation
-        onRemove(task.id); // Remove from triagem list
+        onRemove(task.id);
         navigate("/project-management/create", {
           state: {
             initialWhat: updatedTask.content,
             initialTodoistTaskId: updatedTask.id,
           },
         });
-        return; // Stop here, navigation handles the rest
+        return;
       }
 
       if (updatedTask) {
-        // Update the task in the main list state
         onUpdate({ ...updatedTask, urgency: parsedUrgency, importance: parsedImportance, quadrant });
       }
       
@@ -403,7 +436,36 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     } else {
       toast.error("Falha ao salvar alterações no Todoist.");
     }
-  }, [localTask, urgencyInput, importanceInput, selectedDuration, selectedCategory, selectedPriority, solicitanteInput, delegateNameInput, selectedDueDate, selectedDueTime, selectedDeadlineDate, updateTask, closeTask, deleteTask, onUpdate, onAdvance, onRemove, navigate, observationInput]);
+  }, [localTask, urgencyInput, importanceInput, selectedDuration, selectedCategory, selectedPriority, solicitanteInput, delegateNameInput, selectedDueDate, selectedDueTime, selectedDeadlineDate, updateTask, closeTask, deleteTask, onUpdate, onAdvance, onRemove, navigate, observationInput, aiSuggestedUrgency, aiSuggestedImportance, isLearningPromptOpen]);
+
+  const handleSaveLearningCriteriaAndAdvance = useCallback(async (action: 'keep' | 'complete' | 'delete' | 'schedule' | 'delegate' | 'project' | 'next_action') => {
+    if (!learningReasonInput.trim()) {
+      toast.error("Por favor, explique o motivo da correção para que a IA possa aprender.");
+      return;
+    }
+
+    if (aiSuggestedUrgency !== null && aiSuggestedImportance !== null) {
+      addLearningFeedback({
+        taskId: localTask.id,
+        aiUrgency: aiSuggestedUrgency,
+        aiImportance: aiSuggestedImportance,
+        userUrgency: validateAndGetNumber(urgencyInput)!,
+        userImportance: validateAndGetNumber(importanceInput)!,
+        reason: learningReasonInput.trim(),
+        timestamp: new Date().toISOString(),
+      });
+      toast.info("Feedback de aprendizado salvo!");
+    }
+
+    setIsLearningPromptOpen(false);
+    setAiSuggestedUrgency(null);
+    setAiSuggestedImportance(null);
+    setLearningReasonInput("");
+    
+    // Continue com o fluxo de salvamento original
+    await handleSaveAndAdvance(action);
+  }, [localTask, aiSuggestedUrgency, aiSuggestedImportance, urgencyInput, importanceInput, learningReasonInput, handleSaveAndAdvance]);
+
 
   // --- UI Helpers ---
   const renderTaskDetails = (t: EisenhowerTask) => {
@@ -467,348 +529,345 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
   const isCronogramaActive = localTask.labels?.includes(CRONOGRAMA_HOJE_LABEL);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Coluna 1: Tarefa e Ações Finais */}
-      <div className="lg:col-span-1 flex flex-col gap-4">
-        {renderTaskDetails(localTask)}
-        
-        <Card className="p-4">
-          <CardTitle className="text-lg font-bold mb-3">Ações Finais (Seiso)</CardTitle>
-          <div className="grid grid-cols-2 gap-2">
-            <Button onClick={() => handleSaveAndAdvance('complete')} disabled={isLoadingTodoist} className="bg-green-500 hover:bg-green-600 text-white flex items-center gap-2">
-              <Check className="h-4 w-4" /> Concluir
-            </Button>
-            <Button onClick={() => handleSaveAndAdvance('delete')} disabled={isLoadingTodoist} variant="destructive" className="flex items-center gap-2">
-              <Trash2 className="h-4 w-4" /> Excluir
-            </Button>
-            <Button onClick={() => handleSaveAndAdvance('keep')} disabled={isLoadingTodoist} variant="outline" className="flex items-center gap-2">
-              <ArrowRight className="h-4 w-4" /> Pular
-            </Button>
-            <Button onClick={() => handleSaveAndAdvance('next_action')} disabled={isLoadingTodoist} className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2">
-              <Tag className="h-4 w-4" /> Próxima Ação
-            </Button>
-            <Button onClick={() => handleSaveAndAdvance('project')} disabled={isLoadingTodoist} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2">
-              <FolderOpen className="h-4 w-4" /> É Projeto
-            </Button>
-            <Popover open={isSchedulingPopoverOpen} onOpenChange={setIsSchedulingPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" disabled={isLoadingTodoist} className="flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4" /> Agendar
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-4">
-                <h4 className="font-semibold text-lg mb-3">Agendar Tarefa</h4>
-                <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="schedule-date">Data de Vencimento</Label>
-                    <Calendar
-                      mode="single"
-                      selected={selectedDueDate}
-                      onSelect={setSelectedDueDate}
-                      initialFocus
-                      locale={ptBR}
-                      className="rounded-md border shadow"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="schedule-time">Hora (Opcional)</Label>
-                    <Input
-                      id="schedule-time"
-                      type="time"
-                      value={selectedDueTime}
-                      onChange={(e) => setSelectedDueTime(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="mt-2">
-                    <Label htmlFor="deadline-date">Deadline (Opcional)</Label>
-                    <Calendar
-                      mode="single"
-                      selected={selectedDeadlineDate}
-                      onSelect={setSelectedDeadlineDate}
-                      initialFocus
-                      locale={ptBR}
-                      className="rounded-md border shadow"
-                    />
-                  </div>
-                  <Button onClick={() => handleSaveAndAdvance('schedule')} className="w-full">
-                    Salvar Agendamento
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Coluna 1: Tarefa e Ações Finais */}
+        <div className="lg:col-span-1 flex flex-col gap-4">
+          {renderTaskDetails(localTask)}
+          
+          <Card className="p-4">
+            <CardTitle className="text-lg font-bold mb-3">Ações Finais (Seiso)</CardTitle>
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={() => handleSaveAndAdvance('complete')} disabled={isLoadingTodoist} className="bg-green-500 hover:bg-green-600 text-white flex items-center gap-2">
+                <Check className="h-4 w-4" /> Concluir
+              </Button>
+              <Button onClick={() => handleSaveAndAdvance('delete')} disabled={isLoadingTodoist} variant="destructive" className="flex items-center gap-2">
+                <Trash2 className="h-4 w-4" /> Excluir
+              </Button>
+              <Button onClick={() => handleSaveAndAdvance('keep')} disabled={isLoadingTodoist} variant="outline" className="flex items-center gap-2">
+                <ArrowRight className="h-4 w-4" /> Pular
+              </Button>
+              <Button onClick={() => handleSaveAndAdvance('next_action')} disabled={isLoadingTodoist} className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2">
+                <Tag className="h-4 w-4" /> Próxima Ação
+              </Button>
+              <Button onClick={() => handleSaveAndAdvance('project')} disabled={isLoadingTodoist} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2">
+                <FolderOpen className="h-4 w-4" /> É Projeto
+              </Button>
+              <Popover open={isSchedulingPopoverOpen} onOpenChange={setIsSchedulingPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" disabled={isLoadingTodoist} className="flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4" /> Agendar
                   </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </Card>
-      </div>
-
-      {/* Coluna 2: Seiri (Classificação, Prioridade, Duração) */}
-      <div className="lg:col-span-1 flex flex-col gap-4">
-        <Card className="p-4">
-          <CardTitle className="text-lg font-bold mb-3">Seiri (Classificação)</CardTitle>
-          <CardContent className="grid gap-4 p-0">
-            <div>
-              <Label className="text-gray-700 mb-2 block">Categoria:</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  onClick={() => setSelectedCategory("pessoal")}
-                  disabled={isLoadingTodoist}
-                  variant={selectedCategory === "pessoal" ? "default" : "outline"}
-                  className={cn(selectedCategory === "pessoal" ? "bg-blue-600 hover:bg-blue-700 text-white" : "text-blue-600 border-blue-600 hover:bg-blue-50")}
-                >
-                  <Home className="mr-1 h-4 w-4" /> Pessoal
-                </Button>
-                <Button
-                  onClick={() => setSelectedCategory("profissional")}
-                  disabled={isLoadingTodoist}
-                  variant={selectedCategory === "profissional" ? "default" : "outline"}
-                  className={cn(selectedCategory === "profissional" ? "bg-green-600 hover:bg-green-700 text-white" : "text-green-600 border-green-600 hover:bg-green-50")}
-                >
-                  <Briefcase className="mr-1 h-4 w-4" /> Profissional
-                </Button>
-                <Button
-                  onClick={() => setSelectedCategory("none")}
-                  disabled={isLoadingTodoist}
-                  variant={selectedCategory === "none" ? "default" : "outline"}
-                  className={cn(selectedCategory === "none" ? "bg-gray-600 hover:bg-gray-700 text-white" : "text-gray-600 border-gray-600 hover:bg-gray-50")}
-                >
-                  <MinusCircle className="mr-1 h-4 w-4" /> Nenhuma
-                </Button>
-              </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4">
+                  <h4 className="font-semibold text-lg mb-3">Agendar Tarefa</h4>
+                  <div className="grid gap-4">
+                    <div>
+                      <Label htmlFor="schedule-date">Data de Vencimento</Label>
+                      <Calendar
+                        mode="single"
+                        selected={selectedDueDate}
+                        onSelect={setSelectedDueDate}
+                        initialFocus
+                        locale={ptBR}
+                        className="rounded-md border shadow"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="schedule-time">Hora (Opcional)</Label>
+                      <Input
+                        id="schedule-time"
+                        type="time"
+                        value={selectedDueTime}
+                        onChange={(e) => setSelectedDueTime(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="mt-2">
+                      <Label htmlFor="deadline-date">Deadline (Opcional)</Label>
+                      <Calendar
+                        mode="single"
+                        selected={selectedDeadlineDate}
+                        onSelect={setSelectedDeadlineDate}
+                        initialFocus
+                        locale={ptBR}
+                        className="rounded-md border shadow"
+                      />
+                    </div>
+                    <Button onClick={() => handleSaveAndAdvance('schedule')} className="w-full">
+                      Salvar Agendamento
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
+          </Card>
+        </div>
 
-            <div>
-              <Label className="text-gray-700 mb-2 block">Prioridade Todoist (P1-P4):</Label>
-              <div className="grid grid-cols-4 gap-2">
-                {[4, 3, 2, 1].map((p) => (
+        {/* Coluna 2: Seiri (Classificação, Prioridade, Duração) */}
+        <div className="lg:col-span-1 flex flex-col gap-4">
+          <Card className="p-4">
+            <CardTitle className="text-lg font-bold mb-3">Seiri (Classificação)</CardTitle>
+            <CardContent className="grid gap-4 p-0">
+              <div>
+                <Label className="text-gray-700 mb-2 block">Categoria:</Label>
+                <div className="grid grid-cols-3 gap-2">
                   <Button
-                    key={p}
-                    onClick={() => setSelectedPriority(p as 1 | 2 | 3 | 4)}
+                    onClick={() => setSelectedCategory("pessoal")}
                     disabled={isLoadingTodoist}
-                    variant={selectedPriority === p ? "default" : "outline"}
-                    className={cn(selectedPriority === p ? PRIORITY_COLORS[p as 1 | 2 | 3 | 4] : "border-gray-300 text-gray-700 hover:bg-gray-100")}
+                    variant={selectedCategory === "pessoal" ? "default" : "outline"}
+                    className={cn(selectedCategory === "pessoal" ? "bg-blue-600 hover:bg-blue-700 text-white" : "text-blue-600 border-blue-600 hover:bg-blue-50")}
                   >
-                    P{p}
+                    <Home className="mr-1 h-4 w-4" /> Pessoal
                   </Button>
-                ))}
+                  <Button
+                    onClick={() => setSelectedCategory("profissional")}
+                    disabled={isLoadingTodoist}
+                    variant={selectedCategory === "profissional" ? "default" : "outline"}
+                    className={cn(selectedCategory === "profissional" ? "bg-green-600 hover:bg-green-700 text-white" : "text-green-600 border-green-600 hover:bg-green-50")}
+                  >
+                    <Briefcase className="mr-1 h-4 w-4" /> Profissional
+                  </Button>
+                  <Button
+                    onClick={() => setSelectedCategory("none")}
+                    disabled={isLoadingTodoist}
+                    variant={selectedCategory === "none" ? "default" : "outline"}
+                    className={cn(selectedCategory === "none" ? "bg-gray-600 hover:bg-gray-700 text-white" : "text-gray-600 border-gray-600 hover:bg-gray-50")}
+                  >
+                    <MinusCircle className="mr-1 h-4 w-4" /> Nenhuma
+                  </Button>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <Label htmlFor="task-duration" className="text-gray-700">Duração Estimada (minutos)</Label>
-              <Input
-                id="task-duration"
-                type="number"
-                value={selectedDuration}
-                onChange={(e) => setSelectedDuration(e.target.value)}
-                min="1"
-                placeholder="Ex: 30"
-                className="mt-1"
-                disabled={isLoadingTodoist}
-              />
-            </div>
-
-            <Popover open={isSolicitantePopoverOpen} onOpenChange={setIsSolicitantePopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" disabled={isLoadingTodoist} className="w-full flex items-center gap-2">
-                  <User className="h-4 w-4" /> Solicitante
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-4">
-                <h4 className="font-semibold text-lg mb-3">Definir Solicitante</h4>
-                <div className="grid gap-4">
-                  <Input
-                    value={solicitanteInput}
-                    onChange={(e) => setSolicitanteInput(e.target.value)}
-                    placeholder="Ex: João Silva"
-                  />
-                  <Button onClick={() => setIsSolicitantePopoverOpen(false)} className="w-full">
-                    <Save className="h-4 w-4 mr-2" /> Salvar
-                  </Button>
+              <div>
+                <Label className="text-gray-700 mb-2 block">Prioridade Todoist (P1-P4):</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[4, 3, 2, 1].map((p) => (
+                    <Button
+                      key={p}
+                      onClick={() => setSelectedPriority(p as 1 | 2 | 3 | 4)}
+                      disabled={isLoadingTodoist}
+                      variant={selectedPriority === p ? "default" : "outline"}
+                      className={cn(selectedPriority === p ? PRIORITY_COLORS[p as 1 | 2 | 3 | 4] : "border-gray-300 text-gray-700 hover:bg-gray-100")}
+                    >
+                      P{p}
+                    </Button>
+                  ))}
                 </div>
-              </PopoverContent>
-            </Popover>
+              </div>
 
-            <Popover open={isDelegatingPopoverOpen} onOpenChange={setIsDelegatingPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" disabled={isLoadingTodoist} className="w-full flex items-center gap-2">
-                  <Users className="h-4 w-4" /> Delegar Para
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-4">
-                <h4 className="font-semibold text-lg mb-3">Delegar Tarefa</h4>
-                <div className="grid gap-4">
-                  <Input
-                    value={delegateNameInput}
-                    onChange={(e) => setDelegateNameInput(e.target.value)}
-                    placeholder="Ex: joao_silva (para etiqueta)"
-                  />
-                  <Button onClick={() => setIsDelegatingPopoverOpen(false)} className="w-full">
-                    <Save className="h-4 w-4 mr-2" /> Salvar
+              <div>
+                <Label htmlFor="task-duration" className="text-gray-700">Duração Estimada (minutos)</Label>
+                <Input
+                  id="task-duration"
+                  type="number"
+                  value={selectedDuration}
+                  onChange={(e) => setSelectedDuration(e.target.value)}
+                  min="1"
+                  placeholder="Ex: 30"
+                  className="mt-1"
+                  disabled={isLoadingTodoist}
+                />
+              </div>
+
+              <Popover open={isSolicitantePopoverOpen} onOpenChange={setIsSolicitantePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" disabled={isLoadingTodoist} className="w-full flex items-center gap-2">
+                    <User className="h-4 w-4" /> Solicitante
                   </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4">
+                  <h4 className="font-semibold text-lg mb-3">Definir Solicitante</h4>
+                  <div className="grid gap-4">
+                    <Input
+                      value={solicitanteInput}
+                      onChange={(e) => setSolicitanteInput(e.target.value)}
+                      placeholder="Ex: João Silva"
+                    />
+                    <Button onClick={() => setIsSolicitantePopoverOpen(false)} className="w-full">
+                      <Save className="h-4 w-4 mr-2" /> Salvar
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
-            <Popover open={isObservationPopoverOpen} onOpenChange={setIsObservationPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" disabled={isLoadingTodoist} className="w-full flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" /> Observação
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-4">
-                <h4 className="font-semibold text-lg mb-3">Adicionar Observação</h4>
-                <div className="grid gap-4">
-                  <Textarea
-                    value={observationInput}
-                    onChange={(e) => setObservationInput(e.target.value)}
-                    placeholder="Adicione uma nota rápida à descrição da tarefa..."
-                    rows={3}
-                  />
-                  <Button onClick={() => setIsObservationPopoverOpen(false)} className="w-full">
-                    <Save className="h-4 w-4 mr-2" /> Salvar
+              <Popover open={isDelegatingPopoverOpen} onOpenChange={setIsDelegatingPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" disabled={isLoadingTodoist} className="w-full flex items-center gap-2">
+                    <Users className="h-4 w-4" /> Delegar Para
                   </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </CardContent>
-        </Card>
-      </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4">
+                  <h4 className="font-semibold text-lg mb-3">Delegar Tarefa</h4>
+                  <div className="grid gap-4">
+                    <Input
+                      value={delegateNameInput}
+                      onChange={(e) => setDelegateNameInput(e.target.value)}
+                      placeholder="Ex: joao_silva (para etiqueta)"
+                    />
+                    <Button onClick={() => setIsDelegatingPopoverOpen(false)} className="w-full">
+                      <Save className="h-4 w-4 mr-2" /> Salvar
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
-      {/* Coluna 3: Avaliação Eisenhower e Ações Seiso */}
-      <div className="lg:col-span-1 flex flex-col gap-4">
-        <Card className="p-4">
-          <CardHeader>
+              <Popover open={isObservationPopoverOpen} onOpenChange={setIsObservationPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" disabled={isLoadingTodoist} className="w-full flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" /> Observação
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4">
+                  <h4 className="font-semibold text-lg mb-3">Adicionar Observação</h4>
+                  <div className="grid gap-4">
+                    <Textarea
+                      value={observationInput}
+                      onChange={(e) => setObservationInput(e.target.value)}
+                      placeholder="Adicione uma nota rápida à descrição da tarefa..."
+                      rows={3}
+                    />
+                    <Button onClick={() => setIsObservationPopoverOpen(false)} className="w-full">
+                      <Save className="h-4 w-4 mr-2" /> Salvar
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Coluna 3: Avaliação Eisenhower e Ações Seiso */}
+        <div className="lg:col-span-1 flex flex-col gap-4">
+          <Card className="p-4">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
+                <Scale className="h-5 w-5 text-indigo-600" /> Avaliação Eisenhower
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-0">
+              <div>
+                <Label htmlFor="urgency-input" className="text-lg font-semibold text-gray-700 flex justify-between items-center">
+                  Urgência: <span className="text-blue-600 text-xl font-bold">{urgencyInput}</span>
+                </Label>
+                <Input
+                  id="urgency-input"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={urgencyInput}
+                  onChange={(e) => setUrgencyInput(e.target.value)}
+                  className="mt-2"
+                  disabled={isLoadingTodoist}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="importance-input" className="text-lg font-semibold text-gray-700 flex justify-between items-center">
+                  Importância: <span className="text-green-600 text-xl font-bold">{importanceInput}</span>
+                </Label>
+                <Input
+                  id="importance-input"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={importanceInput}
+                  onChange={(e) => setImportanceInput(e.target.value)}
+                  className="mt-2"
+                  disabled={isLoadingTodoist}
+                />
+              </div>
+              <Button
+                onClick={handleSuggestWithAI}
+                disabled={isAiThinking || isLoadingTodoist}
+                className="w-full py-2 text-md bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-2"
+              >
+                {isAiThinking ? (
+                  <LoadingSpinner size={20} className="text-white" />
+                ) : (
+                  <Lightbulb className="h-4 w-4" />
+                )}
+                Sugerir com IA
+              </Button>
+              <div className="text-center mt-2">
+                <p className="text-sm font-semibold text-gray-700">
+                  Quadrante Sugerido: <span className="text-indigo-600">{getQuadrant(validateAndGetNumber(urgencyInput) || 0, validateAndGetNumber(importanceInput) || 0).toUpperCase()}</span>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="p-4">
             <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
-              <Scale className="h-5 w-5 text-indigo-600" /> Avaliação Eisenhower
+              <ListTodo className="h-5 w-5 text-purple-600" /> Quebrar em Subtarefas
             </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 p-0">
+            <CardContent className="grid gap-4 p-0">
+              <div>
+                <Label htmlFor="subtask-content">Conteúdo das Subtarefas (uma por linha)</Label>
+                <Textarea
+                  id="subtask-content"
+                  value={subtaskContent}
+                  onChange={(e) => setSubtaskContent(e.target.value)}
+                  placeholder="Ex:&#10;- Pesquisar fornecedores&#10;- Contatar 3 fornecedores&#10;- Analisar propostas"
+                  rows={4}
+                  className="mt-1"
+                  disabled={isLoadingTodoist}
+                />
+              </div>
+              <Button onClick={handleCreateSubtasks} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || !subtaskContent.trim()}>
+                <PlusCircle className="h-4 w-4" /> Criar Subtarefas
+              </Button>
+            </CardContent>
+          </Card>
+          
+          <Button 
+            onClick={() => handleSaveAndAdvance('keep')} 
+            disabled={isLoadingTodoist} 
+            className="w-full py-3 text-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2"
+          >
+            <Save className="h-5 w-5" /> Salvar Tudo e Próximo
+          </Button>
+        </div>
+      </div>
+      
+      {/* Popover de Aprendizagem da IA */}
+      <Popover open={isLearningPromptOpen} onOpenChange={setIsLearningPromptOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" className="hidden"></Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-96 p-4 bg-yellow-50 border-yellow-400 shadow-xl">
+          <h4 className="font-bold text-lg mb-3 text-yellow-800 flex items-center gap-2">
+            <Lightbulb className="h-5 w-5" /> Feedback de Aprendizagem da IA
+          </h4>
+          <p className="text-sm text-gray-700 mb-4">
+            Você alterou a sugestão da IA (U:{aiSuggestedUrgency} -> {urgencyInput}, I:{aiSuggestedImportance} -> {importanceInput}).
+            Por favor, explique o motivo da sua correção para que a IA possa aprender e melhorar futuras sugestões.
+          </p>
+          <div className="grid gap-4">
             <div>
-              <Label htmlFor="urgency-input" className="text-lg font-semibold text-gray-700 flex justify-between items-center">
-                Urgência: <span className="text-blue-600 text-xl font-bold">{urgencyInput}</span>
-              </Label>
-              <Input
-                id="urgency-input"
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                value={urgencyInput}
-                onChange={(e) => setUrgencyInput(e.target.value)}
-                className="mt-2"
-                disabled={isLoadingTodoist}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="importance-input" className="text-lg font-semibold text-gray-700 flex justify-between items-center">
-                Importância: <span className="text-green-600 text-xl font-bold">{importanceInput}</span>
-              </Label>
-              <Input
-                id="importance-input"
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                value={importanceInput}
-                onChange={(e) => setImportanceInput(e.target.value)}
-                className="mt-2"
-                disabled={isLoadingTodoist}
-              />
-            </div>
-            <Button
-              onClick={handleSuggestWithAI}
-              disabled={isAiThinking || isLoadingTodoist}
-              className="w-full py-2 text-md bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-2"
-            >
-              {isAiThinking ? (
-                <LoadingSpinner size={20} className="text-white" />
-              ) : (
-                <Lightbulb className="h-4 w-4" />
-              )}
-              Sugerir com IA
-            </Button>
-            <div className="text-center mt-2">
-              <p className="text-sm font-semibold text-gray-700">
-                Quadrante Sugerido: <span className="text-indigo-600">{getQuadrant(validateAndGetNumber(urgencyInput) || 0, validateAndGetNumber(importanceInput) || 0).toUpperCase()}</span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="p-4">
-          <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
-            <Tag className="h-5 w-5 text-purple-600" /> Gerenciar Etiquetas
-          </CardTitle>
-          <CardContent className="grid grid-cols-3 gap-2 p-0">
-            <Button
-              onClick={() => handleToggleLabel(CRONOGRAMA_HOJE_LABEL)}
-              disabled={isLoadingTodoist}
-              variant={isCronogramaActive ? "default" : "outline"}
-              className={cn(
-                "py-3 text-sm flex items-center justify-center",
-                isCronogramaActive ? "bg-teal-600 hover:bg-teal-700 text-white" : "text-teal-600 border-teal-600 hover:bg-teal-50"
-              )}
-            >
-              <Tag className="mr-1 h-4 w-4" /> {CRONOGRAMA_HOJE_LABEL}
-            </Button>
-            <Button
-              onClick={() => handleToggleLabel(RAPIDA_LABEL_ID)}
-              disabled={isLoadingTodoist}
-              variant={isRapidaActive ? "default" : "outline"}
-              className={cn(
-                "py-3 text-sm flex items-center justify-center",
-                isRapidaActive ? "bg-purple-600 hover:bg-purple-700 text-white" : "text-purple-600 border-purple-600 hover:bg-purple-50"
-              )}
-            >
-              <Tag className="mr-1 h-4 w-4" /> {RAPIDA_LABEL_ID}
-            </Button>
-            <Button
-              onClick={() => handleToggleLabel(FOCO_LABEL_ID)}
-              disabled={isLoadingTodoist}
-              variant={isFocoActive ? "default" : "outline"}
-              className={cn(
-                "py-3 text-sm flex items-center justify-center",
-                isFocoActive ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "text-indigo-600 border-indigo-600 hover:bg-indigo-50"
-              )}
-            >
-              <Tag className="mr-1 h-4 w-4" /> {FOCO_LABEL_ID}
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="p-4">
-          <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
-            <ListTodo className="h-5 w-5 text-purple-600" /> Quebrar em Subtarefas
-          </CardTitle>
-          <CardContent className="grid gap-4 p-0">
-            <div>
-              <Label htmlFor="subtask-content">Conteúdo das Subtarefas (uma por linha)</Label>
+              <Label htmlFor="learning-reason">Motivo da Correção</Label>
               <Textarea
-                id="subtask-content"
-                value={subtaskContent}
-                onChange={(e) => setSubtaskContent(e.target.value)}
-                placeholder="Ex:&#10;- Pesquisar fornecedores&#10;- Contatar 3 fornecedores&#10;- Analisar propostas"
+                id="learning-reason"
+                value={learningReasonInput}
+                onChange={(e) => setLearningReasonInput(e.target.value)}
+                placeholder="Ex: 'A urgência é maior porque o cliente ligou hoje, o que a IA não sabia.'"
                 rows={4}
                 className="mt-1"
-                disabled={isLoadingTodoist}
               />
             </div>
-            <Button onClick={handleCreateSubtasks} className="w-full flex items-center gap-2" disabled={isLoadingTodoist || !subtaskContent.trim()}>
-              <PlusCircle className="h-4 w-4" /> Criar Subtarefas
+            <Button 
+              onClick={() => handleSaveLearningCriteriaAndAdvance('keep')} 
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              disabled={!learningReasonInput.trim()}
+            >
+              <Save className="h-4 w-4 mr-2" /> Salvar Feedback e Continuar
             </Button>
-          </CardContent>
-        </Card>
-        
-        <Button 
-          onClick={() => handleSaveAndAdvance('keep')} 
-          disabled={isLoadingTodoist} 
-          className="w-full py-3 text-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2"
-        >
-          <Save className="h-5 w-5" /> Salvar Tudo e Próximo
-        </Button>
-      </div>
-    </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </>
   );
 };
 

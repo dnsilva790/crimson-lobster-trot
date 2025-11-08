@@ -19,6 +19,7 @@ import {
   RAPIDA_LABEL_ID,
   CRONOGRAMA_HOJE_LABEL,
 } from "@/lib/constants"; // Importar as constantes das etiquetas do local correto
+import { getLearningContextForPrompt } from "@/utils/aiLearningStorage"; // Importar o contexto de aprendizado
 
 interface AIAgentAssistantProps {
   aiPrompt: string;
@@ -122,19 +123,23 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
 
   const callGeminiChatFunction = useCallback(async (userMessage: string) => {
     setIsThinking(true);
+    
+    // Adicionar o contexto de aprendizado ao prompt
+    const learningContext = getLearningContextForPrompt();
+    const fullAiPromptWithLearning = aiPrompt + learningContext;
+
     try {
       const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // 'Authorization': `Bearer YOUR_SUPABASE_ANON_KEY` // Not needed for public Edge Functions
         },
         body: JSON.stringify({
-          aiPrompt,
+          aiPrompt: fullAiPromptWithLearning, // Usar o prompt com o contexto de aprendizado
           userMessage,
-          currentTask: taskContext, // Pass the task in context
-          allTasks: allTasks, // Pass all tasks for Radar functionality
-          chatHistory: messages.map(msg => ({ sender: msg.sender, text: msg.text })), // Pass the chat history
+          currentTask: taskContext,
+          allTasks: allTasks,
+          chatHistory: messages.map(msg => ({ sender: msg.sender, text: msg.text })),
         }),
       });
 
@@ -146,7 +151,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       const data = await response.json();
 
       addMessage("ai", data.response);
-      setDialogueState(taskContext ? 'awaiting_task_action' : 'general_conversation'); // Adjust state based on context
+      setDialogueState(taskContext ? 'awaiting_task_action' : 'general_conversation');
     } catch (error: any) {
       console.error("Erro ao chamar a função Gemini Chat:", error);
       toast.error(`Erro no Tutor IA: ${error.message || "Não foi possível obter uma resposta."}`);
@@ -154,7 +159,7 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     } finally {
       setIsThinking(false);
     }
-  }, [aiPrompt, taskContext, allTasks, addMessage, messages]); // Add messages to dependencies
+  }, [aiPrompt, taskContext, allTasks, addMessage, messages]);
 
   // Helper functions for label management
   const addLabelToTask = useCallback(async (taskId: string, label: string, currentLabels: string[]) => {
@@ -187,9 +192,8 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
     const userMsg = inputMessage;
     setInputMessage("");
 
-    setIsThinking(true); // Start thinking state for all commands initially
+    setIsThinking(true);
 
-    // Check for specific commands that don't need AI processing
     const lowerCaseMessage = userMsg.toLowerCase();
     let handled = false;
 
@@ -200,8 +204,8 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
       if (lowerCaseMessage.includes("concluir") || lowerCaseMessage.includes("terminei") || lowerCaseMessage.includes("finalizei") || lowerCaseMessage.includes("acabei") || lowerCaseMessage.includes("feito")) {
         await closeTask(taskContext.id);
         addMessage("ai", `Excelente! Tarefa "${taskContext.content}" concluída. Parabéns!`);
-        setSuggestedTaskForGuidance(null); // Clear suggested task after completion
-        setDialogueState('initial'); // Go back to initial state
+        setSuggestedTaskForGuidance(null);
+        setDialogueState('initial');
         handled = true;
       }
       // Handle "Foco" label
@@ -304,7 +308,6 @@ const AIAgentAssistant: React.FC<AIAgentAssistantProps> = ({
           </div>
         </ScrollArea>
         <div className="p-4 border-t flex flex-col gap-2">
-          {/* Removido: lastGeneratedReport e botões de relatório */}
           <div className="flex items-center gap-2">
             <Input
               placeholder="Converse com o Tutor IA..."
