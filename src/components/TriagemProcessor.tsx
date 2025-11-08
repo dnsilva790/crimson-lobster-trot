@@ -245,7 +245,92 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     }
   }, [localTask, subtaskContent, createTodoistTask]);
 
-  // --- CORE SAVE FUNCTION ---
+  // --- FUNÇÃO FOCADA APENAS EM AGENDAMENTO E ETIQUETAS ---
+  const handleSaveSchedulingOnly = useCallback(async () => {
+    if (isLoadingTodoist) return;
+
+    // 1. Prepare updates
+    let newDescription = localTask.description || "";
+    let newLabels = [...localTask.labels];
+    let updatePayload: any = {};
+
+    // A. Update Seiri fields (Category, Solicitante, Duration)
+    const durationAmount = parseInt(selectedDuration, 10);
+    
+    newLabels = newLabels.filter(label => label !== "pessoal" && label !== "profissional");
+    if (selectedCategory === "pessoal") newLabels.push("pessoal");
+    if (selectedCategory === "profissional") newLabels.push("profissional");
+    
+    newDescription = updateDescriptionWithSection(newDescription, '[SOLICITANTE]:', solicitanteInput);
+    
+    updatePayload.priority = selectedPriority;
+    updatePayload.duration = isNaN(durationAmount) || durationAmount <= 0 ? null : durationAmount;
+    updatePayload.duration_unit = isNaN(durationAmount) || durationAmount <= 0 ? undefined : "minute";
+    
+    // B. Handle Scheduling (Due Date/Deadline)
+    let finalDueDate: string | null = null;
+    let finalDueDateTime: string | null = null;
+    let finalDeadline: string | null = null;
+
+    if (selectedDueDate && isValid(selectedDueDate)) {
+      if (selectedDueTime) {
+        const [hours, minutes] = selectedDueTime.split(":").map(Number);
+        const finalDateTime = setMinutes(setHours(selectedDueDate, hours), minutes);
+        finalDueDateTime = format(finalDateTime, "yyyy-MM-dd'T'HH:mm:ss");
+      } else {
+        finalDueDate = format(selectedDueDate, "yyyy-MM-dd");
+      }
+    }
+    if (selectedDeadlineDate && isValid(selectedDeadlineDate)) {
+      finalDeadline = format(selectedDeadlineDate, "yyyy-MM-dd");
+    }
+
+    if (!finalDueDate && !finalDueDateTime) {
+      toast.error("Ação 'Agendar' requer uma data de vencimento.");
+      return;
+    }
+
+    updatePayload.due_date = finalDueDate;
+    updatePayload.due_datetime = finalDueDateTime;
+    updatePayload.deadline = finalDeadline;
+
+    // C. Add Cronograma Label
+    newLabels.push(CRONOGRAMA_HOJE_LABEL);
+    newLabels.push(TRIAGEM_PROCESSED_LABEL);
+    updatePayload.labels = [...new Set(newLabels)];
+    updatePayload.description = newDescription;
+
+    // D. Add Observation
+    if (observationInput.trim()) {
+      const timestamp = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
+      updatePayload.description += `\n\n[${timestamp}] - ${observationInput.trim()}`;
+    }
+
+    // 3. Execute Todoist API call
+    const updatedTask = await updateTask(localTask.id, updatePayload);
+
+    // 4. Update local state and close popover (DO NOT ADVANCE)
+    if (updatedTask) {
+      toast.success(`Tarefa "${localTask.content}" agendada e atualizada!`);
+      
+      // Atualiza o estado local com os novos dados, mantendo os ratings Eisenhower
+      setLocalTask(prev => ({
+        ...prev,
+        ...updatedTask,
+        urgency: prev.urgency,
+        importance: prev.importance,
+        quadrant: prev.quadrant,
+      }));
+      onUpdate({ ...localTask, ...updatedTask }); // Notifica o pai sobre a atualização
+      
+      setIsSchedulingPopoverOpen(false);
+    } else {
+      toast.error("Falha ao salvar agendamento no Todoist.");
+    }
+  }, [localTask, selectedDuration, selectedCategory, selectedPriority, solicitanteInput, selectedDueDate, selectedDueTime, selectedDeadlineDate, updateTask, onUpdate, observationInput]);
+
+
+  // --- CORE SAVE FUNCTION (Original, saves Eisenhower) ---
   const handleSaveAndAdvance = useCallback(async (action: 'keep' | 'complete' | 'delete' | 'schedule' | 'delegate' | 'project' | 'next_action') => {
     if (isLoadingTodoist) return;
 
@@ -381,9 +466,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
       }
       
       // Determine if we should advance
-      if (action === 'complete' || action === 'delete') {
-        onRemove(task.id);
-      } else if (action === 'keep' || action === 'next_action') {
+      if (action === 'complete' || action === 'delete' || action === 'keep' || action === 'next_action' || action === 'project') {
         onAdvance();
       } else if (action === 'schedule') {
         setIsSchedulingPopoverOpen(false); // Close popover on successful save, DO NOT advance
@@ -583,7 +666,7 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
                         className="rounded-md border shadow"
                       />
                     </div>
-                    <Button onClick={() => handleSaveAndAdvance('schedule')} className="w-full">
+                    <Button onClick={handleSaveSchedulingOnly} className="w-full">
                       Salvar Agendamento
                     </Button>
                   </div>
