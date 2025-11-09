@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useTodoist } from "@/context/TodoistContext";
 import { EisenhowerTask, TodoistTask, DisplayFilter, CategoryDisplayFilter, ManualThresholds } from "@/lib/types"; // Importar ManualThresholds
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
@@ -14,6 +13,7 @@ import { Input } from "@/components/ui/input"; // Importar Input
 import { getTaskCategory } from "@/lib/utils"; // Remover getEisenhowerRating, updateEisenhowerRating
 import { getEisenhowerRating, updateEisenhowerRating } from "@/utils/eisenhowerUtils"; // Importar do novo local
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth"; // Importar o hook de auth
+import { useTodoist } from "@/context/TodoistContext"; // Importar useTodoist
 
 // Importar os componentes do Eisenhower
 // import SetupScreen from "@/components/eisenhower/SetupScreen"; // REMOVIDO
@@ -33,7 +33,7 @@ const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input";
 const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
 const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
 const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter";
-const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter";
+const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter"; // Corrigido o nome da chave
 const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_display_filter";
 const EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_display_priority_filter";
 const EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_display_deadline_filter";
@@ -193,7 +193,7 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_STATUS_FILTER_STORAGE_KEY, statusFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY, categoryFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY, displayFilter);
-      localStorage.setItem(EISENHOWE_RATING_FILTER_STORAGE_KEY, ratingFilter);
+      localStorage.setItem(EISENHOWER_RATING_FILTER_STORAGE_KEY, ratingFilter); // Corrigido o nome da chave
       localStorage.setItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY, categoryDisplayFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY, displayPriorityFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY, displayDeadlineFilter);
