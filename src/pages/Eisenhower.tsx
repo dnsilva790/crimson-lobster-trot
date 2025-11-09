@@ -38,8 +38,7 @@ const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_disp
 const EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_display_priority_filter";
 const EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_display_deadline_filter";
 const EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY = "eisenhower_manual_thresholds";
-const EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY = "eisenhower_diagonal_x_point";
-const EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY = "eisenhower_diagonal_y_point";
+const EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY = "eisenhower_diagonal_offset"; // NOVO: Chave para o offset diagonal
 
 const defaultManualThresholds: ManualThresholds = { urgency: 50, importance: 50 };
 
@@ -177,20 +176,13 @@ const Eisenhower = () => {
     return defaultManualThresholds;
   });
 
-  // NOVOS ESTADOS PARA LINHA DIAGONAL
-  const [diagonalXPoint, setDiagonalXPoint] = useState<number>(() => {
+  // NOVO ESTADO PARA LINHA DIAGONAL
+  const [diagonalOffset, setDiagonalOffset] = useState<number>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY);
-      return saved ? parseInt(saved, 10) : 50;
+      const saved = localStorage.getItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY);
+      return saved ? parseInt(saved, 10) : 100; // Default para 100 (linha y = -x + 100)
     }
-    return 50;
-  });
-  const [diagonalYPoint, setDiagonalYPoint] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY);
-      return saved ? parseInt(saved, 10) : 50;
-    }
-    return 50;
+    return 100;
   });
 
   // Efeitos para salvar os filtros no localStorage
@@ -206,10 +198,9 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY, displayPriorityFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY, displayDeadlineFilter);
       localStorage.setItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY, JSON.stringify(manualThresholds));
-      localStorage.setItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY, String(diagonalXPoint));
-      localStorage.setItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY, String(diagonalYPoint));
+      localStorage.setItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY, String(diagonalOffset)); // NOVO: Salva o offset diagonal
     }
-  }, [currentView, filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalXPoint, diagonalYPoint]);
+  }, [currentView, filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalOffset]); // NOVO: Adicionado diagonalOffset
 
   // --- Lógica de Carregamento e Persistência Todoist Description ---
 
@@ -414,12 +405,10 @@ const Eisenhower = () => {
         setTasksToProcess([]); // Limpa a lista de tarefas
         setCurrentView("rating");
         setManualThresholds(defaultManualThresholds);
-        setDiagonalXPoint(50);
-        setDiagonalYPoint(50);
+        setDiagonalOffset(100); // NOVO: Reseta o offset diagonal
         localStorage.removeItem('eisenhower_current_view');
         localStorage.removeItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
-        localStorage.removeItem(EISENHOWER_DIAGONAL_X_POINT_STORAGE_KEY);
-        localStorage.removeItem(EISENHOWER_DIAGONAL_Y_POINT_STORAGE_KEY);
+        localStorage.removeItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY); // NOVO: Remove o offset diagonal
         toast.success("Matriz de Eisenhower resetada e dados apagados das descrições.");
       } catch (e) {
         toast.error("Erro ao resetar a matriz.");
@@ -630,8 +619,8 @@ const Eisenhower = () => {
                 onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
                 onRefreshMatrix={handleRefreshMatrix} // Passa a nova função de atualização
                 manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
-                diagonalXPoint={diagonalXPoint} // Novo
-                diagonalYPoint={diagonalYPoint} // Novo
+                diagonalXPoint={diagonalOffset} // NOVO: Usa o offset diagonal para X
+                diagonalYPoint={diagonalOffset} // NOVO: Usa o offset diagonal para Y
               />
             </div>
           </div>
@@ -655,10 +644,10 @@ const Eisenhower = () => {
             displayFilter={displayFilter} // Passa o filtro de exibição
             onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
             manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
-            diagonalXPoint={diagonalXPoint} // Novo
-            diagonalYPoint={diagonalYPoint} // Novo
-            onDiagonalXChange={setDiagonalXPoint} // Novo
-            onDiagonalYChange={setDiagonalYPoint} // Novo
+            diagonalXPoint={diagonalOffset} // NOVO: Usa o offset diagonal para X
+            diagonalYPoint={diagonalOffset} // NOVO: Usa o offset diagonal para Y
+            onDiagonalXChange={setDiagonalOffset} // NOVO: Atualiza o offset diagonal
+            onDiagonalYChange={setDiagonalOffset} // NOVO: Atualiza o offset diagonal
           />
         );
       default:

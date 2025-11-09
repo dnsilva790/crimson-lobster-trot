@@ -16,10 +16,9 @@ interface DashboardScreenProps {
   displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // Adicionado
   onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void; // Adicionado
   manualThresholds: ManualThresholds; // Novo prop
-  diagonalXPoint: number; // Novo
-  diagonalYPoint: number; // Novo
-  onDiagonalXChange: (value: number) => void; // Novo
-  onDiagonalYChange: (value: number) => void; // Novo
+  diagonalOffset: number; // NOVO: Um único ponto de deslocamento
+  onDiagonalXChange: (value: number) => void; // Mantido para compatibilidade, mas agora atualiza o offset
+  onDiagonalYChange: (value: number) => void; // Mantido para compatibilidade, mas agora atualiza o offset
 }
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ 
@@ -29,10 +28,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   displayFilter, 
   onDisplayFilterChange, 
   manualThresholds,
-  diagonalXPoint,
-  diagonalYPoint,
-  onDiagonalXChange,
-  onDiagonalYChange,
+  diagonalOffset, // NOVO
+  onDiagonalXChange, // Agora atualiza o offset
+  onDiagonalYChange, // Agora atualiza o offset
 }) => {
   const quadrantCounts = tasks.reduce((acc, task) => {
     if (task.quadrant) {
@@ -54,17 +52,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       url: task.url, // ADICIONADO: Passa a URL para o ScatterPlotMatrix
     }));
 
-  const handleXChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDiagonalOffsetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
-    if (!isNaN(value) && value >= 0 && value <= 100) {
-      onDiagonalXChange(value);
-    }
-  };
-
-  const handleYChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value, 10);
-    if (!isNaN(value) && value >= 0 && value <= 100) {
-      onDiagonalYChange(value);
+    if (!isNaN(value) && value >= 0 && value <= 200) { // Range de 0 a 200 para C em y = -x + C
+      onDiagonalXChange(value); // Usa a função de callback para atualizar o offset
     }
   };
 
@@ -97,32 +88,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <CardTitle className="text-xl font-bold mb-4 text-gray-800">
               Configuração da Linha Diagonal
             </CardTitle>
-            <div className="grid grid-cols-2 gap-4 max-w-md">
+            <div className="grid grid-cols-1 gap-4 max-w-md"> {/* Apenas um input agora */}
               <div>
-                <Label htmlFor="diagonal-x">Ponto X (Urgência)</Label>
+                <Label htmlFor="diagonal-offset">Deslocamento Diagonal (0-200)</Label>
                 <Input
-                  id="diagonal-x"
+                  id="diagonal-offset"
                   type="number"
                   min="0"
-                  max="100"
-                  value={diagonalXPoint}
-                  onChange={handleXChange}
+                  max="200"
+                  value={diagonalOffset}
+                  onChange={handleDiagonalOffsetChange}
                   className="mt-1"
                 />
-                <p className="text-xs text-gray-500 mt-1">Onde a linha cruza o eixo X (0-100).</p>
-              </div>
-              <div>
-                <Label htmlFor="diagonal-y">Ponto Y (Importância)</Label>
-                <Input
-                  id="diagonal-y"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={diagonalYPoint}
-                  onChange={handleYChange}
-                  className="mt-1"
-                />
-                <p className="text-xs text-gray-500 mt-1">Onde a linha cruza o eixo Y (0-100).</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Controla a posição da linha diagonal (y = -x + C).
+                  Valores maiores movem a linha para cima/direita.
+                </p>
               </div>
             </div>
           </Card>
@@ -178,8 +159,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <ScatterPlotMatrix 
                   data={dataForScatterPlot} 
                   manualThresholds={manualThresholds} 
-                  diagonalXPoint={diagonalXPoint}
-                  diagonalYPoint={diagonalYPoint}
+                  diagonalOffset={diagonalOffset} // NOVO: Passa o offset diagonal
                 />
               )}
             </CardContent>

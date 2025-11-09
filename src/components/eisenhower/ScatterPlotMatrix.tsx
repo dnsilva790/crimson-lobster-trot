@@ -28,8 +28,7 @@ interface ScatterPlotData {
 interface ScatterPlotMatrixProps {
   data: ScatterPlotData[];
   manualThresholds: ManualThresholds | null; // Mantemos o prop, mas o usamos apenas para o rótulo
-  diagonalXPoint: number; // Novo
-  diagonalYPoint: number; // Novo
+  diagonalOffset: number; // NOVO: Um único ponto de deslocamento
 }
 
 const quadrantColors: Record<Quadrant, string> = {
@@ -92,7 +91,7 @@ const getDynamicDomainAndThreshold = (values: number[]): { domain: [number, numb
 };
 
 
-const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThresholds, diagonalXPoint, diagonalYPoint }) => {
+const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThresholds, diagonalOffset }) => { // NOVO: diagonalOffset
   const navigate = useNavigate();
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -145,14 +144,14 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const yMin = importanceDomain[0];
   const yMax = importanceDomain[1];
 
-  // Definir os pontos da linha diagonal
+  // Definir os pontos da linha diagonal usando diagonalOffset
   const diagonalSegment = useMemo(() => {
-    // A linha vai de (diagonalXPoint, 0) a (0, diagonalYPoint)
+    // A linha vai de (diagonalOffset, 0) a (0, diagonalOffset)
     return [
-      { x: diagonalXPoint, y: 0 },
-      { x: 0, y: diagonalYPoint },
+      { x: diagonalOffset, y: 0 },
+      { x: 0, y: diagonalOffset },
     ];
-  }, [diagonalXPoint, diagonalYPoint]);
+  }, [diagonalOffset]); // NOVO: Depende de diagonalOffset
 
   return (
     <div 
@@ -216,7 +215,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
           <ZAxis dataKey="content" name="Tarefa" />
           <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-          {/* Linha Diagonal Dinâmica (Baseada em X e Y) */}
+          {/* Linha Diagonal Dinâmica (Baseada em um único offset) */}
           <ReferenceLine 
             segment={diagonalSegment} 
             stroke="#10b981" // Cor verde para destaque
