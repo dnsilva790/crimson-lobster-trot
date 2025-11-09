@@ -15,7 +15,6 @@ interface DashboardScreenProps {
   onReset: () => void;
   displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today";
   onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void;
-  manualThresholds: ManualThresholds;
   diagonalOffset: number; // NEW
 }
 
@@ -25,7 +24,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onReset, 
   displayFilter, 
   onDisplayFilterChange, 
-  manualThresholds,
   diagonalOffset, // NEW
 }) => {
   const quadrantCounts = tasks.reduce((acc, task) => {
@@ -123,7 +121,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               ) : (
                 <ScatterPlotMatrix
                   data={dataForScatterPlot}
-                  manualThresholds={manualThresholds}
                   diagonalOffset={diagonalOffset} // Pass diagonalOffset
                 />
               )}

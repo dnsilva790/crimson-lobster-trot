@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, ListTodo, LayoutDashboard, RefreshCw, Scale, Search, Filter, Settings } from "lucide-react";
@@ -19,8 +19,6 @@ interface EisenhowerMatrixViewProps {
   displayFilter: DisplayFilter;
   onDisplayFilterChange: (value: DisplayFilter) => void;
   onRefreshMatrix: (filter: string) => Promise<void>;
-  manualThresholds: ManualThresholds;
-  onManualThresholdsChange: (newThresholds: ManualThresholds) => void; // NEW
   diagonalOffset: number;
   onDiagonalOffsetChange: (value: number) => void;
   searchTerm: string; // NEW
@@ -38,20 +36,18 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
   onBack, 
   onViewResults, 
   onRefreshMatrix, 
-  manualThresholds,
-  onManualThresholdsChange, // NEW
   diagonalOffset,
   onDiagonalOffsetChange,
-  searchTerm, // NEW
-  setSearchTerm, // NEW
-  displayFilter, // NEW
-  onDisplayFilterChange, // NEW
-  categoryDisplayFilter, // NEW
-  setCategoryDisplayFilter, // NEW
-  displayPriorityFilter, // NEW
-  setDisplayPriorityFilter, // NEW
-  displayDeadlineFilter, // NEW
-  setDisplayDeadlineFilter, // NEW
+  searchTerm, 
+  setSearchTerm, 
+  displayFilter, 
+  onDisplayFilterChange, 
+  categoryDisplayFilter, 
+  setCategoryDisplayFilter, 
+  displayPriorityFilter, 
+  setDisplayPriorityFilter, 
+  displayDeadlineFilter, 
+  setDisplayDeadlineFilter, 
 }) => {
   const dataForScatterPlot = tasks
     .filter(task => task.urgency !== null && task.importance !== null)
@@ -145,8 +141,8 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
         A divisão dos quadrantes é calculada dinamicamente com base na distribuição dos seus dados.
       </p>
 
-      {/* NEW: Threshold Sliders */}
-      <Card className="mb-6 p-4 max-w-2xl mx-auto">
+      {/* REMOVE: Threshold Sliders Card */}
+      {/* <Card className="mb-6 p-4 max-w-2xl mx-auto">
         <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
           <Settings className="h-5 w-5 text-indigo-600" /> Ajustar Limiares dos Quadrantes
         </CardTitle>
@@ -168,7 +164,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
             max={100}
           />
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Card do ThresholdSlider movido para cima do gráfico */}
       <Card className="mb-6 p-4 max-w-md mx-auto">
@@ -182,7 +178,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
             label="Urgência + Importância"
             orientation="horizontal"
             max={200}
-            min={0} // Adicionado min
+            min={0}
             className="w-full"
           />
           <p className="text-sm text-gray-500 mt-2">
@@ -202,8 +198,8 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
         <div className="aspect-square max-h-[750px] mx-auto">
           <ScatterPlotMatrix 
             data={dataForScatterPlot} 
-            manualThresholds={manualThresholds} 
             diagonalOffset={diagonalOffset}
+            onDiagonalOffsetChange={onDiagonalOffsetChange} // Pass onDiagonalOffsetChange
           />
         </div>
       )}

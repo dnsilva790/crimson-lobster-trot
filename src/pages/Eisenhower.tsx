@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EisenhowerTask, TodoistTask, DisplayFilter, CategoryDisplayFilter, ManualThresholds, PriorityFilter, DeadlineFilter } from "@/lib/types";
+import { EisenhowerTask, TodoistTask, DisplayFilter, CategoryDisplayFilter, PriorityFilter, DeadlineFilter } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw, Search, RotateCcw } from "lucide-react";
@@ -34,10 +34,7 @@ const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter";
 const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_display_filter";
 const EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_display_priority_filter";
 const EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_display_deadline_filter";
-const EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY = "eisenhower_manual_threshol";
 const EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY = "eisenhower_diagonal_offset"; // NEW
-
-const defaultManualThresholds: ManualThresholds = { urgency: 50, importance: 50 };
 
 const sortEisenhowerTasks = (tasks: EisenhowerTask[]): EisenhowerTask[] => {
   return [...tasks].sort((a, b) => {
@@ -162,15 +159,6 @@ const Eisenhower = () => {
     return "unrated";
   });
 
-  // Novo estado para thresholds manuais
-  const [manualThresholds, setManualThresholds] = useState<ManualThresholds>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : defaultManualThresholds;
-    }
-    return defaultManualThresholds;
-  });
-
   // NEW: Diagonal Offset state
   const [diagonalOffset, setDiagonalOffset] = useState<number>(() => {
     if (typeof window !== 'undefined') {
@@ -192,17 +180,16 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY, categoryDisplayFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY, displayPriorityFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY, displayDeadlineFilter);
-      localStorage.setItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY, JSON.stringify(manualThresholds));
       localStorage.setItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY, String(diagonalOffset)); // NEW
     }
-  }, [currentView, filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalOffset]); // Add diagonalOffset to dependencies
+  }, [currentView, filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, diagonalOffset]); // Add diagonalOffset to dependencies
 
   // --- Lógica de Carregamento e Persistência Todoist Description ---
 
   // 3. Função para categorizar (calcula thresholds dinâmicos e salva o quadrante na descrição)
   const getDynamicDomainAndThreshold = useCallback((values: number[]): { domain: [number, number], threshold: number } => {
     if (values.length === 0) {
-      return { domain: [0, 100], threshold: 50 };
+      return [0, 100], 50 };
     }
 
     const minVal = Math.min(...values);
@@ -242,9 +229,9 @@ const Eisenhower = () => {
     const { threshold: dynamicUrgencyThreshold } = getDynamicDomainAndThreshold(urgencyValues);
     const { threshold: dynamicImportanceThreshold } = getDynamicDomainAndThreshold(importanceValues);
     
-    // Usa os thresholds manuais se definidos, caso contrário, usa os dinâmicos
-    const urgencyThreshold = manualThresholds.urgency !== null ? manualThresholds.urgency : dynamicUrgencyThreshold;
-    const importanceThreshold = manualThresholds.importance !== null ? manualThresholds.importance : dynamicImportanceThreshold;
+    // Sempre usa os thresholds dinâmicos
+    const urgencyThreshold = dynamicUrgencyThreshold;
+    const importanceThreshold = dynamicImportanceThreshold;
 
     const updatesToTodoist: Promise<any>[] = [];
 
@@ -293,7 +280,7 @@ const Eisenhower = () => {
         toast.error("Falha ao salvar quadrantes no Todoist.");
       });
     }
-  }, [tasksToProcess, getDynamicDomainAndThreshold, updateTask, manualThresholds]);
+  }, [tasksToProcess, getDynamicDomainAndThreshold, updateTask]);
 
 
   // 1. Função para carregar tarefas e mesclar com ratings da descrição
@@ -383,14 +370,6 @@ const Eisenhower = () => {
 
   }, [tasksToProcess, updateTask, handleCategorizeTasks]);
 
-  const handleManualThresholdsChange = useCallback((newThresholds: ManualThresholds) => {
-    setManualThresholds(newThresholds);
-    // Recategoriza as tarefas imediatamente após a mudança dos thresholds
-    setTimeout(() => {
-      handleCategorizeTasks();
-    }, 50);
-  }, [handleCategorizeTasks]);
-
 
   const handleReset = useCallback(async () => {
     if (confirm("Tem certeza que deseja resetar a Matriz de Eisenhower? Isso apagará todas as avaliações salvas nas descrições das tarefas.")) {
@@ -406,13 +385,11 @@ const Eisenhower = () => {
 
         await Promise.all(updatesToTodoist);
 
-        setTasksToProcess([]); // Limpa a lista de tarefas
+        setTasksToProcess([]);
         setCurrentView("rating");
-        setManualThresholds(defaultManualThresholds);
-        setDiagonalOffset(120); // NEW: Reset diagonal offset to 120
+        setDiagonalOffset(120);
         localStorage.removeItem('eisenhower_current_view');
-        localStorage.removeItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
-        localStorage.removeItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY); // NEW
+        localStorage.removeItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY);
         toast.success("Matriz de Eisenhower resetada e dados apagados das descrições.");
       } catch (e) {
         toast.error("Erro ao resetar a matriz.");
@@ -621,18 +598,16 @@ const Eisenhower = () => {
                 displayFilter={displayFilter}
                 onDisplayFilterChange={setDisplayFilter}
                 onRefreshMatrix={handleRefreshMatrix}
-                manualThresholds={manualThresholds}
-                onManualThresholdsChange={handleManualThresholdsChange}
-                diagonalOffset={diagonalOffset} // NEW
-                onDiagonalOffsetChange={setDiagonalOffset} // NEW
-                searchTerm={searchTerm} // NEW
-                setSearchTerm={setSearchTerm} // NEW
-                categoryDisplayFilter={categoryDisplayFilter} // NEW
-                setCategoryDisplayFilter={setCategoryDisplayFilter} // NEW
-                displayPriorityFilter={displayPriorityFilter} // NEW
-                setDisplayPriorityFilter={setDisplayPriorityFilter} // NEW
-                displayDeadlineFilter={displayDeadlineFilter} // NEW
-                setDisplayDeadlineFilter={setDisplayDeadlineFilter} // NEW
+                diagonalOffset={diagonalOffset}
+                onDiagonalOffsetChange={setDiagonalOffset}
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                categoryDisplayFilter={categoryDisplayFilter}
+                setCategoryDisplayFilter={setCategoryDisplayFilter}
+                displayPriorityFilter={displayPriorityFilter}
+                setDisplayPriorityFilter={setDisplayPriorityFilter}
+                displayDeadlineFilter={displayDeadlineFilter}
+                setDisplayDeadlineFilter={setDisplayDeadlineFilter}
               />
             </div>
           </div>
@@ -655,8 +630,7 @@ const Eisenhower = () => {
             onReset={handleReset}
             displayFilter={displayFilter}
             onDisplayFilterChange={setDisplayFilter}
-            manualThresholds={manualThresholds}
-            diagonalOffset={diagonalOffset} // Pass diagonalOffset to DashboardScreen
+            diagonalOffset={diagonalOffset}
           />
         );
       default:
@@ -676,7 +650,7 @@ const Eisenhower = () => {
             initialFilterInput={filterInput}
             initialStatusFilter={statusFilter}
             onFilterInputChange={setFilterInput}
-            onStatusFilterChange={setCategoryFilter}
+            onStatusFilterChange={setStatusFilter}
             onCategoryFilterChange={setCategoryFilter}
             onStart={handleLoadTasks}
           />
