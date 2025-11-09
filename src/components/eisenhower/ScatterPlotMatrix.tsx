@@ -86,7 +86,7 @@ const getDynamicDomainAndThreshold = (values: number[]): { domain: [number, numb
   const domainMax = Math.min(100, maxVal + padding);
 
   const domain: [number, number] = [domainMin, domainMax];
-  const threshold = (domainMin + domainMax) / 2;
+  const threshold = (domain[0] + domain[1]) / 2;
   return { domain, threshold };
 };
 
@@ -99,13 +99,8 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const urgencyValues = data.map(d => d.urgency);
   const importanceValues = data.map(d => d.importance);
 
-  // Usar fixed domains [0, 100] for the axes to ensure the full Eisenhower matrix is always visible.
-  // The dynamic thresholds will still be calculated based on data distribution.
-  // const urgencyDomain: [number, number] = [0, 100]; // FORCED TO [0, 100]
-  // const importanceDomain: [number, number] = [0, 100]; // FORCED TO [0, 100]
-
-  const { threshold: dynamicUrgencyThreshold } = useMemo(() => getDynamicDomainAndThreshold(urgencyValues), [urgencyValues]);
-  const { threshold: dynamicImportanceThreshold } = useMemo(() => getDynamicDomainAndThreshold(importanceValues), [importanceValues]);
+  const { domain: urgencyDomain, threshold: dynamicUrgencyThreshold } = useMemo(() => getDynamicDomainAndThreshold(urgencyValues), [urgencyValues]);
+  const { domain: importanceDomain, threshold: dynamicImportanceThreshold } = useMemo(() => getDynamicDomainAndThreshold(importanceValues), [importanceValues]);
 
   // Usar os thresholds dinâmicos para desenhar as linhas divisórias
   const finalUrgencyThreshold = dynamicUrgencyThreshold;
@@ -150,45 +145,6 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const xMax = 100; // Usar 100 para a área de referência
   const yMin = 0; // Usar 0 para a área de referência
   const yMax = 100; // Usar 100 para a área de referência
-
-  // Definir os pontos da linha diagonal usando diagonalOffset
-  const diagonalSegment = useMemo(() => {
-    const C = diagonalOffset;
-    const pointsInSquare = [];
-
-    // Check intersection with x=0 (point (0, C))
-    if (C >= 0 && C <= 100) {
-      pointsInSquare.push({ x: 0, y: C });
-    }
-    // Check intersection with y=0 (point (C, 0))
-    if (C >= 0 && C <= 100) {
-      pointsInSquare.push({ x: C, y: 0 });
-    }
-    // Check intersection with x=100 (point (100, C-100))
-    const yAtX100 = C - 100;
-    if (yAtX100 >= 0 && yAtX100 <= 100) {
-      pointsInSquare.push({ x: 100, y: yAtX100 });
-    }
-    // Check intersection with y=100 (point (C-100, 100))
-    const xAtY100 = C - 100;
-    if (xAtY100 >= 0 && xAtY100 <= 100) {
-      pointsInSquare.push({ x: xAtY100, y: 100 });
-    }
-
-    // Filter unique points and sort them to get the start and end of the segment
-    const uniquePoints = Array.from(new Set(pointsInSquare.map(p => `${p.x},${p.y}`)))
-      .map(s => {
-        const [x, y] = s.split(',').map(Number);
-        return { x, y };
-      })
-      .sort((a, b) => (a.x - b.x) || (a.y - b.y)); // Sort by x, then by y
-
-    if (uniquePoints.length < 2) {
-      return []; // No visible segment
-    }
-    // The segment is formed by the first and last unique points after sorting
-    return [uniquePoints[0], uniquePoints[uniquePoints.length - 1]];
-  }, [diagonalOffset]);
 
   return (
     <div 
@@ -236,7 +192,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="urgency"
             name="Urgência"
             unit=""
-            domain={[0, 100]} // FORCED TO [0, 100]
+            domain={urgencyDomain} // Revertido para domínio dinâmico
             label={{ value: `Urgência (Threshold: ${finalUrgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
@@ -245,22 +201,14 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="importance"
             name="Importância"
             unit=""
-            domain={[0, 100]} // FORCED TO [0, 100]
+            domain={importanceDomain} // Revertido para domínio dinâmico
             label={{ value: `Importância (Threshold: ${finalImportanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
           <ZAxis dataKey="content" name="Tarefa" />
           <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-          {/* Linha Diagonal Dinâmica (Baseada em um único offset) */}
-          {diagonalSegment.length === 2 && ( // Render only if a valid segment is calculated
-            <ReferenceLine 
-              segment={diagonalSegment} 
-              stroke="#10b981" // Cor verde para destaque
-              strokeDasharray="5 5" 
-              strokeWidth={2} 
-            />
-          )}
+          {/* Linha Diagonal Dinâmica REMOVIDA */}
 
           <Scatter
             name="Tarefas"

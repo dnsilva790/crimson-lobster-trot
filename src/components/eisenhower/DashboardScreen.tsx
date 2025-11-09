@@ -52,12 +52,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       url: task.url, // ADICIONADO: Passa a URL para o ScatterPlotMatrix
     }));
 
-  const handleDiagonalOffsetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value, 10);
-    if (!isNaN(value) && value >= 0 && value <= 200) { // Range de 0 a 200 para C em y = -x + C
-      onDiagonalXChange(value); // Usa a função de callback para atualizar o offset
-    }
-  };
+  // Removido o handleDiagonalOffsetChange e o input associado.
 
   return (
     <div className="p-4">
@@ -84,29 +79,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       ) : (
         <>
-          <Card className="mb-6 p-6">
-            <CardTitle className="text-xl font-bold mb-4 text-gray-800">
-              Configuração da Linha Diagonal
-            </CardTitle>
-            <div className="grid grid-cols-1 gap-4 max-w-md"> {/* Apenas um input agora */}
-              <div>
-                <Label htmlFor="diagonal-offset">Deslocamento Diagonal (0-200)</Label>
-                <Input
-                  id="diagonal-offset"
-                  type="number"
-                  min="0"
-                  max="200"
-                  value={diagonalOffset}
-                  onChange={handleDiagonalOffsetChange}
-                  className="mt-1"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Controla a posição da linha diagonal (y = -x + C).
-                  Valores maiores movem a linha para cima/direita.
-                </p>
-              </div>
-            </div>
-          </Card>
+          {/* Removido o Card de Configuração da Linha Diagonal */}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card className="bg-blue-50 border-blue-200">

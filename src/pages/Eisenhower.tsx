@@ -38,7 +38,7 @@ const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_disp
 const EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_display_priority_filter";
 const EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_display_deadline_filter";
 const EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY = "eisenhower_manual_thresholds";
-const EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY = "eisenhower_diagonal_offset"; // NOVO: Chave para o offset diagonal
+// const EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY = "eisenhower_diagonal_offset"; // REMOVIDO: Chave para o offset diagonal
 
 const defaultManualThresholds: ManualThresholds = { urgency: 50, importance: 50 };
 
@@ -177,13 +177,7 @@ const Eisenhower = () => {
   });
 
   // NOVO ESTADO PARA LINHA DIAGONAL
-  const [diagonalOffset, setDiagonalOffset] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY);
-      return saved ? parseInt(saved, 10) : 100; // Default para 100 (linha y = -x + 100)
-    }
-    return 100;
-  });
+  const [diagonalOffset, setDiagonalOffset] = useState<number>(100); // Default para 100 (linha y = -x + 100)
 
   // Efeitos para salvar os filtros no localStorage
   useEffect(() => {
@@ -198,7 +192,7 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY, displayPriorityFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY, displayDeadlineFilter);
       localStorage.setItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY, JSON.stringify(manualThresholds));
-      localStorage.setItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY, String(diagonalOffset)); // NOVO: Salva o offset diagonal
+      // localStorage.setItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY, String(diagonalOffset)); // REMOVIDO: Salva o offset diagonal
     }
   }, [currentView, filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalOffset]); // NOVO: Adicionado diagonalOffset
 
@@ -408,7 +402,7 @@ const Eisenhower = () => {
         setDiagonalOffset(100); // NOVO: Reseta o offset diagonal
         localStorage.removeItem('eisenhower_current_view');
         localStorage.removeItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
-        localStorage.removeItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY); // NOVO: Remove o offset diagonal
+        // localStorage.removeItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY); // REMOVIDO: Remove o offset diagonal
         toast.success("Matriz de Eisenhower resetada e dados apagados das descrições.");
       } catch (e) {
         toast.error("Erro ao resetar a matriz.");
@@ -619,8 +613,7 @@ const Eisenhower = () => {
                 onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
                 onRefreshMatrix={handleRefreshMatrix} // Passa a nova função de atualização
                 manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
-                diagonalXPoint={diagonalOffset} // NOVO: Usa o offset diagonal para X
-                diagonalYPoint={diagonalOffset} // NOVO: Usa o offset diagonal para Y
+                diagonalOffset={diagonalOffset} // NOVO: Usa o offset diagonal para X
               />
             </div>
           </div>
@@ -644,8 +637,7 @@ const Eisenhower = () => {
             displayFilter={displayFilter} // Passa o filtro de exibição
             onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
             manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
-            diagonalXPoint={diagonalOffset} // NOVO: Usa o offset diagonal para X
-            diagonalYPoint={diagonalOffset} // NOVO: Usa o offset diagonal para Y
+            diagonalOffset={diagonalOffset} // NOVO: Usa o offset diagonal para X
             onDiagonalXChange={setDiagonalOffset} // NOVO: Atualiza o offset diagonal
             onDiagonalYChange={setDiagonalOffset} // NOVO: Atualiza o offset diagonal
           />
