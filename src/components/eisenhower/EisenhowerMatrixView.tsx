@@ -92,6 +92,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
                 onValueChange={onDiagonalOffsetChange}
                 label="Urgência + Importância"
                 orientation="horizontal"
+                max={200} // NEW: Set max to 200
                 className="w-full"
               />
               <p className="text-sm text-gray-500 mt-2">

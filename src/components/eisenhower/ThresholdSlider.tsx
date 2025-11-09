@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
+import { Slider }ponents/ui/slider";
+import { Label }ponents/ui/label";
 import { cn } from "@/lib/utils";
 
 interface ThresholdSliderProps {
@@ -11,6 +11,7 @@ interface ThresholdSliderProps {
   label: string;
   orientation: "horizontal" | "vertical";
   className?: string;
+  max?: number; // NEW: Add max prop
 }
 
 const ThresholdSlider: React.FC<ThresholdSliderProps> = ({
@@ -19,6 +20,7 @@ const ThresholdSlider: React.FC<ThresholdSliderProps> = ({
   label,
   orientation,
   className,
+  max = 100, // NEW: Default to 100 if not provided
 }) => {
   return (
     <div className={cn("flex items-center", className)}>
@@ -34,7 +36,7 @@ const ThresholdSlider: React.FC<ThresholdSliderProps> = ({
         </Label>
         <Slider
           defaultValue={[value]}
-          max={100}
+          max={max} // Use the new max prop
           step={1}
           min={0}
           orientation={orientation}
