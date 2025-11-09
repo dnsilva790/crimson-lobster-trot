@@ -146,6 +146,12 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const yMin = 0; // Usar 0 para a área de referência
   const yMax = 100; // Usar 100 para a área de referência
 
+  // Calcular os pontos para a linha diagonal y = -x + diagonalOffset
+  const diagonalLineX1 = Math.max(0, diagonalOffset - 100);
+  const diagonalLineY1 = Math.min(100, diagonalOffset);
+  const diagonalLineX2 = Math.min(100, diagonalOffset);
+  const diagonalLineY2 = Math.max(0, diagonalOffset - 100);
+
   return (
     <div 
       className="w-full h-full" 
@@ -208,7 +214,17 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
           <ZAxis dataKey="content" name="Tarefa" />
           <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-          {/* Linha Diagonal Dinâmica REMOVIDA */}
+          {/* Linha Diagonal Dinâmica (NOVO) */}
+          <ReferenceLine 
+            x1={diagonalLineX1} 
+            y1={diagonalLineY1} 
+            x2={diagonalLineX2} 
+            y2={diagonalLineY2} 
+            stroke="#8b5cf6" // purple-500
+            strokeWidth={2}
+            strokeDasharray="3 3"
+            label={{ value: `U+I=${diagonalOffset.toFixed(0)}`, position: 'insideTopLeft', fill: '#8b5cf6', fontSize: 12, dx: 5, dy: 5 }}
+          />
 
           <Scatter
             name="Tarefas"
