@@ -3,23 +3,33 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ListTodo, LayoutDashboard, RefreshCw, Scale } from "lucide-react";
-import { EisenhowerTask, ManualThresholds } from "@/lib/types";
+import { ArrowLeft, ListTodo, LayoutDashboard, RefreshCw, Scale, Search, Filter } from "lucide-react";
+import { EisenhowerTask, ManualThresholds, DisplayFilter, CategoryDisplayFilter, PriorityFilter, DeadlineFilter } from "@/lib/types";
 import ScatterPlotMatrix from "./ScatterPlotMatrix";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import ThresholdSlider from "./ThresholdSlider"; // Import ThresholdSlider
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface EisenhowerMatrixViewProps {
   tasks: EisenhowerTask[];
   onBack: () => void;
   onViewResults: () => void;
-  displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today";
-  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void;
+  displayFilter: DisplayFilter;
+  onDisplayFilterChange: (value: DisplayFilter) => void;
   onRefreshMatrix: (filter: string) => Promise<void>;
   manualThresholds: ManualThresholds;
-  diagonalOffset: number; // NEW
-  onDiagonalOffsetChange: (value: number) => void; // NEW
+  diagonalOffset: number;
+  onDiagonalOffsetChange: (value: number) => void;
+  searchTerm: string; // NEW
+  setSearchTerm: (value: string) => void; // NEW
+  categoryDisplayFilter: CategoryDisplayFilter; // NEW
+  setCategoryDisplayFilter: (value: CategoryDisplayFilter) => void; // NEW
+  displayPriorityFilter: PriorityFilter; // NEW
+  setDisplayPriorityFilter: (value: PriorityFilter) => void; // NEW
+  displayDeadlineFilter: DeadlineFilter; // NEW
+  setDisplayDeadlineFilter: (value: DeadlineFilter) => void; // NEW
 }
 
 const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ 
@@ -28,8 +38,18 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
   onViewResults, 
   onRefreshMatrix, 
   manualThresholds,
-  diagonalOffset, // NEW
-  onDiagonalOffsetChange, // NEW
+  diagonalOffset,
+  onDiagonalOffsetChange,
+  searchTerm, // NEW
+  setSearchTerm, // NEW
+  displayFilter, // NEW
+  onDisplayFilterChange, // NEW
+  categoryDisplayFilter, // NEW
+  setCategoryDisplayFilter, // NEW
+  displayPriorityFilter, // NEW
+  setDisplayPriorityFilter, // NEW
+  displayDeadlineFilter, // NEW
+  setDisplayDeadlineFilter, // NEW
 }) => {
   const dataForScatterPlot = tasks
     .filter(task => task.urgency !== null && task.importance !== null)
@@ -61,6 +81,64 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
         </div>
       </div>
 
+      {/* Seletor de filtro de exibição e busca - MOVIDO AQUI */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div className="relative md:col-span-2">
+          <Input
+            type="text"
+            placeholder="Buscar tarefas por conteúdo, descrição ou etiqueta..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+        </div>
+        <Select value={displayFilter} onValueChange={(value: DisplayFilter) => onDisplayFilterChange(value)}>
+          <SelectTrigger className="w-full mt-1">
+            <SelectValue placeholder="Filtrar por Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as Datas</SelectItem>
+            <SelectItem value="overdue">Apenas Atrasadas</SelectItem>
+            <SelectItem value="today">Apenas Vencem Hoje</SelectItem>
+            <SelectItem value="tomorrow">Apenas Vencem Amanhã</SelectItem>
+            <SelectItem value="overdue_and_today">Atrasadas e Hoje</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={categoryDisplayFilter} onValueChange={(value: CategoryDisplayFilter) => setCategoryDisplayFilter(value)}>
+          <SelectTrigger className="w-full mt-1">
+            <SelectValue placeholder="Filtrar por Categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as Categorias</SelectItem>
+            <SelectItem value="pessoal">Pessoal</SelectItem>
+            <SelectItem value="profissional">Profissional</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={displayPriorityFilter} onValueChange={(value: PriorityFilter) => setDisplayPriorityFilter(value)}>
+          <SelectTrigger className="w-full mt-1">
+            <SelectValue placeholder="Filtrar por Prioridade" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as Prioridades</SelectItem>
+            <SelectItem value="p4">P4 (Baixa)</SelectItem>
+            <SelectItem value="p3">P3 (Média)</SelectItem>
+            <SelectItem value="p2">P2 (Alta)</SelectItem>
+            <SelectItem value="p1">P1 (Urgente)</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={displayDeadlineFilter} onValueChange={(value: DeadlineFilter) => setDisplayDeadlineFilter(value)}>
+          <SelectTrigger className="w-full mt-1">
+            <SelectValue placeholder="Filtrar por Deadline" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Deadlines</SelectItem>
+            <SelectItem value="has_deadline">Com Deadline Definido</SelectItem>
+            <SelectItem value="no_deadline">Sem Deadline Definido</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <p className="text-lg text-gray-700 mb-6 text-center">
         A divisão dos quadrantes é calculada dinamicamente com base na distribuição dos seus dados.
       </p>
@@ -78,10 +156,9 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
             <ScatterPlotMatrix 
               data={dataForScatterPlot} 
               manualThresholds={manualThresholds} 
-              diagonalOffset={diagonalOffset} // NEW
+              diagonalOffset={diagonalOffset}
             />
           </div>
-          {/* NEW: Diagonal Offset Slider */}
           <Card className="mt-6 p-4 max-w-md mx-auto">
             <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
               <Scale className="h-5 w-5 text-indigo-600" /> Linha de Prioridade Diagonal
@@ -92,7 +169,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
                 onValueChange={onDiagonalOffsetChange}
                 label="Urgência + Importância"
                 orientation="horizontal"
-                max={200} // NEW: Set max to 200
+                max={200}
                 className="w-full"
               />
               <p className="text-sm text-gray-500 mt-2">

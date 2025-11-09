@@ -615,6 +615,14 @@ const Eisenhower = () => {
                 manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }}
                 diagonalOffset={diagonalOffset} // NEW
                 onDiagonalOffsetChange={setDiagonalOffset} // NEW
+                searchTerm={searchTerm} // NEW
+                setSearchTerm={setSearchTerm} // NEW
+                categoryDisplayFilter={categoryDisplayFilter} // NEW
+                setCategoryDisplayFilter={setCategoryDisplayFilter} // NEW
+                displayPriorityFilter={displayPriorityFilter} // NEW
+                setDisplayPriorityFilter={setDisplayPriorityFilter} // NEW
+                displayDeadlineFilter={displayDeadlineFilter} // NEW
+                setDisplayDeadlineFilter={setDisplayDeadlineFilter} // NEW
               />
             </div>
           </div>
@@ -718,64 +726,7 @@ const Eisenhower = () => {
       </div>
 
       {/* Seletor de filtro de exibição e busca */}
-      {(currentView === "matrix" || currentView === "results" || currentView === "dashboard") && (
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-6 gap-4">
-          <div className="relative md:col-span-2">
-            <Input
-              type="text"
-              placeholder="Buscar tarefas por conteúdo, descrição ou etiqueta..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-          </div>
-          <Select value={displayFilter} onValueChange={(value: DisplayFilter) => setDisplayFilter(value)}>
-            <SelectTrigger className="w-full mt-1">
-              <SelectValue placeholder="Filtrar por Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as Datas</SelectItem>
-              <SelectItem value="overdue">Apenas Atrasadas</SelectItem>
-              <SelectItem value="today">Apenas Vencem Hoje</SelectItem>
-              <SelectItem value="tomorrow">Apenas Vencem Amanhã</SelectItem>
-              <SelectItem value="overdue_and_today">Atrasadas e Hoje</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={categoryDisplayFilter} onValueChange={(value: CategoryDisplayFilter) => setCategoryDisplayFilter(value)}>
-            <SelectTrigger className="w-full mt-1">
-              <SelectValue placeholder="Filtrar por Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as Categorias</SelectItem>
-              <SelectItem value="pessoal">Pessoal</SelectItem>
-              <SelectItem value="profissional">Profissional</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={displayPriorityFilter} onValueChange={(value: PriorityFilter) => setDisplayPriorityFilter(value)}>
-            <SelectTrigger className="w-full mt-1">
-              <SelectValue placeholder="Filtrar por Prioridade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as Prioridades</SelectItem>
-              <SelectItem value="p4">P4 (Baixa)</SelectItem>
-              <SelectItem value="p3">P3 (Média)</SelectItem>
-              <SelectItem value="p2">P2 (Alta)</SelectItem>
-              <SelectItem value="p1">P1 (Urgente)</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={displayDeadlineFilter} onValueChange={(value: DeadlineFilter) => setDisplayDeadlineFilter(value)}>
-            <SelectTrigger className="w-full mt-1">
-              <SelectValue placeholder="Filtrar por Deadline" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os Deadlines</SelectItem>
-              <SelectItem value="has_deadline">Com Deadline Definido</SelectItem>
-              <SelectItem value="no_deadline">Sem Deadline Definido</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {/* Este bloco foi movido para dentro de EisenhowerMatrixView.tsx */}
 
       <Card className="p-6">
         <CardContent className="p-0">
