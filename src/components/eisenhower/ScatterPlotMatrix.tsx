@@ -86,7 +86,7 @@ const getDynamicDomainAndThreshold = (values: number[]): { domain: [number, numb
   }
 
   const domain: [number, number] = [domainMin, domainMax];
-  const threshold = (domainMin + domainMax) / 2; // Threshold is the midpoint of the dynamic domain
+  const threshold = (domain[0] + domain[1]) / 2; // Threshold is the midpoint of the dynamic domain
   return { domain, threshold };
 };
 
@@ -149,28 +149,30 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [chartDimensions, setChartDimensions] = useState({ width: 0, height: 0 });
-  const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingLine, setIsDraggingLine] = useState(false); // Renamed to avoid conflict
   const svgRef = useRef<SVGSVGElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null); // Ref para o container do ResponsiveContainer
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const CHART_MARGIN = { top: 20, right: 20, bottom: 20, left: 20 }; // Margens do ScatterChart
+  const CHART_MARGIN = { top: 20, right: 20, bottom: 20, left: 20 };
 
   const urgencyValues = data.map(d => d.urgency);
   const importanceValues = data.map(d => d.importance);
 
-  const { domain: urgencyDomain, threshold: dynamicUrgencyThreshold } = useMemo(() => getDynamicDomainAndThreshold(urgencyValues), [urgencyValues]);
-  const { domain: importanceDomain, threshold: dynamicImportanceThreshold } = useMemo(() => getDynamicDomainAndThreshold(importanceValues), [importanceValues]);
+  // Fixed domains for X and Y axes to ensure 45-degree line
+  const X_MIN = 0;
+  const X_MAX = 100;
+  const Y_MIN = 0;
+  const Y_MAX = 100;
+
+  const urgencyDomain: [number, number] = [X_MIN, X_MAX];
+  const importanceDomain: [number, number] = [Y_MIN, Y_MAX];
+
+  const { threshold: dynamicUrgencyThreshold } = useMemo(() => getDynamicDomainAndThreshold(urgencyValues), [urgencyValues]);
+  const { threshold: dynamicImportanceThreshold } = useMemo(() => getDynamicDomainAndThreshold(importanceValues), [importanceValues]);
 
   const finalUrgencyThreshold = manualThresholds?.urgency ?? dynamicUrgencyThreshold;
   const finalImportanceThreshold = manualThresholds?.importance ?? dynamicImportanceThreshold;
 
-  // Usar os domínios dinâmicos para os limites do gráfico
-  const X_MIN = urgencyDomain[0];
-  const X_MAX = urgencyDomain[1];
-  const Y_MIN = importanceDomain[0];
-  const Y_MAX = importanceDomain[1];
-
-  // Calcula a linha diagonal usando as dimensões reais do gráfico
   const diagonalLine = useMemo(() => {
     if (chartDimensions.width === 0 || chartDimensions.height === 0) {
       return { x1: 0, y1: 0, x2: 0, y2: 0 };
@@ -180,37 +182,10 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
       chartDimensions.width,
       chartDimensions.height,
       CHART_MARGIN,
-      urgencyDomain, // Passar domínio dinâmico
-      importanceDomain // Passar domínio dinâmico
+      urgencyDomain,
+      importanceDomain
     );
   }, [diagonalOffset, chartDimensions, CHART_MARGIN, urgencyDomain, importanceDomain]);
-
-  // Converte pixels para offset (inverso)
-  const pixelsToOffset = useCallback((pixelX: number, pixelY: number): number => {
-    if (chartDimensions.width === 0 || chartDimensions.height === 0) return diagonalOffset;
-
-    const graphWidth = chartDimensions.width - CHART_MARGIN.left - CHART_MARGIN.right;
-    const graphHeight = chartDimensions.height - CHART_MARGIN.top - CHART_MARGIN.bottom;
-
-    const xScale = graphWidth / (X_MAX - X_MIN);
-    const yScale = graphHeight / (Y_MAX - Y_MIN);
-
-    const dataX = (pixelX - CHART_MARGIN.left) / xScale + X_MIN;
-    const dataY = Y_MAX - (pixelY - CHART_MARGIN.top) / yScale; // Y-axis is inverted in SVG
-
-    return Math.max(0, Math.min(200, dataX + dataY));
-  }, [chartDimensions, CHART_MARGIN, X_MAX, Y_MAX, X_MIN, Y_MIN, diagonalOffset]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!isDragging || !svgRef.current || !onDiagonalOffsetChange) return;
-
-    const rect = svgRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const newOffset = pixelsToOffset(x, y);
-    onDiagonalOffsetChange(newOffset);
-  }, [isDragging, pixelsToOffset, onDiagonalOffsetChange]);
 
   const handleSingleClick = (payload: any) => {
     if (clickTimer.current) {
@@ -218,11 +193,8 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
       clickTimer.current = null;
     }
     clickTimer.current = setTimeout(() => {
-      console.log("Eisenhower Scatter Plot: Clique único! Payload:", payload);
       if (payload && payload.payload && payload.payload.id) {
         navigate(`/seiso/${payload.payload.id}`);
-      } else {
-        console.warn("Eisenhower Scatter Plot: Nenhum ID de tarefa encontrado no payload para o clique único:", payload);
       }
     }, 200);
   };
@@ -232,20 +204,58 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
       clearTimeout(clickTimer.current);
       clickTimer.current = null;
     }
-    console.log("Eisenhower Scatter Plot: Duplo clique! Payload:", payload);
     if (payload && payload.payload && payload.payload.url) {
       window.open(payload.payload.url, '_blank');
-    } else {
-      console.warn("Eisenhower Scatter Plot: Nenhuma URL encontrada no payload para o duplo clique:", payload);
     }
   };
 
   const getFillColor = (entry: ScatterPlotData) => {
-    return entry.quadrant ? quadrantColors[entry.quadrant] : "#6b7280";
+    // Fallback para cinza claro para tarefas não avaliadas
+    return entry.quadrant ? quadrantColors[entry.quadrant] : "#9ca3af"; 
   };
 
   const midX = (diagonalLine.x1 + diagonalLine.x2) / 2;
   const midY = (diagonalLine.y1 + diagonalLine.y2) / 2;
+
+  const handleMouseDownOnCircle = useCallback((e: React.MouseEvent<SVGCircleElement>) => {
+    if (!onDiagonalOffsetChange || !svgRef.current) return;
+
+    e.stopPropagation(); // Impede que o evento se propague para elementos subjacentes
+    setIsDraggingLine(true);
+
+    const rect = svgRef.current.getBoundingClientRect();
+    const initialMouseX = e.clientX;
+    const initialMouseY = e.clientY;
+    const initialOffset = diagonalOffset;
+
+    const graphWidth = chartDimensions.width - CHART_MARGIN.left - CHART_MARGIN.right;
+    const graphHeight = chartDimensions.height - CHART_MARGIN.top - CHART_MARGIN.bottom;
+
+    const xScale = graphWidth / (X_MAX - X_MIN);
+    const yScale = graphHeight / (Y_MAX - Y_MIN);
+
+    const onDragMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingLine) return;
+
+      const dx_pixels = moveEvent.clientX - initialMouseX;
+      const dy_pixels = moveEvent.clientY - initialMouseY;
+
+      const dU = dx_pixels / xScale;
+      const dI = -dy_pixels / yScale; // O eixo Y é invertido no SVG
+
+      const newOffset = initialOffset + dU + dI;
+      onDiagonalOffsetChange(Math.max(0, Math.min(200, newOffset)));
+    };
+
+    const onDragEnd = () => {
+      setIsDraggingLine(false);
+      document.removeEventListener('mousemove', onDragMove);
+      document.removeEventListener('mouseup', onDragEnd);
+    };
+
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragEnd);
+  }, [onDiagonalOffsetChange, chartDimensions, diagonalOffset, isDraggingLine, X_MAX, Y_MAX, X_MIN, Y_MIN]);
 
   return (
     <div
@@ -253,7 +263,6 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
       className="w-full h-full"
       style={{ position: 'relative' }}
     >
-      {/* Gráfico Scatter */}
       <ResponsiveContainer width="100%" height="100%" onResize={(width, height) => setChartDimensions({ width, height })}>
         <ScatterChart
           margin={CHART_MARGIN}
@@ -289,7 +298,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="urgency"
             name="Urgência"
             unit=""
-            domain={urgencyDomain} // Usar domínio dinâmico
+            domain={[X_MIN, X_MAX]}
             label={{ value: `Urgência (Threshold: ${finalUrgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
@@ -298,7 +307,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="importance"
             name="Importância"
             unit=""
-            domain={importanceDomain} // Usar domínio dinâmico
+            domain={[Y_MIN, Y_MAX]}
             label={{ value: `Importância (Threshold: ${finalImportanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
@@ -310,14 +319,15 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             data={data}
             shape="circle"
             isAnimationActive={false}
-            onClick={handleSingleClick}
-            onDoubleClick={handleDoubleClick}
+            // onClick e onDoubleClick são tratados pelos componentes Scatter individuais no mapa
           >
             {data.map((entry, index) => (
               <Scatter
                 key={`scatter-point-${index}`}
                 data={[entry]}
                 fill={getFillColor(entry)}
+                onClick={handleSingleClick} // Anexar manipuladores de clique aqui
+                onDoubleClick={handleDoubleClick} // Anexar manipuladores de duplo clique aqui
               />
             ))}
           </Scatter>
@@ -334,13 +344,9 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             left: 0,
             width: chartDimensions.width,
             height: chartDimensions.height,
-            cursor: isDragging ? 'grabbing' : 'grab',
-            zIndex: 1, // Garante que o SVG esteja acima do gráfico, mas abaixo dos tooltips
+            pointerEvents: 'none', // Por padrão, não captura eventos, permitindo cliques no gráfico
+            zIndex: 1,
           }}
-          onMouseMove={handleMouseMove}
-          onMouseDown={() => setIsDragging(true)}
-          onMouseUp={() => setIsDragging(false)}
-          onMouseLeave={() => setIsDragging(false)}
         >
           {/* Linha diagonal */}
           <line
@@ -351,7 +357,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             stroke="#000000"
             strokeWidth={2}
             strokeDasharray="5 5"
-            pointerEvents="none" // Permite que eventos de mouse passem pela linha para o círculo
+            pointerEvents="none" // A linha em si não é interativa
           />
 
           {/* Ponto de controle */}
@@ -361,8 +367,9 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             r={8}
             fill="#FF6B6B"
             fillOpacity={0.8}
-            cursor="grab" // Cursor para o ponto de controle
-            onMouseDown={(e) => { e.stopPropagation(); setIsDragging(true); }} // Impede que o clique no círculo seja tratado como clique no gráfico
+            cursor="grab"
+            pointerEvents="all" // Este círculo deve capturar eventos
+            onMouseDown={handleMouseDownOnCircle}
           />
 
           {/* Label */}
@@ -372,7 +379,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             fill="#000"
             fontSize="12"
             fontWeight="bold"
-            pointerEvents="none" // Permite que eventos de mouse passem pelo texto
+            pointerEvents="none"
           >
             U+I = {Math.round(diagonalOffset)}
           </text>
