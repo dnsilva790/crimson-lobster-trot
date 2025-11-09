@@ -273,7 +273,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, diagonalOff
             label={{ value: "Q1: Fazer (Do)", position: 'top', fill: quadrantColors.do, fontSize: 14, fontWeight: 'bold', dx: 40, dy: 10 }}
           />
           <ReferenceArea 
-            x1={urgencyDomain[0]} x2={finalUrgencyThreshold} y1={importanceDomain[1]} y2={importanceDomain[0]} 
+            x1={urgencyDomain[0]} x2={finalUrencyThreshold} y1={importanceDomain[1]} y2={importanceDomain[0]} 
             fill={quadrantBackgroundColors.decide} stroke={quadrantColors.decide} strokeOpacity={0.5} 
             label={{ value: "Q2: Decidir", position: 'top', fill: quadrantColors.decide, fontSize: 14, fontWeight: 'bold', dx: -40, dy: 10 }}
           />
@@ -356,8 +356,8 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, diagonalOff
             pointerEvents="none"
           />
 
-          {/* Ponto de controle */}
-          <circle
+          {/* Ponto de controle REMOVIDO */}
+          {/* <circle
             cx={midX}
             cy={midY}
             r={8}
@@ -366,7 +366,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, diagonalOff
             cursor="grab"
             pointerEvents="all"
             onMouseDown={handleMouseDownOnCircle}
-          />
+          /> */}
 
           {/* Label */}
           <text
