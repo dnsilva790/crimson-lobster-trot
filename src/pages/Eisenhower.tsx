@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EisenhowerTask, TodoistTask, DisplayFilter, CategoryDisplayFilter, ManualThresholds } from "@/lib/types";
+import { EisenhowerTask, TodoistTask, DisplayFilter, CategoryDisplayFilter, ManualThresholds, PriorityFilter, DeadlineFilter } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw, Search, RotateCcw } from "lucide-react";
@@ -242,8 +242,9 @@ const Eisenhower = () => {
     const { threshold: dynamicUrgencyThreshold } = getDynamicDomainAndThreshold(urgencyValues);
     const { threshold: dynamicImportanceThreshold } = getDynamicDomainAndThreshold(importanceValues);
     
-    const urgencyThreshold = dynamicUrgencyThreshold;
-    const importanceThreshold = dynamicImportanceThreshold;
+    // Usa os thresholds manuais se definidos, caso contrário, usa os dinâmicos
+    const urgencyThreshold = manualThresholds.urgency !== null ? manualThresholds.urgency : dynamicUrgencyThreshold;
+    const importanceThreshold = manualThresholds.importance !== null ? manualThresholds.importance : dynamicImportanceThreshold;
 
     const updatesToTodoist: Promise<any>[] = [];
 
@@ -292,7 +293,7 @@ const Eisenhower = () => {
         toast.error("Falha ao salvar quadrantes no Todoist.");
       });
     }
-  }, [tasksToProcess, getDynamicDomainAndThreshold, updateTask]);
+  }, [tasksToProcess, getDynamicDomainAndThreshold, updateTask, manualThresholds]);
 
 
   // 1. Função para carregar tarefas e mesclar com ratings da descrição
@@ -381,6 +382,14 @@ const Eisenhower = () => {
     }, 100);
 
   }, [tasksToProcess, updateTask, handleCategorizeTasks]);
+
+  const handleManualThresholdsChange = useCallback((newThresholds: ManualThresholds) => {
+    setManualThresholds(newThresholds);
+    // Recategoriza as tarefas imediatamente após a mudança dos thresholds
+    setTimeout(() => {
+      handleCategorizeTasks();
+    }, 50);
+  }, [handleCategorizeTasks]);
 
 
   const handleReset = useCallback(async () => {
@@ -612,7 +621,8 @@ const Eisenhower = () => {
                 displayFilter={displayFilter}
                 onDisplayFilterChange={setDisplayFilter}
                 onRefreshMatrix={handleRefreshMatrix}
-                manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }}
+                manualThresholds={manualThresholds}
+                onManualThresholdsChange={handleManualThresholdsChange}
                 diagonalOffset={diagonalOffset} // NEW
                 onDiagonalOffsetChange={setDiagonalOffset} // NEW
                 searchTerm={searchTerm} // NEW
@@ -645,7 +655,8 @@ const Eisenhower = () => {
             onReset={handleReset}
             displayFilter={displayFilter}
             onDisplayFilterChange={setDisplayFilter}
-            manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }}
+            manualThresholds={manualThresholds}
+            diagonalOffset={diagonalOffset} // Pass diagonalOffset to DashboardScreen
           />
         );
       default:

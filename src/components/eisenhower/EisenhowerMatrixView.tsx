@@ -3,7 +3,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ListTodo, LayoutDashboard, RefreshCw, Scale, Search, Filter } from "lucide-react";
+import { ArrowLeft, ListTodo, LayoutDashboard, RefreshCw, Scale, Search, Filter, Settings } from "lucide-react";
 import { EisenhowerTask, ManualThresholds, DisplayFilter, CategoryDisplayFilter, PriorityFilter, DeadlineFilter } from "@/lib/types";
 import ScatterPlotMatrix from "./ScatterPlotMatrix";
 import { Slider } from "@/components/ui/slider";
@@ -20,6 +20,7 @@ interface EisenhowerMatrixViewProps {
   onDisplayFilterChange: (value: DisplayFilter) => void;
   onRefreshMatrix: (filter: string) => Promise<void>;
   manualThresholds: ManualThresholds;
+  onManualThresholdsChange: (newThresholds: ManualThresholds) => void; // NEW
   diagonalOffset: number;
   onDiagonalOffsetChange: (value: number) => void;
   searchTerm: string; // NEW
@@ -38,6 +39,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
   onViewResults, 
   onRefreshMatrix, 
   manualThresholds,
+  onManualThresholdsChange, // NEW
   diagonalOffset,
   onDiagonalOffsetChange,
   searchTerm, // NEW
@@ -142,6 +144,31 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
       <p className="text-lg text-gray-700 mb-6 text-center">
         A divisão dos quadrantes é calculada dinamicamente com base na distribuição dos seus dados.
       </p>
+
+      {/* NEW: Threshold Sliders */}
+      <Card className="mb-6 p-4 max-w-2xl mx-auto">
+        <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
+          <Settings className="h-5 w-5 text-indigo-600" /> Ajustar Limiares dos Quadrantes
+        </CardTitle>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 p-0">
+          <ThresholdSlider
+            value={manualThresholds.urgency}
+            onValueChange={(value) => onManualThresholdsChange({ ...manualThresholds, urgency: value })}
+            label="Limiar de Urgência"
+            orientation="horizontal"
+            min={0}
+            max={100}
+          />
+          <ThresholdSlider
+            value={manualThresholds.importance}
+            onValueChange={(value) => onManualThresholdsChange({ ...manualThresholds, importance: value })}
+            label="Limiar de Importância"
+            orientation="horizontal"
+            min={0}
+            max={100}
+          />
+        </CardContent>
+      </Card>
 
       {/* Card do ThresholdSlider movido para cima do gráfico */}
       <Card className="mb-6 p-4 max-w-md mx-auto">
