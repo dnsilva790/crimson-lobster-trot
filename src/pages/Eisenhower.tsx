@@ -189,7 +189,7 @@ const Eisenhower = () => {
   // 3. Função para categorizar (calcula thresholds dinâmicos e salva o quadrante na descrição)
   const getDynamicDomainAndThreshold = useCallback((values: number[]): { domain: [number, number], threshold: number } => {
     if (values.length === 0) {
-      return [0, 100], 50 };
+      return { domain: [0, 100], threshold: 50 };
     }
 
     const minVal = Math.min(...values);
