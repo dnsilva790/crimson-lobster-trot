@@ -3,46 +3,41 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EisenhowerTask, TodoistTask, DisplayFilter, CategoryDisplayFilter, ManualThresholds } from "@/lib/types"; // Importar ManualThresholds
+import { EisenhowerTask, TodoistTask, DisplayFilter, CategoryDisplayFilter, ManualThresholds } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw, Search, RotateCcw } from "lucide-react"; // Importar Search e RotateCcw
-import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay, differenceInDays } from 'date-fns'; // Importar format, parseISO, isValid, isPast, isTomorrow, isBefore, startOfDay
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Importar Select components
-import { Input } from "@/components/ui/input"; // Importar Input
-import { getTaskCategory } from "@/lib/utils"; // Remover getEisenhowerRating, updateEisenhowerRating
-import { getEisenhowerRating, updateEisenhowerRating } from "@/utils/eisenhowerUtils"; // Importar do novo local
-import { useSupabaseAuth } from "@/hooks/useSupabaseAuth"; // Importar o hook de auth
-import { useTodoist } from "@/context/TodoistContext"; // Importar useTodoist
+import { LayoutDashboard, Settings, ListTodo, Scale, Lightbulb, RefreshCw, Search, RotateCcw } from "lucide-react";
+import { format, parseISO, isValid, isPast, isToday, isTomorrow, isBefore, startOfDay, differenceInDays } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { getTaskCategory } from "@/lib/utils";
+import { getEisenhowerRating, updateEisenhowerRating } from "@/utils/eisenhowerUtils";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { useTodoist } from "@/context/TodoistContext";
 
-// Importar os componentes do Eisenhower
-// import SetupScreen from "@/components/eisenhower/SetupScreen"; // REMOVIDO
 import RatingScreen from "@/components/eisenhower/RatingScreen";
 import EisenhowerMatrixView from "@/components/eisenhower/EisenhowerMatrixView";
 import DashboardScreen from "@/components/eisenhower/DashboardScreen";
 import AiAssistantModal from "@/components/eisenhower/AiAssistantModal";
 import ResultsScreen from "@/components/eisenhower/ResultsScreen";
 
-type EisenhowerView = "rating" | "matrix" | "results" | "dashboard"; // Removido "setup"
-type RatingFilter = "all" | "unrated"; // Novo tipo de filtro para avaliação
-type PriorityFilter = "all" | "p1" | "p2" | "p3" | "p4"; // Novo tipo de filtro de prioridade
-type DeadlineFilter = "all" | "has_deadline" | "no_deadline"; // Novo tipo de filtro de deadline
+type EisenhowerView = "rating" | "matrix" | "results" | "dashboard";
+type RatingFilter = "all" | "unrated";
+type PriorityFilter = "all" | "p1" | "p2" | "p3" | "p4";
+type DeadlineFilter = "all" | "has_deadline" | "no_deadline";
 
-// Removendo EISENHOWER_STORAGE_KEY e usando Supabase
 const EISENHOWER_FILTER_INPUT_STORAGE_KEY = "eisenhower_filter_input";
 const EISENHOWER_STATUS_FILTER_STORAGE_KEY = "eisenhower_status_filter";
 const EISENHOWER_CATEGORY_FILTER_STORAGE_KEY = "eisenhower_category_filter";
 const EISENHOWER_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_display_filter";
-const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter"; // Corrigido o nome da chave
+const EISENHOWER_RATING_FILTER_STORAGE_KEY = "eisenhower_rating_filter";
 const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_display_filter";
 const EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_display_priority_filter";
 const EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_display_deadline_filter";
 const EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY = "eisenhower_manual_threshol";
-// const EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY = "eisenhower_diagonal_offset"; // REMOVIDO
 
 const defaultManualThresholds: ManualThresholds = { urgency: 50, importance: 50 };
 
-// Função de ordenação para tarefas Eisenhower
 const sortEisenhowerTasks = (tasks: EisenhowerTask[]): EisenhowerTask[] => {
   return [...tasks].sort((a, b) => {
     // 1. Tarefas não avaliadas primeiro
@@ -102,7 +97,6 @@ const Eisenhower = () => {
   
   const [currentView, setCurrentView] = useState<EisenhowerView>(() => {
     if (typeof window !== 'undefined') {
-      // Se houver tarefas salvas, começa em 'rating', senão em 'setup' (que agora é 'rating' com lógica de carregamento)
       const savedView = localStorage.getItem('eisenhower_current_view') as EisenhowerView;
       return savedView === "setup" ? "rating" : savedView || "rating";
     }
@@ -176,15 +170,6 @@ const Eisenhower = () => {
     return defaultManualThresholds;
   });
 
-  // NOVO ESTADO PARA LINHA DIAGONAL (REMOVIDO)
-  // const [diagonalOffset, setDiagonalOffset] = useState<number>(() => {
-  //   if (typeof window !== 'undefined') {
-  //     const saved = localStorage.getItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY);
-  //     return saved ? parseInt(saved, 10) : 100; // Default para 100 (linha y = -x + 100)
-  //   }
-  //   return 100;
-  // });
-
   // Efeitos para salvar os filtros no localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -193,14 +178,13 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_STATUS_FILTER_STORAGE_KEY, statusFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_FILTER_STORAGE_KEY, categoryFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_FILTER_STORAGE_KEY, displayFilter);
-      localStorage.setItem(EISENHOWER_RATING_FILTER_STORAGE_KEY, ratingFilter); // Corrigido o nome da chave
+      localStorage.setItem(EISENHOWER_RATING_FILTER_STORAGE_KEY, ratingFilter);
       localStorage.setItem(EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY, categoryDisplayFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY, displayPriorityFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY, displayDeadlineFilter);
       localStorage.setItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY, JSON.stringify(manualThresholds));
-      // localStorage.setItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY, String(diagonalOffset)); // REMOVIDO
     }
-  }, [currentView, filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds]); // Removido diagonalOffset
+  }, [currentView, filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds]);
 
   // --- Lógica de Carregamento e Persistência Todoist Description ---
 
@@ -405,10 +389,8 @@ const Eisenhower = () => {
         setTasksToProcess([]); // Limpa a lista de tarefas
         setCurrentView("rating");
         setManualThresholds(defaultManualThresholds);
-        // setDiagonalOffset(100); // REMOVIDO
         localStorage.removeItem('eisenhower_current_view');
         localStorage.removeItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
-        // localStorage.removeItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY); // REMOVIDO
         toast.success("Matriz de Eisenhower resetada e dados apagados das descrições.");
       } catch (e) {
         toast.error("Erro ao resetar a matriz.");
@@ -586,18 +568,17 @@ const Eisenhower = () => {
       case "rating":
         return (
           <RatingScreen
-            tasks={tasksForRatingScreen} // Passa as tarefas filtradas para revisão
+            tasks={tasksForRatingScreen}
             onUpdateTaskRating={handleUpdateTaskRating}
-            onFinishRating={handleFinishRating} // Usa a nova função handleFinishRating
+            onFinishRating={handleFinishRating}
             onBack={() => { /* Não volta para setup, apenas recarrega */ }}
             onViewMatrix={() => {
-              handleCategorizeTasks(); // Categoriza todas as tarefas antes de visualizar a matriz
+              handleCategorizeTasks();
               setCurrentView("matrix");
             }}
-            canViewMatrix={canViewMatrixOrResults} // Passa a prop canViewMatrixOrResults
-            ratingFilter={ratingFilter} // Passa o filtro de avaliação
-            onRatingFilterChange={setRatingFilter} // Passa a função para alterar o filtro
-            // Passa as props de carregamento para a RatingScreen
+            canViewMatrix={canViewMatrixOrResults}
+            ratingFilter={ratingFilter}
+            onRatingFilterChange={setRatingFilter}
             initialFilterInput={filterInput}
             initialStatusFilter={statusFilter}
             initialCategoryFilter={categoryFilter}
@@ -612,15 +593,13 @@ const Eisenhower = () => {
           <div className="flex flex-col gap-4">
             <div className="flex-grow">
               <EisenhowerMatrixView
-                tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
-                onBack={handleStartReview} // Volta para a tela de avaliação
+                tasks={filteredTasksForDisplay}
+                onBack={handleStartReview}
                 onViewResults={() => setCurrentView("results")}
-                displayFilter={displayFilter} // Passa o filtro de exibição
-                onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
-                onRefreshMatrix={handleRefreshMatrix} // Passa a nova função de atualização
-                manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
-                // diagonalOffset={diagonalOffset} // REMOVIDO
-                // onDiagonalOffsetChange={setDiagonalOffset} // REMOVIDO
+                displayFilter={displayFilter}
+                onDisplayFilterChange={setDisplayFilter}
+                onRefreshMatrix={handleRefreshMatrix}
+                manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }}
               />
             </div>
           </div>
@@ -628,25 +607,22 @@ const Eisenhower = () => {
       case "results":
         return (
           <ResultsScreen
-            tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
-            onBack={handleStartReview} // Volta para a tela de avaliação
+            tasks={filteredTasksForDisplay}
+            onBack={handleStartReview}
             onViewDashboard={() => setCurrentView("dashboard")}
-            displayFilter={displayFilter} // Passa o filtro de exibição
-            onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
+            displayFilter={displayFilter}
+            onDisplayFilterChange={setDisplayFilter}
           />
         );
       case "dashboard":
         return (
           <DashboardScreen
-            tasks={filteredTasksForDisplay} // Passa as tarefas filtradas para exibição
+            tasks={filteredTasksForDisplay}
             onBack={handleStartReview}
             onReset={handleReset}
-            displayFilter={displayFilter} // Passa o filtro de exibição
-            onDisplayFilterChange={setDisplayFilter} // Passa a função para alterar o filtro
-            manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }} // Passa o threshold dinâmico para o gráfico
-            // diagonalOffset={diagonalOffset} // REMOVIDO
-            // onDiagonalXChange={setDiagonalOffset} // REMOVIDO
-            // onDiagonalYChange={setDiagonalOffset} // REMOVIDO
+            displayFilter={displayFilter}
+            onDisplayFilterChange={setDisplayFilter}
+            manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }}
           />
         );
       default:
@@ -695,7 +671,7 @@ const Eisenhower = () => {
         </Button>
         <Button
           variant={currentView === "matrix" ? "default" : "outline"}
-          onClick={() => { handleCategorizeTasks(); setCurrentView("matrix"); }} // Categoriza e vai para a matriz
+          onClick={() => { handleCategorizeTasks(); setCurrentView("matrix"); }}
           disabled={isLoading || isLoadingTodoist || !canViewMatrixOrResults || isLoadingAuth}
           className="flex items-center gap-2"
         >

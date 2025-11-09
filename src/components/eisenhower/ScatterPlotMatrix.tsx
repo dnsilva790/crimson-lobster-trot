@@ -27,8 +27,7 @@ interface ScatterPlotData {
 
 interface ScatterPlotMatrixProps {
   data: ScatterPlotData[];
-  manualThresholds: ManualThresholds | null; // Mantemos o prop, mas o usamos apenas para o rótulo
-  // diagonalOffset: number; // Removido
+  manualThresholds: ManualThresholds | null;
 }
 
 const quadrantColors: Record<Quadrant, string> = {
@@ -62,7 +61,7 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-// Helper function to calculate dynamic domain and threshold (reintroduzida)
+// Helper function to calculate dynamic domain and threshold
 const getDynamicDomainAndThreshold = (values: number[]): { domain: [number, number], threshold: number } => {
   if (values.length === 0) {
     return { domain: [0, 100], threshold: 50 };
@@ -71,27 +70,27 @@ const getDynamicDomainAndThreshold = (values: number[]): { domain: [number, numb
   const minVal = Math.min(...values);
   const maxVal = Math.max(...values);
 
-  if (minVal === maxVal) {
-    const paddedMin = Math.max(0, minVal - 10);
-    const paddedMax = Math.min(100, maxVal + 10);
-    const domain: [number, number] = [paddedMin, paddedMax];
-    const threshold = (domain[0] + domain[1]) / 2;
-    return { domain, threshold };
-  }
-
-  const range = maxVal - minVal;
-  const padding = range * 0.1;
-
+  // Add padding to the domain, but ensure it stays within 0-100
+  const padding = (maxVal - minVal) * 0.1;
   const domainMin = Math.max(0, minVal - padding);
   const domainMax = Math.min(100, maxVal + padding);
 
+  // If minVal and maxVal are the same, create a small range around it
+  if (domainMin === domainMax) {
+    const adjustedMin = Math.max(0, domainMin - 5);
+    const adjustedMax = Math.min(100, domainMax + 5);
+    const domain: [number, number] = [adjustedMin, adjustedMax];
+    const threshold = (adjustedMin + adjustedMax) / 2;
+    return { domain, threshold };
+  }
+
   const domain: [number, number] = [domainMin, domainMax];
-  const threshold = (domain[0] + domain[1]) / 2;
+  const threshold = (domainMin + domainMax) / 2; // Threshold is the midpoint of the dynamic domain
   return { domain, threshold };
 };
 
 
-const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThresholds }) => { // Removido diagonalOffset
+const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThresholds }) => {
   const navigate = useNavigate();
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -138,19 +137,11 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
     return entry.quadrant ? quadrantColors[entry.quadrant] : "#6b7280";
   };
 
-  // Definir os limites do domínio para as ReferenceAreas (ainda usam os limites dinâmicos para as áreas de fundo)
-  // No entanto, para as ReferenceAreas, precisamos que elas se estendam até os limites fixos [0,100]
-  // para cobrir todo o gráfico.
-  const xMin = 0; // Usar 0 para a área de referência
-  const xMax = 100; // Usar 100 para a área de referência
-  const yMin = 0; // Usar 0 para a área de referência
-  const yMax = 100; // Usar 100 para a área de referência
-
-  // Calcular os pontos para a linha diagonal y = -x + diagonalOffset
-  // const diagonalLineX1 = Math.max(0, diagonalOffset - 100); // Removido
-  // const diagonalLineY1 = Math.min(100, diagonalOffset); // Removido
-  // const diagonalLineX2 = Math.min(100, diagonalOffset); // Removido
-  // const diagonalLineY2 = Math.max(0, diagonalOffset - 100); // Removido
+  // Definir os limites do domínio para as ReferenceAreas
+  const xMin = urgencyDomain[0];
+  const xMax = urgencyDomain[1];
+  const yMin = importanceDomain[0];
+  const yMax = importanceDomain[1];
 
   return (
     <div 
@@ -171,7 +162,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
           <ReferenceLine x={finalUrgencyThreshold} stroke="#4b5563" strokeDasharray="5 5" />
           <ReferenceLine y={finalImportanceThreshold} stroke="#4b5563" strokeDasharray="5 5" />
 
-          {/* Áreas de Quadrante (Ajustam-se aos thresholds dinâmicos) */}
+          {/* Áreas de Quadrante (Ajustam-se aos thresholds dinâmicos e domínios) */}
           <ReferenceArea 
             x1={finalUrgencyThreshold} x2={xMax} y1={finalImportanceThreshold} y2={yMax} 
             fill={quadrantBackgroundColors.do} stroke={quadrantColors.do} strokeOpacity={0.5} 
@@ -198,7 +189,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="urgency"
             name="Urgência"
             unit=""
-            // domain={[0, 100]} // Removido para flexibilidade
+            domain={urgencyDomain}
             label={{ value: `Urgência (Threshold: ${finalUrgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
@@ -207,24 +198,12 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="importance"
             name="Importância"
             unit=""
-            // domain={[0, 100]} // Removido para flexibilidade
+            domain={importanceDomain}
             label={{ value: `Importância (Threshold: ${finalImportanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
           <ZAxis dataKey="content" name="Tarefa" />
           <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
-
-          {/* Linha Diagonal Dinâmica (REMOVIDA) */}
-          {/* <ReferenceLine 
-            x1={diagonalLineX1} 
-            y1={diagonalLineY1} 
-            x2={diagonalLineX2} 
-            y2={diagonalLineY2} 
-            stroke="#8b5cf6" // purple-500
-            strokeWidth={2}
-            strokeDasharray="3 3"
-            label={{ value: `U+I=${diagonalOffset.toFixed(0)}`, position: 'insideTopLeft', fill: '#8b5cf6', fontSize: 12, dx: 5, dy: 5 }}
-          /> */}
 
           <Scatter
             name="Tarefas"

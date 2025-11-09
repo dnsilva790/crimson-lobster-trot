@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, LayoutDashboard, RotateCcw } from "lucide-react";
 import { EisenhowerTask, Quadrant, ManualThresholds } from "@/lib/types";
-import ScatterPlotMatrix from "./ScatterPlotMatrix"; // Importar o ScatterPlotMatrix
+import ScatterPlotMatrix from "./ScatterPlotMatrix";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
@@ -13,12 +13,9 @@ interface DashboardScreenProps {
   tasks: EisenhowerTask[];
   onBack: () => void;
   onReset: () => void;
-  displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // Adicionado
-  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void; // Adicionado
-  manualThresholds: ManualThresholds; // Novo prop
-  // diagonalOffset: number; // REMOVIDO
-  // onDiagonalXChange: (value: number) => void; // REMOVIDO
-  // onDiagonalYChange: (value: number) => void; // REMOVIDO
+  displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today";
+  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void;
+  manualThresholds: ManualThresholds;
 }
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ 
@@ -28,9 +25,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   displayFilter, 
   onDisplayFilterChange, 
   manualThresholds,
-  // diagonalOffset, // REMOVIDO
-  // onDiagonalXChange, // REMOVIDO
-  // onDiagonalYChange, // REMOVIDO
 }) => {
   const quadrantCounts = tasks.reduce((acc, task) => {
     if (task.quadrant) {
@@ -49,10 +43,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       urgency: task.urgency!,
       importance: task.importance!,
       quadrant: task.quadrant,
-      url: task.url, // ADICIONADO: Passa a URL para o ScatterPlotMatrix
+      url: task.url,
     }));
-
-  // Removido o handleDiagonalOffsetChange e o input associado.
 
   return (
     <div className="p-4">
@@ -79,8 +71,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       ) : (
         <>
-          {/* Removido o Card de Configuração da Linha Diagonal */}
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card className="bg-blue-50 border-blue-200">
               <CardHeader>
@@ -132,7 +122,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <ScatterPlotMatrix 
                   data={dataForScatterPlot} 
                   manualThresholds={manualThresholds} 
-                  // diagonalOffset={diagonalOffset} // REMOVIDO
                 />
               )}
             </CardContent>
