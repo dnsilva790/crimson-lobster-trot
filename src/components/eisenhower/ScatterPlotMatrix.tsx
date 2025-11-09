@@ -28,6 +28,7 @@ interface ScatterPlotData {
 interface ScatterPlotMatrixProps {
   data: ScatterPlotData[];
   manualThresholds: ManualThresholds | null;
+  diagonalOffset?: number; // Nova prop para o offset da linha diagonal
 }
 
 const quadrantColors: Record<Quadrant, string> = {
@@ -90,9 +91,12 @@ const getDynamicDomainAndThreshold = (values: number[]): { domain: [number, numb
 };
 
 
-const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThresholds }) => {
+const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThresholds, diagonalOffset = 114 }) => {
   const navigate = useNavigate();
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // State to hold the actual dimensions of the ResponsiveContainer
+  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
 
   // 1. Calcular Domínios Dinâmicos e Thresholds no ponto médio
   const urgencyValues = data.map(d => d.urgency);
@@ -102,8 +106,8 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const { domain: importanceDomain, threshold: dynamicImportanceThreshold } = useMemo(() => getDynamicDomainAndThreshold(importanceValues), [importanceValues]);
 
   // Usar os thresholds dinâmicos para desenhar as linhas divisórias
-  const finalUrgencyThreshold = dynamicUrgencyThreshold;
-  const finalImportanceThreshold = dynamicImportanceThreshold;
+  const finalUrgencyThreshold = manualThresholds?.urgency ?? dynamicUrgencyThreshold;
+  const finalImportanceThreshold = manualThresholds?.importance ?? dynamicImportanceThreshold;
 
   const handleSingleClick = (payload: any) => {
     if (clickTimer.current) {
@@ -143,18 +147,73 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const yMin = importanceDomain[0];
   const yMax = importanceDomain[1];
 
+  // --- Dynamic calculation for the diagonal line ---
+  // These margins should match the ScatterChart's internal margins
+  const CHART_MARGIN = { top: 20, right: 20, bottom: 20, left: 20 }; // Default margins for Recharts ScatterChart
+
+  // Calculate plot area dimensions
+  const plotWidth = containerDimensions.width - CHART_MARGIN.left - CHART_MARGIN.right;
+  const plotHeight = containerDimensions.height - CHART_MARGIN.top - CHART_MARGIN.bottom;
+
+  // Calculate pixels per unit for X and Y axes
+  const xPixelsPerUnit = plotWidth / (urgencyDomain[1] - urgencyDomain[0]);
+  const yPixelsPerUnit = plotHeight / (importanceDomain[1] - importanceDomain[0]);
+
+  // Points for the diagonal line: y = -x + diagonalOffset
+  // We need to find two points on this line that are within the chart's data domain
+  // and convert them to pixel coordinates.
+  // Let's use the intersections with the chart's data boundaries.
+
+  // Point 1: Intersection with the left data boundary (x = urgencyDomain[0])
+  const x1_data = urgencyDomain[0];
+  const y1_data = -x1_data + diagonalOffset;
+
+  // Point 2: Intersection with the right data boundary (x = urgencyDomain[1])
+  const x2_data = urgencyDomain[1];
+  const y2_data = -x2_data + diagonalOffset;
+
+  // Convert data coordinates to pixel coordinates
+  const x1Pixel = CHART_MARGIN.left + (x1_data - urgencyDomain[0]) * xPixelsPerUnit;
+  const y1Pixel = CHART_MARGIN.top + (importanceDomain[1] - y1_data) * yPixelsPerUnit; // Y-axis is inverted in SVG
+
+  const x2Pixel = CHART_MARGIN.left + (x2_data - urgencyDomain[0]) * xPixelsPerUnit;
+  const y2Pixel = CHART_MARGIN.top + (importanceDomain[1] - y2_data) * yPixelsPerUnit; // Y-axis is inverted in SVG
+
   return (
-    <div 
-      className="w-full h-full" 
+    <div
+      className="w-full h-full"
+      style={{ position: 'relative' }} // Ensure relative positioning for absolute SVG
     >
-      <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart
-          margin={{
-            top: 20,
-            right: 20,
-            bottom: 20,
-            left: 20,
+      {/* SVG with the diagonal line */}
+      {containerDimensions.width > 0 && containerDimensions.height > 0 && (
+        <svg
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+            zIndex: 1, // Ensure SVG is below Recharts elements if needed, or above for visibility
           }}
+          viewBox={`0 0 ${containerDimensions.width} ${containerDimensions.height}`} // Set viewBox to match container
+        >
+          <line
+            x1={x1Pixel}
+            y1={y1Pixel}
+            x2={x2Pixel}
+            y2={y2Pixel}
+            stroke="#000000"
+            strokeWidth={2}
+            strokeDasharray="5 5"
+          />
+        </svg>
+      )}
+
+      {/* Gráfico Scatter */}
+      <ResponsiveContainer width="100%" height="100%" onResize={(width, height) => setContainerDimensions({ width, height })}>
+        <ScatterChart
+          margin={CHART_MARGIN} // Use the defined margin
         >
           <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
           
