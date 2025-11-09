@@ -16,9 +16,9 @@ interface DashboardScreenProps {
   displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // Adicionado
   onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void; // Adicionado
   manualThresholds: ManualThresholds; // Novo prop
-  diagonalOffset: number; // NOVO: Um único ponto de deslocamento
-  onDiagonalXChange: (value: number) => void; // Mantido para compatibilidade, mas agora atualiza o offset
-  onDiagonalYChange: (value: number) => void; // Mantido para compatibilidade, mas agora atualiza o offset
+  // diagonalOffset: number; // REMOVIDO
+  // onDiagonalXChange: (value: number) => void; // REMOVIDO
+  // onDiagonalYChange: (value: number) => void; // REMOVIDO
 }
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ 
@@ -28,9 +28,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   displayFilter, 
   onDisplayFilterChange, 
   manualThresholds,
-  diagonalOffset, // NOVO
-  onDiagonalXChange, // Agora atualiza o offset
-  onDiagonalYChange, // Agora atualiza o offset
+  // diagonalOffset, // REMOVIDO
+  // onDiagonalXChange, // REMOVIDO
+  // onDiagonalYChange, // REMOVIDO
 }) => {
   const quadrantCounts = tasks.reduce((acc, task) => {
     if (task.quadrant) {
@@ -132,7 +132,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <ScatterPlotMatrix 
                   data={dataForScatterPlot} 
                   manualThresholds={manualThresholds} 
-                  diagonalOffset={diagonalOffset} // NOVO: Passa o offset diagonal
+                  // diagonalOffset={diagonalOffset} // REMOVIDO
                 />
               )}
             </CardContent>

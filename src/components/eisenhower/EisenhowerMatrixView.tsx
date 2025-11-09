@@ -17,11 +17,11 @@ interface EisenhowerMatrixViewProps {
   onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void;
   onRefreshMatrix: (filter: string) => Promise<void>;
   manualThresholds: ManualThresholds; // Novo prop
-  diagonalOffset: number; // NOVO: Um único ponto de deslocamento
-  onDiagonalOffsetChange: (value: number) => void; // NOVO: Função para alterar o offset
+  // diagonalOffset: number; // REMOVIDO
+  // onDiagonalOffsetChange: (value: number) => void; // REMOVIDO
 }
 
-const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, onRefreshMatrix, manualThresholds, diagonalOffset, onDiagonalOffsetChange }) => {
+const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, onRefreshMatrix, manualThresholds }) => { // Removido diagonalOffset e onDiagonalOffsetChange
   const dataForScatterPlot = tasks
     .filter(task => task.urgency !== null && task.importance !== null)
     .map(task => ({
@@ -65,7 +65,8 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
         </div>
       ) : (
         <>
-          <Card className="mb-8 p-4">
+          {/* Removido o Card de controle da linha diagonal */}
+          {/* <Card className="mb-8 p-4">
             <Label htmlFor="diagonal-offset-slider" className="text-lg font-semibold text-gray-700 flex justify-between items-center mb-2">
               Linha Diagonal (Urgência + Importância = {diagonalOffset.toFixed(0)})
             </Label>
@@ -81,13 +82,13 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
             <p className="text-sm text-gray-500 mt-2">
               Ajuste esta linha para visualizar tarefas onde a soma de Urgência e Importância é constante.
             </p>
-          </Card>
+          </Card> */}
 
           <div className="aspect-square max-h-[750px] mx-auto">
             <ScatterPlotMatrix 
               data={dataForScatterPlot} 
               manualThresholds={manualThresholds} 
-              diagonalOffset={diagonalOffset} // NOVO: Passa o offset diagonal
+              // diagonalOffset={diagonalOffset} // REMOVIDO
             />
           </div>
         </>

@@ -28,7 +28,7 @@ interface ScatterPlotData {
 interface ScatterPlotMatrixProps {
   data: ScatterPlotData[];
   manualThresholds: ManualThresholds | null; // Mantemos o prop, mas o usamos apenas para o rótulo
-  diagonalOffset: number; // NOVO: Um único ponto de deslocamento
+  // diagonalOffset: number; // Removido
 }
 
 const quadrantColors: Record<Quadrant, string> = {
@@ -91,7 +91,7 @@ const getDynamicDomainAndThreshold = (values: number[]): { domain: [number, numb
 };
 
 
-const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThresholds, diagonalOffset }) => { // NOVO: diagonalOffset
+const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThresholds }) => { // Removido diagonalOffset
   const navigate = useNavigate();
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -147,10 +147,10 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const yMax = 100; // Usar 100 para a área de referência
 
   // Calcular os pontos para a linha diagonal y = -x + diagonalOffset
-  const diagonalLineX1 = Math.max(0, diagonalOffset - 100);
-  const diagonalLineY1 = Math.min(100, diagonalOffset);
-  const diagonalLineX2 = Math.min(100, diagonalOffset);
-  const diagonalLineY2 = Math.max(0, diagonalOffset - 100);
+  // const diagonalLineX1 = Math.max(0, diagonalOffset - 100); // Removido
+  // const diagonalLineY1 = Math.min(100, diagonalOffset); // Removido
+  // const diagonalLineX2 = Math.min(100, diagonalOffset); // Removido
+  // const diagonalLineY2 = Math.max(0, diagonalOffset - 100); // Removido
 
   return (
     <div 
@@ -198,7 +198,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="urgency"
             name="Urgência"
             unit=""
-            // domain={[0, 100]} // Revertido para domínio flexível
+            // domain={[0, 100]} // Removido para flexibilidade
             label={{ value: `Urgência (Threshold: ${finalUrgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
@@ -207,15 +207,15 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="importance"
             name="Importância"
             unit=""
-            // domain={[0, 100]} // Revertido para domínio flexível
+            // domain={[0, 100]} // Removido para flexibilidade
             label={{ value: `Importância (Threshold: ${finalImportanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
           <ZAxis dataKey="content" name="Tarefa" />
           <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
 
-          {/* Linha Diagonal Dinâmica (NOVO) */}
-          <ReferenceLine 
+          {/* Linha Diagonal Dinâmica (REMOVIDA) */}
+          {/* <ReferenceLine 
             x1={diagonalLineX1} 
             y1={diagonalLineY1} 
             x2={diagonalLineX2} 
@@ -224,7 +224,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             strokeWidth={2}
             strokeDasharray="3 3"
             label={{ value: `U+I=${diagonalOffset.toFixed(0)}`, position: 'insideTopLeft', fill: '#8b5cf6', fontSize: 12, dx: 5, dy: 5 }}
-          />
+          /> */}
 
           <Scatter
             name="Tarefas"
