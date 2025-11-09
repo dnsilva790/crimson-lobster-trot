@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { Slider }ponents/ui/slider";
-import { Label }ponents/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 interface ThresholdSliderProps {
