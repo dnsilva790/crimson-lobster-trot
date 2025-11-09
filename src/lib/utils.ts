@@ -118,3 +118,16 @@ export function get5W2H(task: TodoistTask): {
     howMuch: extractSectionContent(description, '[HOW_MUCH]:'),
   };
 }
+
+/**
+ * Remove tags HTML básicas (<a>, <p>) de uma string de descrição.
+ * @param description A string de descrição da tarefa.
+ * @returns A string de descrição limpa.
+ */
+export function removeHtmlTags(description: string): string {
+  if (!description) return "";
+  // Remove tags <a> e <p>
+  let cleaned = description.replace(/<a\b[^>]*>(.*?)<\/a>/gi, '$1');
+  cleaned = cleaned.replace(/<p>/gi, '').replace(/<\/p>/gi, '\n');
+  return cleaned;
+}

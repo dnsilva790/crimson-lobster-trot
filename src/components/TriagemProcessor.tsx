@@ -153,6 +153,15 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     return 'delete';
   };
 
+  // Função para limpar tags HTML da descrição
+  const cleanDescription = (description: string) => {
+    if (!description) return "";
+    // Remove tags <a> e <p>
+    let cleaned = description.replace(/<a\b[^>]*>(.*?)<\/a>/gi, '$1');
+    cleaned = cleaned.replace(/<p>/gi, '').replace(/<\/p>/gi, '\n');
+    return cleaned;
+  };
+
   // --- AI SUGGESTION (Uses AI Service) ---
   const handleSuggestWithAI = useCallback(async () => {
     if (!localTask) {
@@ -518,7 +527,6 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
         <div className="flex-grow">
           <div className="flex items-start justify-between mb-2">
             <div className="flex flex-col gap-1 pr-2">
-              {/* Ajuste aqui: h3 para o título, permitindo quebra de linha */}
               <h3 className="text-xl font-bold text-gray-800 break-words">
                 {t.content}
               </h3>
@@ -540,7 +548,9 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
             </a>
           </div>
           {t.description && (
-            <p className="text-sm text-gray-700 mb-3 whitespace-pre-wrap max-h-24 overflow-y-auto">{t.description}</p>
+            <p className="text-sm text-gray-700 mb-3 whitespace-pre-wrap max-h-24 overflow-y-auto custom-scroll" style={{ whiteSpace: 'pre-wrap' }}>
+              {cleanDescription(t.description)}
+            </p>
           )}
         </div>
         <div className="flex flex-col gap-2 text-sm text-gray-600 mt-auto pt-4 border-t border-gray-200">
