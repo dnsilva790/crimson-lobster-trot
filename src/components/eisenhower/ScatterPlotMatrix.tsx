@@ -198,7 +198,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="urgency"
             name="Urgência"
             unit=""
-            domain={urgencyDomain} // Revertido para domínio dinâmico
+            domain={[0, 100]} // Alterado para domínio fixo
             label={{ value: `Urgência (Threshold: ${finalUrgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
@@ -207,7 +207,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="importance"
             name="Importância"
             unit=""
-            domain={importanceDomain} // Revertido para domínio dinâmico
+            domain={[0, 100]} // Alterado para domínio fixo
             label={{ value: `Importância (Threshold: ${finalImportanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
