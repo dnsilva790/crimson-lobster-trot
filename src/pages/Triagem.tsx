@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getEisenhowerRating } from "@/utils/eisenhowerUtils";
 import TriagemProcessor from "@/components/TriagemProcessor"; // New component
+import { suggestEisenhowerRating } from "@/services/aiService"; // Importar o serviço de IA
+import { getLearningContextForPrompt } from "@/utils/aiLearningStorage"; // Importar o contexto de aprendizado
 
 type TriagemState = "initial" | "loading" | "reviewing" | "finished";
 
@@ -36,14 +38,14 @@ const Triagem = () => {
   }, [filterInput]);
 
   const sortTasksForTriagem = useCallback((tasks: EisenhowerTask[]): EisenhowerTask[] => {
-    // Prioritize unrated tasks first, then by Todoist priority
+    // Priorize tarefas não avaliadas primeiro, depois por prioridade Todoist
     return [...tasks].sort((a, b) => {
       const isARated = a.urgency !== null && a.importance !== null;
       const isBRated = b.urgency !== null && b.importance !== null;
       if (isARated && !isBRated) return 1;
       if (!isARated && isBRated) return -1;
       
-      // Fallback to Todoist priority
+      // Fallback para prioridade Todoist
       return b.priority - a.priority;
     });
   }, []);
@@ -58,23 +60,38 @@ const Triagem = () => {
     try {
       const fetchedTodoistTasks = await fetchTasks(filter, { includeSubtasks: false, includeRecurring: false });
       
-      const initialEisenhowerTasks: EisenhowerTask[] = fetchedTodoistTasks.map(task => {
+      const initialEisenhowerTasks: EisenhowerTask[] = [];
+      const learningContext = getLearningContextForPrompt(); // Obter contexto de aprendizado
+
+      for (const task of fetchedTodoistTasks) {
         const { urgency, importance, quadrant } = getEisenhowerRating(task);
-        return {
+        let aiUrgency = urgency;
+        let aiImportance = importance;
+
+        // Se a tarefa ainda não foi avaliada, chame a IA para sugerir
+        if (urgency === null || importance === null) {
+          const aiSuggestion = await suggestEisenhowerRating(task, learningContext);
+          if (aiSuggestion) {
+            aiUrgency = Math.max(0, Math.min(100, Math.round(aiSuggestion.urgency)));
+            aiImportance = Math.max(0, Math.min(100, Math.round(aiSuggestion.importance)));
+          }
+        }
+
+        initialEisenhowerTasks.push({
           ...task,
-          urgency: urgency,
-          importance: importance,
+          urgency: aiUrgency, // Preenche com a sugestão da IA ou valor existente
+          importance: aiImportance, // Preenche com a sugestão da IA ou valor existente
           quadrant: quadrant,
           url: task.url,
-        };
-      });
+        });
+      }
       
       const sortedTasks = sortTasksForTriagem(initialEisenhowerTasks);
       
       if (sortedTasks.length > 0) {
         setTasksToProcess(sortedTasks);
         setTriagemState("reviewing");
-        toast.success(`Encontradas ${sortedTasks.length} tarefas para triagem.`);
+        toast.success(`Encontradas ${sortedTasks.length} tarefas para triagem. Sugestões da IA pré-carregadas.`);
       } else {
         setTriagemState("finished");
         toast.info("Nenhuma tarefa encontrada para triagem com o filtro atual.");

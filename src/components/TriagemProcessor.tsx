@@ -123,13 +123,20 @@ const TriagemProcessor: React.FC<TriagemProcessorProps> = ({
     setSelectedDueTime((typeof task.due?.datetime === 'string' && task.due.datetime) ? format(parseISO(task.due.datetime), "HH:mm") : "");
     setSelectedDeadlineDate(task.deadline ? parseISO(task.deadline) : undefined);
 
-    // Initialize Eisenhower states
+    // Initialize Eisenhower states with AI suggestions (if available from parent)
     setUrgencyInput(task.urgency !== null ? String(task.urgency) : "50");
     setImportanceInput(task.importance !== null ? String(task.importance) : "50");
     
+    // Set AI suggested values if they were pre-filled by the parent component
+    if (task.urgency !== null && task.importance !== null) {
+      setAiSuggestedUrgency(task.urgency);
+      setAiSuggestedImportance(task.importance);
+    } else {
+      setAiSuggestedUrgency(null);
+      setAiSuggestedImportance(null);
+    }
+
     // Reset AI suggestion tracking
-    setAiSuggestedUrgency(null);
-    setAiSuggestedImportance(null);
     setLearningReasonInput("");
     setIsLearningPromptOpen(false);
   }, [task]);
