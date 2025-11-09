@@ -61,26 +61,16 @@ const Triagem = () => {
       const fetchedTodoistTasks = await fetchTasks(filter, { includeSubtasks: false, includeRecurring: false });
       
       const initialEisenhowerTasks: EisenhowerTask[] = [];
-      const learningContext = getLearningContextForPrompt(); // Obter contexto de aprendizado
+      // A avaliação automática da IA foi removida aqui.
+      // As tarefas serão carregadas com urgência e importância nulas se não estiverem na descrição.
 
       for (const task of fetchedTodoistTasks) {
         const { urgency, importance, quadrant } = getEisenhowerRating(task);
-        let aiUrgency = urgency;
-        let aiImportance = importance;
-
-        // Se a tarefa ainda não foi avaliada, chame a IA para sugerir
-        if (urgency === null || importance === null) {
-          const aiSuggestion = await suggestEisenhowerRating(task, learningContext);
-          if (aiSuggestion) {
-            aiUrgency = Math.max(0, Math.min(100, Math.round(aiSuggestion.urgency)));
-            aiImportance = Math.max(0, Math.min(100, Math.round(aiSuggestion.importance)));
-          }
-        }
-
+        
         initialEisenhowerTasks.push({
           ...task,
-          urgency: aiUrgency, // Preenche com a sugestão da IA ou valor existente
-          importance: aiImportance, // Preenche com a sugestão da IA ou valor existente
+          urgency: urgency, // Usa o valor existente ou null
+          importance: importance, // Usa o valor existente ou null
           quadrant: quadrant,
           url: task.url,
         });
@@ -91,7 +81,7 @@ const Triagem = () => {
       if (sortedTasks.length > 0) {
         setTasksToProcess(sortedTasks);
         setTriagemState("reviewing");
-        toast.success(`Encontradas ${sortedTasks.length} tarefas para triagem. Sugestões da IA pré-carregadas.`);
+        toast.success(`Encontradas ${sortedTasks.length} tarefas para triagem.`);
       } else {
         setTriagemState("finished");
         toast.info("Nenhuma tarefa encontrada para triagem com o filtro atual.");
@@ -126,7 +116,6 @@ const Triagem = () => {
       if (updatedTasks.length === 0) {
         setTriagemState("finished");
         setCurrentTaskIndex(0);
-        toast.success("Triagem de tarefas concluída!");
         return [];
       } else {
         const newIndex = currentTaskIndex >= updatedTasks.length ? 0 : currentTaskIndex;
