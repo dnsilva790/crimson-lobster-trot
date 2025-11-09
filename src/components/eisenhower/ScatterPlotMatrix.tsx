@@ -73,17 +73,16 @@ const getDynamicDomainAndThreshold = (values: number[]): { domain: [number, numb
   const maxVal = Math.max(...values);
 
   // Add padding to the domain, but ensure it stays within 0-100
-  const padding = (maxVal - minVal) * 0.1;
-  const domainMin = Math.max(0, minVal - padding);
-  const domainMax = Math.min(100, maxVal + padding);
+  const range = maxVal - minVal;
+  const padding = range * 0.1; // 10% padding
+
+  let domainMin = Math.max(0, minVal - padding);
+  let domainMax = Math.min(100, maxVal + padding);
 
   // If minVal and maxVal are the same, create a small range around it
   if (domainMin === domainMax) {
-    const adjustedMin = Math.max(0, domainMin - 5);
-    const adjustedMax = Math.min(100, domainMax + 5);
-    const domain: [number, number] = [adjustedMin, adjustedMax];
-    const threshold = (adjustedMin + adjustedMax) / 2;
-    return { domain, threshold };
+    domainMin = Math.max(0, domainMin - 5);
+    domainMax = Math.min(100, domainMax + 5);
   }
 
   const domain: [number, number] = [domainMin, domainMax];
@@ -103,11 +102,12 @@ const calculateDiagonalLine45Degrees = (
   chartWidth: number, // Largura total do SVG
   chartHeight: number, // Altura total do SVG
   margin: { top: number; right: number; bottom: number; left: number },
-  xMax: number,
-  yMax: number,
-  xMin: number = 0,
-  yMin: number = 0
+  xDomain: [number, number], // Usar domínio dinâmico
+  yDomain: [number, number]  // Usar domínio dinâmico
 ): DiagonalCalculation => {
+  const [xMin, xMax] = xDomain;
+  const [yMin, yMax] = yDomain;
+
   // Dimensões reais da área de plotagem (sem margins)
   const graphWidth = chartWidth - margin.left - margin.right;
   const graphHeight = chartHeight - margin.top - margin.bottom;
@@ -164,10 +164,11 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
   const finalUrgencyThreshold = manualThresholds?.urgency ?? dynamicUrgencyThreshold;
   const finalImportanceThreshold = manualThresholds?.importance ?? dynamicImportanceThreshold;
 
-  const X_MIN = 0;
-  const X_MAX = 100;
-  const Y_MIN = 0;
-  const Y_MAX = 100;
+  // Usar os domínios dinâmicos para os limites do gráfico
+  const X_MIN = urgencyDomain[0];
+  const X_MAX = urgencyDomain[1];
+  const Y_MIN = importanceDomain[0];
+  const Y_MAX = importanceDomain[1];
 
   // Calcula a linha diagonal usando as dimensões reais do gráfico
   const diagonalLine = useMemo(() => {
@@ -179,9 +180,10 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
       chartDimensions.width,
       chartDimensions.height,
       CHART_MARGIN,
-      X_MAX, Y_MAX, X_MIN, Y_MIN
+      urgencyDomain, // Passar domínio dinâmico
+      importanceDomain // Passar domínio dinâmico
     );
-  }, [diagonalOffset, chartDimensions, CHART_MARGIN, X_MAX, Y_MAX, X_MIN, Y_MIN]);
+  }, [diagonalOffset, chartDimensions, CHART_MARGIN, urgencyDomain, importanceDomain]);
 
   // Converte pixels para offset (inverso)
   const pixelsToOffset = useCallback((pixelX: number, pixelY: number): number => {
@@ -287,7 +289,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="urgency"
             name="Urgência"
             unit=""
-            domain={[X_MIN, X_MAX]}
+            domain={urgencyDomain} // Usar domínio dinâmico
             label={{ value: `Urgência (Threshold: ${finalUrgencyThreshold.toFixed(0)})`, position: "bottom", offset: 0, fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
@@ -296,7 +298,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             dataKey="importance"
             name="Importância"
             unit=""
-            domain={[Y_MIN, Y_MAX]}
+            domain={importanceDomain} // Usar domínio dinâmico
             label={{ value: `Importância (Threshold: ${finalImportanceThreshold.toFixed(0)})`, angle: -90, position: "left", fill: "#4b5563" }}
             className="text-sm text-gray-600"
           />
