@@ -35,6 +35,7 @@ const EISENHOWER_CATEGORY_DISPLAY_FILTER_STORAGE_KEY = "eisenhower_category_disp
 const EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY = "eisenhower_display_priority_filter";
 const EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY = "eisenhower_display_deadline_filter";
 const EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY = "eisenhower_manual_threshol";
+const EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY = "eisenhower_diagonal_offset"; // NEW
 
 const defaultManualThresholds: ManualThresholds = { urgency: 50, importance: 50 };
 
@@ -170,6 +171,15 @@ const Eisenhower = () => {
     return defaultManualThresholds;
   });
 
+  // NEW: Diagonal Offset state
+  const [diagonalOffset, setDiagonalOffset] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY);
+      return saved ? parseFloat(saved) : 114; // Default to 114 as seen in image
+    }
+    return 114;
+  });
+
   // Efeitos para salvar os filtros no localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -183,8 +193,9 @@ const Eisenhower = () => {
       localStorage.setItem(EISENHOWER_DISPLAY_PRIORITY_FILTER_STORAGE_KEY, displayPriorityFilter);
       localStorage.setItem(EISENHOWER_DISPLAY_DEADLINE_FILTER_STORAGE_KEY, displayDeadlineFilter);
       localStorage.setItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY, JSON.stringify(manualThresholds));
+      localStorage.setItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY, String(diagonalOffset)); // NEW
     }
-  }, [currentView, filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds]);
+  }, [currentView, filterInput, statusFilter, categoryFilter, displayFilter, ratingFilter, categoryDisplayFilter, displayPriorityFilter, displayDeadlineFilter, manualThresholds, diagonalOffset]); // Add diagonalOffset to dependencies
 
   // --- Lógica de Carregamento e Persistência Todoist Description ---
 
@@ -389,8 +400,10 @@ const Eisenhower = () => {
         setTasksToProcess([]); // Limpa a lista de tarefas
         setCurrentView("rating");
         setManualThresholds(defaultManualThresholds);
+        setDiagonalOffset(114); // NEW: Reset diagonal offset
         localStorage.removeItem('eisenhower_current_view');
         localStorage.removeItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
+        localStorage.removeItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY); // NEW
         toast.success("Matriz de Eisenhower resetada e dados apagados das descrições.");
       } catch (e) {
         toast.error("Erro ao resetar a matriz.");
@@ -600,6 +613,8 @@ const Eisenhower = () => {
                 onDisplayFilterChange={setDisplayFilter}
                 onRefreshMatrix={handleRefreshMatrix}
                 manualThresholds={{ urgency: dynamicUrgencyThreshold, importance: dynamicImportanceThreshold }}
+                diagonalOffset={diagonalOffset} // NEW
+                onDiagonalOffsetChange={setDiagonalOffset} // NEW
               />
             </div>
           </div>
@@ -643,7 +658,7 @@ const Eisenhower = () => {
             initialStatusFilter={statusFilter}
             initialCategoryFilter={categoryFilter}
             onFilterInputChange={setFilterInput}
-            onStatusFilterChange={setStatusFilter}
+            onStatusFilterChange={setCategoryFilter}
             onCategoryFilterChange={setCategoryFilter}
             onStart={handleLoadTasks}
           />

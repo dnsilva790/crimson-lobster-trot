@@ -8,6 +8,7 @@ import { EisenhowerTask, ManualThresholds } from "@/lib/types";
 import ScatterPlotMatrix from "./ScatterPlotMatrix";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import ThresholdSlider from "./ThresholdSlider"; // Import ThresholdSlider
 
 interface EisenhowerMatrixViewProps {
   tasks: EisenhowerTask[];
@@ -17,9 +18,19 @@ interface EisenhowerMatrixViewProps {
   onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void;
   onRefreshMatrix: (filter: string) => Promise<void>;
   manualThresholds: ManualThresholds;
+  diagonalOffset: number; // NEW
+  onDiagonalOffsetChange: (value: number) => void; // NEW
 }
 
-const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBack, onViewResults, onRefreshMatrix, manualThresholds }) => {
+const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ 
+  tasks, 
+  onBack, 
+  onViewResults, 
+  onRefreshMatrix, 
+  manualThresholds,
+  diagonalOffset, // NEW
+  onDiagonalOffsetChange, // NEW
+}) => {
   const dataForScatterPlot = tasks
     .filter(task => task.urgency !== null && task.importance !== null)
     .map(task => ({
@@ -67,8 +78,27 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({ tasks, onBa
             <ScatterPlotMatrix 
               data={dataForScatterPlot} 
               manualThresholds={manualThresholds} 
+              diagonalOffset={diagonalOffset} // NEW
             />
           </div>
+          {/* NEW: Diagonal Offset Slider */}
+          <Card className="mt-6 p-4 max-w-md mx-auto">
+            <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
+              <Scale className="h-5 w-5 text-indigo-600" /> Linha de Prioridade Diagonal
+            </CardTitle>
+            <CardContent className="p-0">
+              <ThresholdSlider
+                value={diagonalOffset}
+                onValueChange={onDiagonalOffsetChange}
+                label="Urgência + Importância"
+                orientation="horizontal"
+                className="w-full"
+              />
+              <p className="text-sm text-gray-500 mt-2">
+                Ajuste esta linha para definir o limite de "próxima ação" (tarefas abaixo da linha).
+              </p>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
