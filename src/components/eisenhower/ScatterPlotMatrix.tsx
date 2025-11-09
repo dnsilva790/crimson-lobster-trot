@@ -187,27 +187,27 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
     );
   }, [diagonalOffset, chartDimensions, CHART_MARGIN, urgencyDomain, importanceDomain]);
 
-  const handleSingleClick = (payload: any) => {
+  const handleSingleClick = useCallback((payload: any) => {
     if (clickTimer.current) {
       clearTimeout(clickTimer.current);
       clickTimer.current = null;
     }
     clickTimer.current = setTimeout(() => {
-      if (payload && payload.payload && payload.payload.id) {
-        navigate(`/seiso/${payload.payload.id}`);
+      if (payload && payload.id) { // payload is the entry itself
+        navigate(`/seiso/${payload.id}`);
       }
     }, 200);
-  };
+  }, [navigate]);
 
-  const handleDoubleClick = (payload: any) => {
+  const handleDoubleClick = useCallback((payload: any) => {
     if (clickTimer.current) {
       clearTimeout(clickTimer.current);
       clickTimer.current = null;
     }
-    if (payload && payload.payload && payload.payload.url) {
-      window.open(payload.payload.url, '_blank');
+    if (payload && payload.url) { // payload is the entry itself
+      window.open(payload.url, '_blank');
     }
-  };
+  }, []);
 
   const getFillColor = (entry: ScatterPlotData) => {
     // Fallback para cinza claro para tarefas não avaliadas
@@ -240,9 +240,13 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
       const dx_pixels = moveEvent.clientX - initialMouseX;
       const dy_pixels = moveEvent.clientY - initialMouseY;
 
+      // Calculate change in data units
       const dU = dx_pixels / xScale;
-      const dI = -dy_pixels / yScale; // O eixo Y é invertido no SVG
+      const dI = -dy_pixels / yScale; // Y-axis is inverted in SVG
 
+      // The diagonal line equation is I = -U + offset.
+      // So, a change in U or I directly affects the offset.
+      // d(offset) = dI + dU
       const newOffset = initialOffset + dU + dI;
       onDiagonalOffsetChange(Math.max(0, Math.min(200, newOffset)));
     };
@@ -317,20 +321,22 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
           <Scatter
             name="Tarefas"
             data={data}
-            shape="circle"
             isAnimationActive={false}
-            // onClick e onDoubleClick são tratados pelos componentes Scatter individuais no mapa
-          >
-            {data.map((entry, index) => (
-              <Scatter
-                key={`scatter-point-${index}`}
-                data={[entry]}
-                fill={getFillColor(entry)}
-                onClick={handleSingleClick} // Anexar manipuladores de clique aqui
-                onDoubleClick={handleDoubleClick} // Anexar manipuladores de duplo clique aqui
+            // Use a custom shape to attach click handlers directly to the circles
+            shape={(props: any) => (
+              <circle
+                cx={props.cx}
+                cy={props.cy}
+                r={5} // Radius of the circle
+                fill={getFillColor(props.payload)} // Use getFillColor for individual points
+                stroke="#fff"
+                strokeWidth={1}
+                onClick={() => handleSingleClick(props.payload)}
+                onDoubleClick={() => handleDoubleClick(props.payload)}
+                style={{ cursor: 'pointer' }}
               />
-            ))}
-          </Scatter>
+            )}
+          />
         </ScatterChart>
       </ResponsiveContainer>
 
@@ -345,7 +351,7 @@ const ScatterPlotMatrix: React.FC<ScatterPlotMatrixProps> = ({ data, manualThres
             width: chartDimensions.width,
             height: chartDimensions.height,
             pointerEvents: 'none', // Por padrão, não captura eventos, permitindo cliques no gráfico
-            zIndex: 1,
+            zIndex: 0, // Garante que este SVG esteja abaixo do SVG do Recharts
           }}
         >
           {/* Linha diagonal */}
