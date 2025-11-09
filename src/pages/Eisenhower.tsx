@@ -175,9 +175,9 @@ const Eisenhower = () => {
   const [diagonalOffset, setDiagonalOffset] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY);
-      return saved ? parseFloat(saved) : 114; // Default to 114 as seen in image
+      return saved ? parseFloat(saved) : 120; // Default to 120 to match the image
     }
-    return 114;
+    return 120;
   });
 
   // Efeitos para salvar os filtros no localStorage
@@ -400,7 +400,7 @@ const Eisenhower = () => {
         setTasksToProcess([]); // Limpa a lista de tarefas
         setCurrentView("rating");
         setManualThresholds(defaultManualThresholds);
-        setDiagonalOffset(114); // NEW: Reset diagonal offset
+        setDiagonalOffset(120); // NEW: Reset diagonal offset to 120
         localStorage.removeItem('eisenhower_current_view');
         localStorage.removeItem(EISENHOWER_MANUAL_THRESHOLDS_STORAGE_KEY);
         localStorage.removeItem(EISENHOWER_DIAGONAL_OFFSET_STORAGE_KEY); // NEW
@@ -656,7 +656,6 @@ const Eisenhower = () => {
             onRatingFilterChange={setRatingFilter}
             initialFilterInput={filterInput}
             initialStatusFilter={statusFilter}
-            initialCategoryFilter={categoryFilter}
             onFilterInputChange={setFilterInput}
             onStatusFilterChange={setCategoryFilter}
             onCategoryFilterChange={setCategoryFilter}
