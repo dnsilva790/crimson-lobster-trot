@@ -3,6 +3,8 @@
 import React from "react";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button"; // Importar Button
+import { Plus, Minus } from "lucide-react"; // Importar ícones
 import { cn } from "@/lib/utils";
 
 interface ThresholdSliderProps {
@@ -11,7 +13,8 @@ interface ThresholdSliderProps {
   label: string;
   orientation: "horizontal" | "vertical";
   className?: string;
-  max?: number; // NEW: Add max prop
+  max?: number;
+  min?: number; // Adicionado min prop
 }
 
 const ThresholdSlider: React.FC<ThresholdSliderProps> = ({
@@ -20,32 +23,53 @@ const ThresholdSlider: React.FC<ThresholdSliderProps> = ({
   label,
   orientation,
   className,
-  max = 100, // NEW: Default to 100 if not provided
+  max = 100,
+  min = 0, // Default min to 0
 }) => {
+  const handleIncrement = () => {
+    onValueChange(Math.min(max, value + 1));
+  };
+
+  const handleDecrement = () => {
+    onValueChange(Math.max(min, value - 1));
+  };
+
   return (
-    <div className={cn("flex items-center", className)}>
-      <div className={cn(
-        "flex flex-col items-center",
-        orientation === "vertical" ? "h-full" : "w-full"
-      )}>
-        <Label className={cn(
-          "text-sm font-semibold mb-2",
-          orientation === "vertical" ? "transform rotate-90 whitespace-nowrap" : "text-center"
-        )}>
-          {label}: {value.toFixed(0)}
-        </Label>
+    <div className={cn("flex flex-col items-center gap-2", className)}>
+      <Label className="text-sm font-semibold text-center">
+        {label}: <span className="font-bold text-indigo-600">{value.toFixed(0)}</span>
+      </Label>
+      <div className="flex items-center gap-2 w-full">
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={handleDecrement} 
+          disabled={value <= min}
+          className="h-8 w-8"
+        >
+          <Minus className="h-4 w-4" />
+        </Button>
         <Slider
           defaultValue={[value]}
-          max={max} // Use the new max prop
+          max={max}
           step={1}
-          min={0}
+          min={min}
           orientation={orientation}
           onValueChange={(v) => onValueChange(v[0])}
           className={cn(
-            orientation === "vertical" ? "h-[300px] w-4" : "w-full h-4",
+            orientation === "vertical" ? "h-[300px] w-4" : "flex-grow h-4",
             "touch-none select-none"
           )}
         />
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={handleIncrement} 
+          disabled={value >= max}
+          className="h-8 w-8"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

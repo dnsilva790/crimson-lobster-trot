@@ -143,6 +143,27 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
         A divisão dos quadrantes é calculada dinamicamente com base na distribuição dos seus dados.
       </p>
 
+      {/* Card do ThresholdSlider movido para cima do gráfico */}
+      <Card className="mb-6 p-4 max-w-md mx-auto">
+        <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
+          <Scale className="h-5 w-5 text-indigo-600" /> Linha de Prioridade Diagonal
+        </CardTitle>
+        <CardContent className="p-0">
+          <ThresholdSlider
+            value={diagonalOffset}
+            onValueChange={onDiagonalOffsetChange}
+            label="Urgência + Importância"
+            orientation="horizontal"
+            max={200}
+            min={0} // Adicionado min
+            className="w-full"
+          />
+          <p className="text-sm text-gray-500 mt-2">
+            Ajuste esta linha para definir o limite de "próxima ação" (tarefas abaixo da linha).
+          </p>
+        </CardContent>
+      </Card>
+
       {dataForScatterPlot.length === 0 ? (
         <div className="text-center p-8 border rounded-lg bg-gray-50">
           <p className="text-gray-600 text-lg mb-4">
@@ -151,33 +172,13 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
           </p>
         </div>
       ) : (
-        <>
-          <div className="aspect-square max-h-[750px] mx-auto">
-            <ScatterPlotMatrix 
-              data={dataForScatterPlot} 
-              manualThresholds={manualThresholds} 
-              diagonalOffset={diagonalOffset}
-            />
-          </div>
-          <Card className="mt-6 p-4 max-w-md mx-auto">
-            <CardTitle className="text-lg font-bold mb-3 flex items-center gap-2">
-              <Scale className="h-5 w-5 text-indigo-600" /> Linha de Prioridade Diagonal
-            </CardTitle>
-            <CardContent className="p-0">
-              <ThresholdSlider
-                value={diagonalOffset}
-                onValueChange={onDiagonalOffsetChange}
-                label="Urgência + Importância"
-                orientation="horizontal"
-                max={200}
-                className="w-full"
-              />
-              <p className="text-sm text-gray-500 mt-2">
-                Ajuste esta linha para definir o limite de "próxima ação" (tarefas abaixo da linha).
-              </p>
-            </CardContent>
-          </Card>
-        </>
+        <div className="aspect-square max-h-[750px] mx-auto">
+          <ScatterPlotMatrix 
+            data={dataForScatterPlot} 
+            manualThresholds={manualThresholds} 
+            diagonalOffset={diagonalOffset}
+          />
+        </div>
       )}
     </div>
   );
