@@ -471,7 +471,7 @@ const Eisenhower = () => {
 
     // 4. Filtragem por Data/Status (dateFilter)
     if (dateFilter !== "all") {
-      const now = new Date();
+      const now = new Date(); // Usar o momento atual
       const startOfToday = startOfDay(now);
       
       filteredTasks = filteredTasks.filter(task => {
@@ -501,8 +501,8 @@ const Eisenhower = () => {
 
         // --- Lógica de filtro de exibição corrigida ---
         if (dateFilter === "overdue") {
-          // Atrasadas: Data efetiva é anterior ao início do dia de hoje.
-          return isBefore(effectiveDate, startOfToday);
+          // Atrasadas: Data efetiva é anterior ao momento atual (corresponde a "due before: in 0 min")
+          return isBefore(effectiveDate, now); // Alterado para 'now'
         }
         if (dateFilter === "today") {
           // Hoje: Data efetiva é hoje.
@@ -513,7 +513,7 @@ const Eisenhower = () => {
         }
         if (dateFilter === "overdue_and_today") { // Nova lógica para "Atrasadas e Hoje"
           // Inclui todas as tarefas que já passaram (overdue) OU que vencem hoje (isToday)
-          return isBefore(effectiveDate, startOfToday) || isToday(effectiveDate);
+          return isBefore(effectiveDate, now) || isToday(effectiveDate); // Alterado para 'now'
         }
         return true;
       });

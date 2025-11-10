@@ -7,7 +7,7 @@ import { useTodoist } from "@/context/TodoistContext";
 import { EisenhowerTask, TodoistTask } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
-import { Scale, ListTodo, RotateCcw, Filter } from "lucide-react";
+import { Scale, ListTodo, RotateCcw, Filter, Shuffle } from "lucide-react"; // Import Shuffle icon
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getEisenhowerRating } from "@/utils/eisenhowerUtils";
@@ -124,6 +124,16 @@ const Triagem = () => {
     });
   }, [currentTaskIndex]);
 
+  const selectRandomTaskForTriagem = useCallback(() => {
+    if (tasksToProcess.length > 0) {
+      const randomIndex = Math.floor(Math.random() * tasksToProcess.length);
+      setCurrentTaskIndex(randomIndex);
+      toast.info("Tarefa aleatória selecionada para triagem!");
+    } else {
+      toast.info("Nenhuma tarefa disponível para seleção aleatória.");
+    }
+  }, [tasksToProcess]);
+
   const currentTask = tasksToProcess[currentTaskIndex];
   const isLoadingCombined = isLoadingTodoist || triagemState === "loading";
 
@@ -173,9 +183,19 @@ const Triagem = () => {
 
       {!isLoadingCombined && triagemState === "reviewing" && currentTask && (
         <div className="mt-8">
-          <p className="text-center text-xl font-medium mb-6 text-gray-700">
-            Processando tarefa {currentTaskIndex + 1} de {tasksToProcess.length}
-          </p>
+          <div className="flex justify-between items-center mb-4">
+            <p className="text-xl font-medium text-gray-700">
+              Processando tarefa {currentTaskIndex + 1} de {tasksToProcess.length}
+            </p>
+            <Button
+              onClick={selectRandomTaskForTriagem}
+              disabled={isLoadingCombined || tasksToProcess.length <= 1}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Shuffle className="h-4 w-4" /> Aleatória
+            </Button>
+          </div>
           <TriagemProcessor
             task={currentTask}
             onAdvance={advanceToNextTask}

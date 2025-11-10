@@ -25,6 +25,7 @@ import {
   CRONOGRAMA_HOJE_LABEL,
 } from "@/lib/constants"; // Importar as constantes das etiquetas
 import SubtaskTimelineView from "@/components/SubtaskTimelineView"; // Importar o novo componente SubtaskTimelineView
+import { Shuffle } from "lucide-react"; // Import Shuffle icon
 
 const AI_AGENT_PROMPT_STORAGE_KEY = "ai_agent_tutor_seiso_prompt";
 const NOVO_SEISO_FILTER_INPUT_STORAGE_KEY = "novoseiso_filter_input";
@@ -111,7 +112,8 @@ const NovoSeiso = () => {
     advanceToNextTask,
     updateTaskInFocusList,
     setFocusTaskById,
-  } = useExecucaoTasks(filterInput, selectedCategoryFilter, selectedCategoryFilter, selectedTaskSource);
+    selectRandomTask, // Import the new function
+  } = useExecucaoTasks(filterInput, selectedCategoryFilter, selectedTaskSource);
 
   const currentTask = focusTasks[currentTaskIndex] || null;
 
@@ -332,6 +334,14 @@ const NovoSeiso = () => {
               <p className="text-xl font-medium text-gray-700">
                 Tarefa {currentTaskIndex + 1} de {focusTasks.length}
               </p>
+              <Button
+                onClick={selectRandomTask}
+                disabled={isLoadingCombined || focusTasks.length <= 1}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Shuffle className="h-4 w-4" /> Aleatória
+              </Button>
               <Progress value={progressValue} className="w-1/2 h-3" />
             </div>
             <FocusTaskCard task={currentTask} />

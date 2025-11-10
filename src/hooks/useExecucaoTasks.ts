@@ -408,6 +408,16 @@ export const useExecucaoTasks = (
     }
   }, [focusTasks]);
 
+  const selectRandomTask = useCallback(() => {
+    if (focusTasks.length > 0) {
+      const randomIndex = Math.floor(Math.random() * focusTasks.length);
+      setCurrentTaskIndex(randomIndex);
+      toast.info("Tarefa aleatória selecionada!");
+    } else {
+      toast.info("Nenhuma tarefa disponível para seleção aleatória.");
+    }
+  }, [focusTasks]);
+
 
   return {
     focusTasks,
@@ -419,5 +429,6 @@ export const useExecucaoTasks = (
     advanceToNextTask,
     updateTaskInFocusList, // Expor esta função
     setFocusTaskById, // Expor a nova função
+    selectRandomTask, // Expor a nova função
   };
 };
