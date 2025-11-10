@@ -7,12 +7,13 @@ import { TodoistTask } from "@/lib/types";
 import { cn, isURL } from "@/lib/utils"; // Importar isURL
 import { format, setHours, setMinutes, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, ExternalLink } from "lucide-react";
+import { CalendarIcon, ExternalLink, Repeat2 } from "lucide-react"; // Adicionado Repeat2
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge"; // Importar Badge
 
 interface TaskStandardizationCardProps {
   task: TodoistTask;
@@ -138,6 +139,7 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
   };
 
   const isContentURL = isURL(task.content);
+  const isRecurring = task.due?.is_recurring === true; // Adicionado
 
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
@@ -149,6 +151,14 @@ const TaskStandardizationCard: React.FC<TaskStandardizationCardProps> = ({
             </a>
           ) : (
             <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+          )}
+          {isRecurring && ( // Adicionado
+            <Badge
+              className="text-xs font-medium bg-purple-100 text-purple-800 flex items-center gap-1"
+              title="Tarefa Recorrente"
+            >
+              <Repeat2 className="h-3 w-3" /> Recorrente
+            </Badge>
           )}
         </div>
         {task.description && (

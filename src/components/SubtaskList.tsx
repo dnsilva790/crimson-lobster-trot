@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils"; // Remover isURL
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Clock, ExternalLink } from "lucide-react";
+import { CalendarIcon, Clock, ExternalLink, Repeat2 } from "lucide-react"; // Adicionado Repeat2
 import { Badge } from "@/components/ui/badge";
 
 interface SubtaskListProps {
@@ -85,6 +85,7 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks, level = 0 }) => {
   return (
     <div className="space-y-2">
       {subtasks.map((subtask) => {
+        const isRecurring = subtask.due?.is_recurring === true; // Adicionado
         return (
           <Card
             key={subtask.id}
@@ -95,7 +96,17 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks, level = 0 }) => {
           >
             <CardContent className="p-0">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold text-gray-800">{subtask.content}</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-semibold text-gray-800">{subtask.content}</h4>
+                  {isRecurring && ( // Adicionado
+                    <Badge
+                      className="text-xs font-medium bg-purple-100 text-purple-800 flex items-center gap-1"
+                      title="Tarefa Recorrente"
+                    >
+                      <Repeat2 className="h-3 w-3" /> Recorrente
+                    </Badge>
+                  )}
+                </div>
                 <a href={subtask.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 hover:text-indigo-800">
                   <ExternalLink className="h-4 w-4" />
                 </a>

@@ -1,12 +1,12 @@
 "use client";
 
 import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { EisenhowerTask } from "@/lib/types";
 import { cn, getDelegateNameFromLabels, getSolicitante } from "@/lib/utils"; // Importar getSolicitante e getDelegateNameFromLabels
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Clock, ExternalLink, User, Users } from "lucide-react";
+import { CalendarIcon, Clock, ExternalLink, User, Users, Repeat2 } from "lucide-react"; // Adicionado Repeat2
 import { Badge } from "@/components/ui/badge";
 
 interface TaskCardProps {
@@ -80,12 +80,23 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, className }) => {
 
   const delegateName = getDelegateNameFromLabels(task.labels);
   const solicitante = getSolicitante(task);
+  const isRecurring = task.due?.is_recurring === true; // Adicionado
 
   return (
     <Card className={cn("p-6 rounded-xl shadow-lg bg-white flex flex-col h-full", className)}>
       <div className="flex-grow">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+            {isRecurring && ( // Adicionado
+              <Badge
+                className="text-xs font-medium bg-purple-100 text-purple-800 flex items-center gap-1"
+                title="Tarefa Recorrente"
+              >
+                <Repeat2 className="h-3 w-3" /> Recorrente
+              </Badge>
+            )}
+          </div>
           <a href={task.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 hover:text-indigo-800">
             <ExternalLink className="h-5 w-5" />
           </a>

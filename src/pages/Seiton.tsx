@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { cn, getTaskCategory } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRight, Star, Scale, Zap, UserCheck, XCircle, ExternalLink, CalendarIcon, Clock, Check, SortAsc, RotateCcw } from "lucide-react";
+import { ArrowRight, Star, Scale, Zap, UserCheck, XCircle, ExternalLink, CalendarIcon, Clock, Check, SortAsc, RotateCcw, Repeat2 } from "lucide-react"; // Adicionado Repeat2
 import { Badge } from "@/components/ui/badge";
 
 
@@ -529,7 +529,7 @@ const Seiton = () => {
     const elements: JSX.Element[] = [];
 
     if (typeof task.due?.datetime === 'string' && task.due.datetime) {
-      const parsedDate = parseISO(task.due.datetime);
+      const parsedDate = (typeof value === 'string' && value) ? parseISO(value) : null;
       if (isValid(parsedDate)) {
         elements.push(
           <span key="due-datetime" className="flex items-center gap-1">
@@ -538,7 +538,7 @@ const Seiton = () => {
         );
       }
     } else if (typeof task.due?.date === 'string' && task.due.date) {
-      const parsedDate = parseISO(task.due.date);
+      const parsedDate = (typeof value === 'string' && value) ? parseISO(value) : null;
       if (isValid(parsedDate)) {
         elements.push(
           <span key="due-date" className="flex items-center gap-1">
@@ -576,6 +576,7 @@ const Seiton = () => {
 
   const renderTaskCard = (task: TodoistTask, isClickable: boolean = false, showActions: boolean = false) => {
     const category = getTaskCategory(task);
+    const isRecurring = task.due?.is_recurring === true; // Adicionado
     return (
       <Card
         key={task.id}
@@ -600,6 +601,14 @@ const Seiton = () => {
                 )}
               >
                 {category === "pessoal" ? "Pessoal" : "Profissional"}
+              </Badge>
+            )}
+            {isRecurring && ( // Adicionado
+              <Badge
+                className="text-xs font-medium bg-purple-100 text-purple-800 flex items-center gap-1"
+                title="Tarefa Recorrente"
+              >
+                <Repeat2 className="h-3 w-3" /> Recorrente
               </Badge>
             )}
           </div>
@@ -909,6 +918,7 @@ const Seiton = () => {
               <div className="space-y-3">
                 {rankedTasks.slice(0, 24).map((task, index) => {
                   const category = getTaskCategory(task);
+                  const isRecurring = task.due?.is_recurring === true; // Adicionado
                   return (
                     <Card
                       key={task.id}
@@ -933,6 +943,14 @@ const Seiton = () => {
                               )}
                             >
                               {category === "pessoal" ? "Pessoal" : "Profissional"}
+                            </Badge>
+                          )}
+                          {isRecurring && ( // Adicionado
+                            <Badge
+                              className="text-xs font-medium bg-purple-100 text-purple-800 flex items-center gap-1"
+                              title="Tarefa Recorrente"
+                            >
+                              <Repeat2 className="h-3 w-3" /> Recorrente
                             </Badge>
                           )}
                         </div>
@@ -1021,6 +1039,7 @@ const Seiton = () => {
               <div className="space-y-3">
                 {rankedTasks.map((task, index) => {
                   const category = getTaskCategory(task);
+                  const isRecurring = task.due?.is_recurring === true; // Adicionado
                   return (
                     <Card
                       key={task.id}
@@ -1045,6 +1064,14 @@ const Seiton = () => {
                               )}
                             >
                               {category === "pessoal" ? "Pessoal" : "Profissional"}
+                            </Badge>
+                          )}
+                          {isRecurring && ( // Adicionado
+                            <Badge
+                              className="text-xs font-medium bg-purple-100 text-purple-800 flex items-center gap-1"
+                              title="Tarefa Recorrente"
+                            >
+                              <Repeat2 className="h-3 w-3" /> Recorrente
                             </Badge>
                           )}
                         </div>

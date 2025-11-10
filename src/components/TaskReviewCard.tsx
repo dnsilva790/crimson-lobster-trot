@@ -7,13 +7,14 @@ import { TodoistTask } from "@/lib/types";
 import { cn, getDelegateNameFromLabels, getSolicitante, updateDescriptionWithSection } from "@/lib/utils"; // Importar updateDescriptionWithSection
 import { format, setHours, setMinutes, parseISO, isValid, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw, Tag, MessageSquare, User, Users, Save, XCircle } from "lucide-react";
+import { Check, Trash2, ArrowRight, ExternalLink, Briefcase, Home, MinusCircle, CalendarIcon, Clock, RotateCcw, Tag, MessageSquare, User, Users, Save, XCircle, Repeat2 } from "lucide-react"; // Adicionado Repeat2
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea"; // Importar Textarea
+import { Badge } from "@/components/ui/badge"; // Importar Badge
 import {
   FOCO_LABEL_ID,
   RAPIDA_LABEL_ID,
@@ -325,12 +326,21 @@ const TaskReviewCard: React.FC<TaskReviewCardProps> = ({
   const isCronogramaActive = task.labels?.includes(CRONOGRAMA_HOJE_LABEL);
   const delegateName = getDelegateNameFromLabels(task.labels);
   const currentSolicitante = getSolicitante(task);
+  const isRecurring = task.due?.is_recurring === true; // Adicionado
 
   return (
     <Card className="p-6 rounded-xl shadow-lg bg-white flex flex-col h-full max-w-2xl mx-auto">
       <div className="flex-grow">
         <div className="flex items-center gap-2 mb-3">
           <h3 className="text-2xl font-bold text-gray-800">{task.content}</h3>
+          {isRecurring && ( // Adicionado
+            <Badge
+              className="text-xs font-medium bg-purple-100 text-purple-800 flex items-center gap-1"
+              title="Tarefa Recorrente"
+            >
+              <Repeat2 className="h-3 w-3" /> Recorrente
+            </Badge>
+          )}
         </div>
         {task.description && (
           <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>
