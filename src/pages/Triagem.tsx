@@ -58,12 +58,10 @@ const Triagem = () => {
     const filter = filterInput.trim() || undefined;
     
     try {
-      // Alterado para incluir subtarefas e tarefas recorrentes
-      const fetchedTodoistTasks = await fetchTasks(filter, { includeSubtasks: true, includeRecurring: true });
+      // Alterado para EXCLUIR subtarefas, mas manter tarefas recorrentes
+      const fetchedTodoistTasks = await fetchTasks(filter, { includeSubtasks: false, includeRecurring: true });
       
       const initialEisenhowerTasks: EisenhowerTask[] = [];
-      // A avaliação automática da IA foi removida aqui.
-      // As tarefas serão carregadas com urgência e importância nulas se não estiverem na descrição.
 
       for (const task of fetchedTodoistTasks) {
         const { urgency, importance, quadrant } = getEisenhowerRating(task);
