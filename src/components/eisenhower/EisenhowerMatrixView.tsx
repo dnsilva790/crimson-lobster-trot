@@ -17,7 +17,7 @@ import { Quadrant, ManualThresholds } from "@/lib/types";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, Settings, Scale, RefreshCw } from "lucide-react";
+import { Search, Filter, Settings, Scale, RefreshCw, LayoutDashboard } from "lucide-react"; // LayoutDashboard adicionado aqui
 import ThresholdSlider from "./ThresholdSlider"; // Import ThresholdSlider
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -328,7 +328,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
           />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
         </div>
-        <Select value={displayFilter} onValueChange={(value: DisplayFilter) => onDisplayFilterChange(value)}>
+        <Select value={displayFilter} onValueChange={(value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => onDisplayFilterChange(value)}>
           <SelectTrigger className="w-full mt-1">
             <SelectValue placeholder="Filtrar por Status" />
           </SelectTrigger>
@@ -340,7 +340,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
             <SelectItem value="overdue_and_today">Atrasadas e Hoje</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={categoryDisplayFilter} onValueChange={(value: CategoryDisplayFilter) => setCategoryDisplayFilter(value)}>
+        <Select value={categoryDisplayFilter} onValueChange={(value: "all" | "pessoal" | "profissional") => setCategoryDisplayFilter(value)}>
           <SelectTrigger className="w-full mt-1">
             <SelectValue placeholder="Filtrar por Categoria" />
           </SelectTrigger>
@@ -350,7 +350,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
             <SelectItem value="profissional">Profissional</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={displayPriorityFilter} onValueChange={(value: PriorityFilter) => setDisplayPriorityFilter(value)}>
+        <Select value={displayPriorityFilter} onValueChange={(value: "all" | "p1" | "p2" | "p3" | "p4") => setDisplayPriorityFilter(value)}>
           <SelectTrigger className="w-full mt-1">
             <SelectValue placeholder="Filtrar por Prioridade" />
           </SelectTrigger>
@@ -362,7 +362,7 @@ const EisenhowerMatrixView: React.FC<EisenhowerMatrixViewProps> = ({
             <SelectItem value="p1">P1 (Urgente)</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={displayDeadlineFilter} onValueChange={(value: DeadlineFilter) => setDisplayDeadlineFilter(value)}>
+        <Select value={displayDeadlineFilter} onValueChange={(value: "all" | "has_deadline" | "no_deadline") => setDisplayDeadlineFilter(value)}>
           <SelectTrigger className="w-full mt-1">
             <SelectValue placeholder="Filtrar por Deadline" />
           </SelectTrigger>
