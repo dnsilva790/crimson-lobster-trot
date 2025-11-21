@@ -405,9 +405,7 @@ const Seiso = () => {
                 </span>
               )}
             </div>
-            <a href={task.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 hover:text-indigo-800">
-              <ExternalLink className="h-5 w-5" />
-            </a>
+            {/* REMOVIDO: Link ao lado do título */}
           </div>
           {task.description && (
             <p className="text-md text-gray-700 mb-4 whitespace-pre-wrap">{task.description}</p>
@@ -473,6 +471,14 @@ const Seiso = () => {
               P{task.priority}
             </span>
           </div>
+        </div>
+        {/* NOVO: Botão para abrir no Todoist */}
+        <div className="mt-4">
+          <a href={task.url} target="_blank" rel="noopener noreferrer" className="w-full">
+            <Button variant="outline" className="w-full py-3 text-md flex items-center justify-center">
+              <ExternalLink className="mr-2 h-4 w-4" /> Abrir no Todoist
+            </Button>
+          </a>
         </div>
       </Card>
     );
@@ -741,23 +747,7 @@ const Seiso = () => {
                           className="rounded-md border shadow"
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="schedule-priority">Prioridade</Label>
-                        <Select
-                          value={String(selectedPriority)}
-                          onValueChange={(value) => setSelectedPriority(Number(value) as 1 | 2 | 3 | 4)}
-                        >
-                          <SelectTrigger className="w-full mt-1">
-                            <SelectValue placeholder="Selecione a prioridade" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="4">P1 - Urgente</SelectItem>
-                            <SelectItem value="3">P2 - Alto</SelectItem>
-                            <SelectItem value="2">P3 - Médio</SelectItem>
-                            <SelectItem value="1">P4 - Baixo</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {/* REMOVIDO: Campo de Prioridade */}
                       <div>
                         <Label htmlFor="schedule-duration">Duração Estimada (minutos)</Label>
                         <Input
@@ -784,6 +774,36 @@ const Seiso = () => {
               </div>
               <Button onClick={handleScheduleTask} className="w-full flex items-center gap-2" disabled={isLoadingTodoist}>
                 <Save className="h-4 w-4" /> Agendar e Marcar como Processada
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* NOVO: Seção para Selecionar Prioridade */}
+          <Card className="p-6">
+            <CardTitle className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Clock className="h-5 w-5 text-orange-600" /> Definir Prioridade
+            </CardTitle>
+            <CardContent className="grid gap-4">
+              <div>
+                <Label htmlFor="priority-select">Prioridade da Tarefa</Label>
+                <Select
+                  value={String(selectedPriority)}
+                  onValueChange={(value) => setSelectedPriority(Number(value) as 1 | 2 | 3 | 4)}
+                  disabled={isLoadingTodoist}
+                >
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Selecione a prioridade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="4">P1 - Urgente</SelectItem>
+                    <SelectItem value="3">P2 - Alto</SelectItem>
+                    <SelectItem value="2">P3 - Médio</SelectItem>
+                    <SelectItem value="1">P4 - Baixo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleScheduleTask} className="w-full flex items-center gap-2" disabled={isLoadingTodoist}>
+                <Save className="h-4 w-4" /> Salvar Prioridade
               </Button>
             </CardContent>
           </Card>
