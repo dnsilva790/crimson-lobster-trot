@@ -22,6 +22,7 @@ import ThresholdSlider from "./ThresholdSlider"; // Import ThresholdSlider
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Adicionado: Importação do componente Card
+import ScatterPlotMatrix from './ScatterPlotMatrix'; // Adicionada esta linha
 
 interface ScatterPlotData {
   id: string;
