@@ -17,7 +17,7 @@ import { Quadrant, ManualThresholds } from "@/lib/types";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, Settings, Scale, RefreshCw, LayoutDashboard } from "lucide-react"; // LayoutDashboard adicionado aqui
+import { Search, Filter, Settings, Scale, RefreshCw, LayoutDashboard, ListTodo } from "lucide-react"; // LayoutDashboard e ListTodo adicionados aqui
 import ThresholdSlider from "./ThresholdSlider"; // Import ThresholdSlider
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
