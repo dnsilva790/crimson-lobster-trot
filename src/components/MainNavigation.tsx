@@ -21,7 +21,7 @@ import {
   FileText,
   BarChart3,
   Database,
-  Scale, // Importar Scale
+  Scale,
 } from "lucide-react";
 import {
   Dialog,
@@ -36,28 +36,12 @@ import { Button } from "@/components/ui/button";
 
 const modules = [
   {
-    path: "/agent-manager",
-    icon: BarChart3,
-    title: "AGE - IA",
-    description: "Gerenciamento Estratégico",
-    colorClass: "bg-green-100 hover:bg-green-200",
-    activeColor: "border-green-600",
-  },
-  {
-    path: "/triagem", // NOVO MÓDULO
+    path: "/triagem",
     icon: Scale,
     title: "TRIAGEM 3-em-1",
     description: "Seiri + Eisenhower + Seiso",
     colorClass: "bg-purple-50 hover:bg-purple-100",
     activeColor: "border-purple-500",
-  },
-  {
-    path: "/seiri",
-    icon: ClipboardList,
-    title: "SEIRI",
-    description: "Separar o Essencial",
-    colorClass: "bg-green-100 hover:bg-green-200",
-    activeColor: "border-green-600",
   },
   {
     path: "/eisenhower",
@@ -68,14 +52,6 @@ const modules = [
     activeColor: "border-orange-500",
   },
   {
-    path: "/seiso",
-    icon: ClipboardCheck,
-    title: "SEISO",
-    description: "Planejamento de Ação",
-    colorClass: "bg-cyan-100 hover:bg-cyan-200",
-    activeColor: "border-cyan-600",
-  },
-  {
     path: "/agenda",
     icon: CalendarDays,
     title: "AGENDA",
@@ -83,113 +59,10 @@ const modules = [
     colorClass: "bg-teal-50 hover:bg-teal-100",
     activeColor: "border-teal-500",
   },
-  {
-    path: "/novoseiso",
-    icon: Sparkles,
-    title: "NOVO SEISO",
-    description: "Modo Foco Total",
-    colorClass: "bg-blue-100 hover:bg-blue-200",
-    activeColor: "border-blue-600",
-  },
-  {
-    path: "/seiketsu",
-    icon: BarChart,
-    title: "SEIKETSU",
-    description: "Processador GTD",
-    colorClass: "bg-purple-100 hover:bg-purple-200",
-    activeColor: "border-purple-600",
-  },
-  {
-    path: "/seiketsu-5w2h",
-    icon: FolderOpen,
-    title: "5W2H",
-    description: "Entendimento da Tarefa",
-    colorClass: "bg-yellow-100 hover:bg-yellow-200",
-    activeColor: "border-yellow-600",
-  },
-  {
-    path: "/seiton",
-    icon: Trophy,
-    title: "SEITON",
-    description: "Torneio de Priorização",
-    colorClass: "bg-orange-100 hover:bg-orange-200",
-    activeColor: "border-orange-600",
-  },
-  {
-    path: "/planejador",
-    icon: CalendarDays,
-    title: "PLANEJADOR",
-    description: "Sequenciar Backlog",
-    colorClass: "bg-indigo-100 hover:bg-indigo-200",
-    activeColor: "border-indigo-600",
-  },
-  {
-    path: "/massive-planner",
-    icon: CalendarClock,
-    title: "SEISO - MASSIVO",
-    description: "Planejamento Automático",
-    colorClass: "bg-pink-50 hover:bg-pink-100",
-    activeColor: "border-pink-500",
-  },
-  // {
-  //   path: "/shitsuke",
-  //   icon: CheckSquare,
-  //   title: "SHITSUKE",
-  //   description: "Revisão Diária",
-  //   colorClass: "bg-green-50 hover:bg-green-100",
-  //   activeColor: "border-green-500",
-  // },
-  {
-    path: "/project-management",
-    icon: FolderOpen,
-    title: "PROJETOS 5W2H",
-    description: "Gestão de Projetos",
-    colorClass: "bg-teal-100 hover:bg-teal-200",
-    activeColor: "border-teal-600",
-  },
-  {
-    path: "/follow-up",
-    icon: Users,
-    title: "FOLLOW-UP",
-    description: "Acompanhar Delegados",
-    colorClass: "bg-pink-100 hover:bg-pink-200",
-    activeColor: "border-pink-600",
-  },
-  {
-    path: "/internal-tasks",
-    icon: ListTodo,
-    title: "INTERNAS",
-    description: "Tarefas Pessoais/Profissionais",
-    colorClass: "bg-gray-100 hover:bg-gray-200",
-    activeColor: "border-gray-600",
-  },
-  {
-    path: "/task-report",
-    icon: FileText,
-    title: "RELATÓRIO",
-    description: "Tabela e Exportação",
-    colorClass: "bg-indigo-50 hover:bg-indigo-100",
-    activeColor: "border-indigo-500",
-  },
-  {
-    path: "/card-database",
-    icon: Database,
-    title: "CARDS REF.",
-    description: "Base de Conhecimento",
-    colorClass: "bg-yellow-50 hover:bg-yellow-100",
-    activeColor: "border-yellow-500",
-  },
 ];
 
 const HIDDEN_MODULES_STORAGE_KEY = "hidden_modules_preferences";
-const DEFAULT_HIDDEN_MODULES = [
-  "/seiketsu",
-  "/seiton",
-  "/planejador",
-  "/project-management",
-  "/follow-up",
-  "/shitsuke", // Mantido aqui para garantir que o estado salvo do usuário o mantenha oculto
-];
+const DEFAULT_HIDDEN_MODULES: string[] = []; // Todos os módulos listados acima estarão visíveis por padrão
 
 const MainNavigation = () => {
   const [hiddenModules, setHiddenModules] = useState<string[]>(() => {

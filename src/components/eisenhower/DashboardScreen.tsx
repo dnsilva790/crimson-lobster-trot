@@ -13,18 +13,18 @@ interface DashboardScreenProps {
   tasks: EisenhowerTask[];
   onBack: () => void;
   onReset: () => void;
-  displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today";
-  onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void;
-  diagonalOffset: number; // NEW
+  // displayFilter: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today"; // REMOVIDO
+  // onDisplayFilterChange: (value: "all" | "overdue" | "today" | "tomorrow" | "overdue_and_today") => void; // REMOVIDO
+  diagonalOffset: number;
 }
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ 
   tasks, 
   onBack, 
   onReset, 
-  displayFilter, 
-  onDisplayFilterChange, 
-  diagonalOffset, // NEW
+  // displayFilter, // REMOVIDO
+  // onDisplayFilterChange, // REMOVIDO
+  diagonalOffset,
 }) => {
   const quadrantCounts = tasks.reduce((acc, task) => {
     if (task.quadrant) {
@@ -121,7 +121,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               ) : (
                 <ScatterPlotMatrix
                   data={dataForScatterPlot}
-                  diagonalOffset={diagonalOffset} // Pass diagonalOffset
+                  diagonalOffset={diagonalOffset}
                 />
               )}
             </CardContent>
